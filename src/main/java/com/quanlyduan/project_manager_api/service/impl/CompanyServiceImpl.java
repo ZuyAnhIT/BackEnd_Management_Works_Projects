@@ -49,6 +49,7 @@ public class CompanyServiceImpl implements CompanyService {
     private String frontendUrl;
 
 
+    // LOGIC TAO CONG TY
     @Override
     @Transactional
     public CongTy createCompany(CreateCompanyRequest request) {
@@ -108,6 +109,8 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
 
+
+    // LOGIC TAO LOI MOI THANH VIEN VAO CONG TY
     @Override
     @Transactional
     public void inviteMember(Integer congTyId, InviteMemberRequest request) {
@@ -169,6 +172,8 @@ public class CompanyServiceImpl implements CompanyService {
         emailService.sendEmail(invitedEmail, "Lời mời tham gia công ty " + congTy.getTenCongTy(), emailBody);
     }
 
+
+    // LOGIC XAC THUC TOKEN LOI MOI
     @Override
     @Transactional
     public void acceptInvitation(AcceptInvitationRequest request) {

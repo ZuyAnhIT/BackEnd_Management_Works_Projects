@@ -21,6 +21,7 @@ public class AuthController {
 
     private final AuthService authService;
 
+    // API ĐANG KY
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<Object>> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         authService.register(registerRequest);
@@ -33,6 +34,7 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
     
+    // API DANG NHAP
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> loginUser(@Valid @RequestBody LoginRequest loginRequest) {
         
@@ -47,6 +49,7 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    // API DANG XUAT
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Object>> logoutUser(@Valid @RequestBody LogoutRequest logoutRequest) {
         authService.logout(logoutRequest);
@@ -54,6 +57,8 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công", null));
     }
 
+
+    // API XAC THUC 
     @PostMapping("/verify-email")
     public ResponseEntity<ApiResponse<Object>> verifyEmail(@Valid @RequestBody VerifyEmailRequest verifyRequest) {
         authService.verifyEmail(verifyRequest);
@@ -67,6 +72,7 @@ public class AuthController {
     }
 
 
+    // API DANG KY KHI THAM GIA THEO LOI MOI
     // Đây là API public, không cần xác thực
     @PostMapping("/register-from-invite")
     public ResponseEntity<ApiResponse<LoginResponse>> registerFromInvite(

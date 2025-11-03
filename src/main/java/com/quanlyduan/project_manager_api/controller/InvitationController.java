@@ -18,6 +18,7 @@ public class InvitationController {
 
     private final CompanyService companyService; // Dùng lại logic trong CompanyService
 
+    // API XAC THUC LOI MOI
     // API này CẦN xác thực, người dùng phải login để gọi
     @PostMapping("/accept")
     public ResponseEntity<ApiResponse<Object>> acceptInvitation(

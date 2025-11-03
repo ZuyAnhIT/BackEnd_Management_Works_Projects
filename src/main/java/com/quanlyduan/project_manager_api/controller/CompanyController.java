@@ -22,6 +22,8 @@ public class CompanyController {
 
     private final CompanyService companyService;
 
+
+    // API TAO CONG TY
     @PostMapping
     public ResponseEntity<ApiResponse<CongTy>> createCompany(
             @Valid @RequestBody CreateCompanyRequest request) {
@@ -35,6 +37,8 @@ public class CompanyController {
     
     // (Thêm các API khác cho Company tại đây: GET, PUT, DELETE, ...)
 
+
+    // API MOI THANH VIEN VAO CONG TY
     @PostMapping("/{congTyId}/invitations")
     public ResponseEntity<ApiResponse<Object>> inviteMember(
             @PathVariable Integer congTyId,

@@ -21,6 +21,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     // (Sau này sẽ inject TokenRepository để hủy Refresh Token)
 
+    // LOGIC THAY DOI MAT KHAU
     @Override
     @Transactional
     public void changePassword(ChangePasswordRequest request) {
@@ -57,6 +58,7 @@ public class UserServiceImpl implements UserService {
 
     // --- Private Helper Method ---
 
+    // LOGIC LAY NGUOI DUNG HIEN TAI
     private NguoiDung getCurrentAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
