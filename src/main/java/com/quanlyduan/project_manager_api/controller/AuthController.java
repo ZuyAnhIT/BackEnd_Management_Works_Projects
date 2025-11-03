@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
+import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
@@ -63,5 +64,17 @@ public class AuthController {
             null
         );
         return ResponseEntity.ok(response);
+    }
+
+
+    // Đây là API public, không cần xác thực
+    @PostMapping("/register-from-invite")
+    public ResponseEntity<ApiResponse<LoginResponse>> registerFromInvite(
+            @Valid @RequestBody RegisterFromInviteRequest request) {
+        
+        LoginResponse loginResponse = authService.registerFromInvite(request);
+        return ResponseEntity.ok(ApiResponse.success(
+            "Đăng ký và tham gia công ty thành công", loginResponse
+        ));
     }
 }

@@ -1,6 +1,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
+import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.model.CongTy;
 import com.quanlyduan.project_manager_api.service.CompanyService;
@@ -8,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,4 +34,15 @@ public class CompanyController {
     }
     
     // (Thêm các API khác cho Company tại đây: GET, PUT, DELETE, ...)
+
+    @PostMapping("/{congTyId}/invitations")
+    public ResponseEntity<ApiResponse<Object>> inviteMember(
+            @PathVariable Integer congTyId,
+            @Valid @RequestBody InviteMemberRequest request) {
+        
+        companyService.inviteMember(congTyId, request);
+        return ResponseEntity.ok(ApiResponse.success("Đã gửi lời mời thành công", null));
+    }
+
+    
 }
