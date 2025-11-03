@@ -2,6 +2,7 @@ package com.quanlyduan.project_manager_api.controller;
 
 
 import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
+import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
@@ -43,6 +44,13 @@ public class AuthController {
             loginResponse
         );
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Object>> logoutUser(@Valid @RequestBody LogoutRequest logoutRequest) {
+        authService.logout(logoutRequest);
+        
+        return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công", null));
     }
 
     @PostMapping("/verify-email")
