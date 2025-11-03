@@ -1,9 +1,11 @@
 package com.quanlyduan.project_manager_api.controller;
 
 
+import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
 import com.quanlyduan.project_manager_api.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,20 @@ public class AuthController {
         ApiResponse<Object> response = ApiResponse.success(
             "Đăng ký thành công. Vui lòng kiểm tra email để xác thực (OTP).", 
             null
+        );
+        return ResponseEntity.ok(response);
+    }
+    
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> loginUser(@Valid @RequestBody LoginRequest loginRequest) {
+        
+        // Gọi service để đăng nhập
+        LoginResponse loginResponse = authService.login(loginRequest);
+        
+        // Trả về ApiResponse chứa Access Token và Refresh Token
+        ApiResponse<LoginResponse> response = ApiResponse.success(
+            "Đăng nhập thành công",
+            loginResponse
         );
         return ResponseEntity.ok(response);
     }

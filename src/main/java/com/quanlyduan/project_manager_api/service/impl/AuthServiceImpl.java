@@ -10,14 +10,23 @@ import com.quanlyduan.project_manager_api.model.common.enums.TokenType;
 import com.quanlyduan.project_manager_api.model.common.enums.UserStatus;
 import com.quanlyduan.project_manager_api.repository.NguoiDungRepository;
 import com.quanlyduan.project_manager_api.repository.TokenRepository;
+import com.quanlyduan.project_manager_api.security.jwt.JwtTokenProvider;
 import com.quanlyduan.project_manager_api.service.AuthService;
 import com.quanlyduan.project_manager_api.service.EmailService;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
+import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
+import com.quanlyduan.project_manager_api.model.common.enums.TokenStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import java.time.LocalDateTime;
+
 import java.util.Random;
 
 @Service
@@ -29,8 +38,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     
-    // Inject interface, chúng ta sẽ implement sau
-    // private final EmailService emailService; 
+    private final AuthenticationManager authenticationManager;
+    private final JwtTokenProvider jwtTokenProvider;
 
     private static final long OTP_EXPIRATION_MINUTES = 10;
 
@@ -60,6 +69,60 @@ public class AuthServiceImpl implements AuthService {
         // 5. Tạo và gửi token xác thực
         sendVerificationEmail(savedUser);
     }
+    
+    @Override
+    @Transactional
+    public LoginResponse login(LoginRequest request) {
+        // 1. Xác thực người dùng (username/password)
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getEmail(),
+                        request.getMatKhau()
+                )
+        );
+        
+        // 2. Nếu xác thực thành công, set vào SecurityContext
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // 3. Lấy thông tin NguoiDung (chúng ta cần Id để lưu RefreshToken)
+        NguoiDung user = nguoiDungRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Lỗi lạ: Không tìm thấy user sau khi đăng nhập"));
+                
+        // 4. Tạo Access Token
+        String accessToken = jwtTokenProvider.generateAccessToken(authentication);
+        
+        // 5. Tạo Refresh Token
+        String refreshTokenString = jwtTokenProvider.generateRefreshToken(authentication);
+        
+        // 6. Lưu Refresh Token vào CSDL
+        saveRefreshTokenToDB(user, refreshTokenString);
+        
+        // 7. Trả về Response
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshTokenString)
+                .build();
+    }
+    
+    // --- Private Helper Methods ---
+
+    private void saveRefreshTokenToDB(NguoiDung user, String refreshToken) {
+        // (Nên có logic thu hồi các Refresh Token cũ của user này)
+        // tokenRepository.revokeAllUserTokens(user.getIdNguoiDung());
+        
+        // Lưu token mới
+        Token token = Token.builder()
+                .nguoiDung(user)
+                .token(refreshToken)
+                .loaiToken(TokenType.REFRESH)
+                .trangThai(TokenStatus.HOAT_DONG)
+                .ngayHetHan(LocalDateTime.now().plusMinutes(Long.parseLong(
+                    System.getProperty("jwt.refresh-token-expiration-min", "10080") 
+                )))
+                .build();
+        tokenRepository.save(token);
+    }
+     
 
     @Override
     @Transactional

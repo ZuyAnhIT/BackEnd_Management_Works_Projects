@@ -5,12 +5,15 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.security.core.AuthenticationException;
+
 
 import java.util.HashMap;
 import java.util.Map;
@@ -55,6 +58,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    // Bắt lỗi chung cho Authentication (ví dụ: email chưa xác thực, user bị khóa)
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAuthenticationException(AuthenticationException ex) {
+        // Phân biệt lỗi sai mật khẩu
+        if (ex instanceof BadCredentialsException) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED) // 401
+                    .body(ApiResponse.error("Email hoặc mật khẩu không chính xác"));
+        }
+        
+        // Bắt các lỗi khác (vd: user bị khóa, user chưa xác thực email)
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED) // 401
+                .body(ApiResponse.error("Xác thực thất bại: " + ex.getMessage()));
     }
 
     // Bắt tất cả các lỗi 500 khác - Dùng ApiResponse.error(message)
