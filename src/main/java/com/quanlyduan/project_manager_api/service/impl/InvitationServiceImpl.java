@@ -20,6 +20,7 @@ public class InvitationServiceImpl implements InvitationService {
     private final CongTyLoiMoiRepository congTyLoiMoiRepository;
     private final CongTyThanhVienRepository congTyThanhVienRepository;
 
+    // LOGIC TẠO TOKEN LOI MOI
     @Override
     public CongTyLoiMoi validateInvitationToken(String token) {
         CongTyLoiMoi loiMoi = congTyLoiMoiRepository.findByToken(token)
@@ -37,6 +38,7 @@ public class InvitationServiceImpl implements InvitationService {
         return loiMoi;
     }
 
+    // LOGIC THEM THANH VIEN
     @Override
     public void addMemberToCompany(NguoiDung user, CongTy congTy, Role role) {
         CongTyThanhVien membership = CongTyThanhVien.builder()

@@ -18,6 +18,8 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+
+    // LOGIC FORM EMAIL
     @Override
     @Async // (Optional) Gửi email bất đồng bộ để không block luồng chính
     public void sendEmail(String to, String subject, String body) {

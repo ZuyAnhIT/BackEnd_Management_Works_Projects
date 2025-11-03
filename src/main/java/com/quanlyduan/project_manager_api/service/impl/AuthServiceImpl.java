@@ -64,6 +64,7 @@ public class AuthServiceImpl implements AuthService {
     private static final long OTP_EXPIRATION_MINUTES = 10;
     
 
+    // LOIGIC DANG KY
     @Override
     @Transactional
     public void register(RegisterRequest request) {
@@ -91,6 +92,7 @@ public class AuthServiceImpl implements AuthService {
         sendVerificationEmail(savedUser);
     }
     
+    // LOGIC DANG NHAP
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
@@ -142,6 +144,8 @@ public class AuthServiceImpl implements AuthService {
         tokenRepository.save(token);
     }
 
+
+    // LOGIC DANG XUAT
     @Override
     @Transactional
     public void logout(LogoutRequest request) {
@@ -165,6 +169,7 @@ public class AuthServiceImpl implements AuthService {
     }
      
 
+    // LOGIC XAC THUC MAIL
     @Override
     @Transactional
     public void verifyEmail(VerifyEmailRequest request) {
@@ -234,6 +239,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
 
+    // LOGIC DANG KY KHI NHAN LOI MOI VOI THANH VIEN CHUA CO TAI KHOAN
     @Override
     @Transactional
     public LoginResponse registerFromInvite(RegisterFromInviteRequest request) {
