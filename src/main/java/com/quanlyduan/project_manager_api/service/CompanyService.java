@@ -5,6 +5,7 @@ import java.util.List;
 import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
+import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.model.CongTy;
 
@@ -17,4 +18,8 @@ public interface CompanyService {
 
     // Danh sach thanh vien cong ty 
     List<CompanyMemberResponse> getCompanyMembers(Integer congTyId);
+
+    // Xem chi tiet cong ty
+    CompanyDetailsResponse getCompanyDetails(Integer congTyId);
+    
 }
