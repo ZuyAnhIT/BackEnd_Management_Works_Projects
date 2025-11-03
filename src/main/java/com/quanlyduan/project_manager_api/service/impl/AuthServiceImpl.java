@@ -15,11 +15,13 @@ import com.quanlyduan.project_manager_api.service.AuthService;
 import com.quanlyduan.project_manager_api.service.EmailService;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
+import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.TokenStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -40,8 +42,13 @@ public class AuthServiceImpl implements AuthService {
     
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
-
+    
+    // === THÊM DÒNG NÀY ===
+    @Value("${jwt.refresh-token-expiration-min}")
+    private long refreshTokenExpirationMin;
+    
     private static final long OTP_EXPIRATION_MINUTES = 10;
+    
 
     @Override
     @Transactional
@@ -107,20 +114,40 @@ public class AuthServiceImpl implements AuthService {
     // --- Private Helper Methods ---
 
     private void saveRefreshTokenToDB(NguoiDung user, String refreshToken) {
-        // (Nên có logic thu hồi các Refresh Token cũ của user này)
-        // tokenRepository.revokeAllUserTokens(user.getIdNguoiDung());
         
-        // Lưu token mới
         Token token = Token.builder()
                 .nguoiDung(user)
                 .token(refreshToken)
                 .loaiToken(TokenType.REFRESH)
                 .trangThai(TokenStatus.HOAT_DONG)
-                .ngayHetHan(LocalDateTime.now().plusMinutes(Long.parseLong(
-                    System.getProperty("jwt.refresh-token-expiration-min", "10080") 
-                )))
+                
+                // Đổi logic ở dòng này từ .plusMillis() sang .plusMinutes()
+                .ngayHetHan(LocalDateTime.now().plusMinutes(refreshTokenExpirationMin))
+                
                 .build();
         tokenRepository.save(token);
+    }
+
+    @Override
+    @Transactional
+    public void logout(LogoutRequest request) {
+        // 1. Tìm Refresh Token trong CSDL
+        Token storedToken = tokenRepository
+                .findByTokenAndLoaiToken(request.getRefreshToken(), TokenType.REFRESH)
+                .orElse(null); // Không ném lỗi, chỉ đơn giản là không tìm thấy
+
+        if (storedToken == null) {
+            // Nếu không tìm thấy token, có thể nó đã bị đăng xuất ở thiết bị khác
+            // Hoặc client gửi rác. Cứ trả về thành công.
+            return; 
+        }
+
+        // 2. Xóa token khỏi CSDL
+        tokenRepository.delete(storedToken);
+        
+        // (Cách 2: Nếu bạn muốn giữ lại lịch sử)
+        // storedToken.setTrangThai(TokenStatus.DA_THU_HOI);
+        // tokenRepository.save(storedToken);
     }
      
 

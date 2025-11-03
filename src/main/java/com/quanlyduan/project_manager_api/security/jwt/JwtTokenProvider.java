@@ -22,11 +22,11 @@ public class JwtTokenProvider {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${jwt.access-token-expiration-min}")
+    @Value("${jwt.access-token-expiration-ms}")
     private long accessTokenExpirationMs;
 
     @Value("${jwt.refresh-token-expiration-min}")
-    private long refreshTokenExpirationMs;
+    private long refreshTokenExpirationMin;
 
     private SecretKey getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(this.jwtSecret);
@@ -41,7 +41,11 @@ public class JwtTokenProvider {
 
     public String generateRefreshToken(Authentication authentication) {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-        return generateToken(userPrincipal.getUsername(), refreshTokenExpirationMs);
+
+        // 3. Tính toán lại: Chuyển đổi phút sang mili-giây
+        long expirationMs = refreshTokenExpirationMin * 60 * 1000;
+
+        return generateToken(userPrincipal.getUsername(), expirationMs);
     }
 
     public String generateToken(String subject, long expirationMs) {
@@ -52,7 +56,7 @@ public class JwtTokenProvider {
                 .subject(subject) // Chúng ta lưu email trong subject
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(getSigningKey(), Jwts.SIG.HS512)
+                .signWith(getSigningKey(), Jwts.SIG.HS256)
                 .compact();
     }
 
