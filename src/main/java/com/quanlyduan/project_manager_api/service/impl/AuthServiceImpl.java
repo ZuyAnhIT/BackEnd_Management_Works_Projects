@@ -4,12 +4,18 @@ import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.CongTy;
+import com.quanlyduan.project_manager_api.model.CongTyLoiMoi;
+import com.quanlyduan.project_manager_api.model.CongTyThanhVien;
 import com.quanlyduan.project_manager_api.model.NguoiDung;
 import com.quanlyduan.project_manager_api.model.Token;
 import com.quanlyduan.project_manager_api.model.common.enums.TokenType;
 import com.quanlyduan.project_manager_api.model.common.enums.UserStatus;
+import com.quanlyduan.project_manager_api.repository.CongTyLoiMoiRepository;
+import com.quanlyduan.project_manager_api.repository.CongTyThanhVienRepository;
 import com.quanlyduan.project_manager_api.repository.NguoiDungRepository;
 import com.quanlyduan.project_manager_api.repository.TokenRepository;
+import com.quanlyduan.project_manager_api.security.UserPrincipal;
 import com.quanlyduan.project_manager_api.security.jwt.JwtTokenProvider;
 import com.quanlyduan.project_manager_api.service.AuthService;
 import com.quanlyduan.project_manager_api.service.EmailService;
@@ -22,12 +28,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
+import com.quanlyduan.project_manager_api.service.InvitationService;
+import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
 import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
+import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TokenStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import java.time.LocalDateTime;
+
 
 import java.util.Random;
 
@@ -43,9 +54,12 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     
-    // === THÊM DÒNG NÀY ===
     @Value("${jwt.refresh-token-expiration-min}")
     private long refreshTokenExpirationMin;
+
+    // TIÊM SERVICE MỚI
+    private final InvitationService invitationService;
+    private final CongTyLoiMoiRepository congTyLoiMoiRepository;
     
     private static final long OTP_EXPIRATION_MINUTES = 10;
     
@@ -217,5 +231,53 @@ public class AuthServiceImpl implements AuthService {
         Random random = new Random();
         int otpNumber = 100000 + random.nextInt(900000);
         return String.valueOf(otpNumber);
+    }
+
+
+    @Override
+    @Transactional
+    public LoginResponse registerFromInvite(RegisterFromInviteRequest request) {
+        // 1. Xác thực token lời mời (SỬ DỤNG SERVICE CHUNG)
+        CongTyLoiMoi loiMoi = invitationService.validateInvitationToken(request.getInvitationToken());
+        String invitedEmail = loiMoi.getEmail();
+
+        // 2. Kiểm tra email (phòng trường hợp người dùng cũ cố tình gọi API này)
+        if (nguoiDungRepository.existsByEmail(invitedEmail)) {
+            throw new BadRequestException("Email này đã tồn tại. Vui lòng đăng nhập và chấp nhận lời mời.");
+        }
+
+        // 3. Tạo NguoiDung mới
+        NguoiDung newUser = NguoiDung.builder()
+                .hoTen(request.getHoTen())
+                .email(invitedEmail)
+                .matKhau(passwordEncoder.encode(request.getMatKhau()))
+                .trangThai(UserStatus.HOAT_DONG)
+                .xacThucEmail(true) // Tự động xác thực
+                .build();
+        
+        NguoiDung savedUser = nguoiDungRepository.save(newUser);
+
+        // 4. Thêm người dùng vào công ty (SỬ DỤNG SERVICE CHUNG)
+        invitationService.addMemberToCompany(savedUser, loiMoi.getCongTy(), loiMoi.getRole());
+
+        // 5. Cập nhật lời mời
+        loiMoi.setTrangThai(InvitationStatus.ACCEPTED);
+        congTyLoiMoiRepository.save(loiMoi);
+
+        // 6. Tự động đăng nhập và trả về token (Logic giữ nguyên)
+        UserPrincipal userPrincipal = UserPrincipal.create(savedUser);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+            userPrincipal, null, userPrincipal.getAuthorities()
+        );
+        
+        String accessToken = jwtTokenProvider.generateAccessToken(authentication);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(authentication);
+        
+        saveRefreshTokenToDB(savedUser, refreshToken);
+        
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
     }
 }
