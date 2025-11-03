@@ -3,12 +3,17 @@ package com.quanlyduan.project_manager_api.controller;
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.model.CongTy;
 import com.quanlyduan.project_manager_api.service.CompanyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -48,5 +53,14 @@ public class CompanyController {
         return ResponseEntity.ok(ApiResponse.success("Đã gửi lời mời thành công", null));
     }
 
+
+    // API HIEN THI DANH SACH THANH VIEN CONG TY 
+    @GetMapping("/{congTyId}/members")
+    public ResponseEntity<ApiResponse<List<CompanyMemberResponse>>> getCompanyMembers(
+            @PathVariable Integer congTyId) {
+        
+        List<CompanyMemberResponse> members = companyService.getCompanyMembers(congTyId);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên thành công", members));
+    }
     
 }
