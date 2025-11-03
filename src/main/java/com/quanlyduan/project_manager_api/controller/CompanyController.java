@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.controller;
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.model.CongTy;
 import com.quanlyduan.project_manager_api.service.CompanyService;
@@ -61,6 +62,15 @@ public class CompanyController {
         
         List<CompanyMemberResponse> members = companyService.getCompanyMembers(congTyId);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên thành công", members));
+    }
+
+    // API HIEN THI THONG TIN CHI TIET CONG TY
+    @GetMapping("/{congTyId}")
+    public ResponseEntity<ApiResponse<CompanyDetailsResponse>> getCompanyDetails(
+            @PathVariable Integer congTyId) {
+        
+        CompanyDetailsResponse companyDetails = companyService.getCompanyDetails(congTyId);
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin công ty thành công", companyDetails));
     }
     
 }

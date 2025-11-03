@@ -76,6 +76,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(ApiResponse.error("Xác thực thất bại: " + ex.getMessage()));
     }
 
+    // Bắt lỗi 403
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAccessDeniedException(AccessDeniedException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN) // 403 Forbidden
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+    
+
     // Bắt tất cả các lỗi 500 khác - Dùng ApiResponse.error(message)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGlobalException(Exception ex) {

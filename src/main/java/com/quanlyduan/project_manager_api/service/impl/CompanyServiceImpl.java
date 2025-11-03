@@ -10,6 +10,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.service.CompanyService;
 import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
+import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
@@ -272,6 +273,51 @@ public class CompanyServiceImpl implements CompanyService {
             return CombinedMemberStatus.ACTIVE;
         }
         return CombinedMemberStatus.INACTIVE; // Gộp TAM_DUNG và DA_ROI thành INACTIVE
+    }
+
+
+
+    // LOGIC LAY THONG TIN CHI TIET CONG TY
+    @Override
+    @Transactional(readOnly = true)
+    public CompanyDetailsResponse getCompanyDetails(Integer congTyId) {
+        // 1. Lấy thông tin người dùng hiện tại
+        NguoiDung currentUser = getCurrentAuthenticatedUser();
+
+        // 2. KIỂM TRA BẢO MẬT: Người dùng có phải là thành viên của công ty này không?
+        boolean isMember = congTyThanhVienRepository
+            .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId, currentUser.getIdNguoiDung());
+        
+        if (!isMember) {
+            throw new AccessDeniedException("Bạn không có quyền xem thông tin của công ty này");
+        }
+
+        // 3. Lấy thông tin công ty
+        CongTy congTy = congTyRepository.findById(congTyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + congTyId));
+
+        // 4. Map sang DTO và trả về
+        return mapCongTyToDetailsDto(congTy);
+    }
+
+    // --- Private Helper Methods ---
+
+    // (Helper mapMemberStatus)
+    
+    // Helper mới để map CongTy sang DTO
+    private CompanyDetailsResponse mapCongTyToDetailsDto(CongTy congTy) {
+        return CompanyDetailsResponse.builder()
+                .idCongTy(congTy.getIdCongTy())
+                .tenCongTy(congTy.getTenCongTy())
+                .maCongTy(congTy.getMaCongTy())
+                .moTa(congTy.getMoTa())
+                .logo(congTy.getLogo())
+                .diaChi(congTy.getDiaChi())
+                .soDienThoai(congTy.getSoDienThoai())
+                .email(congTy.getEmail())
+                .website(congTy.getWebsite())
+                .nguoiTaoId(congTy.getNguoiTaoId())
+                .build();
     }
     
 }
