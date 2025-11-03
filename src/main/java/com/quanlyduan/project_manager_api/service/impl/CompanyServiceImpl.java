@@ -1,13 +1,16 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
+import com.quanlyduan.project_manager_api.exception.AccessDeniedException;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.common.enums.CombinedMemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.service.CompanyService;
 import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
+import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
@@ -19,6 +22,8 @@ import com.quanlyduan.project_manager_api.service.InvitationService;
 
 import org.springframework.beans.factory.annotation.Value;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -201,4 +206,72 @@ public class CompanyServiceImpl implements CompanyService {
         loiMoi.setTrangThai(InvitationStatus.ACCEPTED);
         congTyLoiMoiRepository.save(loiMoi);
     }
+
+    // LOGIC XEM DANH SACH THANH VIEN TRONG CONG TY
+    @Override
+    @Transactional(readOnly = true) // Dùng readOnly=true cho các hàm GET
+    public List<CompanyMemberResponse> getCompanyMembers(Integer congTyId) {
+        // 1. Lấy thông tin người dùng hiện tại
+        NguoiDung currentUser = getCurrentAuthenticatedUser();
+
+        // 2. KIỂM TRA BẢO MẬT: Người dùng có phải là thành viên của công ty này không?
+        // (Chúng ta sẽ nâng cấp lên @PreAuthorize sau, nhưng đây là logic cơ bản)
+        boolean isMember = congTyThanhVienRepository
+            .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId, currentUser.getIdNguoiDung());
+        
+        if (!isMember) {
+            throw new AccessDeniedException("Bạn không có quyền xem danh sách thành viên của công ty này");
+        }
+
+        // 3. Tạo danh sách trả về
+        List<CompanyMemberResponse> responseList = new ArrayList<>();
+
+        // 4. Lấy danh sách thành viên (Active/Inactive)
+        List<CongTyThanhVien> members = congTyThanhVienRepository.findByCongTy_IdCongTy(congTyId);
+        
+        for (CongTyThanhVien member : members) {
+            CompanyMemberResponse dto = CompanyMemberResponse.builder()
+                .userId(member.getNguoiDung().getIdNguoiDung())
+                .hoTen(member.getNguoiDung().getHoTen())
+                .email(member.getNguoiDung().getEmail())
+                .anhDaiDien(member.getNguoiDung().getAnhDaiDien())
+                .roleName(member.getRole().getTenRole())
+                .chucVu(member.getChucVu())
+                .ngayThamGia(member.getNgayThamGia())
+                .status(mapMemberStatus(member.getTrangThai())) // Helper map status
+                .build();
+            responseList.add(dto);
+        }
+
+        // 5. Lấy danh sách lời mời (Pending)
+        List<CongTyLoiMoi> invitations = congTyLoiMoiRepository
+            .findByCongTy_IdCongTyAndTrangThai(congTyId, InvitationStatus.PENDING);
+            
+        for (CongTyLoiMoi loiMoi : invitations) {
+             CompanyMemberResponse dto = CompanyMemberResponse.builder()
+                .userId(null) // Chưa có user
+                .hoTen("Đang chờ...") // Hoặc (loiMoi.getEmail())
+                .email(loiMoi.getEmail())
+                .anhDaiDien(null)
+                .roleName(loiMoi.getRole().getTenRole()) // Role được mời
+                .chucVu(null)
+                .ngayThamGia(loiMoi.getNgayTao()) // Ngày mời
+                .status(CombinedMemberStatus.PENDING)
+                .build();
+            responseList.add(dto);
+        }
+
+        // 6. Trả về danh sách tổng hợp
+        return responseList;
+    }
+    
+    // --- Private Helper Method ---
+    
+    private CombinedMemberStatus mapMemberStatus(MemberStatus status) {
+        if (status == MemberStatus.HOAT_DONG) {
+            return CombinedMemberStatus.ACTIVE;
+        }
+        return CombinedMemberStatus.INACTIVE; // Gộp TAM_DUNG và DA_ROI thành INACTIVE
+    }
+    
 }
