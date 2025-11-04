@@ -84,6 +84,46 @@ public class SecurityService {
     }
 
 
+    /**
+     * Kiểm tra xem người dùng hiện tại có phải là Admin của một không gian làm việc cụ thể không.
+     * @param congTyId ID công ty từ URL (để bảo mật)
+     * @param khongGianId ID không gian từ URL
+     * @return true nếu là Admin của không gian
+     */
+    public boolean isWorkspaceAdmin(Integer congTyId, Integer khongGianId) {
+        NguoiDung currentUser = getCurrentAuthenticatedUser();
+
+        Optional<KhongGianThanhVien> membership = khongGianThanhVienRepository
+            .findByKhongGian_IdKhongGianAndNguoiDung_IdNguoiDung(khongGianId, currentUser.getIdNguoiDung());
+
+        if (membership.isEmpty()) {
+            return false; // Không phải thành viên
+        }
+
+        // 1. Kiểm tra Role
+        boolean isAdmin = RoleCode.WORKSPACE_ADMIN.name().equals(membership.get().getRole().getMaRole());
+        
+        // 2. Kiểm tra xem không gian đó có thuộc công ty trong URL không (bảo mật IDOR)
+        boolean isCorrectCompany = membership.get().getKhongGian().getCongTy().getIdCongTy().equals(congTyId);
+
+        return isAdmin && isCorrectCompany;
+    }
+
+
+    /**
+     * Kiểm tra xem người dùng có quyền quản lý thành viên không gian (thêm/xóa).
+     * Quyền này thuộc về (Admin Công ty) HOẶC (Admin Không gian).
+     */
+    public boolean canManageWorkspaceMembers(Integer congTyId, Integer khongGianId) {
+        // 1. Kiểm tra xem có phải là Admin công ty không
+        if (isCompanyAdmin(congTyId)) {
+            return true;
+        }
+        
+        // 2. Nếu không, kiểm tra xem có phải là Admin không gian không
+        return isWorkspaceAdmin(congTyId, khongGianId);
+    }
+
     // --- Private Helper Method ---
     public NguoiDung getCurrentAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -94,4 +134,6 @@ public class SecurityService {
         return nguoiDungRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng với email: " + email));
     }
+
+
 }

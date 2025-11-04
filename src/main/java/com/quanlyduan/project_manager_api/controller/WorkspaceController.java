@@ -1,6 +1,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
+import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.model.KhongGian;
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
@@ -61,5 +62,20 @@ public class WorkspaceController {
         WorkspaceResponse workspaceDetails = workspaceService.getWorkspaceDetails(workspaceId);
         
         return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết không gian làm việc thành công", workspaceDetails));
+    }
+
+
+    // API THEM THANH VIEN VAO KHONG 
+    @PostMapping("/{workspaceId}/members")
+    // Bảo vệ: Chỉ WORKSPACE_ADMIN mới được mời
+    @PreAuthorize("@securityService.canManageWorkspaceMembers(#congTyId, #workspaceId)")
+    public ResponseEntity<ApiResponse<Object>> inviteMemberToWorkspace(
+            @PathVariable Integer congTyId,
+            @PathVariable Integer workspaceId,
+            @Valid @RequestBody InviteWorkspaceMemberRequest request) {
+        
+        workspaceService.inviteMemberToWorkspace(congTyId, workspaceId, request);
+        
+        return ResponseEntity.ok(ApiResponse.success("Thêm thành viên vào không gian thành công", null));
     }
 }
