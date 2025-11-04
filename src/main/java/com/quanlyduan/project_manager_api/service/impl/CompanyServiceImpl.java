@@ -7,9 +7,11 @@ import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.common.enums.CombinedMemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.service.CompanyService;
 import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.model.*;
@@ -32,6 +34,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Objects;
 
 
 @Service
@@ -43,8 +46,8 @@ public class CompanyServiceImpl implements CompanyService {
     private final NguoiDungRepository nguoiDungRepository;
     private final RoleRepository roleRepository;
 
-    // Định nghĩa mã role mặc định cho người tạo công ty
-    private static final String COMPANY_ADMIN_ROLE_CODE = "COMPANY_ADMIN";
+    // // Định nghĩa mã role mặc định cho người tạo công ty
+    // private static final String COMPANY_ADMIN_ROLE_CODE = "COMPANY_ADMIN";
 
     private final CongTyLoiMoiRepository congTyLoiMoiRepository;
     private final EmailService emailService;
@@ -68,9 +71,9 @@ public class CompanyServiceImpl implements CompanyService {
         }
 
         // 3. Tìm Role "COMPANY_ADMIN" trong CSDL
-        Role adminRole = roleRepository.findFirstByMaRole(COMPANY_ADMIN_ROLE_CODE)
+        Role adminRole = roleRepository.findFirstByMaRole(RoleCode.COMPANY_ADMIN.name()) // SỬ DỤNG ENUM
                 .orElseThrow(() -> new ResourceNotFoundException(
-                    "Không tìm thấy Role: " + COMPANY_ADMIN_ROLE_CODE + ". Vui lòng cấu hình CSDL."
+                    "Không tìm thấy Role: " + RoleCode.COMPANY_ADMIN.name() + ". Vui lòng cấu hình CSDL."
                 ));
 
         // 4. Tạo công ty mới
@@ -212,17 +215,19 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     @Transactional(readOnly = true) // Dùng readOnly=true cho các hàm GET
     public List<CompanyMemberResponse> getCompanyMembers(Integer congTyId) {
-        // 1. Lấy thông tin người dùng hiện tại
-        NguoiDung currentUser = getCurrentAuthenticatedUser();
 
-        // 2. KIỂM TRA BẢO MẬT: Người dùng có phải là thành viên của công ty này không?
-        // (Chúng ta sẽ nâng cấp lên @PreAuthorize sau, nhưng đây là logic cơ bản)
-        boolean isMember = congTyThanhVienRepository
-            .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId, currentUser.getIdNguoiDung());
+        // Bỏ check quyền thủ 
+        // // 1. Lấy thông tin người dùng hiện tại
+        // NguoiDung currentUser = getCurrentAuthenticatedUser();
+
+        // // 2. KIỂM TRA BẢO MẬT: Người dùng có phải là thành viên của công ty này không?
+        // // (Chúng ta sẽ nâng cấp lên @PreAuthorize sau, nhưng đây là logic cơ bản)
+        // boolean isMember = congTyThanhVienRepository
+        //     .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId, currentUser.getIdNguoiDung());
         
-        if (!isMember) {
-            throw new AccessDeniedException("Bạn không có quyền xem danh sách thành viên của công ty này");
-        }
+        // if (!isMember) {
+        //     throw new AccessDeniedException("Bạn không có quyền xem danh sách thành viên của công ty này");
+        // }
 
         // 3. Tạo danh sách trả về
         List<CompanyMemberResponse> responseList = new ArrayList<>();
@@ -281,16 +286,18 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     @Transactional(readOnly = true)
     public CompanyDetailsResponse getCompanyDetails(Integer congTyId) {
-        // 1. Lấy thông tin người dùng hiện tại
-        NguoiDung currentUser = getCurrentAuthenticatedUser();
 
-        // 2. KIỂM TRA BẢO MẬT: Người dùng có phải là thành viên của công ty này không?
-        boolean isMember = congTyThanhVienRepository
-            .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId, currentUser.getIdNguoiDung());
+        // Bỏ check quyền thủ công
+        // // 1. Lấy thông tin người dùng hiện tại
+        // NguoiDung currentUser = getCurrentAuthenticatedUser();
+
+        // // 2. KIỂM TRA BẢO MẬT: Người dùng có phải là thành viên của công ty này không?
+        // boolean isMember = congTyThanhVienRepository
+        //     .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId, currentUser.getIdNguoiDung());
         
-        if (!isMember) {
-            throw new AccessDeniedException("Bạn không có quyền xem thông tin của công ty này");
-        }
+        // if (!isMember) {
+        //     throw new AccessDeniedException("Bạn không có quyền xem thông tin của công ty này");
+        // } 
 
         // 3. Lấy thông tin công ty
         CongTy congTy = congTyRepository.findById(congTyId)
@@ -318,6 +325,49 @@ public class CompanyServiceImpl implements CompanyService {
                 .website(congTy.getWebsite())
                 .nguoiTaoId(congTy.getNguoiTaoId())
                 .build();
+    }
+
+
+    // LOGIC CAP NHAT THONG TIN CONG TY
+    @Override
+    @Transactional
+    public CompanyDetailsResponse updateCompany(Integer congTyId, UpdateCompanyRequest request) {
+        
+        // 1. Lấy công ty
+        CongTy congTy = congTyRepository.findById(congTyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + congTyId));
+
+        // 2. Kiểm tra nghiệp vụ (ví dụ: tên công ty mới nếu có)
+        if (request.getTenCongTy() != null && !request.getTenCongTy().equals(congTy.getTenCongTy())) {
+            if (congTyRepository.existsByTenCongTy(request.getTenCongTy())) {
+                throw new BadRequestException("Tên công ty này đã tồn tại");
+            }
+            congTy.setTenCongTy(request.getTenCongTy());
+        }
+
+        // 3. Cập nhật các trường (nếu chúng không null)
+        if (request.getMoTa() != null) {
+            congTy.setMoTa(request.getMoTa());
+        }
+        if (request.getLogo() != null) {
+            congTy.setLogo(request.getLogo());
+        }
+        if (request.getDiaChi() != null) {
+            congTy.setDiaChi(request.getDiaChi());
+        }
+        if (request.getSoDienThoai() != null) {
+            congTy.setSoDienThoai(request.getSoDienThoai());
+        }
+        if (request.getEmail() != null) {
+            congTy.setEmail(request.getEmail());
+        }
+        if (request.getWebsite() != null) {
+            congTy.setWebsite(request.getWebsite());
+        }
+
+        // 4. Lưu và trả về
+        CongTy updatedCongTy = congTyRepository.save(congTy);
+        return mapCongTyToDetailsDto(updatedCongTy);
     }
     
 }
