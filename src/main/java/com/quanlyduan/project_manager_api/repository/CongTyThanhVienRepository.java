@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.repository;
 import com.quanlyduan.project_manager_api.model.CongTyThanhVien;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -17,4 +18,7 @@ public interface CongTyThanhVienRepository extends JpaRepository<CongTyThanhVien
 
     // (Bảo mật) Kiểm tra xem user có phải là thành viên không
     boolean existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(Integer congTyId, Integer nguoiDungId);
+
+    // Kiểm trả thành viên công ty
+    Optional<CongTyThanhVien> findByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(Integer congTyId, Integer idNguoiDung);
 }
