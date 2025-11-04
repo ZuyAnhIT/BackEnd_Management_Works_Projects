@@ -1,5 +1,7 @@
 package com.quanlyduan.project_manager_api.service;
 
+import java.util.List;
+
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.model.KhongGian;
@@ -13,4 +15,12 @@ public interface WorkspaceService {
      * @return WorkspaceResponse DTO của không gian vừa tạo
      */
     WorkspaceResponse createWorkspace(Integer congTyId, CreateWorkspaceRequest request);
+
+    
+    /**
+     * Lấy danh sách tất cả không gian làm việc của một công ty.
+     * @param congTyId ID của công ty
+     * @return Danh sách WorkspaceResponse DTO
+     */
+    List<WorkspaceResponse> getWorkspacesByCompany(Integer congTyId);
 }
