@@ -54,7 +54,7 @@ public class SecurityService {
 
 
     // --- Private Helper Method ---
-    private NguoiDung getCurrentAuthenticatedUser() {
+    public NguoiDung getCurrentAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
             throw new UsernameNotFoundException("Không tìm thấy thông tin người dùng đã xác thực.");
