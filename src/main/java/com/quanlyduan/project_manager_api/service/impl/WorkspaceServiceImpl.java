@@ -89,6 +89,20 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 .collect(Collectors.toList());
     }
 
+    // LOGIC XEM CHI TIET PHONG BAN
+    @Override
+    @Transactional(readOnly = true)
+    public WorkspaceResponse getWorkspaceDetails(Integer workspaceId) {
+        // Bảo mật đã được xử lý bởi @PreAuthorize ở tầng Controller.
+        // Tầng service chỉ cần thực hiện logic tìm kiếm.
+        
+        KhongGian workspace = khongGianRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc với ID: " + workspaceId));
+                
+        // Tái sử dụng helper đã tạo
+        return mapToWorkspaceResponse(workspace);
+    }
+
     /**
      * Hàm helper để chuyển đổi Entity KhongGian sang WorkspaceResponse DTO.
      * @param kg Entity KhongGian

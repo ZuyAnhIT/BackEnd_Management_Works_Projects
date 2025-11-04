@@ -37,7 +37,7 @@ public class WorkspaceController {
                 .body(ApiResponse.success("Tạo không gian làm việc thành công", newWorkspace));
     }
 
-    // API XEM KHONG GIAN TRONG CONG TY
+    // API XEM DANH SACH KHONG GIAN TRONG CONG TY
     @GetMapping
     // Bảo vệ endpoint: Chỉ thành viên công ty (isCompanyMember) mới được xem
     @PreAuthorize("@securityService.isCompanyMember(#congTyId)")
@@ -47,5 +47,19 @@ public class WorkspaceController {
         List<WorkspaceResponse> workspaces = workspaceService.getWorkspacesByCompany(congTyId);
         
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách không gian làm việc thành công", workspaces));
+    }
+
+
+    // API XEM CHI TIET KHONG GIAN CONG TY
+    @GetMapping("/{workspaceId}")
+    // Bảo vệ endpoint: Yêu cầu là thành viên của không gian này
+    @PreAuthorize("@securityService.isWorkspaceMember(#congTyId, #workspaceId)")
+    public ResponseEntity<ApiResponse<WorkspaceResponse>> getWorkspaceDetails(
+            @PathVariable Integer congTyId,
+            @PathVariable Integer workspaceId) {
+        
+        WorkspaceResponse workspaceDetails = workspaceService.getWorkspaceDetails(workspaceId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết không gian làm việc thành công", workspaceDetails));
     }
 }

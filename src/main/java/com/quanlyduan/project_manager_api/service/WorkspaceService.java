@@ -23,4 +23,11 @@ public interface WorkspaceService {
      * @return Danh sách WorkspaceResponse DTO
      */
     List<WorkspaceResponse> getWorkspacesByCompany(Integer congTyId);
+
+    /**
+     * Lấy thông tin chi tiết của một không gian làm việc.
+     * @param workspaceId ID của không gian cần xem
+     * @return WorkspaceResponse DTO
+     */
+    WorkspaceResponse getWorkspaceDetails(Integer workspaceId);
 }
