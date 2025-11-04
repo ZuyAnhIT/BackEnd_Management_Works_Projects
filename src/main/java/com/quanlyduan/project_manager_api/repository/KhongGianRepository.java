@@ -20,4 +20,6 @@ public interface KhongGianRepository extends JpaRepository<KhongGian, Integer> {
      * @return Danh sách các KhongGian
      */
     List<KhongGian> findByCongTy_IdCongTy(Integer congTyId);
+
+    
 }

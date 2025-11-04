@@ -2,9 +2,11 @@ package com.quanlyduan.project_manager_api.service;
 
 
 import com.quanlyduan.project_manager_api.model.CongTyThanhVien;
+import com.quanlyduan.project_manager_api.model.KhongGianThanhVien;
 import com.quanlyduan.project_manager_api.model.NguoiDung;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.repository.CongTyThanhVienRepository;
+import com.quanlyduan.project_manager_api.repository.KhongGianThanhVienRepository;
 import com.quanlyduan.project_manager_api.repository.NguoiDungRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -20,6 +22,7 @@ public class SecurityService {
 
     private final CongTyThanhVienRepository congTyThanhVienRepository;
     private final NguoiDungRepository nguoiDungRepository;
+    private final KhongGianThanhVienRepository khongGianThanhVienRepository;
     
     // // Mã role chuẩn
     // private static final String COMPANY_ADMIN_ROLE = "COMPANY_ADMIN";
@@ -50,6 +53,34 @@ public class SecurityService {
         NguoiDung currentUser = getCurrentAuthenticatedUser();
         return congTyThanhVienRepository
             .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId, currentUser.getIdNguoiDung());
+    }
+
+
+    // *** THÊM PHƯƠNG THỨC NÀY ***
+    /**
+     * Kiểm tra xem người dùng hiện tại có phải là thành viên của một không gian làm việc cụ thể
+     * VÀ không gian đó có thuộc công ty trong URL hay không.
+     * (Để ngăn chặn lỗi bảo mật Insecure Direct Object Reference - IDOR)
+     *
+     * @param congTyId ID công ty từ URL
+     * @param khongGianId ID không gian từ URL
+     * @return true nếu người dùng là thành viên hợp lệ
+     */
+    public boolean isWorkspaceMember(Integer congTyId, Integer khongGianId) {
+        NguoiDung currentUser = getCurrentAuthenticatedUser();
+
+        // 1. Kiểm tra xem người dùng có phải là thành viên của không gian không
+        Optional<KhongGianThanhVien> membership = khongGianThanhVienRepository
+            .findByKhongGian_IdKhongGianAndNguoiDung_IdNguoiDung(khongGianId, currentUser.getIdNguoiDung());
+
+        if (membership.isEmpty()) {
+            return false; // Không phải thành viên của không gian này
+        }
+
+        // 2. Kiểm tra xem không gian đó có thực sự thuộc công ty trong URL không
+        // Điều này đảm bảo người dùng không thể thử /api/companies/1/workspaces/99
+        // (nếu workspace 99 thuộc công ty 2)
+        return membership.get().getKhongGian().getCongTy().getIdCongTy().equals(congTyId);
     }
 
 
