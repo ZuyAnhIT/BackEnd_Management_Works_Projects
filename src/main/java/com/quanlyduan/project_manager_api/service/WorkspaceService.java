@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service;
 import java.util.List;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
+import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.model.KhongGian;
 
@@ -30,4 +31,14 @@ public interface WorkspaceService {
      * @return WorkspaceResponse DTO
      */
     WorkspaceResponse getWorkspaceDetails(Integer workspaceId);
+
+    /**
+     * Mời/Thêm một thành viên công ty vào không gian làm việc.
+     * @param congTyId ID công ty (để kiểm tra)
+     * @param khongGianId ID không gian
+     * @param request DTO chứa email và roleId
+     */
+    void inviteMemberToWorkspace(Integer congTyId, Integer khongGianId, InviteWorkspaceMemberRequest request);
+
+    
 }

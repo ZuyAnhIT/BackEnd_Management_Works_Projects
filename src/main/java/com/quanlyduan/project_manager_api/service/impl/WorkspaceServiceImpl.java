@@ -1,21 +1,29 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
+import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
+import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.repository.*;
-import com.quanlyduan.project_manager_api.service.SecurityService; // Import service bảo mật
+import com.quanlyduan.project_manager_api.service.EmailService;
+import com.quanlyduan.project_manager_api.service.SecurityService; 
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
+import org.springframework.beans.factory.annotation.Value;
+
 import lombok.RequiredArgsConstructor;
+
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List; 
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors; 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +34,15 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     private final CongTyRepository congTyRepository;
     private final RoleRepository roleRepository;
     private final SecurityService securityService; 
+    private final NguoiDungRepository nguoiDungRepository;
+    private final CongTyThanhVienRepository congTyThanhVienRepository;
 
+    private final EmailService emailService;
+    
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
+
+    // API TAO KHONG GIAN 
     @Override
     @Transactional
     public WorkspaceResponse createWorkspace(Integer congTyId, CreateWorkspaceRequest request) {
@@ -102,6 +118,109 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         // Tái sử dụng helper đã tạo
         return mapToWorkspaceResponse(workspace);
     }
+
+
+    // LOGIC MOI THANH VIEN VAO PHONG BAN
+    @Override
+    @Transactional
+    public void inviteMemberToWorkspace(Integer congTyId, Integer khongGianId, InviteWorkspaceMemberRequest request) {
+        
+        // *** THÊM DÒNG NÀY *** (Lấy admin hiện tại để biết ai là người mời)
+        NguoiDung admin = securityService.getCurrentAuthenticatedUser();
+        String emailToInvite = request.getEmail();
+
+        // 1. Lấy thông tin người dùng được mời
+        NguoiDung userToInvite = nguoiDungRepository.findByEmail(emailToInvite)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                    "Không tìm thấy người dùng với email: " + emailToInvite
+                ));
+
+        // 2. KIỂM TRA ĐIỀU KIỆN (như bạn yêu cầu)
+        boolean isCompanyMember = congTyThanhVienRepository
+            .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId, userToInvite.getIdNguoiDung());
+            
+        if (!isCompanyMember) {
+            throw new BadRequestException(
+                "Người này chưa thuộc Công ty. Vui lòng liên hệ Admin Công ty để mời vào trước."
+            );
+        }
+
+        // 3. Lấy thông tin Workspace và Role
+        KhongGian khongGian = khongGianRepository.findById(khongGianId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
+
+        Role workspaceRole = roleRepository.findById(request.getRoleId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Role"));
+
+        // 4. Validate Role
+        if (workspaceRole.getCapDo() != RoleLevel.WORKSPACE) {
+            throw new BadRequestException("Role không hợp lệ (Không phải cấp độ Không gian làm việc)");
+        }
+        
+        // 5. Kiểm tra xem đã là thành viên của Workspace chưa
+        Optional<KhongGianThanhVien> existingMembership = khongGianThanhVienRepository
+            .findByKhongGian_IdKhongGianAndNguoiDung_IdNguoiDung(khongGianId, userToInvite.getIdNguoiDung());
+
+        if (existingMembership.isPresent()) {
+            throw new BadRequestException("Người dùng này đã là thành viên của không gian làm việc");
+        }
+
+        // 6. Thêm thành viên vào không gian
+        KhongGianThanhVien newMembership = KhongGianThanhVien.builder()
+                .khongGian(khongGian)
+                .nguoiDung(userToInvite)
+                .role(workspaceRole)
+                .trangThai(MemberStatus.HOAT_DONG)
+                .build();
+        
+        khongGianThanhVienRepository.save(newMembership);
+        
+        // *** LOGIC GỬI EMAIL ***
+        sendWorkspaceNotificationEmail(admin, userToInvite, khongGian, workspaceRole);
+    }
+
+    // *** HÀM HELPER  ***
+    /**
+     * Gửi email thông báo cho người dùng khi họ được thêm vào không gian làm việc.
+     */
+    private void sendWorkspaceNotificationEmail(NguoiDung admin, NguoiDung userAdded, KhongGian khongGian, Role role) {
+        try {
+            // Tạo link chi tiết
+            String workspaceUrl = String.format("%s/companies/%d/workspaces/%d", 
+                frontendUrl, 
+                khongGian.getCongTy().getIdCongTy(), 
+                khongGian.getIdKhongGian());
+
+            String emailBody = String.format(
+                "<p>Chào %s,</p>" +
+                "<p>Bạn vừa được %s thêm vào không gian làm việc <strong>%s</strong>.</p>" +
+                "<ul>" +
+                "<li><strong>Vai trò của bạn:</strong> %s</li>" +
+                "<li><strong>Công ty:</strong> %s</li>" +
+                "</ul>" +
+                "<p>Bạn có thể truy cập không gian làm việc ngay bây giờ bằng cách nhấp vào <a href=\"%s\">liên kết này</a>.</p>" +
+                "<p>Cảm ơn,<br>Đội ngũ Project Manager</p>",
+                userAdded.getHoTen(),
+                admin.getHoTen(),
+                khongGian.getTenKhongGian(),
+                role.getTenRole(),
+                khongGian.getCongTy().getTenCongTy(),
+                workspaceUrl
+            );
+
+            emailService.sendEmail(
+                userAdded.getEmail(), 
+                String.format("Bạn đã được thêm vào không gian: %s", khongGian.getTenKhongGian()), 
+                emailBody
+            );
+
+        } catch (Exception e) {
+            // (Nên log lỗi này ra)
+            System.err.println("Lỗi khi gửi email thông báo thêm vào workspace: " + e.getMessage());
+            // Không ném lỗi ra ngoài để không làm hỏng giao dịch chính
+        }
+    }
+
 
     /**
      * Hàm helper để chuyển đổi Entity KhongGian sang WorkspaceResponse DTO.
