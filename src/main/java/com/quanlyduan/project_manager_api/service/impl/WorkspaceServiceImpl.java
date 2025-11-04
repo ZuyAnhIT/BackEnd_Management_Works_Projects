@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List; 
+import java.util.stream.Collectors; 
 @Service
 @RequiredArgsConstructor
 public class WorkspaceServiceImpl implements WorkspaceService {
@@ -70,6 +72,21 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
         // 6. Map Entity sang DTO và trả về
         return mapToWorkspaceResponse(savedWorkspace);
+    }
+
+
+    // LOGIC HIỂN THỊ DANH SÁCH KHÔNG GIAN TRONG CÔNG TY
+    @Override
+    @Transactional(readOnly = true)
+    public List<WorkspaceResponse> getWorkspacesByCompany(Integer congTyId) {
+        // 1. Lấy danh sách Entity từ CSDL
+        // (Bảo mật sẽ được xử lý ở tầng Controller bằng @PreAuthorize)
+        List<KhongGian> workspaces = khongGianRepository.findByCongTy_IdCongTy(congTyId);
+
+        // 2. Chuyển đổi (map) danh sách Entity sang danh sách DTO
+        return workspaces.stream()
+                .map(this::mapToWorkspaceResponse) // Tái sử dụng helper đã tạo
+                .collect(Collectors.toList());
     }
 
     /**

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.security.core.AuthenticationException;
-
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -75,16 +75,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .status(HttpStatus.UNAUTHORIZED) // 401
                 .body(ApiResponse.error("Xác thực thất bại: " + ex.getMessage()));
     }
-
-    // Bắt lỗi 403
+    
+    // Bắt lỗi 403 (Forbidden) từ @PreAuthorize
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Object>> handleAccessDeniedException(AccessDeniedException ex) {
+        // ex.getMessage() thường là "Access is denied"
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN) // 403 Forbidden
-                .body(ApiResponse.error(ex.getMessage()));
+                .body(ApiResponse.error("Bạn không có quyền thực hiện hành động này."));
     }
     
-
     // Bắt tất cả các lỗi 500 khác - Dùng ApiResponse.error(message)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGlobalException(Exception ex) {
