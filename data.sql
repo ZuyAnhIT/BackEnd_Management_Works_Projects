@@ -444,3 +444,9 @@ VALUES ('COMPANY_ADMIN', 'Quản trị Công ty', 'Quyền cao nhất trong mộ
 
 INSERT INTO Role (maRole, tenRole, moTa, capDo) 
 VALUES ('COMPANY_MEMBER', 'Thành viên Công ty', 'Quyền cơ bản trong một công ty', 'COMPANY');
+
+INSERT INTO Role (maRole, tenRole, capDo) 
+VALUES ('WORKSPACE_ADMIN', 'Quản trị không gian', 'WORKSPACE');
+
+INSERT INTO Role (maRole, tenRole, capDo) 
+VALUES ('PROJECT_ADMIN', 'Quản trị dự án', 'WORKSPACE');
