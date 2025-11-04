@@ -438,15 +438,66 @@ CREATE TABLE CongTyLoiMoi (
     UNIQUE KEY uk_congTy_email_pending (congTyId, email, trangThai)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- DỮ LIỆU MẪU 
-INSERT INTO Role (maRole, tenRole, moTa, capDo) 
-VALUES ('COMPANY_ADMIN', 'Quản trị Công ty', 'Quyền cao nhất trong một công ty', 'COMPANY');
 
-INSERT INTO Role (maRole, tenRole, moTa, capDo) 
-VALUES ('COMPANY_MEMBER', 'Thành viên Công ty', 'Quyền cơ bản trong một công ty', 'COMPANY');
+-- DU LIEU MAU NGUOI DUNG (admin123)
+INSERT INTO NguoiDung (idNguoiDung, email, matKhau, hoTen, xacThucEmail, trangThai) VALUES
+(1, 'system.admin@app.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Admin Hệ Thống', 1, 'HOAT_DONG'),
+(2, 'company.admin.c1@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Admin Công Ty 1', 1, 'HOAT_DONG'),
+(3, 'company.member.c1@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Member Công Ty 1', 1, 'HOAT_DONG'),
+(4, 'company.admin.c2@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Admin Công Ty 2', 1, 'HOAT_DONG'),
+(5, 'user.chua.xac.thuc@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'User Mới', 0, 'HOAT_DONG');
 
-INSERT INTO Role (maRole, tenRole, capDo) 
-VALUES ('WORKSPACE_ADMIN', 'Quản trị không gian', 'WORKSPACE');
+-- DU LIEU MAU KHONG GIAN
+INSERT INTO Role (idRole, maRole, tenRole, capDo) VALUES
+(1, 'SYSTEM_ADMIN', 'Quản trị Hệ thống', 'SYSTEM'),
+(2, 'COMPANY_ADMIN', 'Quản trị Công ty', 'COMPANY'),
+(3, 'COMPANY_MEMBER', 'Thành viên Công ty', 'COMPANY'),
+(4, 'WORKSPACE_ADMIN', 'Quản trị Không gian', 'WORKSPACE'),
+(5, 'WORKSPACE_MEMBER', 'Thành viên Không gian', 'WORKSPACE');
 
-INSERT INTO Role (maRole, tenRole, capDo) 
-VALUES ('PROJECT_ADMIN', 'Quản trị dự án', 'WORKSPACE');
+-- DU LIEU MAU CONG TY
+INSERT INTO CongTy (idCongTy, tenCongTy, maCongTy, nguoiTaoId, trangThai) VALUES
+(1, 'Công ty PixelCore Inc.', 'PIXEL', 2, 'HOAT_DONG'),
+(2, 'Công ty QuantumLeap Solutions', 'QUANTUM', 4, 'HOAT_DONG'),
+(3, 'Công ty NovaTech (Cty của Admin)', 'NOVA', 1, 'HOAT_DONG');
+
+-- DU LIEU MAU CONG TY THANH VIEN
+INSERT INTO CongTyThanhVien (idCongTyThanhVien, congTyId, nguoiDungId, roleId, trangThai) VALUES
+(1, 1, 2, 2, 'HOAT_DONG'), -- User 2 là COMPANY_ADMIN của Cty 1
+(2, 1, 3, 3, 'HOAT_DONG'), -- User 3 là COMPANY_MEMBER của Cty 1
+(3, 2, 4, 2, 'HOAT_DONG'), -- User 4 là COMPANY_ADMIN của Cty 2
+(4, 3, 1, 2, 'HOAT_DONG'), -- User 1 (SysAdmin) cũng là COMPANY_ADMIN của Cty 3
+(5, 1, 4, 3, 'HOAT_DONG'); -- User 4 cũng là COMPANY_MEMBER của Cty 1 (test ở 2 cty)
+
+-- DU LIEU MAU KHONG GIAN
+INSERT INTO KhongGian (idKhongGian, congTyId, tenKhongGian, nguoiTaoId, trangThai) VALUES
+(1, 1, 'Pixel - Marketing', 2, 'HOAT_DONG'), -- Thuộc Cty 1
+(2, 1, 'Pixel - Engineering', 2, 'HOAT_DONG'), -- Thuộc Cty 1
+(3, 2, 'Quantum - Sales', 4, 'HOAT_DONG'), -- Thuộc Cty 2
+(4, 2, 'Quantum - HR', 4, 'LUU_TRU'), -- Thuộc Cty 2
+(5, 3, 'Nova - General', 1, 'HOAT_DONG'); -- Thuộc Cty 3
+
+-- DU LIEU MAU KHONG GIAN THANH VIEN
+INSERT INTO KhongGianThanhVien (idKhongGianThanhVien, khongGianId, nguoiDungId, roleId, trangThai) VALUES
+(1, 1, 2, 4, 'HOAT_DONG'), -- User 2 (Admin C1) là WORKSPACE_ADMIN của WS 1
+(2, 1, 3, 5, 'HOAT_DONG'), -- User 3 (Member C1) là WORKSPACE_MEMBER của WS 1
+(3, 2, 2, 4, 'HOAT_DONG'), -- User 2 (Admin C1) cũng là WORKSPACE_ADMIN của WS 2
+(4, 3, 4, 4, 'HOAT_DONG'), -- User 4 (Admin C2) là WORKSPACE_ADMIN của WS 3
+(5, 1, 4, 5, 'HOAT_DONG'); -- User 4 (Ở Cty 2) cũng là WORKSPACE_MEMBER của WS 1 (Cty 1)
+
+-- DU LIEU LOI MOI
+INSERT INTO CongTyLoiMoi (idLoiMoi, congTyId, email, roleId, nguoiMoiId, token, trangThai, ngayHetHan) VALUES
+(1, 1, 'user.moi.tinh@example.com', 3, 2, 'token-pending-1', 'PENDING', '2025-12-01 00:00:00'),
+(2, 1, 'user.chua.xac.thuc@example.com', 3, 2, 'token-pending-2', 'PENDING', '2025-12-01 00:00:00'),
+(3, 2, 'accepted.user@example.com', 3, 4, 'token-accepted-3', 'ACCEPTED', '2025-10-01 00:00:00'),
+(4, 2, 'expired.user@example.com', 3, 4, 'token-expired-4', 'EXPIRED', '2025-10-01 00:00:00'),
+(5, 2, 'company.member.c1@example.com', 3, 4, 'token-pending-5', 'PENDING', '2025-12-01 00:00:00');
+
+-- DU LIEU MAU TOKEN
+INSERT INTO Token (idToken, nguoiDungId, token, loaiToken, trangThai, ngayHetHan) VALUES
+(1, 1, 'token-email-user-1', 'EMAIL_VERIFICATION', 'DA_THU_HOI', '2025-01-01 00:00:00'),
+(2, 2, 'token-email-user-2', 'EMAIL_VERIFICATION', 'DA_THU_HOI', '2025-01-01 00:00:00'),
+(3, 3, 'token-email-user-3', 'EMAIL_VERIFICATION', 'DA_THU_HOI', '2025-01-01 00:00:00'),
+(4, 4, 'token-email-user-4', 'EMAIL_VERIFICATION', 'DA_THU_HOI', '2025-01-01 00:00:00'),
+(5, 5, '123456', 'EMAIL_VERIFICATION', 'HOAT_DONG', '2025-12-01 00:00:00');
+
