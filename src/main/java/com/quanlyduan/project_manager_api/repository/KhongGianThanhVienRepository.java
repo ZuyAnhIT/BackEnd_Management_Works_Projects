@@ -2,6 +2,7 @@ package com.quanlyduan.project_manager_api.repository;
 
 import com.quanlyduan.project_manager_api.model.KhongGianThanhVien;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,5 +21,7 @@ public interface KhongGianThanhVienRepository extends JpaRepository<KhongGianTha
     Optional<KhongGianThanhVien> findByKhongGian_IdKhongGianAndNguoiDung_IdNguoiDung(
         Integer khongGianId, Integer nguoiDungId
     );
+
+    List<KhongGianThanhVien> findByNguoiDung_IdNguoiDung(Integer nguoiDungId);
     
 }

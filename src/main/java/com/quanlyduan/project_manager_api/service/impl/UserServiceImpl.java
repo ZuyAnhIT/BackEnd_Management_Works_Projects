@@ -1,11 +1,21 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.ChangePasswordRequest;
+import com.quanlyduan.project_manager_api.dto.response.CompanyMembershipDTO;
+import com.quanlyduan.project_manager_api.dto.response.UserProfileResponse;
+import com.quanlyduan.project_manager_api.dto.response.WorkspaceMembershipDTO;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.model.NguoiDung;
+import com.quanlyduan.project_manager_api.repository.CongTyThanhVienRepository;
+import com.quanlyduan.project_manager_api.repository.KhongGianThanhVienRepository;
 import com.quanlyduan.project_manager_api.repository.NguoiDungRepository;
+import com.quanlyduan.project_manager_api.repository.NguoiDungRoleRepository;
 import com.quanlyduan.project_manager_api.service.UserService;
 import lombok.RequiredArgsConstructor;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -19,6 +29,9 @@ public class UserServiceImpl implements UserService {
 
     private final NguoiDungRepository nguoiDungRepository;
     private final PasswordEncoder passwordEncoder;
+    private final NguoiDungRoleRepository nguoiDungRoleRepository;
+    private final CongTyThanhVienRepository congTyThanhVienRepository;
+    private final KhongGianThanhVienRepository khongGianThanhVienRepository;
     // (Sau này sẽ inject TokenRepository để hủy Refresh Token)
 
     // LOGIC THAY DOI MAT KHAU
@@ -57,6 +70,52 @@ public class UserServiceImpl implements UserService {
     }
 
     // --- Private Helper Method ---
+
+    // LOGIC LAY THONG TIN DAY DU
+    @Override
+    @Transactional(readOnly = true)
+    public UserProfileResponse getCurrentUserProfile() {
+        // 1. Lấy người dùng (từ token)
+        NguoiDung currentUser = getCurrentAuthenticatedUser();
+
+        // 2. Lấy vai trò cấp Hệ thống
+        List<String> systemRoles = nguoiDungRoleRepository.findByNguoiDung_IdNguoiDung(currentUser.getIdNguoiDung())
+                .stream()
+                .map(role -> role.getRole().getMaRole())
+                .collect(Collectors.toList());
+
+        // 3. Lấy vai trò cấp Công ty
+        List<CompanyMembershipDTO> companyRoles = congTyThanhVienRepository.findByNguoiDung_IdNguoiDung(currentUser.getIdNguoiDung())
+                .stream()
+                .map(ctv -> new CompanyMembershipDTO(
+                        ctv.getCongTy().getIdCongTy(),
+                        ctv.getCongTy().getTenCongTy(),
+                        ctv.getRole().getMaRole()
+                ))
+                .collect(Collectors.toList());
+
+        // 4. Lấy vai trò cấp Không gian
+        List<WorkspaceMembershipDTO> workspaceRoles = khongGianThanhVienRepository.findByNguoiDung_IdNguoiDung(currentUser.getIdNguoiDung())
+                .stream()
+                .map(kgtv -> new WorkspaceMembershipDTO(
+                        kgtv.getKhongGian().getIdKhongGian(),
+                        kgtv.getKhongGian().getTenKhongGian(),
+                        kgtv.getKhongGian().getCongTy().getIdCongTy(),
+                        kgtv.getRole().getMaRole()
+                ))
+                .collect(Collectors.toList());
+
+        // 5. Xây dựng và trả về DTO
+        return UserProfileResponse.builder()
+                .id(currentUser.getIdNguoiDung())
+                .hoTen(currentUser.getHoTen())
+                .email(currentUser.getEmail())
+                .anhDaiDien(currentUser.getAnhDaiDien())
+                .systemRoles(systemRoles)
+                .companyMemberships(companyRoles)
+                .workspaceMemberships(workspaceRoles)
+                .build();
+    }
 
     // LOGIC LAY NGUOI DUNG HIEN TAI
     private NguoiDung getCurrentAuthenticatedUser() {

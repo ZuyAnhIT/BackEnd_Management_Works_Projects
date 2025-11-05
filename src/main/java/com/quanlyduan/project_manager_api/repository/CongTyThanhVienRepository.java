@@ -19,6 +19,9 @@ public interface CongTyThanhVienRepository extends JpaRepository<CongTyThanhVien
     // (Bảo mật) Kiểm tra xem user có phải là thành viên không
     boolean existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(Integer congTyId, Integer nguoiDungId);
 
-    // Kiểm trả thành viên công ty
-    Optional<CongTyThanhVien> findByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(Integer congTyId, Integer idNguoiDung);
+
+    Optional<CongTyThanhVien> findByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(Integer congTyId, Integer nguoiDungId);
+    
+    
+    List<CongTyThanhVien> findByNguoiDung_IdNguoiDung(Integer nguoiDungId);
 }
