@@ -17,13 +17,18 @@ import org.springframework.stereotype.Service;
 import java.util.Optional;
 
 @Service("securityService") // Đặt tên Bean là "securityService"
-@RequiredArgsConstructor
 public class SecurityService {
 
     private final CongTyThanhVienRepository congTyThanhVienRepository;
     private final NguoiDungRepository nguoiDungRepository;
     private final KhongGianThanhVienRepository khongGianThanhVienRepository;
-    
+
+    public SecurityService(CongTyThanhVienRepository congTyThanhVienRepository, NguoiDungRepository nguoiDungRepository, KhongGianThanhVienRepository khongGianThanhVienRepository) {
+        this.congTyThanhVienRepository = congTyThanhVienRepository;
+        this.nguoiDungRepository = nguoiDungRepository;
+        this.khongGianThanhVienRepository = khongGianThanhVienRepository;
+    }
+
     // // Mã role chuẩn
     // private static final String COMPANY_ADMIN_ROLE = "COMPANY_ADMIN";
 

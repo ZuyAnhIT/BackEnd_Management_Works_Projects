@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
+
 public class UserServiceImpl implements UserService {
 
     private final NguoiDungRepository nguoiDungRepository;
@@ -32,6 +32,14 @@ public class UserServiceImpl implements UserService {
     private final NguoiDungRoleRepository nguoiDungRoleRepository;
     private final CongTyThanhVienRepository congTyThanhVienRepository;
     private final KhongGianThanhVienRepository khongGianThanhVienRepository;
+
+    public UserServiceImpl(NguoiDungRepository nguoiDungRepository, PasswordEncoder passwordEncoder, NguoiDungRoleRepository nguoiDungRoleRepository, CongTyThanhVienRepository congTyThanhVienRepository, KhongGianThanhVienRepository khongGianThanhVienRepository) {
+        this.nguoiDungRepository = nguoiDungRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.nguoiDungRoleRepository = nguoiDungRoleRepository;
+        this.congTyThanhVienRepository = congTyThanhVienRepository;
+        this.khongGianThanhVienRepository = khongGianThanhVienRepository;
+    }
     // (Sau này sẽ inject TokenRepository để hủy Refresh Token)
 
     // LOGIC THAY DOI MAT KHAU
