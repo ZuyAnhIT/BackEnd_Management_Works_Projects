@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/controller/UserController.java
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.ChangePasswordRequest;
@@ -27,7 +28,7 @@ public class UserController {
         
         userService.changePassword(request);
         
-        return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu thành công", null));
+        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null)); // Đã dịch
     }
     
     // API LAY DAY DU THONG TIN CA NHAN
@@ -36,7 +37,7 @@ public class UserController {
         // API này tự động được bảo vệ (yêu cầu token)
         // vì nó không nằm trong PUBLIC_URLS
         UserProfileResponse userProfile = userService.getCurrentUserProfile();
-        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin người dùng thành công", userProfile));
+        return ResponseEntity.ok(ApiResponse.success("User profile fetched successfully", userProfile)); // Đã dịch
     }
     // (Sau này chúng ta sẽ thêm endpoint GET /api/users/me để lấy thông tin user)
 }

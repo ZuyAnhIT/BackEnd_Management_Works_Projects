@@ -12,492 +12,491 @@ GRANT ALL PRIVILEGES ON QuanLyCongViecDuAn.* TO 'admin123@'@'%';
 FLUSH PRIVILEGES;
 
 -- =============================================
--- SCHEMA DATABASE - HỆ THỐNG QUẢN LÝ DỰ ÁN
--- Hỗ trợ mô hình Scrum, Kanban
+-- DATABASE SCHEMA - PROJECT MANAGEMENT SYSTEM
+-- Supports Scrum, Kanban models
 -- =============================================
 
--- 1. BẢNG NGƯỜI DÙNG
-CREATE TABLE NguoiDung (
-    idNguoiDung INT PRIMARY KEY AUTO_INCREMENT,
+-- 1. USERS TABLE
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
     email VARCHAR(255) NOT NULL UNIQUE,
-    matKhau VARCHAR(255) NOT NULL,
-    hoTen VARCHAR(255) NOT NULL,
-    anhDaiDien VARCHAR(500),
-    soDienThoai VARCHAR(20),
-    ngaySinh DATE,
-    gioiTinh ENUM('NAM', 'NU', 'KHAC'),
-    trangThai ENUM('HOAT_DONG', 'TAM_KHOA', 'DA_XOA') DEFAULT 'HOAT_DONG',
-    xacThucEmail BOOLEAN DEFAULT FALSE,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    lanDangNhapCuoi TIMESTAMP NULL
+    password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    avatar_url VARCHAR(500),
+    phone_number VARCHAR(20),
+    date_of_birth DATE,
+    gender ENUM('MALE', 'FEMALE', 'OTHER'),
+    status ENUM('ACTIVE', 'LOCKED', 'DELETED') DEFAULT 'ACTIVE',
+    is_email_verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMP NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 2. BẢNG TOKEN XÁC THỰC
-CREATE TABLE Token (
-    idToken INT PRIMARY KEY AUTO_INCREMENT,
-    nguoiDungId INT NOT NULL,
+-- 2. AUTH TOKENS TABLE
+CREATE TABLE auth_tokens (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
     token VARCHAR(500) NOT NULL UNIQUE,
-    loaiToken ENUM('ACCESS','REFRESH','RESET_PASSWORD','EMAIL_VERIFICATION','API') NOT NULL,
-    trangThai ENUM('HOAT_DONG', 'DA_THU_HOI', 'HET_HAN') DEFAULT 'HOAT_DONG',
-    ngayHetHan TIMESTAMP NOT NULL,
-    diaChiIp VARCHAR(50),
-    userAgent TEXT,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngaySuDungCuoi TIMESTAMP NULL,
-    FOREIGN KEY (nguoiDungId) REFERENCES NguoiDung(idNguoiDung) ON DELETE CASCADE
+    token_type ENUM('ACCESS','REFRESH','RESET_PASSWORD','EMAIL_VERIFICATION','API') NOT NULL,
+    status ENUM('ACTIVE', 'REVOKED', 'EXPIRED') DEFAULT 'ACTIVE',
+    expires_at TIMESTAMP NOT NULL,
+    ip_address VARCHAR(50),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TIMESTAMP NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. BẢNG CÀI ĐẶT NGƯỜI DÙNG
-CREATE TABLE UserSetting (
-    idUserSetting INT PRIMARY KEY AUTO_INCREMENT,
-    nguoiDungId INT NOT NULL,
-    ngonNgu VARCHAR(10) DEFAULT 'vi',
-    muiGio VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
-    cheDoHienThi ENUM('SANG', 'TOI', 'TU_DONG') DEFAULT 'SANG',
-    thongBaoEmail BOOLEAN DEFAULT TRUE,
-    thongBaoPush BOOLEAN DEFAULT TRUE,
-    hienThiTrangChu VARCHAR(50) DEFAULT 'dashboard',
-    cauHinhBoard JSON COMMENT 'Tùy chỉnh hiển thị board',
-    cauHinhList JSON COMMENT 'Tùy chỉnh hiển thị list',
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (nguoiDungId) REFERENCES NguoiDung(idNguoiDung) ON DELETE CASCADE,
-    UNIQUE KEY uk_nguoiDung (nguoiDungId)
+-- 3. USER SETTINGS TABLE
+CREATE TABLE user_settings (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    language VARCHAR(10) DEFAULT 'en',
+    timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
+    display_mode ENUM('LIGHT', 'DARK', 'SYSTEM') DEFAULT 'LIGHT',
+    email_notifications BOOLEAN DEFAULT TRUE,
+    push_notifications BOOLEAN DEFAULT TRUE,
+    default_homepage VARCHAR(50) DEFAULT 'dashboard',
+    board_config JSON COMMENT 'Custom board view settings',
+    list_config JSON COMMENT 'Custom list view settings',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. BẢNG NHẬT KÝ HOẠT ĐỘNG
-CREATE TABLE NguoiDungNhatKyHoatDong (
-    idNguoiDungNhatKyHoatDong INT PRIMARY KEY AUTO_INCREMENT,
-    nguoiDungId INT NOT NULL,
-    hanhDong VARCHAR(255) NOT NULL,
-    doiTuongLienQuan VARCHAR(100) COMMENT 'Task, Project, Comment...',
-    doiTuongId INT,
-    noiDungCu TEXT COMMENT 'Giá trị trước thay đổi',
-    noiDungMoi TEXT COMMENT 'Giá trị sau thay đổi',
-    diaChiIp VARCHAR(50),
-    userAgent TEXT,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (nguoiDungId) REFERENCES NguoiDung(idNguoiDung) ON DELETE CASCADE
+-- 4. USER ACTIVITY LOG TABLE
+CREATE TABLE activity_logs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    action VARCHAR(255) NOT NULL,
+    entity_type VARCHAR(100) COMMENT 'e.g., Task, Project, Comment...',
+    entity_id INT,
+    old_value TEXT COMMENT 'Value before change',
+    new_value TEXT COMMENT 'Value after change',
+    ip_address VARCHAR(50),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. BẢNG QUYỀN HẠN (ROLE)
-CREATE TABLE Role (
-    idRole INT PRIMARY KEY AUTO_INCREMENT,
-    maRole VARCHAR(100) NOT NULL UNIQUE COMMENT 'Mã định danh (code), VD: SYSTEM_ADMIN, COMPANY_ADMIN, PROJECT_MEMBER',
-    tenRole VARCHAR(255) NOT NULL COMMENT 'Tên hiển thị, VD: Quản trị hệ thống, Quản trị công ty, Thành viên dự án',
-    moTa TEXT,
-    capDo ENUM('SYSTEM', 'COMPANY', 'WORKSPACE', 'PROJECT') NOT NULL COMMENT 'Phạm vi của quyền: Hệ thống, Công ty, Không gian, Dự án',
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- 5. ROLES TABLE
+CREATE TABLE roles (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    role_code VARCHAR(100) NOT NULL UNIQUE COMMENT 'Identifier code, e.g., SYSTEM_ADMIN, COMPANY_ADMIN, PROJECT_MEMBER',
+    role_name VARCHAR(255) NOT NULL COMMENT 'Display name, e.g., System Administrator, Company Admin, Project Member',
+    description TEXT,
+    level ENUM('SYSTEM', 'COMPANY', 'WORKSPACE', 'PROJECT') NOT NULL COMMENT 'Scope of the role: System, Company, Workspace, Project',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. BẢNG QUYỀN CHI TIẾT (PERMISSION)
-CREATE TABLE Permission (
-    idPermission INT PRIMARY KEY AUTO_INCREMENT,
-    maPermission VARCHAR(100) NOT NULL UNIQUE COMMENT 'Mã định danh (code), VD: task:create, task:delete, project:invite_member',
-    tenPermission VARCHAR(255) NOT NULL COMMENT 'Tên hiển thị, VD: Tạo công việc, Xóa công việc, Mời thành viên dự án',
-    nhom VARCHAR(100) COMMENT 'Nhóm quyền để dễ quản lý, VD: Quản lý Task, Quản lý Dự án',
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- 6. PERMISSIONS TABLE
+CREATE TABLE permissions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    permission_code VARCHAR(100) NOT NULL UNIQUE COMMENT 'Identifier code, e.g., task:create, task:delete, project:invite_member',
+    permission_name VARCHAR(255) NOT NULL COMMENT 'Display name, e.g., Create Task, Delete Task, Invite Project Member',
+    group_name VARCHAR(100) COMMENT 'Permission group for management, e.g., Task Management, Project Management',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. BẢNG MAP ROLE - PERMISSION
-CREATE TABLE RolePermission (
-    idRolePermission INT PRIMARY KEY AUTO_INCREMENT,
-    roleId INT NOT NULL,
-    permissionId INT NOT NULL,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (roleId) REFERENCES Role(idRole) ON DELETE CASCADE,
-    FOREIGN KEY (permissionId) REFERENCES Permission(idPermission) ON DELETE CASCADE,
-    UNIQUE KEY uk_rolePermission (roleId, permissionId)
+-- 7. ROLE-PERMISSION MAPPING TABLE
+CREATE TABLE role_permissions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    role_id INT NOT NULL,
+    permission_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+    FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_role_permission (role_id, permission_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. BẢNG MAP NGƯỜI DÙNG - ROLE (CHO QUYỀN HỆ THỐNG)
-CREATE TABLE NguoiDungRole (
-    idNguoiDungRole INT PRIMARY KEY AUTO_INCREMENT,
-    nguoiDungId INT NOT NULL,
-    roleId INT NOT NULL COMMENT 'FK đến Role có capDo = SYSTEM',
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (nguoiDungId) REFERENCES NguoiDung(idNguoiDung) ON DELETE CASCADE,
-    FOREIGN KEY (roleId) REFERENCES Role(idRole) ON DELETE CASCADE,
-    UNIQUE KEY uk_nguoiDungRole (nguoiDungId, roleId)
+-- 8. USER-ROLE MAPPING TABLE (FOR SYSTEM ROLES)
+CREATE TABLE user_roles (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    role_id INT NOT NULL COMMENT 'FK to Role with level = SYSTEM',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_user_role (user_id, role_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. BẢNG CÔNG TY/TỔ CHỨC
-CREATE TABLE CongTy (
-    idCongTy INT PRIMARY KEY AUTO_INCREMENT,
-    tenCongTy VARCHAR(255) NOT NULL,
-    maCongTy VARCHAR(50) UNIQUE,
-    moTa TEXT,
-    logo VARCHAR(500),
-    diaChi TEXT,
-    soDienThoai VARCHAR(20),
+-- 9. COMPANIES/ORGANIZATIONS TABLE
+CREATE TABLE companies (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    company_code VARCHAR(50) UNIQUE,
+    description TEXT,
+    logo_url VARCHAR(500),
+    address TEXT,
+    phone_number VARCHAR(20),
     email VARCHAR(255),
     website VARCHAR(255),
-    nguoiTaoId INT NOT NULL,
-    trangThai ENUM('HOAT_DONG', 'TAM_DUNG', 'DA_XOA') DEFAULT 'HOAT_DONG',
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (nguoiTaoId) REFERENCES NguoiDung(idNguoiDung) ON DELETE RESTRICT
+    created_by_id INT NOT NULL,
+    status ENUM('ACTIVE', 'SUSPENDED', 'DELETED') DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 10. BẢNG THÀNH VIÊN CÔNG TY
-CREATE TABLE CongTyThanhVien (
-    idCongTyThanhVien INT PRIMARY KEY AUTO_INCREMENT,
-    congTyId INT NOT NULL,
-    nguoiDungId INT NOT NULL,
-    roleId INT NOT NULL COMMENT 'FK đến Role (capDo = COMPANY)',
-    chucVu VARCHAR(100),
-    phongBan VARCHAR(100),
-    trangThai ENUM('HOAT_DONG', 'TAM_DUNG', 'DA_ROI') DEFAULT 'HOAT_DONG',
-    ngayThamGia TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (congTyId) REFERENCES CongTy(idCongTy) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiDungId) REFERENCES NguoiDung(idNguoiDung) ON DELETE CASCADE,
-    FOREIGN KEY (roleId) REFERENCES Role(idRole) ON DELETE RESTRICT,
-    UNIQUE KEY uk_congTyNguoiDung (congTyId, nguoiDungId)
+-- 10. COMPANY MEMBERS TABLE
+CREATE TABLE company_members (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    company_id INT NOT NULL,
+    user_id INT NOT NULL,
+    role_id INT NOT NULL COMMENT 'FK to Role (level = COMPANY)',
+    job_title VARCHAR(100),
+    department VARCHAR(100),
+    status ENUM('ACTIVE', 'SUSPENDED', 'REMOVED') DEFAULT 'ACTIVE',
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT,
+    UNIQUE KEY uk_company_user (company_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 11. BẢNG KHÔNG GIAN LÀM VIỆC (WORKSPACE)
-CREATE TABLE KhongGian (
-    idKhongGian INT PRIMARY KEY AUTO_INCREMENT,
-    congTyId INT NOT NULL,
-    tenKhongGian VARCHAR(255) NOT NULL,
-    maKhongGian VARCHAR(50),
-    moTa TEXT,
-    anhBia VARCHAR(500),
-    mauSac VARCHAR(7) DEFAULT '#3498db',
-    nguoiTaoId INT NOT NULL,
-    trangThai ENUM('HOAT_DONG', 'LUU_TRU', 'DA_XOA') DEFAULT 'HOAT_DONG',
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (congTyId) REFERENCES CongTy(idCongTy) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiTaoId) REFERENCES NguoiDung(idNguoiDung) ON DELETE RESTRICT
+-- 11. WORKSPACES TABLE
+CREATE TABLE workspaces (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    company_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    workspace_code VARCHAR(50),
+    description TEXT,
+    cover_image_url VARCHAR(500),
+    color VARCHAR(7) DEFAULT '#3498db',
+    created_by_id INT NOT NULL,
+    status ENUM('ACTIVE', 'ARCHIVED', 'DELETED') DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 12. BẢNG THÀNH VIÊN KHÔNG GIAN
-CREATE TABLE KhongGianThanhVien (
-    idKhongGianThanhVien INT PRIMARY KEY AUTO_INCREMENT,
-    khongGianId INT NOT NULL,
-    nguoiDungId INT NOT NULL,
-    roleId INT NOT NULL COMMENT 'FK đến Role (capDo = WORKSPACE)',
-    trangThai ENUM('HOAT_DONG', 'DA_ROI') DEFAULT 'HOAT_DONG',
-    ngayThamGia TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (khongGianId) REFERENCES KhongGian(idKhongGian) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiDungId) REFERENCES NguoiDung(idNguoiDung) ON DELETE CASCADE,
-    FOREIGN KEY (roleId) REFERENCES Role(idRole) ON DELETE RESTRICT,
-    UNIQUE KEY uk_khongGianNguoiDung (khongGianId, nguoiDungId)
+-- 12. WORKSPACE MEMBERS TABLE
+CREATE TABLE workspace_members (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    workspace_id INT NOT NULL,
+    user_id INT NOT NULL,
+    role_id INT NOT NULL COMMENT 'FK to Role (level = WORKSPACE)',
+    status ENUM('ACTIVE', 'REMOVED') DEFAULT 'ACTIVE',
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT,
+    UNIQUE KEY uk_workspace_user (workspace_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 13. BẢNG LOẠI DỰ ÁN
-CREATE TABLE ProjectType (
-    idProjectType INT PRIMARY KEY AUTO_INCREMENT,
-    tenLoai VARCHAR(100) NOT NULL,
-    maLoai VARCHAR(50) UNIQUE,
-    moHinh ENUM('SCRUM', 'KANBAN', 'WATERFALL', 'HYBRID') NOT NULL,
-    moTa TEXT,
-    cauHinh JSON COMMENT 'Cấu hình workflow, trạng thái, quy trình',
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- 13. PROJECT TYPES TABLE
+CREATE TABLE project_types (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    type_name VARCHAR(100) NOT NULL,
+    type_code VARCHAR(50) UNIQUE,
+    model ENUM('SCRUM', 'KANBAN', 'WATERFALL', 'HYBRID') NOT NULL,
+    description TEXT,
+    configuration JSON COMMENT 'Configuration for workflow, statuses, processes',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 14. BẢNG DỰ ÁN
-CREATE TABLE DuAn (
-    idDuAn INT PRIMARY KEY AUTO_INCREMENT,
-    khongGianId INT NOT NULL,
-    projectTypeId INT,
-    tenDuAn VARCHAR(255) NOT NULL,
-    maDuAn VARCHAR(50) NOT NULL,
-    moTa TEXT,
-    anhBia VARCHAR(500),
-    mucTieu TEXT,
-    nguoiQuanLyId INT,
-    trangThai ENUM('MOI_TAO', 'DANG_THUC_HIEN', 'TAM_DUNG', 'HOAN_THANH', 'HUY_BO') DEFAULT 'MOI_TAO',
-    uuTien ENUM('THAP', 'TRUNG_BINH', 'CAO', 'KHAN_CAP') DEFAULT 'TRUNG_BINH',
-    ngayBatDau DATE,
-    ngayKetThucDuKien DATE,
-    ngayKetThucThucTe DATE,
-    tienDo DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Phần trăm hoàn thành',
-    nguoiTaoId INT NOT NULL,
-    cauHinhBoard JSON COMMENT 'Cấu hình cột, workflow board',
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (khongGianId) REFERENCES KhongGian(idKhongGian) ON DELETE CASCADE,
-    FOREIGN KEY (projectTypeId) REFERENCES ProjectType(idProjectType) ON DELETE SET NULL,
-    FOREIGN KEY (nguoiQuanLyId) REFERENCES NguoiDung(idNguoiDung) ON DELETE SET NULL,
-    FOREIGN KEY (nguoiTaoId) REFERENCES NguoiDung(idNguoiDung) ON DELETE RESTRICT,
-    UNIQUE KEY uk_maDuAn (maDuAn, khongGianId)
+-- 14. PROJECTS TABLE
+CREATE TABLE projects (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    workspace_id INT NOT NULL,
+    project_type_id INT,
+    name VARCHAR(255) NOT NULL,
+    project_code VARCHAR(50) NOT NULL,
+    description TEXT,
+    cover_image_url VARCHAR(500),
+    goal TEXT,
+    manager_id INT,
+    status ENUM('NEW', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'CANCELLED') DEFAULT 'NEW',
+    priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') DEFAULT 'MEDIUM',
+    start_date DATE,
+    due_date DATE,
+    completed_at DATE,
+    progress DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Percentage complete',
+    created_by_id INT NOT NULL,
+    board_config JSON COMMENT 'Column configuration, board workflow',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_type_id) REFERENCES project_types(id) ON DELETE SET NULL,
+    FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE RESTRICT,
+    UNIQUE KEY uk_project_code (project_code, workspace_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 15. BẢNG THÀNH VIÊN DỰ ÁN
-CREATE TABLE DuAnThanhVien (
-    idDuAnThanhVien INT PRIMARY KEY AUTO_INCREMENT,
-    duAnId INT NOT NULL,
-    nguoiDungId INT NOT NULL,
-    roleId INT NOT NULL COMMENT 'FK đến Role (capDo = PROJECT)',
-    trangThai ENUM('HOAT_DONG', 'DA_ROI') DEFAULT 'HOAT_DONG',
-    ngayThamGia TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (duAnId) REFERENCES DuAn(idDuAn) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiDungId) REFERENCES NguoiDung(idNguoiDung) ON DELETE CASCADE,
-    FOREIGN KEY (roleId) REFERENCES Role(idRole) ON DELETE RESTRICT,
-    UNIQUE KEY uk_duAnNguoiDung (duAnId, nguoiDungId)
+-- 15. PROJECT MEMBERS TABLE
+CREATE TABLE project_members (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    project_id INT NOT NULL,
+    user_id INT NOT NULL,
+    role_id INT NOT NULL COMMENT 'FK to Role (level = PROJECT)',
+    status ENUM('ACTIVE', 'REMOVED') DEFAULT 'ACTIVE',
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT,
+    UNIQUE KEY uk_project_user (project_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 16. BẢNG SPRINT
-CREATE TABLE Sprint (
-    idSprint INT PRIMARY KEY AUTO_INCREMENT,
-    duAnId INT NOT NULL,
-    tenSprint VARCHAR(255) NOT NULL,
-    maSprint VARCHAR(50),
-    mucTieu TEXT,
-    trangThai ENUM('CHUA_BAT_DAU', 'DANG_THUC_HIEN', 'HOAN_THANH', 'HUY_BO') DEFAULT 'CHUA_BAT_DAU',
-    ngayBatDau DATE,
-    ngayKetThuc DATE,
-    thoiLuongDuKien INT COMMENT 'Số ngày dự kiến',
-    nguoiTaoId INT NOT NULL,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (duAnId) REFERENCES DuAn(idDuAn) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiTaoId) REFERENCES NguoiDung(idNguoiDung) ON DELETE RESTRICT
+-- 16. SPRINTS TABLE
+CREATE TABLE sprints (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    project_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    sprint_code VARCHAR(50),
+    goal TEXT,
+    status ENUM('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED') DEFAULT 'NOT_STARTED',
+    start_date DATE,
+    end_date DATE,
+    duration_days INT COMMENT 'Expected duration in days',
+    created_by_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 17. BẢNG EPIC
-CREATE TABLE Epic (
-    idEpic INT PRIMARY KEY AUTO_INCREMENT,
-    duAnId INT NOT NULL,
-    tenEpic VARCHAR(255) NOT NULL,
-    maEpic VARCHAR(50),
-    moTa TEXT,
-    mauSac VARCHAR(7) DEFAULT '#8e44ad',
-    trangThai ENUM('MO', 'DANG_THUC_HIEN', 'HOAN_THANH', 'DONG') DEFAULT 'MO',
-    ngayBatDau DATE,
-    ngayKetThucDuKien DATE,
-    nguoiTaoId INT NOT NULL,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (duAnId) REFERENCES DuAn(idDuAn) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiTaoId) REFERENCES NguoiDung(idNguoiDung) ON DELETE RESTRICT
+-- 17. EPICS TABLE
+CREATE TABLE epics (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    project_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    epic_code VARCHAR(50),
+    description TEXT,
+    color VARCHAR(7) DEFAULT '#8e44ad',
+    status ENUM('OPEN', 'IN_PROGRESS', 'COMPLETED', 'CLOSED') DEFAULT 'OPEN',
+    start_date DATE,
+    due_date DATE,
+    created_by_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 18. BẢNG TAG/NHÃN
-CREATE TABLE Tag (
-    idTag INT PRIMARY KEY AUTO_INCREMENT,
-    duAnId INT NOT NULL,
-    tenTag VARCHAR(100) NOT NULL,
-    mauSac VARCHAR(7) DEFAULT '#95a5a6',
-    moTa TEXT,
-    nguoiTaoId INT NOT NULL,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (duAnId) REFERENCES DuAn(idDuAn) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiTaoId) REFERENCES NguoiDung(idNguoiDung) ON DELETE RESTRICT,
-    UNIQUE KEY uk_tagDuAn (tenTag, duAnId)
+-- 18. TAGS TABLE
+CREATE TABLE tags (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    project_id INT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    color VARCHAR(7) DEFAULT '#95a5a6',
+    description TEXT,
+    created_by_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE RESTRICT,
+    UNIQUE KEY uk_tag_project (name, project_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 19. BẢNG TASK (CÔNG VIỆC)
-CREATE TABLE Task (
-    idTask INT PRIMARY KEY AUTO_INCREMENT,
-    duAnId INT NOT NULL,
-    epicId INT,
-    sprintId INT,
-    taskChaId INT COMMENT 'Nếu là subtask',
-    maTask VARCHAR(50) NOT NULL,
-    tieuDe VARCHAR(500) NOT NULL,
-    moTa TEXT,
-    loaiTask ENUM('STORY', 'TASK', 'BUG', 'EPIC', 'SUBTASK') DEFAULT 'TASK',
-    trangThai VARCHAR(50) DEFAULT 'TO_DO',
-    uuTien ENUM('THAP', 'TRUNG_BINH', 'CAO', 'KHAN_CAP') DEFAULT 'TRUNG_BINH',
-    nguoiGiaoId INT,
-    nguoiThucHienId INT,
-    nguoiDanhGiaId INT,
-    storyPoint INT COMMENT 'Điểm Story cho Scrum',
-    thoiGianUocTinh DECIMAL(10,2) COMMENT 'Thời gian ước tính (giờ)',
-    thoiGianThucTe DECIMAL(10,2) COMMENT 'Thời gian thực tế (giờ)',
-    ngayBatDau DATE,
-    ngayKetThucDuKien DATE,
-    ngayKetThucThucTe DATE,
-    thuTuHienThi INT DEFAULT 0,
-    nguoiTaoId INT NOT NULL,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (duAnId) REFERENCES DuAn(idDuAn) ON DELETE CASCADE,
-    FOREIGN KEY (epicId) REFERENCES Epic(idEpic) ON DELETE SET NULL,
-    FOREIGN KEY (sprintId) REFERENCES Sprint(idSprint) ON DELETE SET NULL,
-    FOREIGN KEY (taskChaId) REFERENCES Task(idTask) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiGiaoId) REFERENCES NguoiDung(idNguoiDung) ON DELETE SET NULL,
-    FOREIGN KEY (nguoiThucHienId) REFERENCES NguoiDung(idNguoiDung) ON DELETE SET NULL,
-    FOREIGN KEY (nguoiDanhGiaId) REFERENCES NguoiDung(idNguoiDung) ON DELETE SET NULL,
-    FOREIGN KEY (nguoiTaoId) REFERENCES NguoiDung(idNguoiDung) ON DELETE RESTRICT,
-    UNIQUE KEY uk_maTask (maTask, duAnId)
+-- 19. TASKS TABLE
+CREATE TABLE tasks (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    project_id INT NOT NULL,
+    epic_id INT,
+    sprint_id INT,
+    parent_task_id INT COMMENT 'If it is a subtask',
+    task_code VARCHAR(50) NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    description TEXT,
+    task_type ENUM('STORY', 'TASK', 'BUG', 'EPIC', 'SUBTASK') DEFAULT 'TASK',
+    status VARCHAR(50) DEFAULT 'TO_DO',
+    priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') DEFAULT 'MEDIUM',
+    assigner_id INT,
+    assignee_id INT,
+    reviewer_id INT,
+    story_points INT COMMENT 'Story points for Scrum',
+    estimated_hours DECIMAL(10,2) COMMENT 'Estimated time (hours)',
+    logged_hours DECIMAL(10,2) COMMENT 'Actual time logged (hours)',
+    start_date DATE,
+    due_date DATE,
+    completed_at DATE,
+    sort_order INT DEFAULT 0,
+    created_by_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (epic_id) REFERENCES epics(id) ON DELETE SET NULL,
+    FOREIGN KEY (sprint_id) REFERENCES sprints(id) ON DELETE SET NULL,
+    FOREIGN KEY (parent_task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigner_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE RESTRICT,
+    UNIQUE KEY uk_task_code (task_code, project_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 20. BẢNG TASK SUB (CÔNG VIỆC CON)
-CREATE TABLE TaskSub (
-    idTaskSub INT PRIMARY KEY AUTO_INCREMENT,
-    taskChaId INT NOT NULL,
-    tieuDe VARCHAR(500) NOT NULL,
-    moTa TEXT,
-    trangThai ENUM('CHUA_LAM', 'DANG_LAM', 'HOAN_THANH') DEFAULT 'CHUA_LAM',
-    nguoiThucHienId INT,
-    thoiGianUocTinh DECIMAL(10,2) COMMENT 'Thời gian ước tính (giờ)',
-    thuTuHienThi INT DEFAULT 0,
-    nguoiTaoId INT NOT NULL,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (taskChaId) REFERENCES Task(idTask) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiThucHienId) REFERENCES NguoiDung(idNguoiDung) ON DELETE SET NULL,
-    FOREIGN KEY (nguoiTaoId) REFERENCES NguoiDung(idNguoiDung) ON DELETE RESTRICT
+-- 20. SUB-TASKS TABLE
+CREATE TABLE sub_tasks (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    parent_task_id INT NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    description TEXT,
+    status ENUM('TO_DO', 'IN_PROGRESS', 'DONE') DEFAULT 'TO_DO',
+    assignee_id INT,
+    estimated_hours DECIMAL(10,2) COMMENT 'Estimated time (hours)',
+    sort_order INT DEFAULT 0,
+    created_by_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 21. BẢNG LIÊN KẾT TAG VÀ TASK
-CREATE TABLE TagTask (
-    idTagTask INT PRIMARY KEY AUTO_INCREMENT,
-    tagId INT NOT NULL,
-    taskId INT NOT NULL,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (tagId) REFERENCES Tag(idTag) ON DELETE CASCADE,
-    FOREIGN KEY (taskId) REFERENCES Task(idTask) ON DELETE CASCADE,
-    UNIQUE KEY uk_tagTask (tagId, taskId)
+-- 21. TASK-TAG MAPPING TABLE
+CREATE TABLE task_tags (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    tag_id INT NOT NULL,
+    task_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_tag_task (tag_id, task_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 22. BẢNG BÌNH LUẬN TASK
-CREATE TABLE TaskComment (
-    idTaskComment INT PRIMARY KEY AUTO_INCREMENT,
-    taskId INT NOT NULL,
-    nguoiBinhLuanId INT NOT NULL,
-    noiDung TEXT NOT NULL,
-    commentChaId INT COMMENT 'Trả lời comment khác',
-    daChinhSua BOOLEAN DEFAULT FALSE,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (taskId) REFERENCES Task(idTask) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiBinhLuanId) REFERENCES NguoiDung(idNguoiDung) ON DELETE CASCADE,
-    FOREIGN KEY (commentChaId) REFERENCES TaskComment(idTaskComment) ON DELETE CASCADE
+-- 22. TASK COMMENTS TABLE
+CREATE TABLE task_comments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    task_id INT NOT NULL,
+    commenter_id INT NOT NULL,
+    content TEXT NOT NULL,
+    parent_comment_id INT COMMENT 'Reply to another comment',
+    is_edited BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (commenter_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_comment_id) REFERENCES task_comments(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 23. BẢNG TỆP ĐÍNH KÈM TASK
-CREATE TABLE TaskAttachment (
-    idTaskAttachment INT PRIMARY KEY AUTO_INCREMENT,
-    taskId INT NOT NULL,
-    tenFile VARCHAR(500) NOT NULL,
-    duongDan VARCHAR(1000) NOT NULL,
-    loaiFile VARCHAR(100),
-    kichThuoc BIGINT COMMENT 'Kích thước file (bytes)',
-    nguoiTaiLenId INT NOT NULL,
-    ngayTaiLen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (taskId) REFERENCES Task(idTask) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiTaiLenId) REFERENCES NguoiDung(idNguoiDung) ON DELETE CASCADE
+-- 23. TASK ATTACHMENTS TABLE
+CREATE TABLE task_attachments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    task_id INT NOT NULL,
+    file_name VARCHAR(500) NOT NULL,
+    file_path VARCHAR(1000) NOT NULL,
+    file_type VARCHAR(100),
+    file_size BIGINT COMMENT 'File size in bytes',
+    uploaded_by_id INT NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 24. BẢNG THÔNG BÁO
-CREATE TABLE ThongBao (
-    idThongBao INT PRIMARY KEY AUTO_INCREMENT,
-    tieuDe VARCHAR(500) NOT NULL,
-    noiDung TEXT NOT NULL,
-    loaiThongBao ENUM('HE_THONG', 'DU_AN', 'TASK', 'BINH_LUAN', 'MENTION', 'DEADLINE') NOT NULL,
-    lienKet VARCHAR(500) COMMENT 'Link đến nội dung liên quan',
-    duAnId INT,
-    taskId INT,
-    nguoiTaoId INT,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (duAnId) REFERENCES DuAn(idDuAn) ON DELETE CASCADE,
-    FOREIGN KEY (taskId) REFERENCES Task(idTask) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiTaoId) REFERENCES NguoiDung(idNguoiDung) ON DELETE SET NULL
+-- 24. NOTIFICATIONS TABLE
+CREATE TABLE notifications (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(500) NOT NULL,
+    content TEXT NOT NULL,
+    notification_type ENUM('SYSTEM', 'PROJECT', 'TASK', 'COMMENT', 'MENTION', 'DEADLINE') NOT NULL,
+    link_url VARCHAR(500) COMMENT 'Link to the related content',
+    project_id INT,
+    task_id INT,
+    created_by_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 25. BẢNG THÔNG BÁO - THÀNH VIÊN
-CREATE TABLE ThongBaoThanhVien (
-    idThongBaoThanhVien INT PRIMARY KEY AUTO_INCREMENT,
-    thongBaoId INT NOT NULL,
-    nguoiNhanId INT NOT NULL,
-    daDoc BOOLEAN DEFAULT FALSE,
-    ngayDoc TIMESTAMP NULL,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (thongBaoId) REFERENCES ThongBao(idThongBao) ON DELETE CASCADE,
-    FOREIGN KEY (nguoiNhanId) REFERENCES NguoiDung(idNguoiDung) ON DELETE CASCADE,
-    UNIQUE KEY uk_thongBaoNguoiNhan (thongBaoId, nguoiNhanId)
+-- 25. USER NOTIFICATIONS TABLE
+CREATE TABLE user_notifications (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    notification_id INT NOT NULL,
+    recipient_id INT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
+    FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_notification_recipient (notification_id, recipient_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 26. BẢNG LỜI MỜI VÀO CÔNG TY
-CREATE TABLE CongTyLoiMoi (
-    idLoiMoi INT PRIMARY KEY AUTO_INCREMENT,
-    congTyId INT NOT NULL,
-    email VARCHAR(255) NOT NULL COMMENT 'Email của người được mời',
-    roleId INT NOT NULL COMMENT 'Role sẽ được gán sau khi chấp nhận',
-    nguoiMoiId INT NOT NULL COMMENT 'Admin đã gửi lời mời',
+-- 26. COMPANY INVITATIONS TABLE
+CREATE TABLE company_invitations (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    company_id INT NOT NULL,
+    email VARCHAR(255) NOT NULL COMMENT 'Email of the invitee',
+    role_id INT NOT NULL COMMENT 'Role to be assigned upon acceptance',
+    invited_by_id INT NOT NULL COMMENT 'Admin who sent the invitation',
     
-    token VARCHAR(255) NOT NULL UNIQUE COMMENT 'Một chuỗi token duy nhất cho lời mời này',
-    trangThai ENUM('PENDING', 'ACCEPTED', 'EXPIRED', 'CANCELLED') DEFAULT 'PENDING',
+    token VARCHAR(255) NOT NULL UNIQUE COMMENT 'A unique token for this invitation',
+    status ENUM('PENDING', 'ACCEPTED', 'EXPIRED', 'CANCELLED') DEFAULT 'PENDING',
     
-    ngayHetHan TIMESTAMP NOT NULL,
-    ngayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ngayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
-    FOREIGN KEY (congTyId) REFERENCES CongTy(idCongTy) ON DELETE CASCADE,
-    FOREIGN KEY (roleId) REFERENCES Role(idRole) ON DELETE RESTRICT,
-    FOREIGN KEY (nguoiMoiId) REFERENCES NguoiDung(idNguoiDung) ON DELETE CASCADE,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT,
+    FOREIGN KEY (invited_by_id) REFERENCES users(id) ON DELETE CASCADE,
     
-    UNIQUE KEY uk_congTy_email_pending (congTyId, email, trangThai)
+    UNIQUE KEY uk_company_email_pending (company_id, email, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- DU LIEU MAU NGUOI DUNG (admin123)
-INSERT INTO NguoiDung (idNguoiDung, email, matKhau, hoTen, xacThucEmail, trangThai) VALUES
-(1, 'system.admin@app.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Admin Hệ Thống', 1, 'HOAT_DONG'),
-(2, 'company.admin.c1@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Admin Công Ty 1', 1, 'HOAT_DONG'),
-(3, 'company.member.c1@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Member Công Ty 1', 1, 'HOAT_DONG'),
-(4, 'company.admin.c2@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Admin Công Ty 2', 1, 'HOAT_DONG'),
-(5, 'user.chua.xac.thuc@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'User Mới', 0, 'HOAT_DONG');
+-- SAMPLE DATA USERS (password is "admin123")
+INSERT INTO users (id, email, password, full_name, is_email_verified, status) VALUES
+(1, 'system.admin@app.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'System Admin', 1, 'ACTIVE'),
+(2, 'company.admin.c1@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Company 1 Admin', 1, 'ACTIVE'),
+(3, 'company.member.c1@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Company 1 Member', 1, 'ACTIVE'),
+(4, 'company.admin.c2@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Company 2 Admin', 1, 'ACTIVE'),
+(5, 'user.unverified@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'New User', 0, 'ACTIVE');
 
--- DU LIEU MAU KHONG GIAN
-INSERT INTO Role (idRole, maRole, tenRole, capDo) VALUES
-(1, 'SYSTEM_ADMIN', 'Quản trị Hệ thống', 'SYSTEM'),
-(2, 'COMPANY_ADMIN', 'Quản trị Công ty', 'COMPANY'),
-(3, 'COMPANY_MEMBER', 'Thành viên Công ty', 'COMPANY'),
-(4, 'WORKSPACE_ADMIN', 'Quản trị Không gian', 'WORKSPACE'),
-(5, 'WORKSPACE_MEMBER', 'Thành viên Không gian', 'WORKSPACE');
+-- SAMPLE DATA ROLES
+INSERT INTO roles (id, role_code, role_name, level) VALUES
+(1, 'SYSTEM_ADMIN', 'System Administrator', 'SYSTEM'),
+(2, 'COMPANY_ADMIN', 'Company Administrator', 'COMPANY'),
+(3, 'COMPANY_MEMBER', 'Company Member', 'COMPANY'),
+(4, 'WORKSPACE_ADMIN', 'Workspace Administrator', 'WORKSPACE'),
+(5, 'WORKSPACE_MEMBER', 'Workspace Member', 'WORKSPACE');
 
--- DU LIEU MAU CONG TY
-INSERT INTO CongTy (idCongTy, tenCongTy, maCongTy, nguoiTaoId, trangThai) VALUES
-(1, 'Công ty PixelCore Inc.', 'PIXEL', 2, 'HOAT_DONG'),
-(2, 'Công ty QuantumLeap Solutions', 'QUANTUM', 4, 'HOAT_DONG'),
-(3, 'Công ty NovaTech (Cty của Admin)', 'NOVA', 1, 'HOAT_DONG');
+-- SAMPLE DATA COMPANIES
+INSERT INTO companies (id, name, company_code, created_by_id, status) VALUES
+(1, 'PixelCore Inc.', 'PIXEL', 2, 'ACTIVE'),
+(2, 'QuantumLeap Solutions', 'QUANTUM', 4, 'ACTIVE'),
+(3, 'NovaTech (Admin''s Co)', 'NOVA', 1, 'ACTIVE');
 
--- DU LIEU MAU CONG TY THANH VIEN
-INSERT INTO CongTyThanhVien (idCongTyThanhVien, congTyId, nguoiDungId, roleId, trangThai) VALUES
-(1, 1, 2, 2, 'HOAT_DONG'), -- User 2 là COMPANY_ADMIN của Cty 1
-(2, 1, 3, 3, 'HOAT_DONG'), -- User 3 là COMPANY_MEMBER của Cty 1
-(3, 2, 4, 2, 'HOAT_DONG'), -- User 4 là COMPANY_ADMIN của Cty 2
-(4, 3, 1, 2, 'HOAT_DONG'), -- User 1 (SysAdmin) cũng là COMPANY_ADMIN của Cty 3
-(5, 1, 4, 3, 'HOAT_DONG'); -- User 4 cũng là COMPANY_MEMBER của Cty 1 (test ở 2 cty)
+-- SAMPLE DATA COMPANY MEMBERS
+INSERT INTO company_members (id, company_id, user_id, role_id, status) VALUES
+(1, 1, 2, 2, 'ACTIVE'), -- User 2 is COMPANY_ADMIN of Co 1
+(2, 1, 3, 3, 'ACTIVE'), -- User 3 is COMPANY_MEMBER of Co 1
+(3, 2, 4, 2, 'ACTIVE'), -- User 4 is COMPANY_ADMIN of Co 2
+(4, 3, 1, 2, 'ACTIVE'), -- User 1 (SysAdmin) is also COMPANY_ADMIN of Co 3
+(5, 1, 4, 3, 'ACTIVE'); -- User 4 is also a COMPANY_MEMBER of Co 1 (tests multi-company)
 
--- DU LIEU MAU KHONG GIAN
-INSERT INTO KhongGian (idKhongGian, congTyId, tenKhongGian, nguoiTaoId, trangThai) VALUES
-(1, 1, 'Pixel - Marketing', 2, 'HOAT_DONG'), -- Thuộc Cty 1
-(2, 1, 'Pixel - Engineering', 2, 'HOAT_DONG'), -- Thuộc Cty 1
-(3, 2, 'Quantum - Sales', 4, 'HOAT_DONG'), -- Thuộc Cty 2
-(4, 2, 'Quantum - HR', 4, 'LUU_TRU'), -- Thuộc Cty 2
-(5, 3, 'Nova - General', 1, 'HOAT_DONG'); -- Thuộc Cty 3
+-- SAMPLE DATA WORKSPACES
+INSERT INTO workspaces (id, company_id, name, created_by_id, status) VALUES
+(1, 1, 'Pixel - Marketing', 2, 'ACTIVE'), -- Belongs to Co 1
+(2, 1, 'Pixel - Engineering', 2, 'ACTIVE'), -- Belongs to Co 1
+(3, 2, 'Quantum - Sales', 4, 'ACTIVE'), -- Belongs to Co 2
+(4, 2, 'Quantum - HR', 4, 'ARCHIVED'), -- Belongs to Co 2
+(5, 3, 'Nova - General', 1, 'ACTIVE'); -- Belongs to Co 3
 
--- DU LIEU MAU KHONG GIAN THANH VIEN
-INSERT INTO KhongGianThanhVien (idKhongGianThanhVien, khongGianId, nguoiDungId, roleId, trangThai) VALUES
-(1, 1, 2, 4, 'HOAT_DONG'), -- User 2 (Admin C1) là WORKSPACE_ADMIN của WS 1
-(2, 1, 3, 5, 'HOAT_DONG'), -- User 3 (Member C1) là WORKSPACE_MEMBER của WS 1
-(3, 2, 2, 4, 'HOAT_DONG'), -- User 2 (Admin C1) cũng là WORKSPACE_ADMIN của WS 2
-(4, 3, 4, 4, 'HOAT_DONG'), -- User 4 (Admin C2) là WORKSPACE_ADMIN của WS 3
-(5, 1, 4, 5, 'HOAT_DONG'); -- User 4 (Ở Cty 2) cũng là WORKSPACE_MEMBER của WS 1 (Cty 1)
+-- SAMPLE DATA WORKSPACE MEMBERS
+INSERT INTO workspace_members (id, workspace_id, user_id, role_id, status) VALUES
+(1, 1, 2, 4, 'ACTIVE'), -- User 2 (Admin C1) is WORKSPACE_ADMIN of WS 1
+(2, 1, 3, 5, 'ACTIVE'), -- User 3 (Member C1) is WORKSPACE_MEMBER of WS 1
+(3, 2, 2, 4, 'ACTIVE'), -- User 2 (Admin C1) is also WORKSPACE_ADMIN of WS 2
+(4, 3, 4, 4, 'ACTIVE'), -- User 4 (Admin C2) is WORKSPACE_ADMIN of WS 3
+(5, 1, 4, 5, 'ACTIVE'); -- User 4 (from Co 2) is also WORKSPACE_MEMBER of WS 1 (Co 1)
 
--- DU LIEU LOI MOI
-INSERT INTO CongTyLoiMoi (idLoiMoi, congTyId, email, roleId, nguoiMoiId, token, trangThai, ngayHetHan) VALUES
-(1, 1, 'user.moi.tinh@example.com', 3, 2, 'token-pending-1', 'PENDING', '2025-12-01 00:00:00'),
-(2, 1, 'user.chua.xac.thuc@example.com', 3, 2, 'token-pending-2', 'PENDING', '2025-12-01 00:00:00'),
+-- SAMPLE DATA INVITATIONS
+INSERT INTO company_invitations (id, company_id, email, role_id, invited_by_id, token, status, expires_at) VALUES
+(1, 1, 'user.new@example.com', 3, 2, 'token-pending-1', 'PENDING', '2025-12-01 00:00:00'),
+(2, 1, 'user.unverified@example.com', 3, 2, 'token-pending-2', 'PENDING', '2025-12-01 00:00:00'),
 (3, 2, 'accepted.user@example.com', 3, 4, 'token-accepted-3', 'ACCEPTED', '2025-10-01 00:00:00'),
 (4, 2, 'expired.user@example.com', 3, 4, 'token-expired-4', 'EXPIRED', '2025-10-01 00:00:00'),
 (5, 2, 'company.member.c1@example.com', 3, 4, 'token-pending-5', 'PENDING', '2025-12-01 00:00:00');
 
--- DU LIEU MAU TOKEN
-INSERT INTO Token (idToken, nguoiDungId, token, loaiToken, trangThai, ngayHetHan) VALUES
-(1, 1, 'token-email-user-1', 'EMAIL_VERIFICATION', 'DA_THU_HOI', '2025-01-01 00:00:00'),
-(2, 2, 'token-email-user-2', 'EMAIL_VERIFICATION', 'DA_THU_HOI', '2025-01-01 00:00:00'),
-(3, 3, 'token-email-user-3', 'EMAIL_VERIFICATION', 'DA_THU_HOI', '2025-01-01 00:00:00'),
-(4, 4, 'token-email-user-4', 'EMAIL_VERIFICATION', 'DA_THU_HOI', '2025-01-01 00:00:00'),
-(5, 5, '123456', 'EMAIL_VERIFICATION', 'HOAT_DONG', '2025-12-01 00:00:00');
-
+-- SAMPLE DATA TOKENS
+INSERT INTO auth_tokens (id, user_id, token, token_type, status, expires_at) VALUES
+(1, 1, 'token-email-user-1', 'EMAIL_VERIFICATION', 'REVOKED', '2025-01-01 00:00:00'),
+(2, 2, 'token-email-user-2', 'EMAIL_VERIFICATION', 'REVOKED', '2025-01-01 00:00:00'),
+(3, 3, 'token-email-user-3', 'EMAIL_VERIFICATION', 'REVOKED', '2025-01-01 00:00:00'),
+(4, 4, 'token-email-user-4', 'EMAIL_VERIFICATION', 'REVOKED', '2025-01-01 00:00:00'),
+(5, 5, '123456', 'EMAIL_VERIFICATION', 'ACTIVE', '2025-12-01 00:00:00');

@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/InvitationServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -5,8 +6,8 @@ import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import com.quanlyduan.project_manager_api.repository.CongTyLoiMoiRepository;
-import com.quanlyduan.project_manager_api.repository.CongTyThanhVienRepository;
+import com.quanlyduan.project_manager_api.repository.CompanyInvitationRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; // Đã dịch
 import com.quanlyduan.project_manager_api.service.InvitationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,36 +18,36 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class InvitationServiceImpl implements InvitationService {
 
-    private final CongTyLoiMoiRepository congTyLoiMoiRepository;
-    private final CongTyThanhVienRepository congTyThanhVienRepository;
+    private final CompanyInvitationRepository companyInvitationRepository; // Đã dịch
+    private final CompanyMemberRepository companyMemberRepository; // Đã dịch
 
     // LOGIC TẠO TOKEN LOI MOI
     @Override
-    public CongTyLoiMoi validateInvitationToken(String token) {
-        CongTyLoiMoi loiMoi = congTyLoiMoiRepository.findByToken(token)
-                .orElseThrow(() -> new ResourceNotFoundException("Token lời mời không hợp lệ"));
+    public CompanyInvitation validateInvitationToken(String token) { // Đã dịch
+        CompanyInvitation invitation = companyInvitationRepository.findByToken(token) // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid invitation token")); // Đã dịch
 
-        if (loiMoi.getTrangThai() != InvitationStatus.PENDING) {
-            throw new BadRequestException("Lời mời đã được xử lý hoặc đã hủy");
+        if (invitation.getStatus() != InvitationStatus.PENDING) { // Đã dịch
+            throw new BadRequestException("This invitation has already been processed or canceled"); // Đã dịch
         }
 
-        if (loiMoi.getNgayHetHan().isBefore(LocalDateTime.now())) {
-            loiMoi.setTrangThai(InvitationStatus.EXPIRED);
-            congTyLoiMoiRepository.save(loiMoi);
-            throw new BadRequestException("Lời mời đã hết hạn");
+        if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) { // Đã dịch
+            invitation.setStatus(InvitationStatus.EXPIRED); // Đã dịch
+            companyInvitationRepository.save(invitation); // Đã dịch
+            throw new BadRequestException("This invitation has expired"); // Đã dịch
         }
-        return loiMoi;
+        return invitation; // Đã dịch
     }
 
     // LOGIC THEM THANH VIEN
     @Override
-    public void addMemberToCompany(NguoiDung user, CongTy congTy, Role role) {
-        CongTyThanhVien membership = CongTyThanhVien.builder()
-                .nguoiDung(user)
-                .congTy(congTy)
+    public void addMemberToCompany(User user, Company company, Role role) { // Đã dịch
+        CompanyMember membership = CompanyMember.builder() // Đã dịch
+                .user(user) // Đã dịch
+                .company(company) // Đã dịch
                 .role(role)
-                .trangThai(MemberStatus.HOAT_DONG)
+                .status(MemberStatus.ACTIVE) // Đã dịch
                 .build();
-        congTyThanhVienRepository.save(membership);
+        companyMemberRepository.save(membership); // Đã dịch
     }
 }

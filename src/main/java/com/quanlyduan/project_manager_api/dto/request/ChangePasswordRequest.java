@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/ChangePasswordRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
@@ -7,13 +8,13 @@ import lombok.Data;
 @Data
 public class ChangePasswordRequest {
 
-    @NotBlank(message = "Mật khẩu cũ không được để trống")
+    @NotBlank(message = "Old password must not be blank") // Đã dịch
     private String oldPassword;
 
-    @NotBlank(message = "Mật khẩu mới không được để trống")
-    @Size(min = 6, message = "Mật khẩu mới phải có ít nhất 6 ký tự")
+    @NotBlank(message = "New password must not be blank") // Đã dịch
+    @Size(min = 6, message = "New password must be at least 6 characters long") // Đã dịch
     private String newPassword;
 
-    @NotBlank(message = "Mật khẩu xác nhận không được để trống")
+    @NotBlank(message = "Confirm new password must not be blank") // Đã dịch
     private String confirmNewPassword;
 }

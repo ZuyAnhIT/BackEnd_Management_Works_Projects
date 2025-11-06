@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/CompanyDetailsResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
 import lombok.AllArgsConstructor;
@@ -10,14 +11,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CompanyDetailsResponse {
-    private Integer idCongTy;
-    private String tenCongTy;
-    private String maCongTy;
-    private String moTa;
+    private Integer companyId; // Đã dịch
+    private String companyName; // Đã dịch
+    private String companyCode; // Đã dịch
+    private String description; // Đã dịch
     private String logo;
-    private String diaChi;
-    private String soDienThoai;
+    private String address; // Đã dịch
+    private String phoneNumber; // Đã dịch
     private String email;
     private String website;
-    private Integer nguoiTaoId; // Có thể cần để biết ai là owner
+    private Integer createdById; // Có thể cần để biết ai là owner // Đã dịch
 }

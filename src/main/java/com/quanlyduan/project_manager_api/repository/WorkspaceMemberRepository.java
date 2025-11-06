@@ -1,6 +1,7 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/repository/WorkspaceMemberRepository.java
 package com.quanlyduan.project_manager_api.repository;
 
-import com.quanlyduan.project_manager_api.model.KhongGianThanhVien;
+import com.quanlyduan.project_manager_api.model.WorkspaceMember; // Đã dịch
 
 import java.util.List;
 import java.util.Optional;
@@ -9,7 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface KhongGianThanhVienRepository extends JpaRepository<KhongGianThanhVien, Integer> {
+public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember, Integer> { // Đã dịch
 
     // *** THÊM PHƯƠNG THỨC NÀY ***
     /**
@@ -18,10 +19,10 @@ public interface KhongGianThanhVienRepository extends JpaRepository<KhongGianTha
      * @param nguoiDungId ID của người dùng
      * @return Optional<KhongGianThanhVien>
      */
-    Optional<KhongGianThanhVien> findByKhongGian_IdKhongGianAndNguoiDung_IdNguoiDung(
-        Integer khongGianId, Integer nguoiDungId
+    Optional<WorkspaceMember> findByWorkspace_IdAndUser_Id( // Đã dịch
+        Integer workspaceId, Integer userId // Đã dịch
     );
 
-    List<KhongGianThanhVien> findByNguoiDung_IdNguoiDung(Integer nguoiDungId);
+    List<WorkspaceMember> findByUser_Id(Integer userId); // Đã dịch
     
 }

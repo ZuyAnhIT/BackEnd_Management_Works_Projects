@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/controller/AuthController.java
 package com.quanlyduan.project_manager_api.controller;
 
 
@@ -32,7 +33,7 @@ public class AuthController {
         
         
         ApiResponse<Object> response = ApiResponse.success(
-            "Đăng ký thành công. Vui lòng kiểm tra email để xác thực (OTP).", 
+            "Registration successful. Please check your email for OTP verification.", 
             null
         );
         return ResponseEntity.ok(response);
@@ -47,7 +48,7 @@ public class AuthController {
         
         // Trả về ApiResponse chứa Access Token và Refresh Token
         ApiResponse<LoginResponse> response = ApiResponse.success(
-            "Đăng nhập thành công",
+            "Login successful",
             loginResponse
         );
         return ResponseEntity.ok(response);
@@ -58,7 +59,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Object>> logoutUser(@Valid @RequestBody LogoutRequest logoutRequest) {
         authService.logout(logoutRequest);
         
-        return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công", null));
+        return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
     }
 
 
@@ -69,7 +70,7 @@ public class AuthController {
         
         
         ApiResponse<Object> response = ApiResponse.success(
-            "Xác thực email thành công.", 
+            "Email verified successfully.", 
             null
         );
         return ResponseEntity.ok(response);
@@ -84,7 +85,7 @@ public class AuthController {
         
         LoginResponse loginResponse = authService.registerFromInvite(request);
         return ResponseEntity.ok(ApiResponse.success(
-            "Đăng ký và tham gia công ty thành công", loginResponse
+            "Registration and company join successful", loginResponse
         ));
     }
 }

@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/model/common/enums/CombinedMemberStatus.java
 package com.quanlyduan.project_manager_api.model.common.enums;
 
 public enum CombinedMemberStatus {

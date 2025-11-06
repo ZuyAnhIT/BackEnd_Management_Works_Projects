@@ -1,7 +1,8 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/model/common/enums/MemberStatus.java
 package com.quanlyduan.project_manager_api.model.common.enums;
 
 public enum MemberStatus {
-    HOAT_DONG, 
-    TAM_DUNG,
-    DA_ROI
+    ACTIVE, // Đã dịch
+    SUSPENDED, // Đã dịch
+    REMOVED // Đã dịch
 }

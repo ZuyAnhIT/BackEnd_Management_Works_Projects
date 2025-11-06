@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/UpdateCompanyRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import jakarta.validation.constraints.Size;
@@ -8,13 +9,13 @@ public class UpdateCompanyRequest {
 
     // Admin có thể chỉ gửi 1 trong các trường này, không bắt buộc tất cả
     
-    @Size(min = 3, max = 255, message = "Tên công ty phải từ 3 đến 255 ký tự")
-    private String tenCongTy;
+    @Size(min = 3, max = 255, message = "Company name must be between 3 and 255 characters") // Đã dịch
+    private String companyName; // Đã dịch
 
-    private String moTa;
+    private String description; // Đã dịch
     private String logo;
-    private String diaChi;
-    private String soDienThoai;
+    private String address; // Đã dịch
+    private String phoneNumber; // Đã dịch
     private String email;
     private String website;
 }

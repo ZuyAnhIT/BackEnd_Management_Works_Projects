@@ -1,20 +1,21 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/AuthServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
-import com.quanlyduan.project_manager_api.model.CongTy;
-import com.quanlyduan.project_manager_api.model.CongTyLoiMoi;
-import com.quanlyduan.project_manager_api.model.CongTyThanhVien;
-import com.quanlyduan.project_manager_api.model.NguoiDung;
-import com.quanlyduan.project_manager_api.model.Token;
+// import com.quanlyduan.project_manager_api.model.CongTy; // Not used
+import com.quanlyduan.project_manager_api.model.CompanyInvitation; // Đã dịch
+// import com.quanlyduan.project_manager_api.model.CongTyThanhVien; // Not used
+import com.quanlyduan.project_manager_api.model.User; // Đã dịch
+import com.quanlyduan.project_manager_api.model.AuthToken; // Đã dịch
 import com.quanlyduan.project_manager_api.model.common.enums.TokenType;
 import com.quanlyduan.project_manager_api.model.common.enums.UserStatus;
-import com.quanlyduan.project_manager_api.repository.CongTyLoiMoiRepository;
-import com.quanlyduan.project_manager_api.repository.CongTyThanhVienRepository;
-import com.quanlyduan.project_manager_api.repository.NguoiDungRepository;
-import com.quanlyduan.project_manager_api.repository.TokenRepository;
+import com.quanlyduan.project_manager_api.repository.CompanyInvitationRepository; // Đã dịch
+// import com.quanlyduan.project_manager_api.repository.CongTyThanhVienRepository; // Not used
+import com.quanlyduan.project_manager_api.repository.UserRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.AuthTokenRepository; // Đã dịch
 import com.quanlyduan.project_manager_api.security.UserPrincipal;
 import com.quanlyduan.project_manager_api.security.jwt.JwtTokenProvider;
 import com.quanlyduan.project_manager_api.service.AuthService;
@@ -32,7 +33,7 @@ import com.quanlyduan.project_manager_api.service.InvitationService;
 import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
 import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+// import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus; // Not used
 import com.quanlyduan.project_manager_api.model.common.enums.TokenStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -46,8 +47,8 @@ import java.util.Random;
 @RequiredArgsConstructor // Tự động @Autowired các trường final
 public class AuthServiceImpl implements AuthService {
 
-    private final NguoiDungRepository nguoiDungRepository;
-    private final TokenRepository tokenRepository;
+    private final UserRepository userRepository; // Đã dịch
+    private final AuthTokenRepository authTokenRepository; // Đã dịch
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     
@@ -59,7 +60,7 @@ public class AuthServiceImpl implements AuthService {
 
     // TIÊM SERVICE MỚI
     private final InvitationService invitationService;
-    private final CongTyLoiMoiRepository congTyLoiMoiRepository;
+    private final CompanyInvitationRepository companyInvitationRepository; // Đã dịch
     
     private static final long OTP_EXPIRATION_MINUTES = 10;
     
@@ -69,24 +70,24 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void register(RegisterRequest request) {
         // 1. Kiểm tra email tồn tại
-        if (nguoiDungRepository.existsByEmail(request.getEmail())) {
-            throw new BadRequestException("Email đã được sử dụng");
+        if (userRepository.existsByEmail(request.getEmail())) { // Đã dịch
+            throw new BadRequestException("This email is already in use"); // Đã dịch
         }
 
         // 2. Hash mật khẩu
-        String hashedPassword = passwordEncoder.encode(request.getMatKhau());
+        String hashedPassword = passwordEncoder.encode(request.getPassword()); // Đã dịch
 
         // 3. Tạo NguoiDung mới
-        NguoiDung newUser = NguoiDung.builder()
-                .hoTen(request.getHoTen())
+        User newUser = User.builder() // Đã dịch
+                .fullName(request.getFullName()) // Đã dịch
                 .email(request.getEmail())
-                .matKhau(hashedPassword)
-                .trangThai(UserStatus.HOAT_DONG)
-                .xacThucEmail(false)
+                .password(hashedPassword) // Đã dịch
+                .status(UserStatus.ACTIVE) // Đã dịch
+                .isEmailVerified(false) // Đã dịch
                 .build();
 
         // 4. Lưu người dùng
-        NguoiDung savedUser = nguoiDungRepository.save(newUser);
+        User savedUser = userRepository.save(newUser); // Đã dịch
 
         // 5. Tạo và gửi token xác thực
         sendVerificationEmail(savedUser);
@@ -100,7 +101,7 @@ public class AuthServiceImpl implements AuthService {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
-                        request.getMatKhau()
+                        request.getPassword() // Đã dịch
                 )
         );
         
@@ -108,8 +109,8 @@ public class AuthServiceImpl implements AuthService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // 3. Lấy thông tin NguoiDung (chúng ta cần Id để lưu RefreshToken)
-        NguoiDung user = nguoiDungRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Lỗi lạ: Không tìm thấy user sau khi đăng nhập"));
+        User user = userRepository.findByEmail(request.getEmail()) // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Error: User not found after login")); // Đã dịch
                 
         // 4. Tạo Access Token
         String accessToken = jwtTokenProvider.generateAccessToken(authentication);
@@ -129,19 +130,19 @@ public class AuthServiceImpl implements AuthService {
     
     // --- Private Helper Methods ---
 
-    private void saveRefreshTokenToDB(NguoiDung user, String refreshToken) {
+    private void saveRefreshTokenToDB(User user, String refreshToken) { // Đã dịch
         
-        Token token = Token.builder()
-                .nguoiDung(user)
+        AuthToken token = AuthToken.builder() // Đã dịch
+                .user(user) // Đã dịch
                 .token(refreshToken)
-                .loaiToken(TokenType.REFRESH)
-                .trangThai(TokenStatus.HOAT_DONG)
+                .tokenType(TokenType.REFRESH) // Đã dịch
+                .status(TokenStatus.ACTIVE) // Đã dịch
                 
                 // Đổi logic ở dòng này từ .plusMillis() sang .plusMinutes()
-                .ngayHetHan(LocalDateTime.now().plusMinutes(refreshTokenExpirationMin))
+                .expiresAt(LocalDateTime.now().plusMinutes(refreshTokenExpirationMin)) // Đã dịch
                 
                 .build();
-        tokenRepository.save(token);
+        authTokenRepository.save(token); // Đã dịch
     }
 
 
@@ -150,8 +151,8 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void logout(LogoutRequest request) {
         // 1. Tìm Refresh Token trong CSDL
-        Token storedToken = tokenRepository
-                .findByTokenAndLoaiToken(request.getRefreshToken(), TokenType.REFRESH)
+        AuthToken storedToken = authTokenRepository // Đã dịch
+                .findByTokenAndTokenType(request.getRefreshToken(), TokenType.REFRESH) // Đã dịch
                 .orElse(null); // Không ném lỗi, chỉ đơn giản là không tìm thấy
 
         if (storedToken == null) {
@@ -161,74 +162,74 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 2. Xóa token khỏi CSDL
-        tokenRepository.delete(storedToken);
+        authTokenRepository.delete(storedToken); // Đã dịch
         
         // (Cách 2: Nếu bạn muốn giữ lại lịch sử)
         // storedToken.setTrangThai(TokenStatus.DA_THU_HOI);
         // tokenRepository.save(storedToken);
     }
-     
+        
 
     // LOGIC XAC THUC MAIL
     @Override
     @Transactional
     public void verifyEmail(VerifyEmailRequest request) {
         // 1. Tìm người dùng
-        NguoiDung user = nguoiDungRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + request.getEmail()));
+        User user = userRepository.findByEmail(request.getEmail()) // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail())); // Đã dịch
 
         // 2. Kiểm tra nếu đã xác thực
-        if (user.getXacThucEmail()) {
-            throw new BadRequestException("Email này đã được xác thực");
+        if (user.getIsEmailVerified()) { // Đã dịch
+            throw new BadRequestException("This email has already been verified"); // Đã dịch
         }
         
         // 3. Tìm token (OTP)
-        Token token = tokenRepository.findByTokenAndLoaiToken(request.getOtp(), TokenType.EMAIL_VERIFICATION)
-                .orElseThrow(() -> new ResourceNotFoundException("OTP không hợp lệ"));
+        AuthToken token = authTokenRepository.findByTokenAndTokenType(request.getOtp(), TokenType.EMAIL_VERIFICATION) // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid OTP")); // Đã dịch
 
         // 4. Kiểm tra token có đúng của người dùng này không
-        if (!token.getNguoiDung().getIdNguoiDung().equals(user.getIdNguoiDung())) {
-             throw new BadRequestException("OTP không hợp lệ");
+        if (!token.getUser().getId().equals(user.getId())) { // Đã dịch
+             throw new BadRequestException("Invalid OTP"); // Đã dịch
         }
 
         // 5. Kiểm tra token hết hạn
-        if (token.getNgayHetHan().isBefore(LocalDateTime.now())) {
+        if (token.getExpiresAt().isBefore(LocalDateTime.now())) { // Đã dịch
             // (Nên có logic gửi lại OTP ở đây)
-            throw new BadRequestException("OTP đã hết hạn");
+            throw new BadRequestException("OTP has expired"); // Đã dịch
         }
 
         // 6. Xác thực thành công
-        user.setXacThucEmail(true);
-        nguoiDungRepository.save(user);
+        user.setIsEmailVerified(true); // Đã dịch
+        userRepository.save(user); // Đã dịch
 
         // 7. Xóa token đã sử dụng
-        tokenRepository.delete(token);
+        authTokenRepository.delete(token); // Đã dịch
     }
 
     // --- Private Helper Methods ---
 
-    private void sendVerificationEmail(NguoiDung user) {
+    private void sendVerificationEmail(User user) { // Đã dịch
         // 1. Tạo OTP
         String otp = generateOtp();
 
         // 2. Tạo đối tượng Token
-        Token verificationToken = Token.builder()
-                .nguoiDung(user)
+        AuthToken verificationToken = AuthToken.builder() // Đã dịch
+                .user(user) // Đã dịch
                 .token(otp) // Lưu OTP vào trường token
-                .loaiToken(TokenType.EMAIL_VERIFICATION)
-                .ngayHetHan(LocalDateTime.now().plusMinutes(OTP_EXPIRATION_MINUTES))
+                .tokenType(TokenType.EMAIL_VERIFICATION) // Đã dịch
+                .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRATION_MINUTES)) // Đã dịch
                 .build();
 
         // 3. Lưu Token
-        tokenRepository.save(verificationToken);
+        authTokenRepository.save(verificationToken); // Đã dịch
 
-        String emailBody = "Chào " + user.getHoTen() + ",\n\n"
-                + "Mã OTP để xác thực tài khoản của bạn là: <h3>" + otp + "</h3>" // Thêm chút HTML
-                + "Mã này sẽ hết hạn sau 10 phút.\n\n"
-                + "Cảm ơn bạn.";
+        String emailBody = "Hi " + user.getFullName() + ",\n\n" // Đã dịch
+                + "Your OTP code to verify your account is: <h3>" + otp + "</h3>" // Đã dịch
+                + "This code will expire in 10 minutes.\n\n" // Đã dịch
+                + "Thank you."; // Đã dịch
         
         
-        emailService.sendEmail(user.getEmail(), "Xác thực tài khoản", emailBody);
+        emailService.sendEmail(user.getEmail(), "Verify Your Account", emailBody); // Đã dịch
     }
 
     private String generateOtp() {
@@ -244,31 +245,31 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public LoginResponse registerFromInvite(RegisterFromInviteRequest request) {
         // 1. Xác thực token lời mời (SỬ DỤNG SERVICE CHUNG)
-        CongTyLoiMoi loiMoi = invitationService.validateInvitationToken(request.getInvitationToken());
-        String invitedEmail = loiMoi.getEmail();
+        CompanyInvitation invitation = invitationService.validateInvitationToken(request.getInvitationToken()); // Đã dịch
+        String invitedEmail = invitation.getEmail();
 
         // 2. Kiểm tra email (phòng trường hợp người dùng cũ cố tình gọi API này)
-        if (nguoiDungRepository.existsByEmail(invitedEmail)) {
-            throw new BadRequestException("Email này đã tồn tại. Vui lòng đăng nhập và chấp nhận lời mời.");
+        if (userRepository.existsByEmail(invitedEmail)) { // Đã dịch
+            throw new BadRequestException("This email already exists. Please log in to accept the invitation."); // Đã dịch
         }
 
         // 3. Tạo NguoiDung mới
-        NguoiDung newUser = NguoiDung.builder()
-                .hoTen(request.getHoTen())
+        User newUser = User.builder() // Đã dịch
+                .fullName(request.getFullName()) // Đã dịch
                 .email(invitedEmail)
-                .matKhau(passwordEncoder.encode(request.getMatKhau()))
-                .trangThai(UserStatus.HOAT_DONG)
-                .xacThucEmail(true) // Tự động xác thực
+                .password(passwordEncoder.encode(request.getPassword())) // Đã dịch
+                .status(UserStatus.ACTIVE) // Đã dịch
+                .isEmailVerified(true) // Tự động xác thực // Đã dịch
                 .build();
         
-        NguoiDung savedUser = nguoiDungRepository.save(newUser);
+        User savedUser = userRepository.save(newUser); // Đã dịch
 
         // 4. Thêm người dùng vào công ty (SỬ DỤNG SERVICE CHUNG)
-        invitationService.addMemberToCompany(savedUser, loiMoi.getCongTy(), loiMoi.getRole());
+        invitationService.addMemberToCompany(savedUser, invitation.getCompany(), invitation.getRole()); // Đã dịch
 
         // 5. Cập nhật lời mời
-        loiMoi.setTrangThai(InvitationStatus.ACCEPTED);
-        congTyLoiMoiRepository.save(loiMoi);
+        invitation.setStatus(InvitationStatus.ACCEPTED); // Đã dịch
+        companyInvitationRepository.save(invitation); // Đã dịch
 
         // 6. Tự động đăng nhập và trả về token (Logic giữ nguyên)
         UserPrincipal userPrincipal = UserPrincipal.create(savedUser);

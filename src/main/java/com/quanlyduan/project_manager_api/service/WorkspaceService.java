@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/WorkspaceService.java
 package com.quanlyduan.project_manager_api.service;
 
 import java.util.List;
@@ -5,7 +6,7 @@ import java.util.List;
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
-import com.quanlyduan.project_manager_api.model.KhongGian;
+// import com.quanlyduan.project_manager_api.model.KhongGian; // Unused import removed
 
 public interface WorkspaceService {
     
@@ -15,7 +16,7 @@ public interface WorkspaceService {
      * @param request DTO chứa thông tin không gian mới
      * @return WorkspaceResponse DTO của không gian vừa tạo
      */
-    WorkspaceResponse createWorkspace(Integer congTyId, CreateWorkspaceRequest request);
+    WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request); // Đã dịch
 
     
     /**
@@ -23,7 +24,7 @@ public interface WorkspaceService {
      * @param congTyId ID của công ty
      * @return Danh sách WorkspaceResponse DTO
      */
-    List<WorkspaceResponse> getWorkspacesByCompany(Integer congTyId);
+    List<WorkspaceResponse> getWorkspacesByCompany(Integer companyId); // Đã dịch
 
     /**
      * Lấy thông tin chi tiết của một không gian làm việc.
@@ -38,7 +39,7 @@ public interface WorkspaceService {
      * @param khongGianId ID không gian
      * @param request DTO chứa email và roleId
      */
-    void inviteMemberToWorkspace(Integer congTyId, Integer khongGianId, InviteWorkspaceMemberRequest request);
+    void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request); // Đã dịch
 
     
 }

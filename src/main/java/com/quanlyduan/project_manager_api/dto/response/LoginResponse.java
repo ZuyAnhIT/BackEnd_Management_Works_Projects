@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/LoginResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
 import lombok.AllArgsConstructor;

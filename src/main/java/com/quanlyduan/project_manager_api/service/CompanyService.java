@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/CompanyService.java
 package com.quanlyduan.project_manager_api.service;
 
 import java.util.List;
@@ -8,22 +9,22 @@ import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
-import com.quanlyduan.project_manager_api.model.CongTy;
+import com.quanlyduan.project_manager_api.model.Company; // Đã dịch
 
 public interface CompanyService {
-    CongTy createCompany(CreateCompanyRequest request);
+    Company createCompany(CreateCompanyRequest request); // Đã dịch
 
-    void inviteMember(Integer congTyId, InviteMemberRequest request);
+    void inviteMember(Integer companyId, InviteMemberRequest request); // Đã dịch
 
     void acceptInvitation(AcceptInvitationRequest request);
 
     // Danh sach thanh vien cong ty 
-    List<CompanyMemberResponse> getCompanyMembers(Integer congTyId);
+    List<CompanyMemberResponse> getCompanyMembers(Integer companyId); // Đã dịch
 
     // Xem chi tiet cong ty
-    CompanyDetailsResponse getCompanyDetails(Integer congTyId);
+    CompanyDetailsResponse getCompanyDetails(Integer companyId); // Đã dịch
 
     // Update thong tin công ty
-    CompanyDetailsResponse updateCompany(Integer congTyId, UpdateCompanyRequest request);
+    CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request); // Đã dịch
     
 }

@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/model/UserRole.java
 package com.quanlyduan.project_manager_api.model;
 
 import jakarta.persistence.*;
@@ -14,25 +15,25 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "NguoiDungRole", uniqueConstraints = {
+@Table(name = "user_roles", uniqueConstraints = { // Đã dịch
     // Đảm bảo một người dùng không thể có cùng 1 role 2 lần
-    @UniqueConstraint(columnNames = {"nguoiDungId", "roleId"})
+    @UniqueConstraint(columnNames = {"user_id", "role_id"}) // Đã dịch
 })
-public class NguoiDungRole {
+public class UserRole { // Đã dịch
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer idNguoiDungRole;
+    private Integer id; // Đã dịch
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nguoiDungId", nullable = false)
-    private NguoiDung nguoiDung;
+    @JoinColumn(name = "user_id", nullable = false) // Đã dịch
+    private User user; // Đã dịch
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "roleId", nullable = false)
+    @JoinColumn(name = "role_id", nullable = false) // Đã dịch
     private Role role; // Role (capDo = SYSTEM)
 
     @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime ngayTao;
+    @Column(name = "created_at", updatable = false) // Đã dịch
+    private LocalDateTime createdAt; // Đã dịch
 }

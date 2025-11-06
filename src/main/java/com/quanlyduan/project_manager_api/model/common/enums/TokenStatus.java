@@ -1,7 +1,8 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/model/common/enums/TokenStatus.java
 package com.quanlyduan.project_manager_api.model.common.enums;
 
 public enum TokenStatus {
-    HOAT_DONG,  // 'Hoạt động'
-    DA_THU_HOI, // 'Đã thu hồi'
-    HET_HAN     // 'Hết hạn'
+    ACTIVE,  // 'Hoạt động' // Đã dịch
+    REVOKED, // 'Đã thu hồi' // Đã dịch
+    EXPIRED    // 'Hết hạn' // Đã dịch
 }
