@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/CompanyMemberResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
 import lombok.AllArgsConstructor;
@@ -16,16 +17,16 @@ public class CompanyMemberResponse {
     
     // Thông tin từ NguoiDung (nếu có)
     private Integer userId;
-    private String hoTen;
+    private String fullName; // Đã dịch
     private String email;
-    private String anhDaiDien;
+    private String avatarUrl; // Đã dịch
     
     // Thông tin từ Role
     private String roleName; // Tên vai trò (vd: "Quản trị Công ty")
     
     // Thông tin từ CongTyThanhVien (nếu có)
-    private String chucVu;
-    private LocalDateTime ngayThamGia;
+    private String jobTitle; // Đã dịch
+    private LocalDateTime joinedAt; // Đã dịch
     
     // Trạng thái kết hợp
     private CombinedMemberStatus status;

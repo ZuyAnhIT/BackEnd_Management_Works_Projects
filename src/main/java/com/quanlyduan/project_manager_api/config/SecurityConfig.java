@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/config/SecurityConfig.java
 package com.quanlyduan.project_manager_api.config;
 
 import com.quanlyduan.project_manager_api.security.UserDetailsServiceImpl;
@@ -25,7 +26,7 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-
+// @RequiredArgsConstructor đã được bao gồm ngầm trong constructor bạn cung cấp
 public class SecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
@@ -39,6 +40,7 @@ public class SecurityConfig {
             "/swagger-ui.html"
     };
 
+    // Constructor này là cần thiết nếu bạn không dùng @RequiredArgsConstructor
     public SecurityConfig(UserDetailsServiceImpl userDetailsService, JwtAuthenticationFilter jwtAuthenticationFilter, PasswordEncoder passwordEncoder) {
         this.userDetailsService = userDetailsService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;

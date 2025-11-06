@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/controller/CompanyController.java
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
@@ -6,7 +7,7 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
-import com.quanlyduan.project_manager_api.model.CongTy;
+import com.quanlyduan.project_manager_api.model.Company; // Đã dịch CongTy -> Company
 import com.quanlyduan.project_manager_api.service.CompanyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,14 +35,14 @@ public class CompanyController {
 
     // API TAO CONG TY
     @PostMapping
-    public ResponseEntity<ApiResponse<CongTy>> createCompany(
+    public ResponseEntity<ApiResponse<Company>> createCompany( // Đã dịch CongTy -> Company
             @Valid @RequestBody CreateCompanyRequest request) {
         
-        CongTy newCompany = companyService.createCompany(request);
+        Company newCompany = companyService.createCompany(request); // Đã dịch CongTy -> Company
         
         return ResponseEntity
                 .status(HttpStatus.CREATED) // Dùng 201 Created cho việc tạo mới
-                .body(ApiResponse.success("Tạo công ty thành công", newCompany));
+                .body(ApiResponse.success("Company created successfully", newCompany)); // Đã dịch
     }
     
     // (Thêm các API khác cho Company tại đây: GET, PUT, DELETE, ...)
@@ -55,7 +56,7 @@ public class CompanyController {
             @Valid @RequestBody InviteMemberRequest request) {
         
         companyService.inviteMember(congTyId, request);
-        return ResponseEntity.ok(ApiResponse.success("Đã gửi lời mời thành công", null));
+        return ResponseEntity.ok(ApiResponse.success("Invitation sent successfully", null)); // Đã dịch
     }
 
 
@@ -66,7 +67,7 @@ public class CompanyController {
             @PathVariable Integer congTyId) {
         
         List<CompanyMemberResponse> members = companyService.getCompanyMembers(congTyId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên thành công", members));
+        return ResponseEntity.ok(ApiResponse.success("Fetched company members successfully", members)); // Đã dịch
     }
 
     // API HIEN THI THONG TIN CHI TIET CONG TY
@@ -76,7 +77,7 @@ public class CompanyController {
             @PathVariable Integer congTyId) {
         
         CompanyDetailsResponse companyDetails = companyService.getCompanyDetails(congTyId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin công ty thành công", companyDetails));
+        return ResponseEntity.ok(ApiResponse.success("Fetched company details successfully", companyDetails)); // Đã dịch
     }
 
     // API CAP NHAT THONG TIN CONG TY
@@ -87,7 +88,7 @@ public class CompanyController {
             @Valid @RequestBody UpdateCompanyRequest request) {
         
         CompanyDetailsResponse updatedCompany = companyService.updateCompany(congTyId, request);
-        return ResponseEntity.ok(ApiResponse.success("Cập nhật công ty thành công", updatedCompany));
+        return ResponseEntity.ok(ApiResponse.success("Company updated successfully", updatedCompany)); // Đã dịch
     }
     
 }

@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/LoginRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import jakarta.validation.constraints.Email;
@@ -6,10 +7,10 @@ import lombok.Data;
 
 @Data
 public class LoginRequest {
-    @NotBlank(message = "Email không được để trống")
+    @NotBlank(message = "Email must not be blank") // Đã dịch
     @Email
     private String email;
 
-    @NotBlank(message = "Mật khẩu không được để trống")
-    private String matKhau;
+    @NotBlank(message = "Password must not be blank") // Đã dịch
+    private String password; // Đã dịch
 }

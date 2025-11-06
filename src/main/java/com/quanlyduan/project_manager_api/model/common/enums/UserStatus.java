@@ -1,7 +1,8 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/model/common/enums/UserStatus.java
 package com.quanlyduan.project_manager_api.model.common.enums;
 
 public enum UserStatus {
-    HOAT_DONG, // 'Hoạt động'
-    TAM_KHOA,  // 'Tạm khóa'
-    DA_XOA     // 'Đã xóa'
+    ACTIVE, // 'Hoạt động' // Đã dịch
+    LOCKED,   // 'Tạm khóa' // Đã dịch
+    DELETED    // 'Đã xóa' // Đã dịch
 }

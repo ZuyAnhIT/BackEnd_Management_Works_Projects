@@ -1,13 +1,14 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/SecurityService.java
 package com.quanlyduan.project_manager_api.service;
 
 
-import com.quanlyduan.project_manager_api.model.CongTyThanhVien;
-import com.quanlyduan.project_manager_api.model.KhongGianThanhVien;
-import com.quanlyduan.project_manager_api.model.NguoiDung;
+import com.quanlyduan.project_manager_api.model.CompanyMember; // Đã dịch
+import com.quanlyduan.project_manager_api.model.WorkspaceMember; // Đã dịch
+import com.quanlyduan.project_manager_api.model.User; // Đã dịch
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
-import com.quanlyduan.project_manager_api.repository.CongTyThanhVienRepository;
-import com.quanlyduan.project_manager_api.repository.KhongGianThanhVienRepository;
-import com.quanlyduan.project_manager_api.repository.NguoiDungRepository;
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.UserRepository; // Đã dịch
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,14 +20,14 @@ import java.util.Optional;
 @Service("securityService") // Đặt tên Bean là "securityService"
 public class SecurityService {
 
-    private final CongTyThanhVienRepository congTyThanhVienRepository;
-    private final NguoiDungRepository nguoiDungRepository;
-    private final KhongGianThanhVienRepository khongGianThanhVienRepository;
+    private final CompanyMemberRepository companyMemberRepository; // Đã dịch
+    private final UserRepository userRepository; // Đã dịch
+    private final WorkspaceMemberRepository workspaceMemberRepository; // Đã dịch
 
-    public SecurityService(CongTyThanhVienRepository congTyThanhVienRepository, NguoiDungRepository nguoiDungRepository, KhongGianThanhVienRepository khongGianThanhVienRepository) {
-        this.congTyThanhVienRepository = congTyThanhVienRepository;
-        this.nguoiDungRepository = nguoiDungRepository;
-        this.khongGianThanhVienRepository = khongGianThanhVienRepository;
+    public SecurityService(CompanyMemberRepository companyMemberRepository, UserRepository userRepository, WorkspaceMemberRepository workspaceMemberRepository) { // Đã dịch
+        this.companyMemberRepository = companyMemberRepository; // Đã dịch
+        this.userRepository = userRepository; // Đã dịch
+        this.workspaceMemberRepository = workspaceMemberRepository; // Đã dịch
     }
 
     // // Mã role chuẩn
@@ -37,27 +38,27 @@ public class SecurityService {
      * @param congTyId ID của công ty cần kiểm tra
      * @return true nếu là Admin, ngược lại ném AccessDeniedException
      */
-    public boolean isCompanyAdmin(Integer congTyId) {
+    public boolean isCompanyAdmin(Integer companyId) { // Đã dịch
         // 1. Lấy người dùng đang đăng nhập
-        NguoiDung currentUser = getCurrentAuthenticatedUser();
+        User currentUser = getCurrentAuthenticatedUser(); // Đã dịch
 
         // 2. Tìm thông tin thành viên của họ trong công ty
-        Optional<CongTyThanhVien> membership = congTyThanhVienRepository
-            .findByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId, currentUser.getIdNguoiDung());
+        Optional<CompanyMember> membership = companyMemberRepository // Đã dịch
+            .findByCompany_IdAndUser_Id(companyId, currentUser.getId()); // Đã dịch
 
         if (membership.isEmpty()) {
             return false; // Không phải thành viên
         }
         
         // 3. Kiểm tra xem role của họ có phải là "COMPANY_ADMIN" không
-        return RoleCode.COMPANY_ADMIN.name().equals(membership.get().getRole().getMaRole());
+        return RoleCode.COMPANY_ADMIN.name().equals(membership.get().getRole().getRoleCode()); // Đã dịch
     }
 
     // (Chúng ta cũng sẽ dùng hàm này để kiểm tra xem có phải là MEMBER không)
-    public boolean isCompanyMember(Integer congTyId) {
-        NguoiDung currentUser = getCurrentAuthenticatedUser();
-        return congTyThanhVienRepository
-            .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId, currentUser.getIdNguoiDung());
+    public boolean isCompanyMember(Integer companyId) { // Đã dịch
+        User currentUser = getCurrentAuthenticatedUser(); // Đã dịch
+        return companyMemberRepository // Đã dịch
+            .existsByCompany_IdAndUser_Id(companyId, currentUser.getId()); // Đã dịch
     }
 
 
@@ -71,12 +72,12 @@ public class SecurityService {
      * @param khongGianId ID không gian từ URL
      * @return true nếu người dùng là thành viên hợp lệ
      */
-    public boolean isWorkspaceMember(Integer congTyId, Integer khongGianId) {
-        NguoiDung currentUser = getCurrentAuthenticatedUser();
+    public boolean isWorkspaceMember(Integer companyId, Integer workspaceId) { // Đã dịch
+        User currentUser = getCurrentAuthenticatedUser(); // Đã dịch
 
         // 1. Kiểm tra xem người dùng có phải là thành viên của không gian không
-        Optional<KhongGianThanhVien> membership = khongGianThanhVienRepository
-            .findByKhongGian_IdKhongGianAndNguoiDung_IdNguoiDung(khongGianId, currentUser.getIdNguoiDung());
+        Optional<WorkspaceMember> membership = workspaceMemberRepository // Đã dịch
+            .findByWorkspace_IdAndUser_Id(workspaceId, currentUser.getId()); // Đã dịch
 
         if (membership.isEmpty()) {
             return false; // Không phải thành viên của không gian này
@@ -85,7 +86,7 @@ public class SecurityService {
         // 2. Kiểm tra xem không gian đó có thực sự thuộc công ty trong URL không
         // Điều này đảm bảo người dùng không thể thử /api/companies/1/workspaces/99
         // (nếu workspace 99 thuộc công ty 2)
-        return membership.get().getKhongGian().getCongTy().getIdCongTy().equals(congTyId);
+        return membership.get().getWorkspace().getCompany().getId().equals(companyId); // Đã dịch
     }
 
 
@@ -95,21 +96,21 @@ public class SecurityService {
      * @param khongGianId ID không gian từ URL
      * @return true nếu là Admin của không gian
      */
-    public boolean isWorkspaceAdmin(Integer congTyId, Integer khongGianId) {
-        NguoiDung currentUser = getCurrentAuthenticatedUser();
+    public boolean isWorkspaceAdmin(Integer companyId, Integer workspaceId) { // Đã dịch
+        User currentUser = getCurrentAuthenticatedUser(); // Đã dịch
 
-        Optional<KhongGianThanhVien> membership = khongGianThanhVienRepository
-            .findByKhongGian_IdKhongGianAndNguoiDung_IdNguoiDung(khongGianId, currentUser.getIdNguoiDung());
+        Optional<WorkspaceMember> membership = workspaceMemberRepository // Đã dịch
+            .findByWorkspace_IdAndUser_Id(workspaceId, currentUser.getId()); // Đã dịch
 
         if (membership.isEmpty()) {
             return false; // Không phải thành viên
         }
 
         // 1. Kiểm tra Role
-        boolean isAdmin = RoleCode.WORKSPACE_ADMIN.name().equals(membership.get().getRole().getMaRole());
+        boolean isAdmin = RoleCode.WORKSPACE_ADMIN.name().equals(membership.get().getRole().getRoleCode()); // Đã dịch
         
         // 2. Kiểm tra xem không gian đó có thuộc công ty trong URL không (bảo mật IDOR)
-        boolean isCorrectCompany = membership.get().getKhongGian().getCongTy().getIdCongTy().equals(congTyId);
+        boolean isCorrectCompany = membership.get().getWorkspace().getCompany().getId().equals(companyId); // Đã dịch
 
         return isAdmin && isCorrectCompany;
     }
@@ -119,25 +120,25 @@ public class SecurityService {
      * Kiểm tra xem người dùng có quyền quản lý thành viên không gian (thêm/xóa).
      * Quyền này thuộc về (Admin Công ty) HOẶC (Admin Không gian).
      */
-    public boolean canManageWorkspaceMembers(Integer congTyId, Integer khongGianId) {
+    public boolean canManageWorkspaceMembers(Integer companyId, Integer workspaceId) { // Đã dịch
         // 1. Kiểm tra xem có phải là Admin công ty không
-        if (isCompanyAdmin(congTyId)) {
+        if (isCompanyAdmin(companyId)) { // Đã dịch
             return true;
         }
         
         // 2. Nếu không, kiểm tra xem có phải là Admin không gian không
-        return isWorkspaceAdmin(congTyId, khongGianId);
+        return isWorkspaceAdmin(companyId, workspaceId); // Đã dịch
     }
 
     // --- Private Helper Method ---
-    public NguoiDung getCurrentAuthenticatedUser() {
+    public User getCurrentAuthenticatedUser() { // Đã dịch
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-            throw new UsernameNotFoundException("Không tìm thấy thông tin người dùng đã xác thực.");
+            throw new UsernameNotFoundException("Authenticated user information not found."); // Đã dịch
         }
         String email = authentication.getName();
-        return nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng với email: " + email));
+        return userRepository.findByEmail(email) // Đã dịch
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email)); // Đã dịch
     }
 
 

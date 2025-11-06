@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/exception/GlobalExceptionHandler.java
 package com.quanlyduan.project_manager_api.exception;
 
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
@@ -36,7 +37,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         
       
         ApiResponse<Map<String, String>> errorResponse = ApiResponse.error(
-            "Dữ liệu đầu vào không hợp lệ", 
+            "Invalid input data", // Đã dịch
             errors
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
@@ -67,13 +68,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if (ex instanceof BadCredentialsException) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED) // 401
-                    .body(ApiResponse.error("Email hoặc mật khẩu không chính xác"));
+                    .body(ApiResponse.error("Invalid email or password")); // Đã dịch
         }
         
         // Bắt các lỗi khác (vd: user bị khóa, user chưa xác thực email)
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED) // 401
-                .body(ApiResponse.error("Xác thực thất bại: " + ex.getMessage()));
+                .body(ApiResponse.error("Authentication failed: " + ex.getMessage())); // Đã dịch
     }
     
     // Bắt lỗi 403 (Forbidden) từ @PreAuthorize
@@ -82,7 +83,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         // ex.getMessage() thường là "Access is denied"
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN) // 403 Forbidden
-                .body(ApiResponse.error("Bạn không có quyền thực hiện hành động này."));
+                .body(ApiResponse.error("You do not have permission to perform this action.")); // Đã dịch
     }
     
     // Bắt tất cả các lỗi 500 khác - Dùng ApiResponse.error(message)
@@ -93,6 +94,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Đã có lỗi xảy ra ở máy chủ: " + ex.getMessage()));
+                .body(ApiResponse.error("An error occurred on the server: " + ex.getMessage())); // Đã dịch
     }
 }

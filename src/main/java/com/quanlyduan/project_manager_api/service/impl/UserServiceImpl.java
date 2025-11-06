@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/UserServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.ChangePasswordRequest;
@@ -5,11 +6,14 @@ import com.quanlyduan.project_manager_api.dto.response.CompanyMembershipDTO;
 import com.quanlyduan.project_manager_api.dto.response.UserProfileResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMembershipDTO;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
-import com.quanlyduan.project_manager_api.model.NguoiDung;
-import com.quanlyduan.project_manager_api.repository.CongTyThanhVienRepository;
-import com.quanlyduan.project_manager_api.repository.KhongGianThanhVienRepository;
-import com.quanlyduan.project_manager_api.repository.NguoiDungRepository;
-import com.quanlyduan.project_manager_api.repository.NguoiDungRoleRepository;
+import com.quanlyduan.project_manager_api.model.User; // Đã dịch
+import com.quanlyduan.project_manager_api.model.UserRole; // Đã dịch
+import com.quanlyduan.project_manager_api.model.CompanyMember; // Đã dịch
+import com.quanlyduan.project_manager_api.model.WorkspaceMember; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.UserRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.UserRoleRepository; // Đã dịch
 import com.quanlyduan.project_manager_api.service.UserService;
 import lombok.RequiredArgsConstructor;
 
@@ -24,21 +28,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-
 public class UserServiceImpl implements UserService {
 
-    private final NguoiDungRepository nguoiDungRepository;
+    private final UserRepository userRepository; // Đã dịch
     private final PasswordEncoder passwordEncoder;
-    private final NguoiDungRoleRepository nguoiDungRoleRepository;
-    private final CongTyThanhVienRepository congTyThanhVienRepository;
-    private final KhongGianThanhVienRepository khongGianThanhVienRepository;
+    private final UserRoleRepository userRoleRepository; // Đã dịch
+    private final CompanyMemberRepository companyMemberRepository; // Đã dịch
+    private final WorkspaceMemberRepository workspaceMemberRepository; // Đã dịch
 
-    public UserServiceImpl(NguoiDungRepository nguoiDungRepository, PasswordEncoder passwordEncoder, NguoiDungRoleRepository nguoiDungRoleRepository, CongTyThanhVienRepository congTyThanhVienRepository, KhongGianThanhVienRepository khongGianThanhVienRepository) {
-        this.nguoiDungRepository = nguoiDungRepository;
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, UserRoleRepository userRoleRepository, CompanyMemberRepository companyMemberRepository, WorkspaceMemberRepository workspaceMemberRepository) { // Đã dịch
+        this.userRepository = userRepository; // Đã dịch
         this.passwordEncoder = passwordEncoder;
-        this.nguoiDungRoleRepository = nguoiDungRoleRepository;
-        this.congTyThanhVienRepository = congTyThanhVienRepository;
-        this.khongGianThanhVienRepository = khongGianThanhVienRepository;
+        this.userRoleRepository = userRoleRepository; // Đã dịch
+        this.companyMemberRepository = companyMemberRepository; // Đã dịch
+        this.workspaceMemberRepository = workspaceMemberRepository; // Đã dịch
     }
     // (Sau này sẽ inject TokenRepository để hủy Refresh Token)
 
@@ -47,33 +50,33 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void changePassword(ChangePasswordRequest request) {
         // 1. Lấy thông tin người dùng đang đăng nhập
-        NguoiDung currentUser = getCurrentAuthenticatedUser();
+        User currentUser = getCurrentAuthenticatedUser(); // Đã dịch
 
         // 2. Validate mật khẩu cũ
-        if (!passwordEncoder.matches(request.getOldPassword(), currentUser.getMatKhau())) {
-            throw new BadRequestException("Mật khẩu cũ không chính xác");
+        if (!passwordEncoder.matches(request.getOldPassword(), currentUser.getPassword())) { // Đã dịch
+            throw new BadRequestException("Incorrect old password"); // Đã dịch
         }
 
         // 3. Validate mật khẩu mới
-        if (passwordEncoder.matches(request.getNewPassword(), currentUser.getMatKhau())) {
-            throw new BadRequestException("Mật khẩu mới phải khác mật khẩu cũ");
+        if (passwordEncoder.matches(request.getNewPassword(), currentUser.getPassword())) { // Đã dịch
+            throw new BadRequestException("New password must be different from the old password"); // Đã dịch
         }
 
         // 4. Validate mật khẩu xác nhận
         if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
-            throw new BadRequestException("Mật khẩu xác nhận không khớp");
+            throw new BadRequestException("Password confirmation does not match"); // Đã dịch
         }
 
         // 5. Hash và cập nhật mật khẩu mới
-        currentUser.setMatKhau(passwordEncoder.encode(request.getNewPassword()));
+        currentUser.setPassword(passwordEncoder.encode(request.getNewPassword())); // Đã dịch
 
         // 6. Lưu vào CSDL
-        nguoiDungRepository.save(currentUser);
+        userRepository.save(currentUser); // Đã dịch
 
         // 7. (Nâng cao) Thu hồi tất cả Refresh Token
         // Đây là bước quan trọng để bảo mật. Khi đổi mật khẩu,
         // tất cả các phiên đăng nhập ở thiết bị khác sẽ bị buộc đăng xuất.
-        // tokenRepository.revokeAllUserRefreshTokens(currentUser.getIdNguoiDung());
+        // tokenRepository.revokeAllUserRefreshTokens(currentUser.getId()); // Đã dịch
         // (Chúng ta sẽ implement chi tiết hàm revokeAll... này sau)
     }
 
@@ -84,41 +87,41 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public UserProfileResponse getCurrentUserProfile() {
         // 1. Lấy người dùng (từ token)
-        NguoiDung currentUser = getCurrentAuthenticatedUser();
+        User currentUser = getCurrentAuthenticatedUser(); // Đã dịch
 
         // 2. Lấy vai trò cấp Hệ thống
-        List<String> systemRoles = nguoiDungRoleRepository.findByNguoiDung_IdNguoiDung(currentUser.getIdNguoiDung())
+        List<String> systemRoles = userRoleRepository.findByUser_Id(currentUser.getId()) // Đã dịch
                 .stream()
-                .map(role -> role.getRole().getMaRole())
+                .map(userRole -> userRole.getRole().getRoleCode()) // Đã dịch
                 .collect(Collectors.toList());
 
         // 3. Lấy vai trò cấp Công ty
-        List<CompanyMembershipDTO> companyRoles = congTyThanhVienRepository.findByNguoiDung_IdNguoiDung(currentUser.getIdNguoiDung())
+        List<CompanyMembershipDTO> companyRoles = companyMemberRepository.findByUser_Id(currentUser.getId()) // Đã dịch
                 .stream()
-                .map(ctv -> new CompanyMembershipDTO(
-                        ctv.getCongTy().getIdCongTy(),
-                        ctv.getCongTy().getTenCongTy(),
-                        ctv.getRole().getMaRole()
+                .map(cm -> new CompanyMembershipDTO( // Đã dịch
+                        cm.getCompany().getId(), // Đã dịch
+                        cm.getCompany().getName(), // Đã dịch
+                        cm.getRole().getRoleCode() // Đã dịch
                 ))
                 .collect(Collectors.toList());
 
         // 4. Lấy vai trò cấp Không gian
-        List<WorkspaceMembershipDTO> workspaceRoles = khongGianThanhVienRepository.findByNguoiDung_IdNguoiDung(currentUser.getIdNguoiDung())
+        List<WorkspaceMembershipDTO> workspaceRoles = workspaceMemberRepository.findByUser_Id(currentUser.getId()) // Đã dịch
                 .stream()
-                .map(kgtv -> new WorkspaceMembershipDTO(
-                        kgtv.getKhongGian().getIdKhongGian(),
-                        kgtv.getKhongGian().getTenKhongGian(),
-                        kgtv.getKhongGian().getCongTy().getIdCongTy(),
-                        kgtv.getRole().getMaRole()
+                .map(wm -> new WorkspaceMembershipDTO( // Đã dịch
+                        wm.getWorkspace().getId(), // Đã dịch
+                        wm.getWorkspace().getName(), // Đã dịch
+                        wm.getWorkspace().getCompany().getId(), // Đã dịch
+                        wm.getRole().getRoleCode() // Đã dịch
                 ))
                 .collect(Collectors.toList());
 
         // 5. Xây dựng và trả về DTO
         return UserProfileResponse.builder()
-                .id(currentUser.getIdNguoiDung())
-                .hoTen(currentUser.getHoTen())
+                .id(currentUser.getId()) // Đã dịch
+                .fullName(currentUser.getFullName()) // Đã dịch
                 .email(currentUser.getEmail())
-                .anhDaiDien(currentUser.getAnhDaiDien())
+                .avatarUrl(currentUser.getAvatarUrl()) // Đã dịch
                 .systemRoles(systemRoles)
                 .companyMemberships(companyRoles)
                 .workspaceMemberships(workspaceRoles)
@@ -126,14 +129,14 @@ public class UserServiceImpl implements UserService {
     }
 
     // LOGIC LAY NGUOI DUNG HIEN TAI
-    private NguoiDung getCurrentAuthenticatedUser() {
+    private User getCurrentAuthenticatedUser() { // Đã dịch
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-            throw new BadRequestException("Không tìm thấy thông tin người dùng đã xác thực.");
+            throw new BadRequestException("Authenticated user information not found."); // Đã dịch
         }
         
         String email = authentication.getName();
-        return nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng với email: " + email));
+        return userRepository.findByEmail(email) // Đã dịch
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email)); // Đã dịch
     }
 }

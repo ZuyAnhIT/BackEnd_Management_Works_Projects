@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/RegisterFromInviteRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
@@ -6,13 +7,13 @@ import lombok.Data;
 
 @Data
 public class RegisterFromInviteRequest {
-    @NotBlank(message = "Họ tên không được để trống")
-    private String hoTen;
+    @NotBlank(message = "Full name must not be blank") // Đã dịch
+    private String fullName; // Đã dịch
 
-    @NotBlank(message = "Mật khẩu không được để trống")
-    @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự")
-    private String matKhau;
+    @NotBlank(message = "Password must not be blank") // Đã dịch
+    @Size(min = 6, message = "Password must be at least 6 characters long") // Đã dịch
+    private String password; // Đã dịch
 
-    @NotBlank(message = "Invitation token không được để trống")
+    @NotBlank(message = "Invitation token must not be blank") // Đã dịch
     private String invitationToken;
 }

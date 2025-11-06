@@ -1,8 +1,9 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/security/UserPrincipal.java
 package com.quanlyduan.project_manager_api.security;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.quanlyduan.project_manager_api.model.NguoiDung;
+import com.quanlyduan.project_manager_api.model.User; // Đã dịch
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
@@ -16,9 +17,9 @@ import java.util.Collections; // Sẽ cập nhật khi có Role
 public class UserPrincipal implements UserDetails {
 
     private final Integer id;
-    private final String hoTen;
+    private final String fullName; // Đã dịch
     private final String email;
-    private final Boolean xacThucEmail;
+    private final Boolean isEmailVerified; // Đã dịch
 
     @JsonIgnore
     private final String password;
@@ -26,16 +27,16 @@ public class UserPrincipal implements UserDetails {
     // Sẽ cập nhật phần này khi có Role/Permission
     private final Collection<? extends GrantedAuthority> authorities;
 
-    public static UserPrincipal create(NguoiDung user) {
+    public static UserPrincipal create(User user) { // Đã dịch
         // TODO: Sẽ cập nhật logic này để load Roles/Permissions từ DB
         Collection<? extends GrantedAuthority> authorities = Collections.emptyList();
 
         return new UserPrincipal(
-                user.getIdNguoiDung(),
-                user.getHoTen(),
+                user.getId(), // Đã dịch
+                user.getFullName(), // Đã dịch
                 user.getEmail(),
-                user.getXacThucEmail(),
-                user.getMatKhau(),
+                user.getIsEmailVerified(), // Đã dịch
+                user.getPassword(), // Đã dịch
                 authorities
         );
     }
@@ -76,6 +77,6 @@ public class UserPrincipal implements UserDetails {
     @Override
     public boolean isEnabled() {
         // Quan trọng: Chỉ cho phép đăng nhập nếu đã xác thực email
-        return this.xacThucEmail; 
+        return this.isEmailVerified; // Đã dịch
     }
 }

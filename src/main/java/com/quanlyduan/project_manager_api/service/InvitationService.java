@@ -1,8 +1,9 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/InvitationService.java
 package com.quanlyduan.project_manager_api.service;
 
-import com.quanlyduan.project_manager_api.model.CongTy;
-import com.quanlyduan.project_manager_api.model.CongTyLoiMoi;
-import com.quanlyduan.project_manager_api.model.NguoiDung;
+import com.quanlyduan.project_manager_api.model.Company; // Đã dịch
+import com.quanlyduan.project_manager_api.model.CompanyInvitation; // Đã dịch
+import com.quanlyduan.project_manager_api.model.User; // Đã dịch
 import com.quanlyduan.project_manager_api.model.Role;
 
 /**
@@ -20,7 +21,7 @@ public interface InvitationService {
      * @throws ResourceNotFoundException nếu token không tồn tại
      * @throws BadRequestException nếu token đã hết hạn hoặc đã được sử dụng
      */
-    CongTyLoiMoi validateInvitationToken(String token);
+    CompanyInvitation validateInvitationToken(String token); // Đã dịch
 
     /**
      * Thêm một người dùng vào bảng CongTyThanhVien.
@@ -29,5 +30,5 @@ public interface InvitationService {
      * @param congTy Công ty để tham gia
      * @param role Role được gán
      */
-    void addMemberToCompany(NguoiDung user, CongTy congTy, Role role);
+    void addMemberToCompany(User user, Company company, Role role); // Đã dịch
 }

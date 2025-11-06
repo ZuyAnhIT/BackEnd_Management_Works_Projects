@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/WorkspaceServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
@@ -29,13 +30,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class WorkspaceServiceImpl implements WorkspaceService {
 
-    private final KhongGianRepository khongGianRepository;
-    private final KhongGianThanhVienRepository khongGianThanhVienRepository;
-    private final CongTyRepository congTyRepository;
+    private final WorkspaceRepository workspaceRepository; // Đã dịch
+    private final WorkspaceMemberRepository workspaceMemberRepository; // Đã dịch
+    private final CompanyRepository companyRepository; // Đã dịch
     private final RoleRepository roleRepository;
     private final SecurityService securityService; 
-    private final NguoiDungRepository nguoiDungRepository;
-    private final CongTyThanhVienRepository congTyThanhVienRepository;
+    private final UserRepository userRepository; // Đã dịch
+    private final CompanyMemberRepository companyMemberRepository; // Đã dịch
 
     private final EmailService emailService;
     
@@ -45,46 +46,46 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     // API TAO KHONG GIAN 
     @Override
     @Transactional
-    public WorkspaceResponse createWorkspace(Integer congTyId, CreateWorkspaceRequest request) {
+    public WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request) { // Đã dịch
         
         // 1. Lấy thông tin người dùng và công ty
-        NguoiDung creator = securityService.getCurrentAuthenticatedUser();
-        CongTy congTy = congTyRepository.findById(congTyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty"));
+        User creator = securityService.getCurrentAuthenticatedUser(); // Đã dịch
+        Company company = companyRepository.findById(companyId) // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found")); // Đã dịch
 
         // 2. Kiểm tra nghiệp vụ (tên trùng)
-        if (khongGianRepository.existsByCongTy_IdCongTyAndTenKhongGian(congTyId, request.getTenKhongGian())) {
-            throw new BadRequestException("Tên không gian đã tồn tại trong công ty này");
+        if (workspaceRepository.existsByCompany_IdAndName(companyId, request.getWorkspaceName())) { // Đã dịch
+            throw new BadRequestException("This workspace name already exists in the company"); // Đã dịch
         }
 
         // 3. Tìm Role "WORKSPACE_ADMIN"
-        Role workspaceAdminRole = roleRepository.findFirstByMaRole(RoleCode.WORKSPACE_ADMIN.name())
+        Role workspaceAdminRole = roleRepository.findFirstByRoleCode(RoleCode.WORKSPACE_ADMIN.name()) // Đã dịch
                 .orElseThrow(() -> new ResourceNotFoundException(
-                    "Không tìm thấy Role: " + RoleCode.WORKSPACE_ADMIN.name() + ". Vui lòng cấu hình CSDL."
+                    "Role not found: " + RoleCode.WORKSPACE_ADMIN.name() + ". Please configure the database." // Đã dịch
                 ));
 
         // 4. Tạo không gian mới
-        KhongGian newWorkspace = KhongGian.builder()
-                .congTy(congTy)
-                .tenKhongGian(request.getTenKhongGian())
-                .moTa(request.getMoTa())
-                .anhBia(request.getAnhBia())
-                .mauSac(request.getMauSac() != null ? request.getMauSac() : "#3498db")
-                .nguoiTao(creator)
-                .trangThai(WorkspaceStatus.HOAT_DONG)
+        Workspace newWorkspace = Workspace.builder() // Đã dịch
+                .company(company) // Đã dịch
+                .name(request.getWorkspaceName()) // Đã dịch
+                .description(request.getDescription()) // Đã dịch
+                .coverImageUrl(request.getCoverImage()) // Đã dịch
+                .color(request.getColor() != null ? request.getColor() : "#3498db") // Đã dịch
+                .createdBy(creator) // Đã dịch
+                .status(WorkspaceStatus.ACTIVE) // Đã dịch
                 .build();
         
-        KhongGian savedWorkspace = khongGianRepository.save(newWorkspace);
+        Workspace savedWorkspace = workspaceRepository.save(newWorkspace); // Đã dịch
 
         // 5. Tự động gán người tạo làm Admin của không gian
-        KhongGianThanhVien membership = KhongGianThanhVien.builder()
-                .khongGian(savedWorkspace)
-                .nguoiDung(creator)
+        WorkspaceMember membership = WorkspaceMember.builder() // Đã dịch
+                .workspace(savedWorkspace) // Đã dịch
+                .user(creator) // Đã dịch
                 .role(workspaceAdminRole)
-                .trangThai(MemberStatus.HOAT_DONG)
+                .status(MemberStatus.ACTIVE) // Đã dịch
                 .build();
         
-        khongGianThanhVienRepository.save(membership);
+        workspaceMemberRepository.save(membership); // Đã dịch
 
         // 6. Map Entity sang DTO và trả về
         return mapToWorkspaceResponse(savedWorkspace);
@@ -94,10 +95,10 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     // LOGIC HIỂN THỊ DANH SÁCH KHÔNG GIAN TRONG CÔNG TY
     @Override
     @Transactional(readOnly = true)
-    public List<WorkspaceResponse> getWorkspacesByCompany(Integer congTyId) {
+    public List<WorkspaceResponse> getWorkspacesByCompany(Integer companyId) { // Đã dịch
         // 1. Lấy danh sách Entity từ CSDL
         // (Bảo mật sẽ được xử lý ở tầng Controller bằng @PreAuthorize)
-        List<KhongGian> workspaces = khongGianRepository.findByCongTy_IdCongTy(congTyId);
+        List<Workspace> workspaces = workspaceRepository.findByCompany_Id(companyId); // Đã dịch
 
         // 2. Chuyển đổi (map) danh sách Entity sang danh sách DTO
         return workspaces.stream()
@@ -112,8 +113,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         // Bảo mật đã được xử lý bởi @PreAuthorize ở tầng Controller.
         // Tầng service chỉ cần thực hiện logic tìm kiếm.
         
-        KhongGian workspace = khongGianRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc với ID: " + workspaceId));
+        Workspace workspace = workspaceRepository.findById(workspaceId) // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with ID: " + workspaceId)); // Đã dịch
                 
         // Tái sử dụng helper đã tạo
         return mapToWorkspaceResponse(workspace);
@@ -123,100 +124,100 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     // LOGIC MOI THANH VIEN VAO PHONG BAN
     @Override
     @Transactional
-    public void inviteMemberToWorkspace(Integer congTyId, Integer khongGianId, InviteWorkspaceMemberRequest request) {
+    public void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request) { // Đã dịch
         
         // *** THÊM DÒNG NÀY *** (Lấy admin hiện tại để biết ai là người mời)
-        NguoiDung admin = securityService.getCurrentAuthenticatedUser();
+        User admin = securityService.getCurrentAuthenticatedUser(); // Đã dịch
         String emailToInvite = request.getEmail();
 
         // 1. Lấy thông tin người dùng được mời
-        NguoiDung userToInvite = nguoiDungRepository.findByEmail(emailToInvite)
+        User userToInvite = userRepository.findByEmail(emailToInvite) // Đã dịch
                 .orElseThrow(() -> new ResourceNotFoundException(
-                    "Không tìm thấy người dùng với email: " + emailToInvite
+                    "User not found with email: " + emailToInvite // Đã dịch
                 ));
 
         // 2. KIỂM TRA ĐIỀU KIỆN (như bạn yêu cầu)
-        boolean isCompanyMember = congTyThanhVienRepository
-            .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId, userToInvite.getIdNguoiDung());
+        boolean isCompanyMember = companyMemberRepository // Đã dịch
+            .existsByCompany_IdAndUser_Id(companyId, userToInvite.getId()); // Đã dịch
             
         if (!isCompanyMember) {
             throw new BadRequestException(
-                "Người này chưa thuộc Công ty. Vui lòng liên hệ Admin Công ty để mời vào trước."
+                "This person is not a member of the Company. Please contact the Company Admin to invite them first." // Đã dịch
             );
         }
 
         // 3. Lấy thông tin Workspace và Role
-        KhongGian khongGian = khongGianRepository.findById(khongGianId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
+        Workspace workspace = workspaceRepository.findById(workspaceId) // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found")); // Đã dịch
 
         Role workspaceRole = roleRepository.findById(request.getRoleId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Role"));
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found")); // Đã dịch
 
         // 4. Validate Role
-        if (workspaceRole.getCapDo() != RoleLevel.WORKSPACE) {
-            throw new BadRequestException("Role không hợp lệ (Không phải cấp độ Không gian làm việc)");
+        if (workspaceRole.getLevel() != RoleLevel.WORKSPACE) { // Đã dịch
+            throw new BadRequestException("Invalid role (Not a WORKSPACE level role)"); // Đã dịch
         }
         
         // 5. Kiểm tra xem đã là thành viên của Workspace chưa
-        Optional<KhongGianThanhVien> existingMembership = khongGianThanhVienRepository
-            .findByKhongGian_IdKhongGianAndNguoiDung_IdNguoiDung(khongGianId, userToInvite.getIdNguoiDung());
+        Optional<WorkspaceMember> existingMembership = workspaceMemberRepository // Đã dịch
+            .findByWorkspace_IdAndUser_Id(workspaceId, userToInvite.getId()); // Đã dịch
 
         if (existingMembership.isPresent()) {
-            throw new BadRequestException("Người dùng này đã là thành viên của không gian làm việc");
+            throw new BadRequestException("This user is already a member of the workspace"); // Đã dịch
         }
 
         // 6. Thêm thành viên vào không gian
-        KhongGianThanhVien newMembership = KhongGianThanhVien.builder()
-                .khongGian(khongGian)
-                .nguoiDung(userToInvite)
+        WorkspaceMember newMembership = WorkspaceMember.builder() // Đã dịch
+                .workspace(workspace) // Đã dịch
+                .user(userToInvite) // Đã dịch
                 .role(workspaceRole)
-                .trangThai(MemberStatus.HOAT_DONG)
+                .status(MemberStatus.ACTIVE) // Đã dịch
                 .build();
         
-        khongGianThanhVienRepository.save(newMembership);
+        workspaceMemberRepository.save(newMembership); // Đã dịch
         
         // *** LOGIC GỬI EMAIL ***
-        sendWorkspaceNotificationEmail(admin, userToInvite, khongGian, workspaceRole);
+        sendWorkspaceNotificationEmail(admin, userToInvite, workspace, workspaceRole); // Đã dịch
     }
 
-    // *** HÀM HELPER  ***
+    // *** HÀM HELPER  ***
     /**
      * Gửi email thông báo cho người dùng khi họ được thêm vào không gian làm việc.
      */
-    private void sendWorkspaceNotificationEmail(NguoiDung admin, NguoiDung userAdded, KhongGian khongGian, Role role) {
+    private void sendWorkspaceNotificationEmail(User admin, User userAdded, Workspace workspace, Role role) { // Đã dịch
         try {
             // Tạo link chi tiết
             String workspaceUrl = String.format("%s/companies/%d/workspaces/%d", 
                 frontendUrl, 
-                khongGian.getCongTy().getIdCongTy(), 
-                khongGian.getIdKhongGian());
+                workspace.getCompany().getId(), // Đã dịch
+                workspace.getId()); // Đã dịch
 
             String emailBody = String.format(
-                "<p>Chào %s,</p>" +
-                "<p>Bạn vừa được %s thêm vào không gian làm việc <strong>%s</strong>.</p>" +
+                "<p>Hi %s,</p>" + // Đã dịch
+                "<p>You have just been added to the workspace <strong>%s</strong> by %s.</p>" + // Đã dịch
                 "<ul>" +
-                "<li><strong>Vai trò của bạn:</strong> %s</li>" +
-                "<li><strong>Công ty:</strong> %s</li>" +
+                "<li><strong>Your role:</strong> %s</li>" + // Đã dịch
+                "<li><strong>Company:</strong> %s</li>" + // Đã dịch
                 "</ul>" +
-                "<p>Bạn có thể truy cập không gian làm việc ngay bây giờ bằng cách nhấp vào <a href=\"%s\">liên kết này</a>.</p>" +
-                "<p>Cảm ơn,<br>Đội ngũ Project Manager</p>",
-                userAdded.getHoTen(),
-                admin.getHoTen(),
-                khongGian.getTenKhongGian(),
-                role.getTenRole(),
-                khongGian.getCongTy().getTenCongTy(),
+                "<p>You can access the workspace now by clicking <a href=\"%s\">this link</a>.</p>" + // Đã dịch
+                "<p>Thanks,<br>The Project Manager Team</p>", // Đã dịch
+                userAdded.getFullName(), // Đã dịch
+                admin.getFullName(), // Đã dịch
+                workspace.getName(), // Đã dịch
+                role.getRoleName(), // Đã dịch
+                workspace.getCompany().getName(), // Đã dịch
                 workspaceUrl
             );
 
             emailService.sendEmail(
                 userAdded.getEmail(), 
-                String.format("Bạn đã được thêm vào không gian: %s", khongGian.getTenKhongGian()), 
+                String.format("You have been added to the workspace: %s", workspace.getName()), // Đã dịch
                 emailBody
             );
 
         } catch (Exception e) {
-            // (Nên log lỗi này ra)
-            System.err.println("Lỗi khi gửi email thông báo thêm vào workspace: " + e.getMessage());
+            // (Nên log lỗi này)
+            System.err.println("Error sending workspace notification email: " + e.getMessage()); // Đã dịch
             // Không ném lỗi ra ngoài để không làm hỏng giao dịch chính
         }
     }
@@ -227,17 +228,17 @@ public class WorkspaceServiceImpl implements WorkspaceService {
      * @param kg Entity KhongGian
      * @return WorkspaceResponse DTO
      */
-    private WorkspaceResponse mapToWorkspaceResponse(KhongGian kg) {
+    private WorkspaceResponse mapToWorkspaceResponse(Workspace kg) { // Đã dịch
         return WorkspaceResponse.builder()
-                .idKhongGian(kg.getIdKhongGian())
-                .congTyId(kg.getCongTy().getIdCongTy()) // Lấy ID an toàn
-                .tenKhongGian(kg.getTenKhongGian())
-                .moTa(kg.getMoTa())
-                .anhBia(kg.getAnhBia())
-                .mauSac(kg.getMauSac())
-                .nguoiTaoId(kg.getNguoiTao().getIdNguoiDung()) // Lấy ID an toàn
-                .trangThai(kg.getTrangThai().name()) // Trả về tên Enum (String)
-                .ngayTao(kg.getNgayTao())
+                .workspaceId(kg.getId()) // Đã dịch
+                .companyId(kg.getCompany().getId()) // Lấy ID an toàn // Đã dịch
+                .workspaceName(kg.getName()) // Đã dịch
+                .description(kg.getDescription()) // Đã dịch
+                .coverImage(kg.getCoverImageUrl()) // Đã dịch
+                .color(kg.getColor()) // Đã dịch
+                .createdById(kg.getCreatedBy().getId()) // Lấy ID an toàn // Đã dịch
+                .status(kg.getStatus().name()) // Trả về tên Enum (String) // Đã dịch
+                .createdAt(kg.getCreatedAt()) // Đã dịch
                 .build();
     }
 }

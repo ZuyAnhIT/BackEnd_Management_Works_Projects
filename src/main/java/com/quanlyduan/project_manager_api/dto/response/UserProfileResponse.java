@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/UserProfileResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
 import lombok.Builder;
@@ -10,9 +11,9 @@ import java.util.List;
 public class UserProfileResponse {
     // 1. Thông tin cơ bản
     private Integer id;
-    private String hoTen;
+    private String fullName; // Đã dịch
     private String email;
-    private String anhDaiDien;
+    private String avatarUrl; // Đã dịch
     
     // 2. Vai trò cấp Hệ thống
     private List<String> systemRoles; // (vd: ["SYSTEM_ADMIN"])

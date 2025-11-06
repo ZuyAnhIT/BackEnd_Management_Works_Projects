@@ -1,7 +1,8 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/CompanyServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
-import com.quanlyduan.project_manager_api.exception.AccessDeniedException;
+import com.quanlyduan.project_manager_api.exception.AccessDeniedException; // Note: This import was unused in the original
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.common.enums.CombinedMemberStatus;
@@ -16,10 +17,10 @@ import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+// import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus; // Duplicate import
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.repository.*;
-import com.quanlyduan.project_manager_api.service.CompanyService;
+// import com.quanlyduan.project_manager_api.service.CompanyService; // Duplicate import
 import com.quanlyduan.project_manager_api.service.EmailService;
 import com.quanlyduan.project_manager_api.service.InvitationService;
 
@@ -41,15 +42,15 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class CompanyServiceImpl implements CompanyService {
 
-    private final CongTyRepository congTyRepository;
-    private final CongTyThanhVienRepository congTyThanhVienRepository;
-    private final NguoiDungRepository nguoiDungRepository;
+    private final CompanyRepository companyRepository; // Đã dịch
+    private final CompanyMemberRepository companyMemberRepository; // Đã dịch
+    private final UserRepository userRepository; // Đã dịch
     private final RoleRepository roleRepository;
 
     // // Định nghĩa mã role mặc định cho người tạo công ty
     // private static final String COMPANY_ADMIN_ROLE_CODE = "COMPANY_ADMIN";
 
-    private final CongTyLoiMoiRepository congTyLoiMoiRepository;
+    private final CompanyInvitationRepository companyInvitationRepository; // Đã dịch
     private final EmailService emailService;
 
     private final InvitationService invitationService;
@@ -61,44 +62,44 @@ public class CompanyServiceImpl implements CompanyService {
     // LOGIC TAO CONG TY
     @Override
     @Transactional
-    public CongTy createCompany(CreateCompanyRequest request) {
+    public Company createCompany(CreateCompanyRequest request) { // Đã dịch
         // 1. Lấy người dùng đang đăng nhập (người tạo)
-        NguoiDung creator = getCurrentAuthenticatedUser();
+        User creator = getCurrentAuthenticatedUser(); // Đã dịch
 
         // 2. Kiểm tra tên công ty đã tồn tại chưa
-        if (congTyRepository.existsByTenCongTy(request.getTenCongTy())) {
-            throw new BadRequestException("Tên công ty này đã tồn tại");
+        if (companyRepository.existsByName(request.getCompanyName())) { // Đã dịch
+            throw new BadRequestException("This company name already exists"); // Đã dịch
         }
 
         // 3. Tìm Role "COMPANY_ADMIN" trong CSDL
-        Role adminRole = roleRepository.findFirstByMaRole(RoleCode.COMPANY_ADMIN.name()) // SỬ DỤNG ENUM
+        Role adminRole = roleRepository.findFirstByRoleCode(RoleCode.COMPANY_ADMIN.name()) // SỬ DỤNG ENUM // Đã dịch
                 .orElseThrow(() -> new ResourceNotFoundException(
-                    "Không tìm thấy Role: " + RoleCode.COMPANY_ADMIN.name() + ". Vui lòng cấu hình CSDL."
+                    "Role not found: " + RoleCode.COMPANY_ADMIN.name() + ". Please configure the database." // Đã dịch
                 ));
 
         // 4. Tạo công ty mới
-        CongTy newCompany = CongTy.builder()
-                .tenCongTy(request.getTenCongTy())
-                .moTa(request.getMoTa())
-                .diaChi(request.getDiaChi())
-                .soDienThoai(request.getSoDienThoai())
+        Company newCompany = Company.builder() // Đã dịch
+                .name(request.getCompanyName()) // Đã dịch
+                .description(request.getDescription()) // Đã dịch
+                .address(request.getAddress()) // Đã dịch
+                .phoneNumber(request.getPhoneNumber()) // Đã dịch
                 .email(request.getEmail())
                 .website(request.getWebsite())
-                .nguoiTaoId(creator.getIdNguoiDung())
-                .trangThai(CompanyStatus.HOAT_DONG)
+                .createdById(creator.getId()) // Đã dịch
+                .status(CompanyStatus.ACTIVE) // Đã dịch
                 .build();
         
-        CongTy savedCompany = congTyRepository.save(newCompany);
+        Company savedCompany = companyRepository.save(newCompany); // Đã dịch
 
         // 5. Thêm người tạo làm thành viên đầu tiên với vai trò Admin
-        CongTyThanhVien membership = CongTyThanhVien.builder()
-                .congTy(savedCompany)
-                .nguoiDung(creator)
+        CompanyMember membership = CompanyMember.builder() // Đã dịch
+                .company(savedCompany) // Đã dịch
+                .user(creator) // Đã dịch
                 .role(adminRole)
-                .trangThai(MemberStatus.HOAT_DONG)
+                .status(MemberStatus.ACTIVE) // Đã dịch
                 .build();
         
-        congTyThanhVienRepository.save(membership);
+        companyMemberRepository.save(membership); // Đã dịch
 
         return savedCompany;
     }
@@ -106,15 +107,15 @@ public class CompanyServiceImpl implements CompanyService {
 
     // --- Private Helper Method ---
     // (Helper này lấy từ UserServiceImpl, bạn có thể tách ra 1 class Util chung)
-    private NguoiDung getCurrentAuthenticatedUser() {
+    private User getCurrentAuthenticatedUser() { // Đã dịch
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-            throw new BadRequestException("Không tìm thấy thông tin người dùng đã xác thực.");
+            throw new BadRequestException("Authenticated user information not found."); // Đã dịch
         }
         
         String email = authentication.getName();
-        return nguoiDungRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng với email: " + email));
+        return userRepository.findByEmail(email) // Đã dịch
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email)); // Đã dịch
     }
 
 
@@ -122,63 +123,63 @@ public class CompanyServiceImpl implements CompanyService {
     // LOGIC TAO LOI MOI THANH VIEN VAO CONG TY
     @Override
     @Transactional
-    public void inviteMember(Integer congTyId, InviteMemberRequest request) {
+    public void inviteMember(Integer companyId, InviteMemberRequest request) { // Đã dịch
         // (Logic của hàm này không thay đổi, vì nó không dùng 2 hàm helper kia)
         
         // 1. Lấy thông tin
-        NguoiDung admin = getCurrentAuthenticatedUser();
-        CongTy congTy = congTyRepository.findById(congTyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty"));
+        User admin = getCurrentAuthenticatedUser(); // Đã dịch
+        Company company = companyRepository.findById(companyId) // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found")); // Đã dịch
         
         Role role = roleRepository.findById(request.getRoleId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Role"));
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found")); // Đã dịch
         
         // 2. Validate
-        if (role.getCapDo() != RoleLevel.COMPANY) {
-            throw new BadRequestException("Role không hợp lệ (Không phải cấp độ Công ty)");
+        if (role.getLevel() != RoleLevel.COMPANY) { // Đã dịch
+            throw new BadRequestException("Invalid role (Not a COMPANY level role)"); // Đã dịch
         }
         
         String invitedEmail = request.getEmail();
         if (admin.getEmail().equals(invitedEmail)) {
-            throw new BadRequestException("Bạn không thể tự mời chính mình");
+            throw new BadRequestException("You cannot invite yourself"); // Đã dịch
         }
 
         // 3. Kiểm tra xem đã là thành viên chưa
-        if (congTyThanhVienRepository.existsByCongTy_IdCongTyAndNguoiDung_Email(congTyId, invitedEmail)) {
-            throw new BadRequestException("Người dùng này đã là thành viên của công ty");
+        if (companyMemberRepository.existsByCompany_IdAndUser_Email(companyId, invitedEmail)) { // Đã dịch
+            throw new BadRequestException("This user is already a member of the company"); // Đã dịch
         }
         
         // 4. Kiểm tra xem đã có lời mời PENDING chưa
-        if (congTyLoiMoiRepository.existsByCongTy_IdCongTyAndEmailAndTrangThai(congTyId, invitedEmail, InvitationStatus.PENDING)) {
-            throw new BadRequestException("Lời mời đã được gửi trước đó và đang chờ chấp nhận");
+        if (companyInvitationRepository.existsByCompany_IdAndEmailAndStatus(companyId, invitedEmail, InvitationStatus.PENDING)) { // Đã dịch
+            throw new BadRequestException("An invitation has already been sent and is pending"); // Đã dịch
         }
 
         // 5. Tạo lời mời
         String token = UUID.randomUUID().toString();
         LocalDateTime expiryDate = LocalDateTime.now().plusDays(3); // Lời mời hết hạn sau 3 ngày
 
-        CongTyLoiMoi loiMoi = CongTyLoiMoi.builder()
-                .congTy(congTy)
+        CompanyInvitation invitation = CompanyInvitation.builder() // Đã dịch
+                .company(company) // Đã dịch
                 .email(invitedEmail)
                 .role(role)
-                .nguoiMoi(admin)
+                .invitedBy(admin) // Đã dịch
                 .token(token)
-                .trangThai(InvitationStatus.PENDING)
-                .ngayHetHan(expiryDate)
+                .status(InvitationStatus.PENDING) // Đã dịch
+                .expiresAt(expiryDate) // Đã dịch
                 .build();
         
-        congTyLoiMoiRepository.save(loiMoi);
+        companyInvitationRepository.save(invitation); // Đã dịch
 
         // 6. Gửi Email (Logic giữ nguyên)
         String acceptUrl = frontendUrl + "/accept-invitation?token=" + token;
         String emailBody = String.format(
-            "Chào bạn,<br><br>%s đã mời bạn tham gia công ty %s với vai trò %s.<br>" +
-            "Vui lòng click vào <a href=\"%s\">đây</a> để chấp nhận lời mời.<br><br>" +
-            "Link sẽ hết hạn sau 3 ngày.",
-            admin.getHoTen(), congTy.getTenCongTy(), role.getTenRole(), acceptUrl
+            "Hello,<br><br>%s has invited you to join the company %s with the role %s.<br>" + // Đã dịch
+            "Please click <a href=\"%s\">here</a> to accept the invitation.<br><br>" + // Đã dịch
+            "This link will expire in 3 days.", // Đã dịch
+            admin.getFullName(), company.getName(), role.getRoleName(), acceptUrl // Đã dịch
         );
 
-        emailService.sendEmail(invitedEmail, "Lời mời tham gia công ty " + congTy.getTenCongTy(), emailBody);
+        emailService.sendEmail(invitedEmail, "Invitation to join " + company.getName(), emailBody); // Đã dịch
     }
 
 
@@ -187,34 +188,34 @@ public class CompanyServiceImpl implements CompanyService {
     @Transactional
     public void acceptInvitation(AcceptInvitationRequest request) {
         // 1. Xác thực token lời mời (SỬ DỤNG SERVICE CHUNG)
-        CongTyLoiMoi loiMoi = invitationService.validateInvitationToken(request.getInvitationToken());
+        CompanyInvitation invitation = invitationService.validateInvitationToken(request.getInvitationToken()); // Đã dịch
         
         // 2. Lấy người dùng đang đăng nhập
-        NguoiDung currentUser = getCurrentAuthenticatedUser();
+        User currentUser = getCurrentAuthenticatedUser(); // Đã dịch
 
         // 3. Kiểm tra xem lời mời này có đúng là dành cho người đang đăng nhập không
-        if (!currentUser.getEmail().equals(loiMoi.getEmail())) {
-            throw new BadRequestException("Lời mời này dành cho một tài khoản email khác.");
+        if (!currentUser.getEmail().equals(invitation.getEmail())) {
+            throw new BadRequestException("This invitation is for a different email account."); // Đã dịch
         }
         
         // 4. Kiểm tra (lần nữa) xem họ đã là thành viên chưa
-        if (congTyThanhVienRepository.existsByCongTy_IdCongTyAndNguoiDung_Email(
-                loiMoi.getCongTy().getIdCongTy(), currentUser.getEmail())) {
-            throw new BadRequestException("Bạn đã là thành viên của công ty này");
+        if (companyMemberRepository.existsByCompany_IdAndUser_Email( // Đã dịch
+                invitation.getCompany().getId(), currentUser.getEmail())) { // Đã dịch
+            throw new BadRequestException("You are already a member of this company"); // Đã dịch
         }
 
         // 5. Thêm thành viên vào công ty (SỬ DỤNG SERVICE CHUNG)
-        invitationService.addMemberToCompany(currentUser, loiMoi.getCongTy(), loiMoi.getRole());
+        invitationService.addMemberToCompany(currentUser, invitation.getCompany(), invitation.getRole()); // Đã dịch
         
         // 6. Cập nhật lời mời
-        loiMoi.setTrangThai(InvitationStatus.ACCEPTED);
-        congTyLoiMoiRepository.save(loiMoi);
+        invitation.setStatus(InvitationStatus.ACCEPTED); // Đã dịch
+        companyInvitationRepository.save(invitation); // Đã dịch
     }
 
     // LOGIC XEM DANH SACH THANH VIEN TRONG CONG TY
     @Override
     @Transactional(readOnly = true) // Dùng readOnly=true cho các hàm GET
-    public List<CompanyMemberResponse> getCompanyMembers(Integer congTyId) {
+    public List<CompanyMemberResponse> getCompanyMembers(Integer companyId) { // Đã dịch
 
         // Bỏ check quyền thủ 
         // // 1. Lấy thông tin người dùng hiện tại
@@ -233,35 +234,35 @@ public class CompanyServiceImpl implements CompanyService {
         List<CompanyMemberResponse> responseList = new ArrayList<>();
 
         // 4. Lấy danh sách thành viên (Active/Inactive)
-        List<CongTyThanhVien> members = congTyThanhVienRepository.findByCongTy_IdCongTy(congTyId);
+        List<CompanyMember> members = companyMemberRepository.findByCompany_Id(companyId); // Đã dịch
         
-        for (CongTyThanhVien member : members) {
+        for (CompanyMember member : members) { // Đã dịch
             CompanyMemberResponse dto = CompanyMemberResponse.builder()
-                .userId(member.getNguoiDung().getIdNguoiDung())
-                .hoTen(member.getNguoiDung().getHoTen())
-                .email(member.getNguoiDung().getEmail())
-                .anhDaiDien(member.getNguoiDung().getAnhDaiDien())
-                .roleName(member.getRole().getTenRole())
-                .chucVu(member.getChucVu())
-                .ngayThamGia(member.getNgayThamGia())
-                .status(mapMemberStatus(member.getTrangThai())) // Helper map status
+                .userId(member.getUser().getId()) // Đã dịch
+                .fullName(member.getUser().getFullName()) // Đã dịch
+                .email(member.getUser().getEmail())
+                .avatarUrl(member.getUser().getAvatarUrl()) // Đã dịch
+                .roleName(member.getRole().getRoleName()) // Đã dịch
+                .jobTitle(member.getJobTitle()) // Đã dịch
+                .joinedAt(member.getJoinedAt()) // Đã dịch
+                .status(mapMemberStatus(member.getStatus())) // Helper map status // Đã dịch
                 .build();
             responseList.add(dto);
         }
 
         // 5. Lấy danh sách lời mời (Pending)
-        List<CongTyLoiMoi> invitations = congTyLoiMoiRepository
-            .findByCongTy_IdCongTyAndTrangThai(congTyId, InvitationStatus.PENDING);
+        List<CompanyInvitation> invitations = companyInvitationRepository // Đã dịch
+            .findByCompany_IdAndStatus(companyId, InvitationStatus.PENDING); // Đã dịch
             
-        for (CongTyLoiMoi loiMoi : invitations) {
+        for (CompanyInvitation invitation : invitations) { // Đã dịch
              CompanyMemberResponse dto = CompanyMemberResponse.builder()
                 .userId(null) // Chưa có user
-                .hoTen("Đang chờ...") // Hoặc (loiMoi.getEmail())
-                .email(loiMoi.getEmail())
-                .anhDaiDien(null)
-                .roleName(loiMoi.getRole().getTenRole()) // Role được mời
-                .chucVu(null)
-                .ngayThamGia(loiMoi.getNgayTao()) // Ngày mời
+                .fullName("Pending...") // Hoặc (loiMoi.getEmail()) // Đã dịch
+                .email(invitation.getEmail()) // Đã dịch
+                .avatarUrl(null) // Đã dịch
+                .roleName(invitation.getRole().getRoleName()) // Role được mời // Đã dịch
+                .jobTitle(null) // Đã dịch
+                .joinedAt(invitation.getCreatedAt()) // Ngày mời // Đã dịch
                 .status(CombinedMemberStatus.PENDING)
                 .build();
             responseList.add(dto);
@@ -274,7 +275,7 @@ public class CompanyServiceImpl implements CompanyService {
     // --- Private Helper Method ---
     
     private CombinedMemberStatus mapMemberStatus(MemberStatus status) {
-        if (status == MemberStatus.HOAT_DONG) {
+        if (status == MemberStatus.ACTIVE) { // Đã dịch
             return CombinedMemberStatus.ACTIVE;
         }
         return CombinedMemberStatus.INACTIVE; // Gộp TAM_DUNG và DA_ROI thành INACTIVE
@@ -285,7 +286,7 @@ public class CompanyServiceImpl implements CompanyService {
     // LOGIC LAY THONG TIN CHI TIET CONG TY
     @Override
     @Transactional(readOnly = true)
-    public CompanyDetailsResponse getCompanyDetails(Integer congTyId) {
+    public CompanyDetailsResponse getCompanyDetails(Integer companyId) { // Đã dịch
 
         // Bỏ check quyền thủ công
         // // 1. Lấy thông tin người dùng hiện tại
@@ -300,11 +301,11 @@ public class CompanyServiceImpl implements CompanyService {
         // } 
 
         // 3. Lấy thông tin công ty
-        CongTy congTy = congTyRepository.findById(congTyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + congTyId));
+        Company company = companyRepository.findById(companyId) // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found with ID: " + companyId)); // Đã dịch
 
         // 4. Map sang DTO và trả về
-        return mapCongTyToDetailsDto(congTy);
+        return mapCompanyToDetailsDto(company); // Đã dịch
     }
 
     // --- Private Helper Methods ---
@@ -312,18 +313,18 @@ public class CompanyServiceImpl implements CompanyService {
     // (Helper mapMemberStatus)
     
     // Helper mới để map CongTy sang DTO
-    private CompanyDetailsResponse mapCongTyToDetailsDto(CongTy congTy) {
+    private CompanyDetailsResponse mapCompanyToDetailsDto(Company company) { // Đã dịch
         return CompanyDetailsResponse.builder()
-                .idCongTy(congTy.getIdCongTy())
-                .tenCongTy(congTy.getTenCongTy())
-                .maCongTy(congTy.getMaCongTy())
-                .moTa(congTy.getMoTa())
-                .logo(congTy.getLogo())
-                .diaChi(congTy.getDiaChi())
-                .soDienThoai(congTy.getSoDienThoai())
-                .email(congTy.getEmail())
-                .website(congTy.getWebsite())
-                .nguoiTaoId(congTy.getNguoiTaoId())
+                .companyId(company.getId()) // Đã dịch
+                .companyName(company.getName()) // Đã dịch
+                .companyCode(company.getCompanyCode()) // Đã dịch
+                .description(company.getDescription()) // Đã dịch
+                .logo(company.getLogoUrl()) // Đã dịch
+                .address(company.getAddress()) // Đã dịch
+                .phoneNumber(company.getPhoneNumber()) // Đã dịch
+                .email(company.getEmail())
+                .website(company.getWebsite())
+                .createdById(company.getCreatedById()) // Đã dịch
                 .build();
     }
 
@@ -331,43 +332,43 @@ public class CompanyServiceImpl implements CompanyService {
     // LOGIC CAP NHAT THONG TIN CONG TY
     @Override
     @Transactional
-    public CompanyDetailsResponse updateCompany(Integer congTyId, UpdateCompanyRequest request) {
+    public CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request) { // Đã dịch
         
         // 1. Lấy công ty
-        CongTy congTy = congTyRepository.findById(congTyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + congTyId));
+        Company company = companyRepository.findById(companyId) // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found with ID: " + companyId)); // Đã dịch
 
         // 2. Kiểm tra nghiệp vụ (ví dụ: tên công ty mới nếu có)
-        if (request.getTenCongTy() != null && !request.getTenCongTy().equals(congTy.getTenCongTy())) {
-            if (congTyRepository.existsByTenCongTy(request.getTenCongTy())) {
-                throw new BadRequestException("Tên công ty này đã tồn tại");
+        if (request.getCompanyName() != null && !request.getCompanyName().equals(company.getName())) { // Đã dịch
+            if (companyRepository.existsByName(request.getCompanyName())) { // Đã dịch
+                throw new BadRequestException("This company name already exists"); // Đã dịch
             }
-            congTy.setTenCongTy(request.getTenCongTy());
+            company.setName(request.getCompanyName()); // Đã dịch
         }
 
         // 3. Cập nhật các trường (nếu chúng không null)
-        if (request.getMoTa() != null) {
-            congTy.setMoTa(request.getMoTa());
+        if (request.getDescription() != null) { // Đã dịch
+            company.setDescription(request.getDescription()); // Đã dịch
         }
         if (request.getLogo() != null) {
-            congTy.setLogo(request.getLogo());
+            company.setLogoUrl(request.getLogo()); // Đã dịch
         }
-        if (request.getDiaChi() != null) {
-            congTy.setDiaChi(request.getDiaChi());
+        if (request.getAddress() != null) { // Đã dịch
+            company.setAddress(request.getAddress()); // Đã dịch
         }
-        if (request.getSoDienThoai() != null) {
-            congTy.setSoDienThoai(request.getSoDienThoai());
+        if (request.getPhoneNumber() != null) { // Đã dịch
+            company.setPhoneNumber(request.getPhoneNumber()); // Đã dịch
         }
         if (request.getEmail() != null) {
-            congTy.setEmail(request.getEmail());
+            company.setEmail(request.getEmail());
         }
         if (request.getWebsite() != null) {
-            congTy.setWebsite(request.getWebsite());
+            company.setWebsite(request.getWebsite());
         }
 
         // 4. Lưu và trả về
-        CongTy updatedCongTy = congTyRepository.save(congTy);
-        return mapCongTyToDetailsDto(updatedCongTy);
+        Company updatedCompany = companyRepository.save(company); // Đã dịch
+        return mapCompanyToDetailsDto(updatedCompany); // Đã dịch
     }
     
 }

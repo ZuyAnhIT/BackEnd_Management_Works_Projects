@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/EmailServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.service.EmailService;
@@ -33,10 +34,10 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(body, true); // true = hỗ trợ HTML
 
             mailSender.send(mimeMessage);
-            System.out.println("Email đã gửi thành công đến: " + to);
+            System.out.println("Email sent successfully to: " + to); // Đã dịch
         } catch (Exception e) {
             // (Nên log lỗi này)
-            System.err.println("Lỗi khi gửi email: " + e.getMessage());
+            System.err.println("Error sending email: " + e.getMessage()); // Đã dịch
         }
     }
 }

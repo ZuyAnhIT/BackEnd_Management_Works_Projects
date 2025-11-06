@@ -1,28 +1,34 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/model/Role.java
 package com.quanlyduan.project_manager_api.model;
 
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.CreationTimestamp;
 
 @Data
 @Entity
-@Table(name = "Role")
+@Table(name = "roles")
 public class Role {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer idRole;
+    private Integer id;
 
-    @Column(nullable = false, unique = true)
-    private String maRole;
+    @Column(name = "role_code", nullable = false, unique = true)
+    private String roleCode;
 
-    @Column(nullable = false)
-    private String tenRole;
+    @Column(name = "role_name", nullable = false)
+    private String roleName;
 
-    private String moTa;
+    @Column(name = "description")
+    private String description;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private RoleLevel capDo; // Enum: SYSTEM, COMPANY, WORKSPACE, PROJECT
+    @Column(name = "level", nullable = false)
+    private RoleLevel level; // Enum: SYSTEM, COMPANY, WORKSPACE, PROJECT
 
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 }

@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/controller/InvitationController.java
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
@@ -25,6 +26,6 @@ public class InvitationController {
             @Valid @RequestBody AcceptInvitationRequest request) {
         
         companyService.acceptInvitation(request);
-        return ResponseEntity.ok(ApiResponse.success("Chấp nhận lời mời thành công", null));
+        return ResponseEntity.ok(ApiResponse.success("Invitation accepted successfully", null)); // Đã dịch
     }
 }

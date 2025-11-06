@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/RegisterRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import jakarta.validation.constraints.Email;
@@ -8,14 +9,14 @@ import lombok.Data;
 @Data
 public class RegisterRequest {
 
-    @NotBlank(message = "Họ tên không được để trống")
-    private String hoTen;
+    @NotBlank(message = "Full name must not be blank") // Đã dịch
+    private String fullName; // Đã dịch
 
-    @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email không đúng định dạng")
+    @NotBlank(message = "Email must not be blank") // Đã dịch
+    @Email(message = "Email is not in a valid format") // Đã dịch
     private String email;
 
-    @NotBlank(message = "Mật khẩu không được để trống")
-    @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự")
-    private String matKhau;
+    @NotBlank(message = "Password must not be blank") // Đã dịch
+    @Size(min = 6, message = "Password must be at least 6 characters long") // Đã dịch
+    private String password; // Đã dịch
 }
