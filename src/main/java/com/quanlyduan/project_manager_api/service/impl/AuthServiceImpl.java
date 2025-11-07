@@ -110,7 +110,7 @@ public class AuthServiceImpl implements AuthService {
 
         // 3. Lấy thông tin NguoiDung (chúng ta cần Id để lưu RefreshToken)
         User user = userRepository.findByEmail(request.getEmail()) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Error: User not found after login")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("User not found after login")); // Đã dịch
                 
         // 4. Tạo Access Token
         String accessToken = jwtTokenProvider.generateAccessToken(authentication);
