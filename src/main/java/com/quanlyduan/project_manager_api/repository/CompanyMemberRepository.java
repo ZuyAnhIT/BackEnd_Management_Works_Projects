@@ -5,6 +5,7 @@ import com.quanlyduan.project_manager_api.model.CompanyMember; // Đã dịch
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -25,4 +26,9 @@ public interface CompanyMemberRepository extends JpaRepository<CompanyMember, In
     
     
     List<CompanyMember> findByUser_Id(Integer userId); // Đã dịch
+
+    boolean existsByCompany_IdAndUser_IdAndRole_RoleCode(Integer companyId, Integer userId, String roleCode);
+
+    boolean existsByCompany_IdAndUser_IdAndRole_RoleCodeIn(Integer companyId, Integer userId, Set<String> roleCodes);
+
 }

@@ -370,5 +370,35 @@ public class CompanyServiceImpl implements CompanyService {
         Company updatedCompany = companyRepository.save(company); // Đã dịch
         return mapCompanyToDetailsDto(updatedCompany); // Đã dịch
     }
-    
+
+    // LOGIC PHAN QUYEN THANH VIEN CONG TY
+    @Override
+    @Transactional
+    public CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode) {
+        
+        // 1. Tìm vai trò mới (cấp COMPANY)
+        Role newRole = roleRepository.findByRoleCodeAndLevel(newRoleCode, RoleLevel.COMPANY)
+            .orElseThrow(() -> new BadRequestException("Invalid or non-company role code: " + newRoleCode));
+
+        // 2. Tìm thành viên
+        CompanyMember member = companyMemberRepository.findById(memberId)
+            .orElseThrow(() -> new ResourceNotFoundException("Company member not found with ID: " + memberId));
+            
+        // 3. Kiểm tra xem thành viên này có thuộc đúng công ty không
+        if (!member.getCompany().getId().equals(companyId)) {
+            // Ném lỗi 403 Forbidden
+            throw new AccessDeniedException("This member does not belong to this company");
+        }
+
+        // 4. *** THÊM BƯỚC KIỂM TRA MỚI TẠI ĐÂY ***
+        // Kiểm tra vai trò hiện tại của thành viên
+        if (RoleCode.COMPANY_ADMIN.name().equals(member.getRole().getRoleCode())) {
+            throw new BadRequestException("Cannot update the role of a COMPANY_ADMIN.");
+        }
+        // 5. Cập nhật vai trò
+        member.setRole(newRole);
+        // 6. Lưu và trả về
+        return companyMemberRepository.save(member);
+    }
+
 }
