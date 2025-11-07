@@ -16,6 +16,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -89,6 +90,19 @@ public class CompanyController {
         
         CompanyDetailsResponse updatedCompany = companyService.updateCompany(congTyId, request);
         return ResponseEntity.ok(ApiResponse.success("Company updated successfully", updatedCompany)); // Đã dịch
+    }
+
+    // API XOA MEM THANH VIEN
+    @DeleteMapping("/{companyId}/members/{userId}")
+    // Bảo vệ: Chỉ Admin công ty mới được xóa
+    @PreAuthorize("@securityService.isCompanyAdmin(#companyId)")
+    public ResponseEntity<ApiResponse<Object>> removeMember(
+            @PathVariable Integer companyId,
+            @PathVariable Integer userId) {
+        
+        companyService.removeMemberFromCompany(companyId, userId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Member removed successfully", null)); // Đã dịch
     }
     
 }

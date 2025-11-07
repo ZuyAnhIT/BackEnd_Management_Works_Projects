@@ -5,6 +5,7 @@ package com.quanlyduan.project_manager_api.service;
 import com.quanlyduan.project_manager_api.model.CompanyMember; // Đã dịch
 import com.quanlyduan.project_manager_api.model.WorkspaceMember; // Đã dịch
 import com.quanlyduan.project_manager_api.model.User; // Đã dịch
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; // Đã dịch
 import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository; // Đã dịch
@@ -44,7 +45,7 @@ public class SecurityService {
 
         // 2. Tìm thông tin thành viên của họ trong công ty
         Optional<CompanyMember> membership = companyMemberRepository // Đã dịch
-            .findByCompany_IdAndUser_Id(companyId, currentUser.getId()); // Đã dịch
+            .findByCompany_IdAndUser_IdAndStatus(companyId, currentUser.getId(), MemberStatus.ACTIVE); // Sửa
 
         if (membership.isEmpty()) {
             return false; // Không phải thành viên
@@ -58,7 +59,7 @@ public class SecurityService {
     public boolean isCompanyMember(Integer companyId) { // Đã dịch
         User currentUser = getCurrentAuthenticatedUser(); // Đã dịch
         return companyMemberRepository // Đã dịch
-            .existsByCompany_IdAndUser_Id(companyId, currentUser.getId()); // Đã dịch
+            .existsByCompany_IdAndUser_IdAndStatus(companyId, currentUser.getId(), MemberStatus.ACTIVE); // Sửa
     }
 
 
@@ -77,7 +78,7 @@ public class SecurityService {
 
         // 1. Kiểm tra xem người dùng có phải là thành viên của không gian không
         Optional<WorkspaceMember> membership = workspaceMemberRepository // Đã dịch
-            .findByWorkspace_IdAndUser_Id(workspaceId, currentUser.getId()); // Đã dịch
+            .findByWorkspace_IdAndUser_IdAndStatus(workspaceId, currentUser.getId(), MemberStatus.ACTIVE); // Sửa
 
         if (membership.isEmpty()) {
             return false; // Không phải thành viên của không gian này
@@ -100,7 +101,7 @@ public class SecurityService {
         User currentUser = getCurrentAuthenticatedUser(); // Đã dịch
 
         Optional<WorkspaceMember> membership = workspaceMemberRepository // Đã dịch
-            .findByWorkspace_IdAndUser_Id(workspaceId, currentUser.getId()); // Đã dịch
+            .findByWorkspace_IdAndUser_IdAndStatus(workspaceId, currentUser.getId(), MemberStatus.ACTIVE); // Sửa
 
         if (membership.isEmpty()) {
             return false; // Không phải thành viên

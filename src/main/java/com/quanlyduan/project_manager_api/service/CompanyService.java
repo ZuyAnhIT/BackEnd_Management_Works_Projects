@@ -27,4 +27,11 @@ public interface CompanyService {
     // Update thong tin công ty
     CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request); // Đã dịch
     
+    
+    /**
+     * Xóa mềm một thành viên khỏi công ty (chuyển status thành REMOVED).
+     * @param companyId ID công ty
+     * @param userId ID người dùng bị xóa
+     */
+    void removeMemberFromCompany(Integer companyId, Integer userId);
 }
