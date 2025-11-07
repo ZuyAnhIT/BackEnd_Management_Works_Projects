@@ -512,7 +512,9 @@ INSERT INTO company_members (id, company_id, user_id, role_id, status) VALUES
 -- User 4 là COMPANY_MANAGER (ID 4) của Co 2
 (3, 2, 4, 4, 'ACTIVE'), 
 -- User 1 là COMPANY_ADMIN (ID 3) của Co 3
-(4, 3, 1, 3, 'ACTIVE');
+(4, 3, 1, 3, 'ACTIVE'), 
+-- User 4 là COMPANY_MEMBER (ID 5) của Co 1 (multi-test)
+(5, 1, 4, 5, 'ACTIVE');
 
 -- SAMPLE DATA WORKSPACES
 INSERT INTO workspaces (id, company_id, name, created_by_id, status) VALUES
