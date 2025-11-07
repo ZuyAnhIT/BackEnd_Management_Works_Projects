@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/AuthService.java
 package com.quanlyduan.project_manager_api.service;
 
+import com.quanlyduan.project_manager_api.dto.request.ForgotPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
@@ -18,4 +19,7 @@ public interface AuthService {
     void logout(LogoutRequest request);
 
     LoginResponse registerFromInvite(RegisterFromInviteRequest request); 
+
+    // Quen mat khau
+    void forgotPassword(ForgotPasswordRequest request);
 }

@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 
+import com.quanlyduan.project_manager_api.dto.request.ForgotPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
@@ -86,6 +87,20 @@ public class AuthController {
         LoginResponse loginResponse = authService.registerFromInvite(request);
         return ResponseEntity.ok(ApiResponse.success(
             "Registration and company join successful", loginResponse
+        ));
+    }
+
+    // API QUEN MAT KHAU
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Object>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        
+        authService.forgotPassword(request);
+        
+        // Luôn trả về thành công để bảo mật (tránh dò email)
+        return ResponseEntity.ok(ApiResponse.success(
+            "If an account with this email exists, a password reset link has been sent.", // Đã dịch
+            null
         ));
     }
 }
