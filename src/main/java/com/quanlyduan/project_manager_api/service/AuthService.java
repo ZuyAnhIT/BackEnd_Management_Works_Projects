@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
+import com.quanlyduan.project_manager_api.dto.request.ResetPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
 import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
 
@@ -20,6 +21,9 @@ public interface AuthService {
 
     LoginResponse registerFromInvite(RegisterFromInviteRequest request); 
 
-    // Quen mat khau
+    // Xac thuc quen mat khau
     void forgotPassword(ForgotPasswordRequest request);
+
+    // Doi mat khau khi quen
+    void resetPassword(ResetPasswordRequest request);
 }

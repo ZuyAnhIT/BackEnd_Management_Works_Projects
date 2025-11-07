@@ -11,6 +11,7 @@ import com.quanlyduan.project_manager_api.model.User; // Đã dịch
 import com.quanlyduan.project_manager_api.model.UserRole; // Đã dịch
 import com.quanlyduan.project_manager_api.model.CompanyMember; // Đã dịch
 import com.quanlyduan.project_manager_api.model.WorkspaceMember; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.AuthTokenRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; // Đã dịch
 import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository; // Đã dịch
 import com.quanlyduan.project_manager_api.repository.UserRepository; // Đã dịch
@@ -36,13 +37,15 @@ public class UserServiceImpl implements UserService {
     private final UserRoleRepository userRoleRepository; // Đã dịch
     private final CompanyMemberRepository companyMemberRepository; // Đã dịch
     private final WorkspaceMemberRepository workspaceMemberRepository; // Đã dịch
+    private final AuthTokenRepository authTokenRepository;
 
-    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, UserRoleRepository userRoleRepository, CompanyMemberRepository companyMemberRepository, WorkspaceMemberRepository workspaceMemberRepository) { // Đã dịch
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, UserRoleRepository userRoleRepository, CompanyMemberRepository companyMemberRepository, WorkspaceMemberRepository workspaceMemberRepository, AuthTokenRepository authTokenRepository) { // Đã dịch
         this.userRepository = userRepository; // Đã dịch
         this.passwordEncoder = passwordEncoder;
         this.userRoleRepository = userRoleRepository; // Đã dịch
         this.companyMemberRepository = companyMemberRepository; // Đã dịch
         this.workspaceMemberRepository = workspaceMemberRepository; // Đã dịch
+        this.authTokenRepository = authTokenRepository;
     }
     // (Sau này sẽ inject TokenRepository để hủy Refresh Token)
 
@@ -51,34 +54,33 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void changePassword(ChangePasswordRequest request) {
         // 1. Lấy thông tin người dùng đang đăng nhập
-        User currentUser = getCurrentAuthenticatedUser(); // Đã dịch
+        User currentUser = getCurrentAuthenticatedUser();
 
         // 2. Validate mật khẩu cũ
-        if (!passwordEncoder.matches(request.getOldPassword(), currentUser.getPassword())) { // Đã dịch
-            throw new BadRequestException("Incorrect old password"); // Đã dịch
+        if (!passwordEncoder.matches(request.getOldPassword(), currentUser.getPassword())) {
+            throw new BadRequestException("Incorrect old password");
         }
 
         // 3. Validate mật khẩu mới
-        if (passwordEncoder.matches(request.getNewPassword(), currentUser.getPassword())) { // Đã dịch
-            throw new BadRequestException("New password must be different from the old password"); // Đã dịch
+        if (passwordEncoder.matches(request.getNewPassword(), currentUser.getPassword())) {
+            throw new BadRequestException("New password must be different from the old password");
         }
 
         // 4. Validate mật khẩu xác nhận
         if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
-            throw new BadRequestException("Password confirmation does not match"); // Đã dịch
+            throw new BadRequestException("Password confirmation does not match");
         }
 
         // 5. Hash và cập nhật mật khẩu mới
-        currentUser.setPassword(passwordEncoder.encode(request.getNewPassword())); // Đã dịch
+        currentUser.setPassword(passwordEncoder.encode(request.getNewPassword()));
 
         // 6. Lưu vào CSDL
-        userRepository.save(currentUser); // Đã dịch
+        userRepository.save(currentUser);
 
-        // 7. (Nâng cao) Thu hồi tất cả Refresh Token
+        // 7. (NÂNG CẤP) Thu hồi tất cả Refresh Token 
         // Đây là bước quan trọng để bảo mật. Khi đổi mật khẩu,
         // tất cả các phiên đăng nhập ở thiết bị khác sẽ bị buộc đăng xuất.
-        // tokenRepository.revokeAllUserRefreshTokens(currentUser.getId()); // Đã dịch
-        // (Chúng ta sẽ implement chi tiết hàm revokeAll... này sau)
+        authTokenRepository.revokeAllUserRefreshTokens(currentUser.getId());
     }
 
     // --- Private Helper Method ---

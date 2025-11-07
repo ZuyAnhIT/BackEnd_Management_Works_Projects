@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
+import com.quanlyduan.project_manager_api.dto.request.ResetPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
@@ -355,6 +356,41 @@ public class AuthServiceImpl implements AuthService {
         } catch (Exception e) {
             System.err.println("Error sending password reset email: " + e.getMessage()); // Đã dịch
         }
+    }
+
+    // LOGIC DAT LAI MAT KHAU
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        // 1. Tìm token trong CSDL
+        AuthToken resetToken = authTokenRepository.findByTokenAndTokenType(request.getToken(), TokenType.RESET_PASSWORD)
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired reset token"));
+
+        // 2. Kiểm tra token đã hết hạn chưa
+        if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            authTokenRepository.delete(resetToken); 
+            throw new BadRequestException("Password reset token has expired");
+        }
+
+        // 3. Kiểm tra token đã được sử dụng/thu hồi chưa
+        if (resetToken.getStatus() != TokenStatus.ACTIVE) {
+             throw new BadRequestException("Invalid or already used reset token");
+        }
+
+        // 4. Lấy người dùng liên quan
+        User user = resetToken.getUser();
+
+        // 5. Hash và đặt mật khẩu mới
+        String hashedPassword = passwordEncoder.encode(request.getNewPassword());
+        user.setPassword(hashedPassword);
+        userRepository.save(user);
+
+        // 6. Đánh dấu token này là đã thu hồi
+        resetToken.setStatus(TokenStatus.REVOKED);
+        authTokenRepository.save(resetToken);
+
+        // 7.(NÂNG CẤP) Thu hồi tất cả Refresh Token của người dùng này
+        authTokenRepository.revokeAllUserRefreshTokens(user.getId());
     }
 
     

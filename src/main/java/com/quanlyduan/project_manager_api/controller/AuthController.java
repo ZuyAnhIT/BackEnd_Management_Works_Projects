@@ -7,6 +7,7 @@ import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
+import com.quanlyduan.project_manager_api.dto.request.ResetPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
@@ -103,4 +104,19 @@ public class AuthController {
             null
         ));
     }
+
+    // API DAT LAI MAT KHAU
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Object>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        
+        authService.resetPassword(request);
+        
+        return ResponseEntity.ok(ApiResponse.success(
+            "Password has been reset successfully. You can now log in.", // Đã dịch
+            null
+        ));
+    }
+
+    
 }
