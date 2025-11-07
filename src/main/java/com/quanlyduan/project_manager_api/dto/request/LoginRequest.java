@@ -8,7 +8,7 @@ import lombok.Data;
 @Data
 public class LoginRequest {
     @NotBlank(message = "Email must not be blank") // Đã dịch
-    @Email
+    @Email(message = "Email is not in a valid format") 
     private String email;
 
     @NotBlank(message = "Password must not be blank") // Đã dịch
