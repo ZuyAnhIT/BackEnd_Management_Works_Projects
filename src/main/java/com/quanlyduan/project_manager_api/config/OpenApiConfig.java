@@ -21,7 +21,7 @@ public class OpenApiConfig {
             .info(new Info()
                 .title("Project Manager API")
                 .version("v1.0")
-                .description("Tài liệu API cho hệ thống Quản lý dự án và công việc.")
+                .description("API Documentation for the Project and Task Management System.")
                 .license(new License().name("Apache 2.0").url("http://springdoc.org")))
             
             // 2. Thêm yêu cầu bảo mật (nút Authorize) cho tất cả API
@@ -35,7 +35,7 @@ public class OpenApiConfig {
                         .type(SecurityScheme.Type.HTTP) // Loại là HTTP
                         .scheme("bearer")               // Scheme là "bearer"
                         .bearerFormat("JWT")            // Định dạng là JWT
-                        .description("Nhập JWT Token của bạn để truy cập API.")
+                        .description("Enter your JWT Token to access the API.")
                 )
             );
     }
