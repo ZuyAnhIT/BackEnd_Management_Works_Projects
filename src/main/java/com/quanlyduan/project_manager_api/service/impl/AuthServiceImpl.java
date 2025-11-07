@@ -27,19 +27,22 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.quanlyduan.project_manager_api.dto.request.ForgotPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.service.InvitationService;
 import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
 import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
-// import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus; // Not used
+
 import com.quanlyduan.project_manager_api.model.common.enums.TokenStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import java.time.LocalDateTime;
-
+import java.util.Optional; 
+import java.util.UUID; 
 
 import java.util.Random;
 
@@ -61,8 +64,13 @@ public class AuthServiceImpl implements AuthService {
     // TIÊM SERVICE MỚI
     private final InvitationService invitationService;
     private final CompanyInvitationRepository companyInvitationRepository; // Đã dịch
-    
+
+    // *** THÊM VALUE NÀY ***
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
+
     private static final long OTP_EXPIRATION_MINUTES = 10;
+    private static final long RESET_TOKEN_EXPIRATION_MINUTES = 60;
     
 
     // LOIGIC DANG KY
@@ -287,4 +295,67 @@ public class AuthServiceImpl implements AuthService {
                 .refreshToken(refreshToken)
                 .build();
     }
+
+    // LOGIC QUEN MAT KHAU
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        // 1. Tìm người dùng
+        Optional<User> userOptional = userRepository.findByEmail(request.getEmail());
+
+        // 2. Bảo mật: Nếu không tìm thấy, không làm gì cả và âm thầm thoát
+        // Điều này ngăn chặn kẻ tấn công dò xem email nào đã tồn tại
+        if (userOptional.isEmpty()) {
+            return;
+        }
+
+        User user = userOptional.get();
+
+        // 3. Tạo một token reset duy nhất
+        String tokenString = UUID.randomUUID().toString();
+
+        // 4. Lưu token vào CSDL
+        AuthToken resetToken = AuthToken.builder()
+                .user(user)
+                .token(tokenString)
+                .tokenType(TokenType.RESET_PASSWORD)
+                .status(TokenStatus.ACTIVE)
+                .expiresAt(LocalDateTime.now().plusMinutes(RESET_TOKEN_EXPIRATION_MINUTES))
+                .build();
+        
+        authTokenRepository.save(resetToken);
+
+        // 5. Gửi email
+        sendPasswordResetEmail(user, tokenString);
+    }
+
+    // *** THÊM HÀM HELPER NÀY ***
+    private void sendPasswordResetEmail(User user, String token) {
+        try {
+            // Tạo link reset
+            String resetUrl = String.format("%s/reset-password?token=%s", frontendUrl, token);
+
+            String emailBody = String.format(
+                "<p>Hi %s,</p>" + // Đã dịch
+                "<p>You requested to reset your password. Click the link below to set a new password:</p>" + // Đã dịch
+                "<p><a href=\"%s\">Reset Password</a></p>" + // Đã dịch
+                "<p>This link will expire in %d minutes.</p>" + // Đã dịch
+                "<p>If you did not request this, please ignore this email.</p>", // Đã dịch
+                user.getFullName(),
+                resetUrl,
+                RESET_TOKEN_EXPIRATION_MINUTES
+            );
+
+            emailService.sendEmail(
+                user.getEmail(), 
+                "Password Reset Request", // Đã dịch
+                emailBody
+            );
+
+        } catch (Exception e) {
+            System.err.println("Error sending password reset email: " + e.getMessage()); // Đã dịch
+        }
+    }
+
+    
 }

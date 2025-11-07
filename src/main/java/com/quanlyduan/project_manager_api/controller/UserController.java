@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.ChangePasswordRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProfileRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.UserProfileResponse;
 import com.quanlyduan.project_manager_api.service.UserService;
@@ -40,4 +41,14 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("User profile fetched successfully", userProfile)); // Đã dịch
     }
     // (Sau này chúng ta sẽ thêm endpoint GET /api/users/me để lấy thông tin user)
+
+    // API CAP NHAT THONG TIN CA NHAN
+    @PutMapping("/me")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> updateUserProfile(
+            @Valid @RequestBody UpdateProfileRequest request) {
+        
+        UserProfileResponse updatedProfile = userService.updateUserProfile(request);
+        
+        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updatedProfile)); // Đã dịch
+    }
 }

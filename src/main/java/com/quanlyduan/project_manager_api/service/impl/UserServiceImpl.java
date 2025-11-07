@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.ChangePasswordRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProfileRequest;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMembershipDTO;
 import com.quanlyduan.project_manager_api.dto.response.UserProfileResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMembershipDTO;
@@ -128,6 +129,39 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
+
+    // LOGIC CAP NHAT THONG TIN CA NHAN
+    @Override
+    @Transactional
+    public UserProfileResponse updateUserProfile(UpdateProfileRequest request) {
+        // 1. Lấy người dùng đang đăng nhập (đảm bảo bảo mật)
+        User currentUser = getCurrentAuthenticatedUser();
+
+        // 2. Cập nhật các trường nếu chúng được cung cấp (không null)
+        if (request.getFullName() != null) {
+            currentUser.setFullName(request.getFullName()); // Đã dịch
+        }
+        if (request.getAvatarUrl() != null) {
+            currentUser.setAvatarUrl(request.getAvatarUrl()); // Đã dịch
+        }
+        if (request.getPhoneNumber() != null) {
+            currentUser.setPhoneNumber(request.getPhoneNumber()); // Đã dịch
+        }
+        if (request.getDateOfBirth() != null) {
+            currentUser.setDateOfBirth(request.getDateOfBirth()); // Đã dịch
+        }
+        if (request.getGender() != null) {
+            currentUser.setGender(request.getGender()); // Đã dịch
+        }
+
+        // 3. Lưu thay đổi vào CSDL
+        userRepository.save(currentUser);
+
+        // 4. Trả về hồ sơ đầy đủ đã được cập nhật
+        // (Gọi lại hàm này để lấy DTO đầy đủ với thông tin mới)
+        return getCurrentUserProfile();
+    }
+
     // LOGIC LAY NGUOI DUNG HIEN TAI
     private User getCurrentAuthenticatedUser() { // Đã dịch
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -139,4 +173,6 @@ public class UserServiceImpl implements UserService {
         return userRepository.findByEmail(email) // Đã dịch
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email)); // Đã dịch
     }
+
+
 }
