@@ -371,4 +371,30 @@ public class CompanyServiceImpl implements CompanyService {
         return mapCompanyToDetailsDto(updatedCompany); // Đã dịch
     }
     
+    // LOGIC XOA MEM THANH VIEN
+    @Override
+    @Transactional
+    public void removeMemberFromCompany(Integer companyId, Integer userId) {
+        // 1. Kiểm tra xem có tự xóa chính mình không
+        User admin = getCurrentAuthenticatedUser();
+        if (admin.getId().equals(userId)) {
+            throw new BadRequestException("You cannot remove yourself from the company."); // Đã dịch
+        }
+
+        // 2. Tìm thành viên (kể cả inactive) để xóa
+        CompanyMember member = companyMemberRepository.findByCompany_IdAndUser_Id(companyId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found in this company")); // Đã dịch
+
+        // 3. Kiểm tra xem họ đã bị xóa chưa
+        if (member.getStatus() == MemberStatus.REMOVED) {
+            throw new BadRequestException("This member has already been removed."); // Đã dịch
+        }
+        
+        // 4. Thực hiện xóa mềm
+        member.setStatus(MemberStatus.REMOVED); // Đã dịch
+        companyMemberRepository.save(member);
+
+        // 5. (Nâng cao) Tự động xóa họ khỏi TẤT CẢ Workspace và Project thuộc công ty này
+        // (Chúng ta sẽ thêm logic này sau, hiện tại chỉ xóa khỏi công ty)
+    }
 }
