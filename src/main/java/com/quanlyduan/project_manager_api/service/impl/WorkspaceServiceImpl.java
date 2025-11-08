@@ -137,12 +137,13 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 ));
 
         // 2. KIỂM TRA ĐIỀU KIỆN (như bạn yêu cầu)
-        boolean isCompanyMember = companyMemberRepository // Đã dịch
-            .existsByCompany_IdAndUser_Id(companyId, userToInvite.getId()); // Đã dịch
+        // Sửa: Chỉ kiểm tra thành viên ACTIVE
+        boolean isCompanyMember = companyMemberRepository
+            .existsByCompany_IdAndUser_IdAndStatus(companyId, userToInvite.getId(), MemberStatus.ACTIVE); // Sửa
             
         if (!isCompanyMember) {
             throw new BadRequestException(
-                "This person is not a member of the Company. Please contact the Company Admin to invite them first." // Đã dịch
+                "This person is not an active member of the Company. Please contact the Company Admin." // Đã dịch
             );
         }
 

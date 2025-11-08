@@ -33,4 +33,11 @@ public interface CompanyService {
      */
     CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode);
 
+    
+    /**
+     * Xóa mềm một thành viên khỏi công ty (chuyển status thành REMOVED).
+     * @param companyId ID công ty
+     * @param userId ID người dùng bị xóa
+     */
+    void removeMemberFromCompany(Integer companyId, Integer userId);
 }

@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.repository;
 
 import com.quanlyduan.project_manager_api.model.WorkspaceMember; // Đã dịch
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,4 +26,11 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
 
     List<WorkspaceMember> findByUser_Id(Integer userId); // Đã dịch
     
+    /**
+     * Tìm thành viên không gian đang HOẠT ĐỘNG.
+     * Dùng cho kiểm tra bảo mật.
+     */
+    Optional<WorkspaceMember> findByWorkspace_IdAndUser_IdAndStatus(
+        Integer workspaceId, Integer userId, MemberStatus status
+    );
 }
