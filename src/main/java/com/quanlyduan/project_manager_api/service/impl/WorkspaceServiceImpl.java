@@ -291,4 +291,28 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         return mapToWorkspaceResponse(updatedWorkspace);
     }
 
+    /**
+     * LOGIC XÓA MỀM WORKSPACE
+     */
+    @Override
+    @Transactional
+    public void deleteWorkspace(Integer workspaceId) {
+
+        // 1. Tìm Workspace
+        // Bảo mật (ai được phép gọi) đã được xử lý bởi @PreAuthorize
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with ID: " + workspaceId));
+
+        // 2. Kiểm tra nghiệp vụ: Nếu đã xóa rồi thì báo lỗi
+        if (workspace.getStatus() == WorkspaceStatus.DELETED) {
+            throw new BadRequestException("This workspace has already been deleted");
+        }
+
+        // 3. Thực hiện Xóa Mềm
+        workspace.setStatus(WorkspaceStatus.DELETED);
+
+        // 4. Lưu lại
+        workspaceRepository.save(workspace);
+    }
+
 }
