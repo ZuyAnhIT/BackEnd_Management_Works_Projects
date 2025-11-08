@@ -15,6 +15,7 @@ import com.quanlyduan.project_manager_api.repository.*;
 import com.quanlyduan.project_manager_api.service.EmailService;
 import com.quanlyduan.project_manager_api.service.SecurityService; 
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
+import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
 import org.springframework.beans.factory.annotation.Value;
 
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors; 
+import java.util.stream.Collectors;
+import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class WorkspaceServiceImpl implements WorkspaceService {
@@ -242,4 +244,51 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 .createdAt(kg.getCreatedAt()) // Đã dịch
                 .build();
     }
+
+    @Override
+    @Transactional
+    public WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request) {
+
+        // 1. Tìm Workspace
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with ID: " + workspaceId));
+
+        // 2. Xử lý logic cập nhật tên (Nếu có)
+        if (request.getName() != null && !request.getName().isEmpty()
+                && !Objects.equals(request.getName(), workspace.getName())) {
+
+            // Kiểm tra tên mới có bị trùng trong CÙNG CÔNG TY không
+            Optional<Workspace> existing = workspaceRepository.findByCompany_IdAndName(
+                    workspace.getCompany().getId(), // Lấy ID công ty từ workspace
+                    request.getName()
+            );
+
+            // Chỉ ném lỗi nếu tìm thấy một workspace KHÁC có CÙNG TÊN
+            if (existing.isPresent() && !existing.get().getId().equals(workspace.getId())) {
+                throw new BadRequestException("Workspace name already exists in this company");
+            }
+
+            // Nếu không trùng, cập nhật tên mới
+            workspace.setName(request.getName());
+        }
+
+        // 3. Cập nhật các trường khác (nếu chúng được cung cấp)
+        if (request.getDescription() != null) {
+            workspace.setDescription(request.getDescription());
+        }
+        if (request.getCoverImage() != null) {
+            // Khớp tên trường 'coverImage' từ DTO với 'coverImageUrl' trong Entity
+            workspace.setCoverImageUrl(request.getCoverImage());
+        }
+        if (request.getColor() != null) {
+            workspace.setColor(request.getColor());
+        }
+
+        // 4. Lưu vào CSDL
+        Workspace updatedWorkspace = workspaceRepository.save(workspace);
+
+        // 5. Map sang DTO và trả về (sử dụng helper có sẵn của bạn)
+        return mapToWorkspaceResponse(updatedWorkspace);
+    }
+
 }
