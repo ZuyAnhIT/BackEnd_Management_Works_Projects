@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse; 
 
 @RestController
@@ -83,7 +84,7 @@ public class WorkspaceController {
         return ResponseEntity.ok(ApiResponse.success("Member added to workspace successfully", null)); // Đã dịch
     }
 
-    // *** THÊM PHƯƠNG THỨC MỚI NÀY VÀO ***
+    // API CAP NHAT THONG TIN
     @PutMapping("/{workspaceId}")
     @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'workspace:edit')")
     public ResponseEntity<ApiResponse<WorkspaceResponse>> updateWorkspace(
@@ -96,6 +97,21 @@ public class WorkspaceController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Workspace updated successfully",
                 updatedWorkspace
+        ));
+    }
+
+    // API XOA MEM
+    @DeleteMapping("/{workspaceId}")
+    @PreAuthorize("@securityServicePermission.hasCompanyPermission(#companyId, 'workspace:delete')")
+    public ResponseEntity<ApiResponse<Object>> deleteWorkspace(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId) {
+
+        workspaceService.deleteWorkspace(workspaceId);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Workspace deleted successfully",
+                null
         ));
     }
 
