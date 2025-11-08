@@ -33,4 +33,12 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     Optional<WorkspaceMember> findByWorkspace_IdAndUser_IdAndStatus(
         Integer workspaceId, Integer userId, MemberStatus status
     );
+
+     // (Mới)
+    boolean existsByWorkspace_IdAndUser_Id(Integer workspaceId, Integer userId);
+
+    boolean existsByWorkspace_IdAndUser_IdAndRole_RoleCode(
+        Integer workspaceId, Integer userId, String roleCode
+    );
+
 }
