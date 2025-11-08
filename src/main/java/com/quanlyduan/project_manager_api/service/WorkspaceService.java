@@ -43,10 +43,16 @@ public interface WorkspaceService {
     void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request); // Đã dịch
 
     /**
-     * US 16: Cập nhật thông tin chi tiết của một không gian làm việc.
+     * Cập nhật thông tin chi tiết của một không gian làm việc.
      * @param workspaceId ID của không gian cần cập nhật
      * @param request DTO chứa các thông tin (tùy chọn) cần cập nhật
      * @return WorkspaceResponse DTO của không gian sau khi đã cập nhật
      */
     WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request);
+
+    /**
+     * Xóa mềm (Soft Delete) một không gian làm việc.
+     * @param workspaceId ID của không gian cần xóa
+     */
+    void deleteWorkspace(Integer workspaceId);
 }
