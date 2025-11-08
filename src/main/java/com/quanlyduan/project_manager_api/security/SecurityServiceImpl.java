@@ -5,8 +5,9 @@ package com.quanlyduan.project_manager_api.security;
 
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 // import com.quanlyduan.project_manager_api.model.Task;
+import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.repository.RoleRepository;
-// import com.quanlyduan.project_manager_api.repository.TaskRepository;
+import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SecurityServiceImpl implements SecurityServicePermission {
 
     private final RoleRepository roleRepository;
-    // private final TaskRepository taskRepository;
+     private final TaskRepository taskRepository;
 
     private UserPrincipal getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -73,20 +74,20 @@ public class SecurityServiceImpl implements SecurityServicePermission {
         return roleRepository.checkProjectPermission(userId, projectId, permissionCode);
     }
 
-    // @Override
-    // public boolean hasTaskPermission(Integer taskId, String permissionCode) {
-    // Integer userId = getCurrentUserId();
-    // if (userId == null || taskId == null) return false;
 
-    // // 1. Tìm Task để lấy Project ID
-    // Task task = taskRepository.findById(taskId)
-    // .orElseThrow(() -> new ResourceNotFoundException("Task not found for
-    // permission check"));
 
-    // Integer projectId = task.getProject().getId();
+     @Override
+     public boolean hasTaskPermission(Integer taskId, String permissionCode) {
+     Integer userId = getCurrentUserId();
+     if (userId == null || taskId == null) return false;
 
-    // // 2. Gọi kiểm tra quyền của Project
-    // return roleRepository.checkProjectPermission(userId, projectId,
-    // permissionCode);
-    // }
+     // 1. Tìm Task để lấy Project ID
+     Task task = taskRepository.findById(taskId)
+     .orElseThrow(() -> new ResourceNotFoundException("Task not found for permission check"));
+
+     Integer projectId = task.getProject().getId();
+
+     // 2. Gọi kiểm tra quyền của Project
+     return roleRepository.checkProjectPermission(userId, projectId, permissionCode);
+     }
 }
