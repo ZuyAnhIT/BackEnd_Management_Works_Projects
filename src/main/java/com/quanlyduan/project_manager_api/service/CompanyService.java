@@ -10,6 +10,7 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.model.Company; // Đã dịch
+import com.quanlyduan.project_manager_api.model.CompanyMember;
 
 public interface CompanyService {
     Company createCompany(CreateCompanyRequest request); // Đã dịch
@@ -27,6 +28,11 @@ public interface CompanyService {
     // Update thong tin công ty
     CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request); // Đã dịch
     
+        /**
+     * User Story 1: Phân quyền thành viên công ty
+     */
+    CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode);
+
     
     /**
      * Xóa mềm một thành viên khỏi công ty (chuyển status thành REMOVED).
