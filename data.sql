@@ -601,9 +601,9 @@ INSERT INTO company_members (company_id, user_id, role_id, status) VALUES
 (1, 4, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- David Lead
 (1, 5, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Eva Developer
 (1, 6, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Frank Client
-SELECT * FROM company_members
 -- Công ty 2: QuantumLeap
 (2, 8, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE');   -- Quantum Admin
+SELECT * FROM company_members;
 
 -- GÁN VAI TRÒ CẤP WORKSPACE
 INSERT INTO workspace_members (workspace_id, user_id, role_id, status) VALUES
