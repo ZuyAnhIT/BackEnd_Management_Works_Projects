@@ -124,15 +124,15 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     @Transactional
     public void inviteMember(Integer companyId, InviteMemberRequest request) { // Đã dịch
-        // (Logic của hàm này không thay đổi, vì nó không dùng 2 hàm helper kia)
         
         // 1. Lấy thông tin
         User admin = getCurrentAuthenticatedUser(); // Đã dịch
         Company company = companyRepository.findById(companyId) // Đã dịch
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found")); // Đã dịch
         
-        Role role = roleRepository.findById(request.getRoleId())
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found")); // Đã dịch
+        // *** SỬA LOGIC: Tìm Role bằng roleCode (từ DTO) thay vì roleId ***
+        Role role = roleRepository.findFirstByRoleCode(request.getRoleCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found for code: " + request.getRoleCode())); // Đã dịch
         
         // 2. Validate
         if (role.getLevel() != RoleLevel.COMPANY) { // Đã dịch
