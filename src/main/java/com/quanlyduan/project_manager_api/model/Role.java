@@ -7,6 +7,8 @@ import lombok.Data;
 import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.util.Set;
+
 @Data
 @Entity
 @Table(name = "roles")
@@ -31,4 +33,13 @@ public class Role {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    // Trong file Role.java
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "role_permissions",
+        joinColumns = @JoinColumn(name = "role_id"),
+        inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    private Set<Permission> permissions;
 }

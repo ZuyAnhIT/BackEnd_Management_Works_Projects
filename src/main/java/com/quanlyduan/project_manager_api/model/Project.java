@@ -28,12 +28,12 @@ public class Project {
     @JoinColumn(name = "workspace_id", nullable = false)
     private Workspace workspace;
 
-    // @ManyToOne(fetch = FetchType.LAZY)
-    // @JoinColumn(name = "project_type_id")
-    // private ProjectType projectType; //Scrum,Kanban
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_type_id")
+    private ProjectType projectType;
 
-    // @Column(name = "name", nullable = false)
-    // // private String name;
+    @Column(name = "name", nullable = false)
+    private String name;
 
     @Column(name = "project_code", nullable = false)
     private String projectCode;
@@ -51,19 +51,38 @@ public class Project {
     @Enumerated(EnumType.STRING)
     private Priority priority = Priority.MEDIUM;
 
+    // SỬA: Bổ sung @Column
+    @Column(name = "start_date")
     private LocalDate startDate;
+
+    // SỬA: Bổ sung @Column
+    @Column(name = "due_date")
     private LocalDate dueDate;
+
+    @Column(name = "completed_at")
     private LocalDate completedAt;
 
     private BigDecimal progress;
+
+    // BỔ SUNG: Cột này bị thiếu trong file Java
+    @Column(name = "cover_image_url")
+    private String coverImageUrl;
+
+    // BỔ SUNG: Cột này bị thiếu trong file Java
+    @Column(name = "board_config", columnDefinition = "JSON")
+    private String boardConfig;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false)
     private User createdBy;
 
+    // SỬA: Bổ sung @Column
     @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    // SỬA: Bổ sung @Column
     @UpdateTimestamp
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }
