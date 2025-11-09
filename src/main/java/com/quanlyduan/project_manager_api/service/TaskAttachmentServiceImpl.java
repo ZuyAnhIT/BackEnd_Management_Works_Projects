@@ -1,5 +1,4 @@
-package com.quanlyduan.project_manager_api.service.impl;
-
+package com.quanlyduan.project_manager_api.service;
 
 // Import 3 file bạn đã cung cấp
 import com.quanlyduan.project_manager_api.repository.TaskAttachmentRepository; // File 1
@@ -22,7 +21,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class TaskAttachmentServiceImpl implements TaskAttachmentService{
+public class TaskAttachmentServiceImpl implements TaskAttachmentService {
 
     // Tiêm (Inject) File 1 (Repository)
     @Autowired

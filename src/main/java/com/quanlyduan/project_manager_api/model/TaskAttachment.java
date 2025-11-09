@@ -1,4 +1,3 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/model/TaskAttachment.java
 package com.quanlyduan.project_manager_api.model;
 
 import jakarta.persistence.*;
@@ -9,38 +8,47 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "task_attachments")
+// Import các model cần thiết
+import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.Task;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Entity
+@Table(name = "task_attachments") // Tên bảng lưu trữ
 public class TaskAttachment {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "task_id", nullable = false)
-    private Task task;
-
     @Column(name = "file_name", nullable = false)
-    private String fileName;
-    
-    @Column(name = "file_path", nullable = false)
-    private String filePath; // Đường dẫn vật lý hoặc key trên S3
-    
+    private String fileName; // Tên gốc của tệp
+
+    @Column(name = "file_url", nullable = false, columnDefinition = "TEXT")
+    private String fileUrl; // Đường dẫn (URL) để truy cập tệp
+
     @Column(name = "file_type")
-    private String fileType; // e.g., "image/png"
+    private String fileType; // Kiểu tệp (ví dụ: "image/png")
 
     @Column(name = "file_size")
-    private Long fileSize;// (bytes)
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uploaded_by_id", nullable = false, updatable = false)
-    private User uploadedBy;
+    private Long fileSize; // Kích thước tệp (tính bằng bytes)
 
     @CreationTimestamp
     @Column(name = "uploaded_at", updatable = false)
-    private LocalDateTime uploadedAt;
+    private LocalDateTime uploadedAt; // Thời điểm tải lên
+
+    // Mối quan hệ: Ai là người tải tệp này lên
+    // Service sẽ dùng 'uploaderId' để set đối tượng User này
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    // Mối quan hệ: Tệp này thuộc về Task nào
+    // Service sẽ dùng 'taskId' để set đối tượng Task này
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "task_id", nullable = false)
+    private Task task;
 }
