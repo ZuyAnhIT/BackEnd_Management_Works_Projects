@@ -90,7 +90,6 @@ public class UserServiceImpl implements UserService {
 
     // --- Private Helper Method ---
 
-    // LOGIC LAY THONG TIN DAY DU
     @Override
     @Transactional(readOnly = true)
     public UserProfileResponse getCurrentUserProfile() {
@@ -123,17 +122,17 @@ public class UserServiceImpl implements UserService {
                         wm.getRole().getRoleCode() // Đã dịch
                 ))
                 .collect(Collectors.toList());
-        // *** 5. BỔ SUNG: Lấy vai trò cấp Dự án ***
-    // (Giả định bạn đã inject projectMemberRepository)
-    List<ProjectMembershipDTO> projectRoles = projectMemberRepository.findByUser_Id(currentUser.getId())
-            .stream()
-            .map(pm -> new ProjectMembershipDTO(
-                    pm.getProject().getId(),
-                    pm.getProject().getName(),
-                    pm.getProject().getWorkspace().getId(), // Lấy ID không gian cha
-                    pm.getRole().getRoleCode()
-            ))
-            .collect(Collectors.toList());
+                
+        // 5. BỔ SUNG: Lấy vai trò cấp Dự án
+        List<ProjectMembershipDTO> projectRoles = projectMemberRepository.findByUser_Id(currentUser.getId())
+                .stream()
+                .map(pm -> new ProjectMembershipDTO(
+                        pm.getProject().getId(),
+                        pm.getProject().getName(),
+                        pm.getProject().getWorkspace().getId(), // Lấy ID không gian cha
+                        pm.getRole().getRoleCode()
+                ))
+                .collect(Collectors.toList());
 
         // 6. Xây dựng và trả về DTO (Đã cập nhật)
         return UserProfileResponse.builder()
@@ -141,6 +140,12 @@ public class UserServiceImpl implements UserService {
                 .fullName(currentUser.getFullName())
                 .email(currentUser.getEmail())
                 .avatarUrl(currentUser.getAvatarUrl())
+                
+                // *** BỔ SUNG CÁC TRƯỜNG CÒN THIẾU ***
+                .phoneNumber(currentUser.getPhoneNumber()) // Thêm
+                .gender(currentUser.getGender()) // Thêm
+                .dateOfBirth(currentUser.getDateOfBirth()) // Thêm
+                
                 .systemRoles(systemRoles)
                 .companyMemberships(companyRoles)
                 .workspaceMemberships(workspaceRoles)
