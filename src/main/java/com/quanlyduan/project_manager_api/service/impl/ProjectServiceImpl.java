@@ -149,6 +149,30 @@ public class ProjectServiceImpl implements ProjectService {
 
         return visible.stream().map(this::toResponse).collect(Collectors.toList());
     }
+
+    /**
+     * Project Trash: trả về các project có trạng thái CANCELLED trong workspace.
+     * Logic:
+     * 1) Xác thực workspace tồn tại và thuộc companyId (sai → 400).
+     * 2) Lấy danh sách project theo workspace và lọc status = CANCELLED.
+     * 3) Map sang DTO và trả về.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProjectResponse> listCancelledProjectsByWorkspace(Integer companyId, Integer workspaceId) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+        if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Workspace does not belong to the specified company");
+        }
+
+        List<Project> projects = projectRepository.findByWorkspace_Id(workspaceId);
+        List<Project> trashed = projects.stream()
+                .filter(p -> p.getStatus() == ProjectStatus.CANCELLED)
+                .collect(Collectors.toList());
+
+        return trashed.stream().map(this::toResponse).collect(Collectors.toList());
+    }
     /**
      * Helper map Entity -> DTO (tối thiểu, không viết mapping phức tạp; chỉ rút gọn trường cần thiết).
      */
