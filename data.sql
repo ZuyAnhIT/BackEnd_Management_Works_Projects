@@ -438,7 +438,6 @@ CREATE TABLE company_invitations (
     UNIQUE KEY uk_company_email_pending (company_id, email, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
 -- =============================================
 -- BƯỚC 2: NẠP ĐỊNH NGHĨA (QUYỀN & VAI TRÒ)
 -- =============================================
@@ -556,14 +555,27 @@ SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
 
 -- TẠO CÁC USER (BẮT ĐẦU TỪ ID 1)
 INSERT INTO users (id, email, password, full_name, is_email_verified, status) VALUES
-(1, 'anna.admin@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Anna Admin (C-Admin)', 1, 'ACTIVE'),
-(2, 'brian.manager@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Brian Manager (C-Manager)', 1, 'ACTIVE'),
-(3, 'charlie.member@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Charlie Member (C-Member)', 1, 'ACTIVE'),
-(4, 'david.lead@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'David Lead (W-Admin)', 1, 'ACTIVE'),
-(5, 'eva.dev@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Eva Developer (P-Member)', 1, 'ACTIVE'),
-(6, 'frank.client@external.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Frank Client (P-Guest)', 1, 'ACTIVE'),
-(7, 'new.user@gmail.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'New User (System-User)', 1, 'ACTIVE'),
-(8, 'admin@quantum.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Quantum Admin (C-Admin 2)', 1, 'ACTIVE');
+-- HỆ THỐNG
+(1, 'super.admin@system.com',  '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'System Admin (S-Admin)', 1, 'ACTIVE'),
+(2, 'new.user@system.com',     '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'System User (S-User)', 1, 'ACTIVE'),
+
+-- CÔNG TY 1: PixelCore
+(3, 'anna.admin@pixelcore.com',    '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Anna Admin (C-Admin)', 1, 'ACTIVE'),
+(4, 'brian.manager@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Brian Manager (C-Manager)', 1, 'ACTIVE'),
+(5, 'charlie.member@pixelcore.com','$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Charlie Member (C-Member)', 1, 'ACTIVE'),
+
+-- WORKSPACE (Công ty 1)
+(6, 'david.lead@pixelcore.com',   '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'David Lead (W-Admin)', 1, 'ACTIVE'),
+(7, 'eva.dev@pixelcore.com',      '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Eva Developer (W-Member)', 1, 'ACTIVE'),
+
+-- PROJECT (Công ty 1)
+(8, 'frank.client@external.com',  '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Frank Client (P-Guest)', 1, 'ACTIVE'),
+(9, 'grace.dev@pixelcore.com',    '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Grace Dev (P-Member)', 1, 'ACTIVE'),
+(10, 'henry.lead@pixelcore.com',  '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Henry Lead (P-Admin)', 1, 'ACTIVE'),
+
+-- CÔNG TY 2: QuantumLeap
+(11, 'admin@quantum.com',         '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Quantum Admin (C-Admin-2)', 1, 'ACTIVE');
+
 
 -- TẠO MÔI TRƯỜNG (COMPANIES, WORKSPACES, PROJECTS, TASKS)
 INSERT INTO companies (id, name, company_code, created_by_id, status) VALUES
@@ -589,45 +601,57 @@ INSERT INTO tasks (id, project_id, task_code, title, description, created_by_id,
 -- =============================================
 
 -- GÁN VAI TRÒ CẤP HỆ THỐNG
-INSERT INTO user_roles (user_id, role_id) VALUES
-(7, (SELECT id FROM roles WHERE role_code = 'USER'));
+-- System Admin có toàn quyền hệ thống
+INSERT INTO user_roles (user_id, role_id)
+VALUES (1, (SELECT id FROM roles WHERE role_code = 'SYSTEM_ADMIN'));
+
+-- System User có quyền user-level
+INSERT INTO user_roles (user_id, role_id)
+VALUES (2, (SELECT id FROM roles WHERE role_code = 'USER'));
+
 
 -- GÁN VAI TRÒ CẤP CÔNG TY
 INSERT INTO company_members (company_id, user_id, role_id, status) VALUES
 -- Công ty 1: PixelCore
-(1, 1, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE'),   -- Anna Admin
-(1, 2, (SELECT id FROM roles WHERE role_code = 'COMPANY_MANAGER'), 'ACTIVE'), -- Brian Manager
-(1, 3, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Charlie Member
-(1, 4, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- David Lead
-(1, 5, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Eva Developer
-(1, 6, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Frank Client
+(1, 3, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE'),   -- Anna Admin
+(1, 4, (SELECT id FROM roles WHERE role_code = 'COMPANY_MANAGER'), 'ACTIVE'), -- Brian Manager
+(1, 5, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Charlie Member
+(1, 6, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- David Lead
+(1, 7, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Eva Developer
+(1, 8, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Frank Client
+(1, 9, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Grace Dev
+(1, 10, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'), -- Henry Lead
+
 -- Công ty 2: QuantumLeap
-(2, 8, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE');   -- Quantum Admin
+(2, 11, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE');  -- Quantum Admin
+
 SELECT * FROM company_members;
 
 -- GÁN VAI TRÒ CẤP WORKSPACE
 INSERT INTO workspace_members (workspace_id, user_id, role_id, status) VALUES
 -- Workspace 1: Marketing
-(1, 2, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Brian Manager
+(1, 4, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Brian Manager
+
 -- Workspace 2: Engineering
-(2, 4, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'),  -- David Lead
-(2, 5, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Eva Developer
-(2, 6, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'); -- Frank Client
+(2, 6, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'),  -- David Lead
+(2, 7, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Eva Developer
+(2, 8, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Frank Client
+(2, 9, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'); -- Grace Dev
+
 
 -- GÁN VAI TRÒ CẤP PROJECT
 INSERT INTO project_members (project_id, user_id, role_id, status) VALUES
 -- Project 1: Website Redesign
-(1, 4, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'),  -- David Lead
-(1, 5, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'), -- Eva Developer
-(1, 6, (SELECT id FROM roles WHERE role_code = 'GUEST_PROJECT'), 'ACTIVE'); -- Frank Client
+(1, 10, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'),  -- Henry Lead
+(1, 9,  (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'), -- Grace Dev
+(1, 8,  (SELECT id FROM roles WHERE role_code = 'GUEST_PROJECT'), 'ACTIVE');  -- Frank Client
 
--- SAMPLE DATA TOKENS
-INSERT INTO auth_tokens (id, user_id, token, token_type, status, expires_at) VALUES
-(1, 1, 'token-email-user-1', 'EMAIL_VERIFICATION', 'REVOKED', '2025-01-01 00:00:00'),
-(2, 2, 'token-email-user-2', 'EMAIL_VERIFICATION', 'REVOKED', '2025-01-01 00:00:00'),
-(3, 3, 'token-email-user-3', 'EMAIL_VERIFICATION', 'REVOKED', '2025-01-01 00:00:00'),
-(4, 4, 'token-email-user-4', 'EMAIL_VERIFICATION', 'REVOKED', '2025-01-01 00:00:00'),
-(5, 5, '123456', 'EMAIL_VERIFICATION', 'ACTIVE', '2025-12-01 00:00:00');
+-- Project 2: Q4 Campaign
+INSERT INTO project_members (project_id, user_id, role_id, status) VALUES
+(2, 4, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'),   -- Brian Manager
+(2, 5, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'),  -- Charlie Member
+(2, 6, (SELECT id FROM roles WHERE role_code = 'GUEST_PROJECT'), 'ACTIVE');   -- David Lead (guest for campaign)
+
 
 -- =============================================
 -- BƯỚC 6: THÊM DỮ LIỆU MẪU (THEO YÊU CẦU)
@@ -646,9 +670,6 @@ INSERT INTO auth_tokens (user_id, token, token_type, status, expires_at) VALUES
 (1, 'token-anna-reset', 'RESET_PASSWORD', 'ACTIVE', '2025-12-01 00:00:00'),
 (2, 'token-brian-verify', 'EMAIL_VERIFICATION', 'ACTIVE', '2025-12-01 00:00:00'),
 (7, 'token-newuser-verify', 'EMAIL_VERIFICATION', 'ACTIVE', '2025-12-01 00:00:00');
-
--- (Chạy lại câu lệnh SELECT ở trên)
-
 
 -- ALL PERMISSION
 SELECT
@@ -690,4 +711,23 @@ GROUP BY
 ORDER BY
     FIELD(r.level, 'SYSTEM', 'COMPANY', 'WORKSPACE', 'PROJECT'),
     r.role_code;
+    
+-- ROLE BY USER
+SELECT 
+    u.id AS user_id,
+    u.full_name,
+    u.email,
+    GROUP_CONCAT(DISTINCT r.role_code ORDER BY r.level SEPARATOR ', ') AS roles,
+    GROUP_CONCAT(DISTINCT p.permission_code ORDER BY p.permission_code SEPARATOR ', ') AS permissions
+FROM users u
+LEFT JOIN user_roles ur ON ur.user_id = u.id
+LEFT JOIN company_members cm ON cm.user_id = u.id
+LEFT JOIN workspace_members wm ON wm.user_id = u.id
+LEFT JOIN project_members pm ON pm.user_id = u.id
+LEFT JOIN roles r ON r.id IN (ur.role_id, cm.role_id, wm.role_id, pm.role_id)
+LEFT JOIN role_permissions rp ON rp.role_id = r.id
+LEFT JOIN permissions p ON p.id = rp.permission_id
+WHERE u.status = 'ACTIVE'
+GROUP BY u.id, u.full_name, u.email
+ORDER BY u.id;
 
