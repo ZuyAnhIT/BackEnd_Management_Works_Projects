@@ -18,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import java.util.List;
+import java.util.stream.Collectors;
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 
 /**
  * Triển khai ProjectService cho US7 – Tạo Project mới.
@@ -120,6 +123,32 @@ public class ProjectServiceImpl implements ProjectService {
         return toResponse(saved);
     }
 
+    /**
+     * US8: Lấy danh sách Project trong Workspace.
+     * Logic & Nghiệp vụ:
+     * 1) Xác thực workspace tồn tại và thuộc companyId; sai → 400.
+     * 2) Lấy danh sách project theo workspace.
+     * 3) (Tuỳ chọn) Loại bỏ các project có status CANCELLED khỏi kết quả để tránh hiển thị dự án đã hủy.
+     * 4) Map tối thiểu sang DTO ProjectResponse và trả về.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProjectResponse> listProjectsByWorkspace(Integer companyId, Integer workspaceId) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+        if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Workspace does not belong to the specified company");
+        }
+
+        List<Project> projects = projectRepository.findByWorkspace_Id(workspaceId);
+
+        // Yêu cầu hiển thị mới: hiển thị tất cả TRỪ CANCELLED
+        List<Project> visible = projects.stream()
+                .filter(p -> p.getStatus() == null || p.getStatus() != ProjectStatus.CANCELLED)
+                .collect(Collectors.toList());
+
+        return visible.stream().map(this::toResponse).collect(Collectors.toList());
+    }
     /**
      * Helper map Entity -> DTO (tối thiểu, không viết mapping phức tạp; chỉ rút gọn trường cần thiết).
      */

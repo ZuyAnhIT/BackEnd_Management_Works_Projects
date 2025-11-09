@@ -23,4 +23,13 @@ public interface ProjectService {
      * - Cải thiện hiển thị tham số path trên Swagger (companyId + workspaceId).
      */
     ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId);
+
+    /**
+     * US8: Lấy danh sách Project trong một Workspace.
+     * Nghiệp vụ chính:
+     * - Xác thực workspace thuộc đúng companyId (nếu sai → 400) để tránh truy cập chéo công ty.
+     * - Yêu cầu quyền workspace:view ở tầng controller (@PreAuthorize).
+     * - Trả về danh sách ProjectResponse; có thể loại bỏ các project đã bị CANCELLED nếu muốn.
+     */
+    java.util.List<ProjectResponse> listProjectsByWorkspace(Integer companyId, Integer workspaceId);
 }
