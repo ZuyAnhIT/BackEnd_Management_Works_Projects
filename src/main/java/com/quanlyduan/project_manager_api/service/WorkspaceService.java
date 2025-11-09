@@ -49,4 +49,11 @@ public interface WorkspaceService {
      * @return WorkspaceResponse DTO của không gian sau khi đã cập nhật
      */
     WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request);
+
+    /**
+     * Xóa mềm (Soft Delete) một không gian làm việc.
+     * @param workspaceId ID của không gian cần xóa
+     */
+    void deleteWorkspace(Integer workspaceId);
+
 }
