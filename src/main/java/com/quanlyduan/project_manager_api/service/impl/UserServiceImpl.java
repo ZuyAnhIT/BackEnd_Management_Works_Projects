@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 import com.quanlyduan.project_manager_api.dto.request.ChangePasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProfileRequest;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMembershipDTO;
+import com.quanlyduan.project_manager_api.dto.response.ProjectMembershipDTO;
 import com.quanlyduan.project_manager_api.dto.response.UserProfileResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMembershipDTO;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -13,7 +14,9 @@ import com.quanlyduan.project_manager_api.model.CompanyMember; // Đã dịch
 import com.quanlyduan.project_manager_api.model.WorkspaceMember; // Đã dịch
 import com.quanlyduan.project_manager_api.repository.AuthTokenRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository; // Đã dịch
 import com.quanlyduan.project_manager_api.repository.UserRoleRepository; // Đã dịch
 import com.quanlyduan.project_manager_api.service.UserService;
@@ -37,14 +40,16 @@ public class UserServiceImpl implements UserService {
     private final UserRoleRepository userRoleRepository; // Đã dịch
     private final CompanyMemberRepository companyMemberRepository; // Đã dịch
     private final WorkspaceMemberRepository workspaceMemberRepository; // Đã dịch
+    private final ProjectMemberRepository projectMemberRepository;
     private final AuthTokenRepository authTokenRepository;
 
-    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, UserRoleRepository userRoleRepository, CompanyMemberRepository companyMemberRepository, WorkspaceMemberRepository workspaceMemberRepository, AuthTokenRepository authTokenRepository) { // Đã dịch
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, UserRoleRepository userRoleRepository, CompanyMemberRepository companyMemberRepository, WorkspaceMemberRepository workspaceMemberRepository, ProjectMemberRepository projectMemberRepository, AuthTokenRepository authTokenRepository) { // Đã dịch
         this.userRepository = userRepository; // Đã dịch
         this.passwordEncoder = passwordEncoder;
         this.userRoleRepository = userRoleRepository; // Đã dịch
         this.companyMemberRepository = companyMemberRepository; // Đã dịch
         this.workspaceMemberRepository = workspaceMemberRepository; // Đã dịch
+        this.projectMemberRepository = projectMemberRepository;
         this.authTokenRepository = authTokenRepository;
     }
     // (Sau này sẽ inject TokenRepository để hủy Refresh Token)
@@ -129,9 +134,22 @@ public class UserServiceImpl implements UserService {
         }
         // *** END OF NEW LOGIC ***
         // 5. Xây dựng và trả về DTO
+        // *** 5. BỔ SUNG: Lấy vai trò cấp Dự án ***
+    // (Giả định bạn đã inject projectMemberRepository)
+    List<ProjectMembershipDTO> projectRoles = projectMemberRepository.findByUser_Id(currentUser.getId())
+            .stream()
+            .map(pm -> new ProjectMembershipDTO(
+                    pm.getProject().getId(),
+                    pm.getProject().getName(),
+                    pm.getProject().getWorkspace().getId(), // Lấy ID không gian cha
+                    pm.getRole().getRoleCode()
+            ))
+            .collect(Collectors.toList());
+
+        // 6. Xây dựng và trả về DTO (Đã cập nhật)
         return UserProfileResponse.builder()
-                .id(currentUser.getId()) // Đã dịch
-                .fullName(currentUser.getFullName()) // Đã dịch
+                .id(currentUser.getId())
+                .fullName(currentUser.getFullName())
                 .email(currentUser.getEmail())
                 .avatarUrl(finalAvatarUrl) // Đã dịch
                 // --- PHẦN BỔ SUNG ---
@@ -143,9 +161,11 @@ public class UserServiceImpl implements UserService {
                 .createdAt(currentUser.getCreatedAt())
                 .lastLoginAt(currentUser.getLastLoginAt())
                 // --- KẾT THÚC BỔ SUNG ---
+                .avatarUrl(currentUser.getAvatarUrl())
                 .systemRoles(systemRoles)
                 .companyMemberships(companyRoles)
                 .workspaceMemberships(workspaceRoles)
+                .projectMemberships(projectRoles) // <-- Thêm dòng này
                 .build();
     }
 
