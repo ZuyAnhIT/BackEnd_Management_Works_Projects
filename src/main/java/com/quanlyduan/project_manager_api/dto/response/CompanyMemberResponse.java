@@ -15,6 +15,8 @@ import com.quanlyduan.project_manager_api.model.common.enums.CombinedMemberStatu
 @AllArgsConstructor
 public class CompanyMemberResponse {
     
+    private Integer memberId; // ID của bản ghi CongTyThanhVien (hoặc null nếu là PENDING) 
+    
     // Thông tin từ NguoiDung (nếu có)
     private Integer userId;
     private String fullName; // Đã dịch
