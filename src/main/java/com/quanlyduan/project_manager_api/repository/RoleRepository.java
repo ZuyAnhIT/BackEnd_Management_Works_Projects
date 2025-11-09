@@ -21,10 +21,9 @@ public interface RoleRepository extends JpaRepository<Role, Integer> {
     /**
      * Kiểm tra quyền hạn cấp CÔNG TY
      */
-    @Query("SELECT COUNT(rp.id) > 0 FROM CompanyMember cm " +
+    @Query("SELECT COUNT(p.id) > 0 FROM CompanyMember cm " +
            "JOIN cm.role r " +
-           "JOIN RolePermission rp ON rp.role.id = r.id " +
-           "JOIN rp.permission p " +
+           "JOIN r.permissions p " + // SỬA: Điều hướng trực tiếp
            "WHERE cm.user.id = :userId " +
            "AND cm.company.id = :companyId " +
            "AND p.permissionCode = :permissionCode")
@@ -35,10 +34,9 @@ public interface RoleRepository extends JpaRepository<Role, Integer> {
     /**
      * Kiểm tra quyền hạn cấp WORKSPACE
      */
-    @Query("SELECT COUNT(rp.id) > 0 FROM WorkspaceMember wm " +
+    @Query("SELECT COUNT(p.id) > 0 FROM WorkspaceMember wm " +
            "JOIN wm.role r " +
-           "JOIN RolePermission rp ON rp.role.id = r.id " +
-           "JOIN rp.permission p " +
+           "JOIN r.permissions p " + // SỬA: Điều hướng trực tiếp
            "WHERE wm.user.id = :userId " +
            "AND wm.workspace.id = :workspaceId " +
            "AND p.permissionCode = :permissionCode")
@@ -49,10 +47,9 @@ public interface RoleRepository extends JpaRepository<Role, Integer> {
     /**
      * Kiểm tra quyền hạn cấp PROJECT
      */
-    @Query("SELECT COUNT(rp.id) > 0 FROM ProjectMember pm " +
+    @Query("SELECT COUNT(p.id) > 0 FROM ProjectMember pm " +
            "JOIN pm.role r " +
-           "JOIN RolePermission rp ON rp.role.id = r.id " +
-           "JOIN rp.permission p " +
+           "JOIN r.permissions p " + // SỬA: Điều hướng trực tiếp
            "WHERE pm.user.id = :userId " +
            "AND pm.project.id = :projectId " +
            "AND p.permissionCode = :permissionCode")

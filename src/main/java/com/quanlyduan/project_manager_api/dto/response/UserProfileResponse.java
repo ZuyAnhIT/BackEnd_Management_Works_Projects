@@ -23,6 +23,6 @@ public class UserProfileResponse {
     
     // 4. Vai trò cấp Không gian
     private List<WorkspaceMembershipDTO> workspaceMemberships;
-    
+    private List<ProjectMembershipDTO> projectMemberships;
     // (Sau này có thể thêm cấp Dự án)
 }
