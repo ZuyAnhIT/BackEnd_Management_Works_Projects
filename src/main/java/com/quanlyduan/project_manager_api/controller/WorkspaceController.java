@@ -70,9 +70,9 @@ public class WorkspaceController {
 
 
     // API THEM THANH VIEN VAO KHONG 
-    @PostMapping("/{workspaceId}/members")
+    @PostMapping("/{workspaceId}/invite-members")
     // Bảo vệ: Chỉ WORKSPACE_ADMIN mới được mời
-    @PreAuthorize("@securityService.canManageWorkspaceMembers(#companyId, #workspaceId)") // Đã dịch
+    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'workspace:invite_member')")
     public ResponseEntity<ApiResponse<Object>> inviteMemberToWorkspace(
             @PathVariable Integer companyId, // Đã dịch
             @PathVariable Integer workspaceId,

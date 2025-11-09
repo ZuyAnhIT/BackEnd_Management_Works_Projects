@@ -439,51 +439,40 @@ CREATE TABLE company_invitations (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- SAMPLE DATA USERS (password is "admin123")
-INSERT INTO users (id, email, password, full_name, is_email_verified, status) VALUES
-(1, 'system.admin@app.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'System Admin', 1, 'ACTIVE'),
-(2, 'company.admin.c1@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Company 1 Admin', 1, 'ACTIVE'),
-(3, 'company.member.c1@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Company 1 Member', 1, 'ACTIVE'),
-(4, 'company.admin.c2@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Company 2 Admin', 1, 'ACTIVE'),
-(5, 'user.unverified@example.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'New User', 0, 'ACTIVE');
+-- =============================================
+-- BƯỚC 2: NẠP ĐỊNH NGHĨA (QUYỀN & VAI TRÒ)
+-- =============================================
 
--- =============================================
--- NẠP QUYỀN (PERMISSIONS)
--- =============================================
+-- NẠP QUYỀN (PERMISSIONS) - ĐÃ DỊCH SANG TIẾNG ANH
 INSERT INTO permissions (permission_code, permission_name, group_name) VALUES
--- Company
-('company:create', 'Tạo công ty', 'Company'),
-('company:view', 'Xem thông tin công ty', 'Company'),
-('company:edit', 'Chỉnh sửa công ty', 'Company'),
-('company:delete', 'Xóa công ty', 'Company'),
-('company:invite_member', 'Mời thành viên', 'Company'),
-('company:remove_member', 'Xóa thành viên', 'Company'),
-('company:manage_roles', 'Quản lý vai trò Cty', 'Company'),
--- Workspace
-('workspace:create', 'Tạo không gian', 'Workspace'),
-('workspace:view', 'Xem không gian', 'Workspace'),
-('workspace:edit', 'Sửa không gian', 'Workspace'),
-('workspace:delete', 'Xóa không gian', 'Workspace'),
-('workspace:invite_member', 'Mời thành viên vào KB', 'Workspace'),
-('workspace:remove_member', 'Xóa thành viên khỏi KB', 'Workspace'),
--- Project
-('project:create', 'Tạo dự án', 'Project'),
-('project:view', 'Xem dự án', 'Project'),
-('project:edit', 'Sửa dự án', 'Project'),
-('project:delete', 'Xóa dự án', 'Project'),
-('project:invite_member', 'Mời thành viên vào DA', 'Project'),
--- Task
-('task:create', 'Tạo công việc', 'Task'),
-('task:view', 'Xem công việc', 'Task'),
-('task:edit', 'Sửa công việc', 'Task'),
-('task:delete', 'Xóa công việc', 'Task'),
-('task:assign', 'Giao việc', 'Task'),
-('task:comment', 'Bình luận', 'Task'),
-('task:comment:view', 'Xem bình luận', 'Task'),
-('task:attach_file', 'Đính kèm file', 'Task');
-SELECT * FROM permissions;
+('company:create', 'Create Company', 'Company'),
+('company:view', 'View Company', 'Company'),
+('company:edit', 'Edit Company', 'Company'),
+('company:delete', 'Delete Company', 'Company'),
+('company:invite_member', 'Invite Company Member', 'Company'),
+('company:remove_member', 'Remove Company Member', 'Company'),
+('company:manage_roles', 'Manage Company Roles', 'Company'),
+('workspace:create', 'Create Workspace', 'Workspace'),
+('workspace:view', 'View Workspace', 'Workspace'),
+('workspace:edit', 'Edit Workspace', 'Workspace'),
+('workspace:delete', 'Delete Workspace', 'Workspace'),
+('workspace:invite_member', 'Invite Workspace Member', 'Workspace'),
+('workspace:remove_member', 'Remove Workspace Member', 'Workspace'),
+('project:create', 'Create Project', 'Project'),
+('project:view', 'View Project', 'Project'),
+('project:edit', 'Edit Project', 'Project'),
+('project:delete', 'Delete Project', 'Project'),
+('project:invite_member', 'Invite Project Member', 'Project'),
+('task:create', 'Create Task', 'Task'),
+('task:view', 'View Task', 'Task'),
+('task:edit', 'Edit Task', 'Task'),
+('task:delete', 'Delete Task', 'Task'),
+('task:assign', 'Assign Task', 'Task'),
+('task:comment', 'Comment on Task', 'Task'),
+('task:comment:view', 'View Task Comments', 'Task'),
+('task:attach_file', 'Attach File to Task', 'Task');
 
--- SAMPLE DATA ROLES
+-- NẠP VAI TRÒ (ROLES)
 INSERT INTO roles (id, role_code, role_name, level) VALUES
 (1,'SYSTEM_ADMIN', 'System Administrator', 'SYSTEM'),
 (2,'USER', 'System User', 'SYSTEM'),
@@ -495,60 +484,142 @@ INSERT INTO roles (id, role_code, role_name, level) VALUES
 (8,'PROJECT_ADMIN', 'Project Admin', 'PROJECT'),
 (9,'PROJECT_MEMBER', 'Project Member', 'PROJECT'),
 (10,'GUEST_PROJECT', 'Project Guest', 'PROJECT');
-SELECT * FROM roles;
 
--- SAMPLE DATA COMPANIES
+-- =============================================
+-- BƯỚC 3: LIÊN KẾT ROLE VÀ PERMISSION
+-- =============================================
+
+-- USER (System)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN ('company:create')
+WHERE r.role_code = 'USER';
+
+-- COMPANY_ADMIN (Company)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
+    'company:view', 'company:edit', 'company:delete',
+    'company:invite_member', 'company:remove_member',
+    'company:manage_roles', 'workspace:create', 'workspace:delete'
+) WHERE r.role_code = 'COMPANY_ADMIN';
+
+-- COMPANY_MANAGER (Company)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
+    'company:view', 'company:invite_member', 'workspace:create'
+) WHERE r.role_code = 'COMPANY_MANAGER';
+
+-- COMPANY_MEMBER (Company)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
+    'company:view', 'workspace:create', 'project:create'
+) WHERE r.role_code = 'COMPANY_MEMBER';
+
+-- WORKSPACE_ADMIN (Workspace)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
+    'workspace:view', 'workspace:edit', 'workspace:invite_member',
+    'workspace:remove_member', 'project:create', 'project:delete'
+) WHERE r.role_code = 'WORKSPACE_ADMIN';
+
+-- WORKSPACE_MEMBER (Workspace)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
+    'workspace:view', 'project:create'
+) WHERE r.role_code = 'WORKSPACE_MEMBER';
+
+-- PROJECT_ADMIN (Project)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
+    'project:view', 'project:edit', 'project:invite_member',
+    'task:create', 'task:view', 'task:edit', 'task:delete',
+    'task:assign', 'task:comment', 'task:comment:view', 'task:attach_file'
+) WHERE r.role_code = 'PROJECT_ADMIN';
+
+-- PROJECT_MEMBER (Project)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
+    'project:view', 'task:create', 'task:view',
+    'task:edit', 'task:comment', 'task:comment:view', 'task:attach_file'
+) WHERE r.role_code = 'PROJECT_MEMBER';
+
+-- GUEST_PROJECT (Project)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
+    'project:view', 'task:view', 'task:comment:view'
+) WHERE r.role_code = 'GUEST_PROJECT';
+
+
+-- =============================================
+-- BƯỚC 4: TẠO DỮ LIỆU THỰC TẾ (REALISTIC DATA)
+-- Mật khẩu cho tất cả user: admin123
+-- =============================================
+
+-- TẠO CÁC USER (BẮT ĐẦU TỪ ID 1)
+INSERT INTO users (id, email, password, full_name, is_email_verified, status) VALUES
+(1, 'anna.admin@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Anna Admin (C-Admin)', 1, 'ACTIVE'),
+(2, 'brian.manager@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Brian Manager (C-Manager)', 1, 'ACTIVE'),
+(3, 'charlie.member@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Charlie Member (C-Member)', 1, 'ACTIVE'),
+(4, 'david.lead@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'David Lead (W-Admin)', 1, 'ACTIVE'),
+(5, 'eva.dev@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Eva Developer (P-Member)', 1, 'ACTIVE'),
+(6, 'frank.client@external.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Frank Client (P-Guest)', 1, 'ACTIVE'),
+(7, 'new.user@gmail.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'New User (System-User)', 1, 'ACTIVE'),
+(8, 'admin@quantum.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Quantum Admin (C-Admin 2)', 1, 'ACTIVE');
+
+-- TẠO MÔI TRƯỜNG (COMPANIES, WORKSPACES, PROJECTS, TASKS)
 INSERT INTO companies (id, name, company_code, created_by_id, status) VALUES
-(1, 'PixelCore Inc.', 'PIXEL', 2, 'ACTIVE'),
-(2, 'QuantumLeap Solutions', 'QUANTUM', 4, 'ACTIVE'),
-(3, 'NovaTech (Admin''s Co)', 'NOVA', 1, 'ACTIVE');
+(1, 'PixelCore Inc.', 'PIXEL', 1, 'ACTIVE'),
+(2, 'QuantumLeap Solutions', 'QUANTUM', 8, 'ACTIVE');
 
--- SAMPLE DATA COMPANY MEMBERS
-INSERT INTO company_members (id, company_id, user_id, role_id, status) VALUES
--- User 2 là COMPANY_ADMIN (ID 3) của Co 1
-(1, 1, 2, 3, 'ACTIVE'), 
--- User 3 là COMPANY_MEMBER (ID 5) của Co 1
-(2, 1, 3, 5, 'ACTIVE'), 
--- User 4 là COMPANY_MANAGER (ID 4) của Co 2
-(3, 2, 4, 4, 'ACTIVE'), 
--- User 1 là COMPANY_ADMIN (ID 3) của Co 3
-(4, 3, 1, 3, 'ACTIVE'), 
--- User 4 là COMPANY_MEMBER (ID 5) của Co 1 (multi-test)
-(5, 1, 4, 5, 'ACTIVE');
-
--- SAMPLE DATA WORKSPACES
 INSERT INTO workspaces (id, company_id, name, created_by_id, status) VALUES
-(1, 1, 'Pixel - Marketing', 2, 'ACTIVE'), -- Belongs to Co 1
-(2, 1, 'Pixel - Engineering', 2, 'ACTIVE'), -- Belongs to Co 1
-(3, 2, 'Quantum - Sales', 4, 'ACTIVE'), -- Belongs to Co 2
-(4, 2, 'Quantum - HR', 4, 'ARCHIVED'), -- Belongs to Co 2
-(5, 3, 'Nova - General', 1, 'ACTIVE'); -- Belongs to Co 3
+(1, 1, 'Marketing', 1, 'ACTIVE'),
+(2, 1, 'Engineering', 1, 'ACTIVE'),
+(3, 2, 'Quantum Sales', 8, 'ACTIVE');
 
--- SAMPLE DATA WORKSPACE MEMBERS
--- *** SỬA LẠI KHỐI NÀY ***
--- SAMPLE DATA WORKSPACE MEMBERS
-INSERT INTO workspace_members (id, workspace_id, user_id, role_id, status) VALUES
--- User 2 là WORKSPACE_ADMIN (ID 6) của WS 1
-(1, 1, 2, 6, 'ACTIVE'), 
--- User 3 là WORKSPACE_MEMBER (ID 7) của WS 1
-(2, 1, 3, 7, 'ACTIVE'), 
--- User 2 là WORKSPACE_ADMIN (ID 6) của WS 2
-(3, 2, 2, 6, 'ACTIVE'), 
--- User 4 là WORKSPACE_ADMIN (ID 6) của WS 3
-(4, 3, 4, 6, 'ACTIVE'), 
--- User 4 là WORKSPACE_MEMBER (ID 7) của WS 1
-(5, 1, 4, 7, 'ACTIVE');
+INSERT INTO projects (id, workspace_id, name, project_code, created_by_id, status) VALUES
+(1, 2, 'Website Redesign', 'WEB', 4, 'IN_PROGRESS'),
+(2, 1, 'Q4 Campaign', 'MKTG', 2, 'NEW');
 
--- SAMPLE DATA INVITATIONS
-INSERT INTO company_invitations (id, company_id, email, role_id, invited_by_id, token, status, expires_at) VALUES
--- Mời làm COMPANY_MANAGER (ID 4)
-(1, 1, 'user.new@example.com', 4, 2, 'token-pending-1', 'PENDING', '2025-12-01 00:00:00'),
--- Mời làm COMPANY_MEMBER (ID 5)
-(2, 1, 'user.unverified@example.com', 5, 2, 'token-pending-2', 'PENDING', '2025-12-01 00:00:00'),
--- Mời làm COMPANY_MANAGER (ID 4)
-(3, 2, 'accepted.user@example.com', 4, 4, 'token-accepted-3', 'ACCEPTED', '2025-10-01 00:00:00'),
-(4, 2, 'expired.user@example.com', 4, 4, 'token-expired-4', 'EXPIRED', '2025-10-01 00:00:00'),
-(5, 2, 'company.member.c1@example.com', 4, 4, 'token-pending-5', 'PENDING', '2025-12-01 00:00:00');
+INSERT INTO tasks (id, project_id, task_code, title, description, created_by_id, assignee_id, priority, due_date) VALUES
+(1, 1, 'WEB-1', 'Design Homepage Mockup', 'Create mockups in Figma', 4, 5, 'HIGH', '2025-11-20'),
+(2, 1, 'WEB-2', 'Develop Auth API', 'Setup JWT and endpoints', 4, 5, 'URGENT', '2025-11-15'),
+(3, 2, 'MKTG-1', 'Plan Social Media', 'Draft posts for LinkedIn', 2, 2, 'MEDIUM', '2025-11-10');
+
+-- =============================================
+-- BƯỚC 5: GÁN VAI TRÒ CHO CÁC NHÂN VẬT
+-- =============================================
+
+-- GÁN VAI TRÒ CẤP HỆ THỐNG
+INSERT INTO user_roles (user_id, role_id) VALUES
+(7, (SELECT id FROM roles WHERE role_code = 'USER'));
+
+-- GÁN VAI TRÒ CẤP CÔNG TY
+INSERT INTO company_members (company_id, user_id, role_id, status) VALUES
+-- Công ty 1: PixelCore
+(1, 1, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE'),   -- Anna Admin
+(1, 2, (SELECT id FROM roles WHERE role_code = 'COMPANY_MANAGER'), 'ACTIVE'), -- Brian Manager
+(1, 3, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Charlie Member
+(1, 4, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- David Lead
+(1, 5, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Eva Developer
+(1, 6, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Frank Client
+-- Công ty 2: QuantumLeap
+(2, 8, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE');   -- Quantum Admin
+SELECT * FROM company_members;
+
+-- GÁN VAI TRÒ CẤP WORKSPACE
+INSERT INTO workspace_members (workspace_id, user_id, role_id, status) VALUES
+-- Workspace 1: Marketing
+(1, 2, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Brian Manager
+-- Workspace 2: Engineering
+(2, 4, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'),  -- David Lead
+(2, 5, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Eva Developer
+(2, 6, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'); -- Frank Client
+
+-- GÁN VAI TRÒ CẤP PROJECT
+INSERT INTO project_members (project_id, user_id, role_id, status) VALUES
+-- Project 1: Website Redesign
+(1, 4, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'),  -- David Lead
+(1, 5, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'), -- Eva Developer
+(1, 6, (SELECT id FROM roles WHERE role_code = 'GUEST_PROJECT'), 'ACTIVE'); -- Frank Client
 
 -- SAMPLE DATA TOKENS
 INSERT INTO auth_tokens (id, user_id, token, token_type, status, expires_at) VALUES
@@ -559,78 +630,64 @@ INSERT INTO auth_tokens (id, user_id, token, token_type, status, expires_at) VAL
 (5, 5, '123456', 'EMAIL_VERIFICATION', 'ACTIVE', '2025-12-01 00:00:00');
 
 -- =============================================
--- BƯỚC 3: LIÊN KẾT ROLE VÀ PERMISSION
+-- BƯỚC 6: THÊM DỮ LIỆU MẪU (THEO YÊU CẦU)
 -- =============================================
 
--- USER (System)
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-JOIN permissions p ON p.permission_code IN ('company:create')
-WHERE r.role_code = 'USER';
+-- SAMPLE DATA INVITATIONS
+INSERT INTO company_invitations (company_id, email, role_id, invited_by_id, token, status, expires_at) VALUES
+-- Anna (ID 1) mời 'user.new@example.com' làm COMPANY_MANAGER (ID 4) cho Cty 1
+(1, 'user.new@example.com', 4, 1, 'token-pending-1', 'PENDING', '2025-12-01 00:00:00'),
+-- Quantum Admin (ID 8) mời 'user.accepted@example.com' làm COMPANY_MANAGER (ID 4) cho Cty 2
+(2, 'accepted.user@example.com', 4, 8, 'token-accepted-3', 'ACCEPTED', '2025-10-01 00:00:00'),
+(2, 'expired.user@example.com', 4, 8, 'token-expired-4', 'EXPIRED', '2025-10-01 00:00:00');
 
--- COMPANY_ADMIN (Company)
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT 
-    r.id AS role_id,
-    p.id AS permission_id
-FROM roles r
-JOIN permissions p 
-  ON p.permission_code IN (
-      'company:view', 'company:edit', 'company:delete',
-      'company:invite_member', 'company:remove_member',
-      'company:manage_roles', 'workspace:create', 'workspace:delete'
-  )
-WHERE r.role_code = 'COMPANY_ADMIN';
+-- SAMPLE DATA TOKENS
+INSERT INTO auth_tokens (user_id, token, token_type, status, expires_at) VALUES
+(1, 'token-anna-reset', 'RESET_PASSWORD', 'ACTIVE', '2025-12-01 00:00:00'),
+(2, 'token-brian-verify', 'EMAIL_VERIFICATION', 'ACTIVE', '2025-12-01 00:00:00'),
+(7, 'token-newuser-verify', 'EMAIL_VERIFICATION', 'ACTIVE', '2025-12-01 00:00:00');
 
--- COMPANY_MEMBER (Company) - Theo yêu cầu: được tạo workspace
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-JOIN permissions p ON p.permission_code IN ('company:view', 'workspace:create')
-WHERE r.role_code = 'COMPANY_MEMBER';
+-- (Chạy lại câu lệnh SELECT ở trên)
 
--- WORKSPACE_ADMIN (Workspace)
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-JOIN permissions p ON p.permission_code IN (
-    'workspace:view', 'workspace:edit', 'workspace:invite_member',
-    'workspace:remove_member', 'project:create', 'project:delete'
-)
-WHERE r.role_code = 'WORKSPACE_ADMIN';
 
--- WORKSPACE_MEMBER (Workspace) - Theo yêu cầu: được tạo project
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-JOIN permissions p ON p.permission_code IN ('workspace:view', 'project:create')
-WHERE r.role_code = 'WORKSPACE_MEMBER';
+-- ALL PERMISSION
+SELECT
+    p.group_name AS permission_group,
+    p.permission_code,
+    p.permission_name AS description,
+    IFNULL(
+        -- Nối tất cả các role_code lại thành một chuỗi
+        GROUP_CONCAT(DISTINCT r.role_code ORDER BY r.role_code SEPARATOR ', '), 
+        '--- CHƯA GÁN CHO VAI TRÒ NÀO ---'
+    ) AS granted_to_roles
+FROM permissions p
+-- Dùng LEFT JOIN để hiển thị cả các quyền chưa được gán
+LEFT JOIN role_permissions rp ON p.id = rp.permission_id
+LEFT JOIN roles r ON r.id = rp.role_id
+GROUP BY 
+    p.id  -- Nhóm theo ID của quyền
+ORDER BY
+    -- Sắp xếp theo nhóm cho dễ nhìn
+    FIELD(p.group_name, 'Company', 'Workspace', 'Project', 'Task'), 
+    p.permission_code;
 
--- PROJECT_ADMIN (Project)
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
+-- Permission by Role
+SELECT
+    r.level AS role_level,
+    r.role_code,
+    r.role_name,
+    IFNULL(
+        -- Nối tất cả các permission_code lại
+        GROUP_CONCAT(DISTINCT p.permission_code ORDER BY p.permission_code SEPARATOR ', '), 
+        '--- KHÔNG CÓ QUYỀN NÀO ---'
+    ) AS granted_permissions
 FROM roles r
-JOIN permissions p ON p.permission_code IN (
-    'project:view', 'project:edit', 'project:invite_member',
-    'task:create', 'task:view', 'task:edit', 'task:delete',
-    'task:assign', 'task:comment', 'task:comment:view', 'task:attach_file'
-)
-WHERE r.role_code = 'PROJECT_ADMIN';
+-- Dùng LEFT JOIN để hiển thị cả các vai trò chưa có quyền
+LEFT JOIN role_permissions rp ON r.id = rp.role_id
+LEFT JOIN permissions p ON rp.permission_id = p.id
+GROUP BY 
+    r.id -- Nhóm theo ID của vai trò
+ORDER BY
+    FIELD(r.level, 'SYSTEM', 'COMPANY', 'WORKSPACE', 'PROJECT'),
+    r.role_code;
 
--- PROJECT_MEMBER (Project)
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-JOIN permissions p ON p.permission_code IN (
-    'project:view', 'task:create', 'task:view',
-    'task:edit', 'task:comment', 'task:comment:view', 'task:attach_file'
-)
-WHERE r.role_code = 'PROJECT_MEMBER';
-
--- GUEST_PROJECT (Project) - Theo yêu cầu: chỉ xem
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-JOIN permissions p ON p.permission_code IN ('project:view', 'task:view', 'task:comment:view')
-WHERE r.role_code = 'GUEST_PROJECT';
