@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberReque
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 // import com.quanlyduan.project_manager_api.model.KhongGian; // Đã được thay thế bằng WorkspaceResponse
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
+import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PutMapping;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse; 
 
 @RestController
@@ -80,4 +82,36 @@ public class WorkspaceController {
         
         return ResponseEntity.ok(ApiResponse.success("Member added to workspace successfully", null)); // Đã dịch
     }
+
+    // API CAP NHAT KHONG GIAN
+    @PutMapping("/{workspaceId}")
+    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'workspace:edit')")
+    public ResponseEntity<ApiResponse<WorkspaceResponse>> updateWorkspace(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @Valid @RequestBody UpdateWorkspaceRequest request) {
+
+        WorkspaceResponse updatedWorkspace = workspaceService.updateWorkspace(workspaceId, request);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Workspace updated successfully",
+                updatedWorkspace
+        ));
+    }
+
+    // API XOA MEM
+    @DeleteMapping("/{workspaceId}")
+    @PreAuthorize("@securityServicePermission.hasCompanyPermission(#companyId, 'workspace:delete')")
+    public ResponseEntity<ApiResponse<Object>> deleteWorkspace(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId) {
+
+        workspaceService.deleteWorkspace(workspaceId);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Workspace deleted successfully",
+                null
+        ));
+    }
+
 }
