@@ -554,28 +554,52 @@ SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
 -- =============================================
 
 -- TẠO CÁC USER (BẮT ĐẦU TỪ ID 1)
-INSERT INTO users (id, email, password, full_name, is_email_verified, status) VALUES
+INSERT INTO users (
+    id, email, password, full_name, 
+    avatar_url, phone_number, date_of_birth, gender, 
+    status, is_email_verified
+) VALUES
 -- HỆ THỐNG
-(1, 'super.admin@system.com',  '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'System Admin (S-Admin)', 1, 'ACTIVE'),
-(2, 'new.user@system.com',     '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'System User (S-User)', 1, 'ACTIVE'),
+(1, 'super.admin@system.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'System Admin (S-Admin)', 
+    NULL, '0900000001', '1990-01-01', 'MALE', 
+    'ACTIVE', 1),
+(2, 'new.user@system.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'System User (S-User)', 
+    NULL, '0900000002', '1995-02-10', 'FEMALE', 
+    'ACTIVE', 1),
 
 -- CÔNG TY 1: PixelCore
-(3, 'anna.admin@pixelcore.com',    '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Anna Admin (C-Admin)', 1, 'ACTIVE'),
-(4, 'brian.manager@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Brian Manager (C-Manager)', 1, 'ACTIVE'),
-(5, 'charlie.member@pixelcore.com','$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Charlie Member (C-Member)', 1, 'ACTIVE'),
+(3, 'anna.admin@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Anna Admin (C-Admin)', 
+    'https://i.pravatar.cc/150?img=1', '0912345003', '1992-03-15', 'FEMALE', 
+    'ACTIVE', 1),
+(4, 'brian.manager@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Brian Manager (C-Manager)', 
+    'https://i.pravatar.cc/150?img=2', '0912345004', '1988-05-20', 'MALE', 
+    'ACTIVE', 1),
+(5, 'charlie.member@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Charlie Member (C-Member)', 
+    'https://i.pravatar.cc/150?img=3', '0912345005', '1998-10-30', 'MALE', 
+    'ACTIVE', 1),
 
 -- WORKSPACE (Công ty 1)
-(6, 'david.lead@pixelcore.com',   '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'David Lead (W-Admin)', 1, 'ACTIVE'),
-(7, 'eva.dev@pixelcore.com',      '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Eva Developer (W-Member)', 1, 'ACTIVE'),
+(6, 'david.lead@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'David Lead (W-Admin)', 
+    'https://i.pravatar.cc/150?img=4', '0912345006', '1994-07-07', 'MALE', 
+    'ACTIVE', 1),
+(7, 'eva.dev@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Eva Developer (W-Member)', 
+    'https://i.pravatar.cc/150?img=5', '0912345007', '2000-11-22', 'FEMALE', 
+    'ACTIVE', 1),
 
 -- PROJECT (Công ty 1)
-(8, 'frank.client@external.com',  '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Frank Client (P-Guest)', 1, 'ACTIVE'),
-(9, 'grace.dev@pixelcore.com',    '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Grace Dev (P-Member)', 1, 'ACTIVE'),
-(10, 'henry.lead@pixelcore.com',  '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Henry Lead (P-Admin)', 1, 'ACTIVE'),
-
+(8, 'frank.client@external.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Frank Client (P-Guest)', 
+    NULL, '0912345008', '1985-12-01', 'MALE', 
+    'ACTIVE', 1),
+(9, 'grace.dev@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Grace Dev (P-Member)', 
+    'https://i.pravatar.cc/150?img=6', '0912345009', '1999-01-19', 'FEMALE', 
+    'ACTIVE', 1),
+(10, 'henry.lead@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Henry Lead (P-Admin)', 
+    'https://i.pravatar.cc/150?img=7', '0912345010', '1993-08-25', 'MALE', 
+    'ACTIVE', 1),
 -- CÔNG TY 2: QuantumLeap
-(11, 'admin@quantum.com',         '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Quantum Admin (C-Admin-2)', 1, 'ACTIVE');
-
+(11, 'admin@quantum.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Quantum Admin (C-Admin-2)', 
+    NULL, '0912345011', '1990-06-12', 'OTHER', 
+    'ACTIVE', 1);
 
 -- TẠO MÔI TRƯỜNG (COMPANIES, WORKSPACES, PROJECTS, TASKS)
 INSERT INTO companies (id, name, company_code, created_by_id, status) VALUES
