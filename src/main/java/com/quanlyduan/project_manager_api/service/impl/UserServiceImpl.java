@@ -123,6 +123,17 @@ public class UserServiceImpl implements UserService {
                         wm.getRole().getRoleCode() // Đã dịch
                 ))
                 .collect(Collectors.toList());
+        // *** NEW LOGIC FOR AVATAR URL ***
+        String avatarUrlFromDb = currentUser.getAvatarUrl();
+        String finalAvatarUrl = avatarUrlFromDb; // Default
+
+        if (avatarUrlFromDb != null && !avatarUrlFromDb.isBlank() && !avatarUrlFromDb.startsWith("http")) {
+            // If the URL is NOT an internet link, it's a local file.
+            // Build a URL that points to our new FileController.
+            finalAvatarUrl = "/api/files/" + avatarUrlFromDb;
+        }
+        // *** END OF NEW LOGIC ***
+        // 5. Xây dựng và trả về DTO
         // *** 5. BỔ SUNG: Lấy vai trò cấp Dự án ***
     // (Giả định bạn đã inject projectMemberRepository)
     List<ProjectMembershipDTO> projectRoles = projectMemberRepository.findByUser_Id(currentUser.getId())
@@ -140,6 +151,16 @@ public class UserServiceImpl implements UserService {
                 .id(currentUser.getId())
                 .fullName(currentUser.getFullName())
                 .email(currentUser.getEmail())
+                .avatarUrl(finalAvatarUrl) // Đã dịch
+                // --- PHẦN BỔ SUNG ---
+                .phoneNumber(currentUser.getPhoneNumber())
+                .dateOfBirth(currentUser.getDateOfBirth())
+                .gender(currentUser.getGender())
+                .status(currentUser.getStatus())
+                .isEmailVerified(currentUser.getIsEmailVerified())
+                .createdAt(currentUser.getCreatedAt())
+                .lastLoginAt(currentUser.getLastLoginAt())
+                // --- KẾT THÚC BỔ SUNG ---
                 .avatarUrl(currentUser.getAvatarUrl())
                 .systemRoles(systemRoles)
                 .companyMemberships(companyRoles)
