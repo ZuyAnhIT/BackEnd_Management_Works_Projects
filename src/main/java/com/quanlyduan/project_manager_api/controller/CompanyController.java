@@ -84,14 +84,14 @@ public class CompanyController {
     }
 
     // API MOI THANH VIEN VAO CONG TY
-    @PostMapping("/{companyId}/invitations")
+    @PostMapping("/{companyId}/invitations") // Đường dẫn là 'companyId'
     @PreAuthorize("@securityServicePermission.hasCompanyPermission(#companyId, 'company:invite_member')")
     public ResponseEntity<ApiResponse<Object>> inviteMember(
-            @PathVariable Integer congTyId,
+            @PathVariable Integer companyId, // *** SỬA LỖI: Tên biến phải khớp với đường dẫn ***
             @Valid @RequestBody InviteMemberRequest request) {
 
-        companyService.inviteMember(congTyId, request);
-        return ResponseEntity.ok(ApiResponse.success("Invitation sent successfully", null)); // Đã dịch
+        companyService.inviteMember(companyId, request); // *** SỬA LỖI ***
+        return ResponseEntity.ok(ApiResponse.success("Invitation sent successfully", null));
     }
 
     /**
