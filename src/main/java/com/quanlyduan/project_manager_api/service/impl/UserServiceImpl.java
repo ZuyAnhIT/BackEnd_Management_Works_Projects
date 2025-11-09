@@ -118,13 +118,31 @@ public class UserServiceImpl implements UserService {
                         wm.getRole().getRoleCode() // Đã dịch
                 ))
                 .collect(Collectors.toList());
+        // *** NEW LOGIC FOR AVATAR URL ***
+        String avatarUrlFromDb = currentUser.getAvatarUrl();
+        String finalAvatarUrl = avatarUrlFromDb; // Default
 
+        if (avatarUrlFromDb != null && !avatarUrlFromDb.isBlank() && !avatarUrlFromDb.startsWith("http")) {
+            // If the URL is NOT an internet link, it's a local file.
+            // Build a URL that points to our new FileController.
+            finalAvatarUrl = "/api/files/" + avatarUrlFromDb;
+        }
+        // *** END OF NEW LOGIC ***
         // 5. Xây dựng và trả về DTO
         return UserProfileResponse.builder()
                 .id(currentUser.getId()) // Đã dịch
                 .fullName(currentUser.getFullName()) // Đã dịch
                 .email(currentUser.getEmail())
-                .avatarUrl(currentUser.getAvatarUrl()) // Đã dịch
+                .avatarUrl(finalAvatarUrl) // Đã dịch
+                // --- PHẦN BỔ SUNG ---
+                .phoneNumber(currentUser.getPhoneNumber())
+                .dateOfBirth(currentUser.getDateOfBirth())
+                .gender(currentUser.getGender())
+                .status(currentUser.getStatus())
+                .isEmailVerified(currentUser.getIsEmailVerified())
+                .createdAt(currentUser.getCreatedAt())
+                .lastLoginAt(currentUser.getLastLoginAt())
+                // --- KẾT THÚC BỔ SUNG ---
                 .systemRoles(systemRoles)
                 .companyMemberships(companyRoles)
                 .workspaceMemberships(workspaceRoles)

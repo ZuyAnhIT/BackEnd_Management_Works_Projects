@@ -3,7 +3,13 @@ package com.quanlyduan.project_manager_api.dto.response;
 
 import lombok.Builder;
 import lombok.Data;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+
+import com.quanlyduan.project_manager_api.model.common.enums.Gender;
+import com.quanlyduan.project_manager_api.model.common.enums.UserStatus;
 
 // DTO chính: "File JSON khổng lồ"
 @Data
@@ -14,7 +20,13 @@ public class UserProfileResponse {
     private String fullName; // Đã dịch
     private String email;
     private String avatarUrl; // Đã dịch
-    
+    private String phoneNumber;
+    private LocalDate dateOfBirth;
+    private Gender gender;
+    private UserStatus status;
+    private boolean isEmailVerified;
+    private LocalDateTime createdAt;
+    private LocalDateTime lastLoginAt;
     // 2. Vai trò cấp Hệ thống
     private List<String> systemRoles; // (vd: ["SYSTEM_ADMIN"])
     
