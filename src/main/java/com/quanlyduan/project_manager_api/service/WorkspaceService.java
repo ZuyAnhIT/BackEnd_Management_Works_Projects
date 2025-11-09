@@ -6,6 +6,7 @@ import java.util.List;
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
+import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
 // import com.quanlyduan.project_manager_api.model.KhongGian; // Unused import removed
 
 public interface WorkspaceService {
@@ -41,5 +42,11 @@ public interface WorkspaceService {
      */
     void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request); // Đã dịch
 
-    
+    /**
+     * US 16: Cập nhật thông tin chi tiết của một không gian làm việc.
+     * @param workspaceId ID của không gian cần cập nhật
+     * @param request DTO chứa các thông tin (tùy chọn) cần cập nhật
+     * @return WorkspaceResponse DTO của không gian sau khi đã cập nhật
+     */
+    WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request);
 }

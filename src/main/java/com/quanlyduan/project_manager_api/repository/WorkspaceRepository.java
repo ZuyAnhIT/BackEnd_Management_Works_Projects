@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.repository;
 import com.quanlyduan.project_manager_api.model.Workspace; // Đã dịch
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -21,6 +22,10 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, Integer> {
      * @return Danh sách các KhongGian
      */
     List<Workspace> findByCompany_Id(Integer companyId); // Đã dịch
-
+    /**
+     * Tìm workspace theo Tên và ID Công ty.
+     * Dùng để kiểm tra tên trùng lặp khi CẬP NHẬT.
+     */
+    Optional<Workspace> findByCompany_IdAndName(Integer companyId, String name);
     
 }
