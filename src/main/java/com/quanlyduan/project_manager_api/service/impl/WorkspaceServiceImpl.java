@@ -128,7 +128,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     @Transactional
     public void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request) { // Đã dịch
         
-        // *** THÊM DÒNG NÀY *** (Lấy admin hiện tại để biết ai là người mời)
+        // (Lấy admin hiện tại để biết ai là người mời)
         User admin = securityService.getCurrentAuthenticatedUser(); // Đã dịch
         String emailToInvite = request.getEmail();
 
@@ -139,9 +139,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 ));
 
         // 2. KIỂM TRA ĐIỀU KIỆN (như bạn yêu cầu)
-        // Sửa: Chỉ kiểm tra thành viên ACTIVE
-        boolean isCompanyMember = companyMemberRepository
-            .existsByCompany_IdAndUser_IdAndStatus(companyId, userToInvite.getId(), MemberStatus.ACTIVE); // Sửa
+        boolean isCompanyMember = companyMemberRepository // Đã dịch
+            .existsByCompany_IdAndUser_IdAndStatus(companyId, userToInvite.getId(), MemberStatus.ACTIVE); // Đã dịch
             
         if (!isCompanyMember) {
             throw new BadRequestException(
@@ -153,8 +152,9 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         Workspace workspace = workspaceRepository.findById(workspaceId) // Đã dịch
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found")); // Đã dịch
 
-        Role workspaceRole = roleRepository.findById(request.getRoleId())
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found")); // Đã dịch
+        // *** SỬA LOGIC: Tìm Role bằng roleCode (từ DTO) thay vì roleId ***
+        Role workspaceRole = roleRepository.findFirstByRoleCode(request.getRoleCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found for code: " + request.getRoleCode())); // Đã dịch
 
         // 4. Validate Role
         if (workspaceRole.getLevel() != RoleLevel.WORKSPACE) { // Đã dịch
@@ -179,11 +179,11 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         
         workspaceMemberRepository.save(newMembership); // Đã dịch
         
-        // *** LOGIC GỬI EMAIL ***
+        // (LOGIC GỬI EMAIL giữ nguyên)
         sendWorkspaceNotificationEmail(admin, userToInvite, workspace, workspaceRole); // Đã dịch
     }
 
-    // *** HÀM HELPER  ***
+    // *** HÀM HELPER (Giữ nguyên) ***
     /**
      * Gửi email thông báo cho người dùng khi họ được thêm vào không gian làm việc.
      */
