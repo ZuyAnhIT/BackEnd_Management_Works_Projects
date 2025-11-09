@@ -29,7 +29,7 @@ public class WorkspaceController {
 
     // API TAO KHONG GIAN CONG TY
     @PostMapping
-    @PreAuthorize("@securityService.isCompanyAdmin(#companyId)") // Đã dịch
+    @PreAuthorize("@securityServicePermission.hasCompanyPermission(#companyId, 'workspace:create')") // theo quyền Company
     public ResponseEntity<ApiResponse<WorkspaceResponse>> createWorkspace( // Sửa kiểu trả về
             @PathVariable Integer companyId, // Đã dịch
             @Valid @RequestBody CreateWorkspaceRequest request) {
