@@ -173,6 +173,33 @@ public class ProjectServiceImpl implements ProjectService {
 
         return trashed.stream().map(this::toResponse).collect(Collectors.toList());
     }
+
+    /**
+     * US9: Xóa dự án (soft delete) bằng cách chuyển trạng thái sang CANCELLED.
+     * Logic & Nghiệp vụ:
+     * 1) Xác thực workspace tồn tại và thuộc companyId (sai → 400) để ngăn truy cập chéo công ty.
+     * 2) Lấy Project theo projectId (404 nếu không tồn tại).
+     * 3) Kiểm tra Project thuộc đúng workspaceId trong path (sai → 400).
+     * 4) Set status = CANCELLED và lưu. Không xóa cứng để giữ dữ liệu lịch sử/liên kết.
+     */
+    @Override
+    @Transactional
+    public void deleteProject(Integer companyId, Integer workspaceId, Integer projectId) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+        if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Workspace does not belong to the specified company");
+        }
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+        if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
+            throw new BadRequestException("Project does not belong to the specified workspace");
+        }
+
+        project.setStatus(ProjectStatus.CANCELLED);
+        projectRepository.save(project);
+    }
     /**
      * Helper map Entity -> DTO (tối thiểu, không viết mapping phức tạp; chỉ rút gọn trường cần thiết).
      */

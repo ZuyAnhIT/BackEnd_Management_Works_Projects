@@ -41,4 +41,13 @@ public interface ProjectService {
      * - Trả về chỉ các bản ghi có status = CANCELLED.
      */
     java.util.List<ProjectResponse> listCancelledProjectsByWorkspace(Integer companyId, Integer workspaceId);
+
+    /**
+     * US9: Xóa dự án (soft delete) – chuyển trạng thái Project sang CANCELLED.
+     * Nghiệp vụ:
+     * - Xác thực workspace thuộc companyId (sai → 400) và project thuộc workspace (sai → 400).
+     * - Yêu cầu quyền project:delete tại Controller bằng @PreAuthorize (project-level permission).
+     * - Không xóa cứng; chỉ set status = CANCELLED và lưu.
+     */
+    void deleteProject(Integer companyId, Integer workspaceId, Integer projectId);
 }
