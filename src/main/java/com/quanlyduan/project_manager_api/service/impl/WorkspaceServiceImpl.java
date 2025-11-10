@@ -315,6 +315,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         // 4. Lưu lại
         workspaceRepository.save(workspace);
     }
+    
 
     // LOGIC LAY DANH SACH THANH VIEN KHONG GIAN
     @Override

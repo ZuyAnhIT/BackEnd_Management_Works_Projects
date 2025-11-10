@@ -430,4 +430,41 @@ public class CompanyServiceImpl implements CompanyService {
         // này
         // (Chúng ta sẽ thêm logic này sau, hiện tại chỉ xóa khỏi công ty)
     }
+
+    // LOGIC XEM CHI TIET THANH VIEN
+    @Override
+    @Transactional(readOnly = true)
+    public CompanyMemberResponse getCompanyMemberDetails(Integer companyId, Integer memberId) {
+        // Bảo mật đã được xử lý ở Controller (@PreAuthorize)
+        
+        // 1. Tìm thành viên bằng ID
+        CompanyMember member = companyMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found with ID: " + memberId)); // Đã dịch
+
+        // 2. KIỂM TRA BẢO MẬT (IDOR): Đảm bảo thành viên này thuộc đúng công ty
+        if (!member.getCompany().getId().equals(companyId)) {
+            throw new ResourceNotFoundException("Member not found in this company"); // Đã dịch (Hoặc dùng AccessDeniedException)
+        }
+
+        // 3. Map và trả về
+        return mapToCompanyMemberResponse(member);
+    }
+
+    // *** THÊM HÀM HELPER NÀY ***
+    /**
+     * Hàm helper (tách ra từ getCompanyMembers) để map CompanyMember sang DTO
+     */
+    private CompanyMemberResponse mapToCompanyMemberResponse(CompanyMember member) {
+        return CompanyMemberResponse.builder()
+            .memberId(member.getId()) // ID của bản ghi CompanyMember
+            .userId(member.getUser().getId())
+            .fullName(member.getUser().getFullName())
+            .email(member.getUser().getEmail())
+            .avatarUrl(member.getUser().getAvatarUrl())
+            .roleName(member.getRole().getRoleName())
+            .jobTitle(member.getJobTitle())
+            .joinedAt(member.getJoinedAt())
+            .status(mapMemberStatus(member.getStatus()))
+            .build();
+    }
 }

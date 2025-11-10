@@ -139,5 +139,16 @@ public class CompanyController {
         
         return ResponseEntity.ok(ApiResponse.success("Member removed successfully", null)); // Đã dịch
     }
+
+    // API XEM CHI TIET THANH VIEN
+    @PreAuthorize("@securityService.isCompanyMember(#companyId)")
+    @GetMapping("/{companyId}/members/{memberId}")
+    public ResponseEntity<ApiResponse<CompanyMemberResponse>> getCompanyMemberDetails(
+            @PathVariable Integer companyId,
+            @PathVariable Integer memberId) {
+        
+        CompanyMemberResponse memberDetails = companyService.getCompanyMemberDetails(companyId, memberId);
+        return ResponseEntity.ok(ApiResponse.success("Fetched member details successfully", memberDetails)); // Đã dịch
+    }
     
 }
