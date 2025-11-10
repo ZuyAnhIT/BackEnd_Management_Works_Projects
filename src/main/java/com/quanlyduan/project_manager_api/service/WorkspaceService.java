@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
+import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
 // import com.quanlyduan.project_manager_api.model.KhongGian; // Unused import removed
@@ -55,5 +56,12 @@ public interface WorkspaceService {
      * @param workspaceId ID của không gian cần xóa
      */
     void deleteWorkspace(Integer workspaceId);
+
+    /**
+     * Lấy danh sách thành viên của một không gian làm việc.
+     * @param workspaceId ID của không gian
+     * @return Danh sách WorkspaceMemberResponse DTO
+     */
+    List<WorkspaceMemberResponse> getWorkspaceMembers(Integer workspaceId);
 
 }
