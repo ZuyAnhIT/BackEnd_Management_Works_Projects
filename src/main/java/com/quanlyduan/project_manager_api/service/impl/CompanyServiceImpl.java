@@ -13,6 +13,8 @@ import com.quanlyduan.project_manager_api.service.CompanyService;
 import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
+import com.quanlyduan.project_manager_api.service.SecurityService;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.model.*;
@@ -51,6 +53,7 @@ public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyInvitationRepository companyInvitationRepository; // Đã dịch
     private final EmailService emailService;
+    private final SecurityService securityService;
 
     private final InvitationService invitationService;
 
@@ -466,5 +469,40 @@ public class CompanyServiceImpl implements CompanyService {
             .joinedAt(member.getJoinedAt())
             .status(mapMemberStatus(member.getStatus()))
             .build();
+    }
+
+
+    // LOGIC CAP NHAT TRANG THAI THANH VIEN
+    @Override
+    @Transactional
+    public CompanyMemberResponse updateMemberStatus(Integer companyId, Integer memberId, UpdateMemberStatusRequest request) {
+        // 1. Lấy thông tin thành viên
+        CompanyMember member = companyMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found with ID: " + memberId)); // Đã dịch
+
+        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng công ty
+        if (!member.getCompany().getId().equals(companyId)) {
+            throw new ResourceNotFoundException("Member not found in this company"); // Đã dịch
+        }
+
+        // 3. Kiểm tra nghiệp vụ: Không cho phép đổi status của chính mình
+        // (Bây giờ 'securityService' đã được nhận diện)
+        User admin = securityService.getCurrentAuthenticatedUser();
+        if (admin.getId().equals(member.getUser().getId())) {
+            throw new BadRequestException("You cannot change your own status."); // Đã dịch
+        }
+        
+        // 4. Kiểm tra nghiệp vụ: (Logic cũ giữ nguyên)
+        MemberStatus newStatus = request.getNewStatus();
+        if (newStatus == MemberStatus.REMOVED) {
+            throw new BadRequestException("Please use the 'Remove Member' endpoint to remove a member, not this status update endpoint."); // Đã dịch
+        }
+
+        // 5. Cập nhật trạng thái
+        member.setStatus(newStatus);
+        CompanyMember updatedMember = companyMemberRepository.save(member);
+
+        // 6. Trả về DTO đã cập nhật (tái sử dụng helper)
+        return mapToCompanyMemberResponse(updatedMember);
     }
 }
