@@ -1,6 +1,8 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/AuthServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier; 
+import com.quanlyduan.project_manager_api.dto.request.GoogleLoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
 import com.quanlyduan.project_manager_api.dto.request.ResetPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
@@ -29,6 +31,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.quanlyduan.project_manager_api.dto.request.ForgotPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
@@ -41,9 +44,12 @@ import com.quanlyduan.project_manager_api.model.common.enums.TokenStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.security.GeneralSecurityException;
 import java.time.LocalDateTime;
 import java.util.Optional; 
 import java.util.UUID; 
+import java.io.IOException; 
 
 import java.util.Random;
 
@@ -55,6 +61,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthTokenRepository authTokenRepository; // Đã dịch
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final GoogleIdTokenVerifier googleIdTokenVerifier;
     
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
@@ -393,5 +400,88 @@ public class AuthServiceImpl implements AuthService {
         authTokenRepository.revokeAllUserRefreshTokens(user.getId());
     }
 
+
+    // LOGIC DANG NHAP BANG GOOGLE
+    @Override
+    @Transactional
+    public LoginResponse loginWithGoogle(GoogleLoginRequest request) {
+        try {
+            // 1. Xác thực id_token với máy chủ Google
+            GoogleIdToken idToken = googleIdTokenVerifier.verify(request.getGoogleToken());
+            if (idToken == null) {
+                throw new BadRequestException("Invalid Google ID token."); // Đã dịch
+            }
+
+            // 2. Lấy thông tin người dùng từ token
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            String fullName = (String) payload.get("name");
+            String avatarUrl = (String) payload.get("picture");
+            boolean emailVerified = payload.getEmailVerified();
+
+            if (!emailVerified) {
+                 throw new BadRequestException("Google email is not verified."); // Đã dịch
+            }
+
+            // 3. Gọi logic Đăng ký hoặc Đăng nhập
+            return processOAuthUser(email, fullName, avatarUrl);
+
+        } catch (GeneralSecurityException | IOException e) {
+            throw new BadRequestException("Failed to verify Google token: " + e.getMessage()); // Đã dịch
+        }
+    }
+
+    /**
+     * Helper: Tìm người dùng (User) trong CSDL bằng email.
+     * Nếu tồn tại, cập nhật thông tin và trả về.
+     * Nếu không, tạo mới (đăng ký) và trả về.
+     */
+    private LoginResponse processOAuthUser(String email, String fullName, String avatarUrl) {
+        // 1. Tìm xem user đã tồn tại chưa
+        Optional<User> userOptional = userRepository.findByEmail(email);
+
+        User user;
+        if (userOptional.isPresent()) {
+            // 2a. User đã tồn tại -> Cập nhật thông tin (nếu cần) và Đăng nhập
+            user = userOptional.get();
+            user.setFullName(fullName);
+            user.setAvatarUrl(avatarUrl);
+            // Đảm bảo user này active (nếu trước đó họ bị khóa)
+            user.setStatus(UserStatus.ACTIVE); 
+            user.setIsEmailVerified(true);
+            userRepository.save(user);
+        } else {
+            // 2b. User chưa tồn tại -> Đăng ký
+            User newUser = User.builder()
+                .email(email)
+                .fullName(fullName)
+                .avatarUrl(avatarUrl)
+                .password(passwordEncoder.encode(UUID.randomUUID().toString())) // Tạo mật khẩu ngẫu nhiên
+                .isEmailVerified(true) // Google đã xác thực
+                .status(UserStatus.ACTIVE)
+                .build();
+            user = userRepository.save(newUser);
+        }
+
+        // 3. Tạo UserPrincipal (thông tin để tạo token)
+        UserPrincipal userPrincipal = UserPrincipal.create(user);
+        
+        // 4. Tạo Authentication (phiên đăng nhập tạm thời)
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+            userPrincipal, null, userPrincipal.getAuthorities()
+        );
+        
+        // 5. Tạo JWT của chính chúng ta
+        String accessToken = jwtTokenProvider.generateAccessToken(authentication);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(authentication);
+        
+        // 6. Lưu Refresh Token và trả về
+        saveRefreshTokenToDB(user, refreshToken);
+        
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
     
 }

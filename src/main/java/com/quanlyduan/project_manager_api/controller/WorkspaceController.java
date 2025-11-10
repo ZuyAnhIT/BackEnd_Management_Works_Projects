@@ -170,4 +170,5 @@ public class WorkspaceController {
         WorkspaceResponse updatedWorkspace = workspaceService.updateWorkspaceStatus(companyId, workspaceId, request);
         return ResponseEntity.ok(ApiResponse.success("Workspace status updated successfully", updatedWorkspace)); // Đã dịch
     }
+    
 }
