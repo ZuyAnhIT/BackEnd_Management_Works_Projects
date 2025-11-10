@@ -18,6 +18,8 @@ import com.quanlyduan.project_manager_api.service.EmailService;
 import com.quanlyduan.project_manager_api.service.SecurityService; 
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
+
 import org.springframework.beans.factory.annotation.Value;
 
 import lombok.RequiredArgsConstructor;
@@ -406,6 +408,34 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
         // 7. Trả về DTO đã cập nhật (tái sử dụng helper)
         return mapToWorkspaceMemberResponse(updatedMember);
+    }
+
+    // LOGIC CAP NHAT TRANG THAI KHONG GIAN
+    @Override
+    @Transactional
+    public WorkspaceResponse updateWorkspaceStatus(Integer companyId, Integer workspaceId, UpdateWorkspaceStatusRequest request) {
+        // Bảo mật (ai có quyền) đã được xử lý ở Controller.
+        
+        // 1. Lấy thông tin không gian
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with ID: " + workspaceId)); // Đã dịch
+
+        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo không gian này thuộc đúng công ty
+        if (!workspace.getCompany().getId().equals(companyId)) {
+            throw new ResourceNotFoundException("Workspace not found in this company"); // Đã dịch
+        }
+        
+        // 3. Kiểm tra nghiệp vụ (ví dụ: không cho phép thay đổi trạng thái giống hệt)
+        if (workspace.getStatus() == request.getNewStatus()) {
+            throw new BadRequestException("Workspace is already in the requested status."); // Đã dịch
+        }
+
+        // 4. Cập nhật trạng thái
+        workspace.setStatus(request.getNewStatus());
+        Workspace updatedWorkspace = workspaceRepository.save(workspace);
+
+        // 5. Trả về DTO (tái sử dụng helper)
+        return mapToWorkspaceResponse(updatedWorkspace);
     }
 
 }
