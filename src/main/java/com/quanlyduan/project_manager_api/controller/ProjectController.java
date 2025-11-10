@@ -69,4 +69,45 @@ public class ProjectController {
         List<ProjectResponse> data = projectService.listProjectsByWorkspace(companyId, workspaceId);
         return ResponseEntity.ok(ApiResponse.success("Fetched projects successfully", data));
     }
+
+    /**
+     * Project Trash – API xem danh sách dự án bị hủy (CANCELLED) trong một Workspace.
+     * Quyền truy cập:
+     *   @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'workspace:view')")
+     * Nghiệp vụ tóm tắt:
+     *   - Xác thực workspace thuộc companyId ở tầng service.
+     *   - Trả về chỉ các dự án có status = CANCELLED.
+     * Kết quả:
+     *   - 200 OK + ApiResponse<List<ProjectResponse>>.
+     */
+    @GetMapping("/trash")
+    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'workspace:view')")
+    public ResponseEntity<ApiResponse<List<ProjectResponse>>> listTrashedProjects(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId) {
+
+        List<ProjectResponse> data = projectService.listCancelledProjectsByWorkspace(companyId, workspaceId);
+        return ResponseEntity.ok(ApiResponse.success("Fetched trashed projects successfully", data));
+    }
+
+    /**
+     * US9 – API xóa (soft delete) Project: chuyển trạng thái dự án sang CANCELLED.
+     * Quyền truy cập:
+     *   @PreAuthorize("@securityServicePermission.hasProjectPermission(#projectId, 'project:delete')")
+     * Nghiệp vụ tóm tắt:
+     *   - Xác thực workspace thuộc companyId, và project thuộc workspace (service làm).
+     *   - Đặt status = CANCELLED, không xóa cứng.
+     * Kết quả:
+     *   - 200 OK + ApiResponse null-data với message thành công.
+     */
+    @DeleteMapping("/{projectId}")
+    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'project:delete')")
+    public ResponseEntity<ApiResponse<Object>> deleteProject(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId) {
+
+        projectService.deleteProject(companyId, workspaceId, projectId);
+        return ResponseEntity.ok(ApiResponse.success("Project cancelled successfully", null));
+    }
 }

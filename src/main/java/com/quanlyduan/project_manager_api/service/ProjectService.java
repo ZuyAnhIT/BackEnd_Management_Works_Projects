@@ -32,4 +32,22 @@ public interface ProjectService {
      * - Trả về danh sách ProjectResponse; có thể loại bỏ các project đã bị CANCELLED nếu muốn.
      */
     java.util.List<ProjectResponse> listProjectsByWorkspace(Integer companyId, Integer workspaceId);
+
+    /**
+     * US 8 (Trash view): Lấy danh sách các Project bị hủy (CANCELLED) trong một Workspace.
+     * Nghiệp vụ:
+     * - Xác thực workspace thuộc companyId (sai → 400) để tránh truy cập chéo.
+     * - Controller sẽ bảo vệ bằng quyền workspace:view.
+     * - Trả về chỉ các bản ghi có status = CANCELLED.
+     */
+    java.util.List<ProjectResponse> listCancelledProjectsByWorkspace(Integer companyId, Integer workspaceId);
+
+    /**
+     * US9: Xóa dự án (soft delete) – chuyển trạng thái Project sang CANCELLED.
+     * Nghiệp vụ:
+     * - Xác thực workspace thuộc companyId (sai → 400) và project thuộc workspace (sai → 400).
+     * - Yêu cầu quyền project:delete tại Controller bằng @PreAuthorize (project-level permission).
+     * - Không xóa cứng; chỉ set status = CANCELLED và lưu.
+     */
+    void deleteProject(Integer companyId, Integer workspaceId, Integer projectId);
 }
