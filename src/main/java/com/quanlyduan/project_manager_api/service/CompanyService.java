@@ -7,6 +7,7 @@ import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.model.Company; // Đã dịch
@@ -48,4 +49,13 @@ public interface CompanyService {
      * @return CompanyMemberResponse DTO
      */
     CompanyMemberResponse getCompanyMemberDetails(Integer companyId, Integer memberId);
+
+    /**
+     * Cập nhật trạng thái của thành viên (ACTIVE/SUSPENDED).
+     * @param companyId ID công ty
+     * @param memberId ID của bản ghi CompanyMember
+     * @param request DTO chứa trạng thái mới
+     * @return CompanyMemberResponse DTO đã cập nhật
+     */
+    CompanyMemberResponse updateMemberStatus(Integer companyId, Integer memberId, UpdateMemberStatusRequest request);
 }

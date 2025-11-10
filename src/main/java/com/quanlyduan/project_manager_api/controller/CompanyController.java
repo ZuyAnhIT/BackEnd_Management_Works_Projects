@@ -5,6 +5,7 @@ import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
@@ -151,4 +152,15 @@ public class CompanyController {
         return ResponseEntity.ok(ApiResponse.success("Fetched member details successfully", memberDetails)); // Đã dịch
     }
     
+    // API CAP NHAT TRANG THAI THANH VIEN (ACTIVE/SUSPENDED)
+    @PreAuthorize("@securityService.isCompanyAdmin(#companyId)")
+    @PutMapping("/{companyId}/members/{memberId}/status")
+    public ResponseEntity<ApiResponse<CompanyMemberResponse>> updateMemberStatus(
+            @PathVariable Integer companyId,
+            @PathVariable Integer memberId,
+            @Valid @RequestBody UpdateMemberStatusRequest request) {
+        
+        CompanyMemberResponse updatedMember = companyService.updateMemberStatus(companyId, memberId, request);
+        return ResponseEntity.ok(ApiResponse.success("Member status updated successfully", updatedMember)); // Đã dịch
+    }
 }
