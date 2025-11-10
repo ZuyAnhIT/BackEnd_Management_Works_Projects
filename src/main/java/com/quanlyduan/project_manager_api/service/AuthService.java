@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.ForgotPasswordRequest;
+import com.quanlyduan.project_manager_api.dto.request.GoogleLoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
@@ -26,4 +27,6 @@ public interface AuthService {
 
     // Doi mat khau khi quen
     void resetPassword(ResetPasswordRequest request);
+
+    LoginResponse loginWithGoogle(GoogleLoginRequest request);
 }
