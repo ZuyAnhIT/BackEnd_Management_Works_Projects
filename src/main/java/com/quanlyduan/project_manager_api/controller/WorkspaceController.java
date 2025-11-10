@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 // import com.quanlyduan.project_manager_api.model.KhongGian; // Đã được thay thế bằng WorkspaceResponse
@@ -141,5 +142,18 @@ public class WorkspaceController {
         WorkspaceMemberResponse memberDetails = workspaceService.getWorkspaceMemberDetails(workspaceId, memberId);
         
         return ResponseEntity.ok(ApiResponse.success("Fetched workspace member details successfully", memberDetails)); // Đã dịch
+    }
+
+    // API CAP NHAT TRANG THAI THANH VIEN KHONG GIAN (ACTIVE/SUSPENDED)
+    @PreAuthorize("@securityService.canManageWorkspaceMembers(#companyId, #workspaceId)")
+    @PutMapping("/{workspaceId}/members/{memberId}/status")
+    public ResponseEntity<ApiResponse<WorkspaceMemberResponse>> updateWorkspaceMemberStatus(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer memberId,
+            @Valid @RequestBody UpdateMemberStatusRequest request) {
+        
+        WorkspaceMemberResponse updatedMember = workspaceService.updateWorkspaceMemberStatus(companyId, workspaceId, memberId, request);
+        return ResponseEntity.ok(ApiResponse.success("Workspace member status updated successfully", updatedMember)); // Đã dịch
     }
 }

@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
@@ -71,5 +72,15 @@ public interface WorkspaceService {
      * @return WorkspaceMemberResponse DTO
      */
     WorkspaceMemberResponse getWorkspaceMemberDetails(Integer workspaceId, Integer memberId);
+
+    /**
+     * Cập nhật trạng thái của thành viên trong không gian (ACTIVE/SUSPENDED).
+     * @param companyId ID công ty
+     * @param workspaceId ID không gian
+     * @param memberId ID của bản ghi WorkspaceMember
+     * @param request DTO chứa trạng thái mới
+     * @return WorkspaceMemberResponse DTO đã cập nhật
+     */
+    WorkspaceMemberResponse updateWorkspaceMemberStatus(Integer companyId, Integer workspaceId, Integer memberId, UpdateMemberStatusRequest request);
 
 }
