@@ -128,4 +128,18 @@ public class WorkspaceController {
         return ResponseEntity.ok(ApiResponse.success("Fetched workspace members successfully", members)); // Đã dịch
     }
 
+
+    // API XEM CHI TIET THANH VIEN TRONG KHONG GIAN
+    @GetMapping("/{workspaceId}/members/{memberId}")
+    // Bảo vệ: Chỉ thành viên của không gian (isWorkspaceMember) mới được xem
+    @PreAuthorize("@securityService.isWorkspaceMember(#companyId, #workspaceId)")
+    public ResponseEntity<ApiResponse<WorkspaceMemberResponse>> getWorkspaceMemberDetails(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer memberId) {
+        
+        WorkspaceMemberResponse memberDetails = workspaceService.getWorkspaceMemberDetails(workspaceId, memberId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Fetched workspace member details successfully", memberDetails)); // Đã dịch
+    }
 }

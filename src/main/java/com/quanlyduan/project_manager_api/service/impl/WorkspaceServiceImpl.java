@@ -349,4 +349,25 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 .build();
     }
 
+    // LOGIC XEM CHI TIET THANH VIEN KHONG GIAN
+    @Override
+    @Transactional(readOnly = true)
+    public WorkspaceMemberResponse getWorkspaceMemberDetails(Integer workspaceId, Integer memberId) {
+        // Bảo mật (người gọi có phải là thành viên không) đã được xử lý ở Controller.
+        
+        // 1. Tìm thành viên bằng ID
+        WorkspaceMember member = workspaceMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace member not found with ID: " + memberId)); // Đã dịch
+
+        // 2. KIỂM TRA BẢO MẬT (IDOR): 
+        // Đảm bảo bản ghi 'memberId' này thực sự thuộc về 'workspaceId'
+        if (!member.getWorkspace().getId().equals(workspaceId)) {
+            throw new ResourceNotFoundException("Member not found in this workspace"); // Đã dịch
+        }
+
+        // 3. Map và trả về (tái sử dụng helper)
+        return mapToWorkspaceMemberResponse(member);
+    }
+
+
 }
