@@ -64,4 +64,12 @@ public interface WorkspaceService {
      */
     List<WorkspaceMemberResponse> getWorkspaceMembers(Integer workspaceId);
 
+    /**
+     * Lấy thông tin chi tiết của một thành viên trong không gian.
+     * @param workspaceId ID của không gian (để kiểm tra)
+     * @param memberId ID của bản ghi WorkspaceMember
+     * @return WorkspaceMemberResponse DTO
+     */
+    WorkspaceMemberResponse getWorkspaceMemberDetails(Integer workspaceId, Integer memberId);
+
 }
