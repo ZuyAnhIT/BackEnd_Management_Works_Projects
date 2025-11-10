@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
+import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
@@ -313,6 +314,38 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
         // 4. Lưu lại
         workspaceRepository.save(workspace);
+    }
+
+    // LOGIC LAY DANH SACH THANH VIEN KHONG GIAN
+    @Override
+    @Transactional(readOnly = true)
+    public List<WorkspaceMemberResponse> getWorkspaceMembers(Integer workspaceId) {
+        // Bảo mật đã được xử lý ở Controller
+        
+        // 1. Lấy danh sách thành viên từ CSDL
+        List<WorkspaceMember> members = workspaceMemberRepository.findByWorkspace_Id(workspaceId);
+
+        // 2. Map sang DTO
+        return members.stream()
+                .map(this::mapToWorkspaceMemberResponse) // Dùng helper mới
+                .collect(Collectors.toList());
+    }
+
+    // *** THÊM HÀM HELPER NÀY ***
+    /**
+     * Hàm helper để chuyển đổi WorkspaceMember (Entity) sang WorkspaceMemberResponse (DTO).
+     */
+    private WorkspaceMemberResponse mapToWorkspaceMemberResponse(WorkspaceMember member) {
+        return WorkspaceMemberResponse.builder()
+                .memberId(member.getId())
+                .userId(member.getUser().getId())
+                .fullName(member.getUser().getFullName())
+                .email(member.getUser().getEmail())
+                .avatarUrl(member.getUser().getAvatarUrl())
+                .roleName(member.getRole().getRoleName())
+                .joinedAt(member.getJoinedAt())
+                .status(member.getStatus())
+                .build();
     }
 
 }

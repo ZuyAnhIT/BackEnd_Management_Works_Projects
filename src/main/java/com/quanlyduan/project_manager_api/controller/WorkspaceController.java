@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.controller;
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 // import com.quanlyduan.project_manager_api.model.KhongGian; // Đã được thay thế bằng WorkspaceResponse
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
@@ -16,7 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.bind.annotation.PutMapping;
+
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse; 
 
 @RestController
@@ -112,6 +113,19 @@ public class WorkspaceController {
                 "Workspace deleted successfully",
                 null
         ));
+    }
+
+    // API LAY DANH SACH THANH VIEN TRONG KHONG GIAN
+    @GetMapping("/{workspaceId}/members")
+    // Bảo vệ: Chỉ thành viên của không gian (isWorkspaceMember) mới được xem
+    @PreAuthorize("@securityService.isWorkspaceMember(#companyId, #workspaceId)")
+    public ResponseEntity<ApiResponse<List<WorkspaceMemberResponse>>> getWorkspaceMembers(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId) {
+        
+        List<WorkspaceMemberResponse> members = workspaceService.getWorkspaceMembers(workspaceId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Fetched workspace members successfully", members)); // Đã dịch
     }
 
 }

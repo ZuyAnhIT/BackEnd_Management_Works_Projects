@@ -41,4 +41,9 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
         Integer workspaceId, Integer userId, String roleCode
     );
 
+    /**
+     * Lấy tất cả thành viên (bất kể trạng thái) của một không gian.
+     */
+    List<WorkspaceMember> findByWorkspace_Id(Integer workspaceId);
+
 }
