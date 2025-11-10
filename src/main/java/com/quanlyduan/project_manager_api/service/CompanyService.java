@@ -40,4 +40,12 @@ public interface CompanyService {
      * @param userId ID người dùng bị xóa
      */
     void removeMemberFromCompany(Integer companyId, Integer userId);
+
+    /**
+     * Lấy thông tin chi tiết của một thành viên trong công ty.
+     * @param companyId ID của công ty (để kiểm tra bảo mật)
+     * @param memberId ID của bản ghi CompanyMember
+     * @return CompanyMemberResponse DTO
+     */
+    CompanyMemberResponse getCompanyMemberDetails(Integer companyId, Integer memberId);
 }
