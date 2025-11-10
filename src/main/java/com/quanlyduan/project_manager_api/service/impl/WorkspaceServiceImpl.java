@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -369,5 +370,42 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         return mapToWorkspaceMemberResponse(member);
     }
 
+    // LOGIC CAP NHAT TRANG THAI THANH VIEN KHONG GIAN
+    @Override
+    @Transactional
+    public WorkspaceMemberResponse updateWorkspaceMemberStatus(Integer companyId, Integer workspaceId, Integer memberId, UpdateMemberStatusRequest request) {
+        // 1. Lấy thông tin thành viên
+        WorkspaceMember member = workspaceMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace member not found with ID: " + memberId)); // Đã dịch
+
+        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng không gian
+        if (!member.getWorkspace().getId().equals(workspaceId)) {
+            throw new ResourceNotFoundException("Member not found in this workspace"); // Đã dịch
+        }
+        
+        // 3. Kiểm tra bảo mật (IDOR): Đảm bảo không gian này thuộc đúng công ty
+        if (!member.getWorkspace().getCompany().getId().equals(companyId)) {
+            throw new ResourceNotFoundException("Workspace not found in this company"); // Đã dịch
+        }
+
+        // 4. Kiểm tra nghiệp vụ: Không cho phép đổi status của chính mình
+        User admin = securityService.getCurrentAuthenticatedUser();
+        if (admin.getId().equals(member.getUser().getId())) {
+            throw new BadRequestException("You cannot change your own status."); // Đã dịch
+        }
+        
+        // 5. Kiểm tra nghiệp vụ: Không cho phép dùng API này để "Xóa" (REMOVED)
+        MemberStatus newStatus = request.getNewStatus();
+        if (newStatus == MemberStatus.REMOVED) {
+            throw new BadRequestException("Please use the 'Remove Member' endpoint to remove a member, not this status update endpoint."); // Đã dịch
+        }
+
+        // 6. Cập nhật trạng thái
+        member.setStatus(newStatus);
+        WorkspaceMember updatedMember = workspaceMemberRepository.save(member);
+
+        // 7. Trả về DTO đã cập nhật (tái sử dụng helper)
+        return mapToWorkspaceMemberResponse(updatedMember);
+    }
 
 }
