@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 /**
  * ProjectController – US7: Tạo Project mới.
@@ -47,5 +48,25 @@ public class ProjectController {
         ProjectResponse created = projectService.createProject(companyId, workspaceId, request, creatorId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Project created successfully", created));
+    }
+
+    /**
+     * US8 – API xem danh sách Project trong một Workspace.
+     * Quyền truy cập:
+     *   @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'workspace:view')")
+     * Nghiệp vụ tóm tắt:
+     *   - Xác thực (ở service) rằng workspace thuộc companyId để ngăn truy cập chéo công ty.
+     *   - Lấy danh sách dự án, loại bỏ dự án CANCELLED (ẩn dự án đã hủy) và trả về dạng DTO.
+     * Kết quả:
+     *   - 200 OK + ApiResponse<List<ProjectResponse>>.
+     */
+    @GetMapping
+    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'workspace:view')")
+    public ResponseEntity<ApiResponse<List<ProjectResponse>>> listProjects(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId) {
+
+        List<ProjectResponse> data = projectService.listProjectsByWorkspace(companyId, workspaceId);
+        return ResponseEntity.ok(ApiResponse.success("Fetched projects successfully", data));
     }
 }
