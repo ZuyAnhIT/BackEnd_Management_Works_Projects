@@ -505,4 +505,6 @@ public class CompanyServiceImpl implements CompanyService {
         // 6. Trả về DTO đã cập nhật (tái sử dụng helper)
         return mapToCompanyMemberResponse(updatedMember);
     }
+
+    
 }

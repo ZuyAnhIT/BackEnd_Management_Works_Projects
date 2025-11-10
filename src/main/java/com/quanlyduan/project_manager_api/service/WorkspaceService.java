@@ -10,6 +10,7 @@ import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
 // import com.quanlyduan.project_manager_api.model.KhongGian; // Unused import removed
+import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
 
 public interface WorkspaceService {
     
@@ -82,5 +83,15 @@ public interface WorkspaceService {
      * @return WorkspaceMemberResponse DTO đã cập nhật
      */
     WorkspaceMemberResponse updateWorkspaceMemberStatus(Integer companyId, Integer workspaceId, Integer memberId, UpdateMemberStatusRequest request);
+
+
+    /**
+     * Cập nhật trạng thái của một không gian làm việc (ACTIVE, ARCHIVED, DELETED).
+     * @param companyId ID công ty (để kiểm tra)
+     * @param workspaceId ID không gian
+     * @param request DTO chứa trạng thái mới
+     * @return WorkspaceResponse DTO đã cập nhật
+     */
+    WorkspaceResponse updateWorkspaceStatus(Integer companyId, Integer workspaceId, UpdateWorkspaceStatusRequest request);
 
 }
