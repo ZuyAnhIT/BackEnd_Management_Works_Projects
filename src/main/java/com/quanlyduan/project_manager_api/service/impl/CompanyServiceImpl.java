@@ -17,6 +17,7 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.service.SecurityService;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
+import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
 // import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus; // Duplicate import
@@ -506,5 +507,26 @@ public class CompanyServiceImpl implements CompanyService {
         return mapToCompanyMemberResponse(updatedMember);
     }
 
-    
+    // LOGIC LAY CHI TIET LOI MOI (PUBLIC)
+    @Override
+    @Transactional(readOnly = true)
+    public InvitationDetailsResponse getInvitationDetails(String token) {
+        // 1. Xác thực token (tái sử dụng logic từ InvitationService)
+        // Hàm này sẽ tự động ném lỗi 404 hoặc 400 nếu token sai/hết hạn
+        CompanyInvitation invitation = invitationService.validateInvitationToken(token);
+
+        // 2. Lấy thông tin
+        String email = invitation.getEmail();
+        String companyName = invitation.getCompany().getName();
+
+        // 3. Kiểm tra user có tồn tại không (Mấu chốt)
+        boolean accountExists = userRepository.existsByEmail(email);
+
+        // 4. Trả về DTO cho frontend
+        return InvitationDetailsResponse.builder()
+                .email(email)
+                .companyName(companyName)
+                .accountExists(accountExists)
+                .build();
+    }
 }

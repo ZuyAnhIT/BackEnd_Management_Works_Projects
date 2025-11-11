@@ -10,6 +10,7 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
+import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.model.Company; // Đã dịch
 import com.quanlyduan.project_manager_api.model.CompanyMember;
 
@@ -58,4 +59,12 @@ public interface CompanyService {
      * @return CompanyMemberResponse DTO đã cập nhật
      */
     CompanyMemberResponse updateMemberStatus(Integer companyId, Integer memberId, UpdateMemberStatusRequest request);
+
+/**
+     * Lấy chi tiết lời mời (public) để frontend quyết định luồng.
+     * @param token Token từ link
+     * @return DTO chứa email, tên cty, và user đã tồn tại hay chưa
+     */
+    InvitationDetailsResponse getInvitationDetails(String token);
+    
 }
