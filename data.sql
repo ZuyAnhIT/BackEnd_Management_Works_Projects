@@ -598,23 +598,110 @@ INSERT INTO users (
     'ACTIVE', 1);
 
 -- TẠO MÔI TRƯỜNG (COMPANIES, WORKSPACES, PROJECTS, TASKS)
-INSERT INTO companies (id, name, company_code, created_by_id, status) VALUES
-(1, 'PixelCore Inc.', 'PIXEL', 1, 'ACTIVE'),
-(2, 'QuantumLeap Solutions', 'QUANTUM', 8, 'ACTIVE');
+INSERT INTO companies (
+    id, name, company_code, created_by_id, status,
+    description, logo_url, address, phone_number, email, website
+) VALUES
+(1, 'PixelCore Inc.', 'PIXEL', 1, 'ACTIVE',
+    'Innovative digital solutions provider specializing in web and mobile app development.',
+    'https://i.imgur.com/g0G5wUf.png', '123 Tech Avenue, Silicon Valley, CA 94043',
+    '+1-555-123-4567', 'contact@pixelcore.com', 'https://www.pixelcore.com'),
+(2, 'QuantumLeap Solutions', 'QUANTUM', 8, 'ACTIVE',
+    'AI-driven business intelligence and data analytics firm.',
+    'https://i.imgur.com/b4g3eWb.png', '456 Data Drive, Boston, MA 02110',
+    '+1-555-765-4321', 'info@quantumleap.ai', 'https://www.quantumleap.ai');
 
-INSERT INTO workspaces (id, company_id, name, created_by_id, status) VALUES
-(1, 1, 'Marketing', 1, 'ACTIVE'),
-(2, 1, 'Engineering', 1, 'ACTIVE'),
-(3, 2, 'Quantum Sales', 8, 'ACTIVE');
+INSERT INTO workspaces (
+    id, company_id, name, created_by_id, status,
+    workspace_code, description, cover_image_url, color
+) VALUES
+(1, 1, 'Marketing', 1, 'ACTIVE',
+    'MKT', 'All activities for brand promotion and lead generation.',
+    'https://picsum.photos/id/101/800/200', '#1abc9c'),
+(2, 1, 'Engineering', 1, 'ACTIVE',
+    'ENG', 'Core product development and R&D.',
+    'https://picsum.photos/id/103/800/200', '#3498db'),
+(3, 2, 'Quantum Sales', 8, 'ACTIVE',
+    'Q-SALES', 'Sales and client acquisition for QuantumLeap.',
+    'https://picsum.photos/id/104/800/200', '#9b59b6');
 
-INSERT INTO projects (id, workspace_id, name, project_code, created_by_id, status) VALUES
-(1, 2, 'Website Redesign', 'WEB', 4, 'IN_PROGRESS'),
-(2, 1, 'Q4 Campaign', 'MKTG', 2, 'NEW');
+-- TẠO PROJECT TYPES TRƯỚC (Đã chuyển từ Bước 6 lên đây)
+INSERT INTO project_types (type_name, type_code, model, description, configuration)
+VALUES
+-- SCRUM
+('Scrum Agile Project', 'SCRUM_STD', 'SCRUM',
+ 'Dự án theo mô hình Scrum với quy trình Sprint, Backlog, Daily, Review và Retrospective.',
+ JSON_OBJECT(
+  'statuses', JSON_ARRAY('Backlog', 'To Do', 'In Progress', 'In Review', 'Done'),
+  'sprint_cycle_days', 14,
+  'story_point_scale', JSON_ARRAY(1, 2, 3, 5, 8, 13)
+ )),
 
-INSERT INTO tasks (id, project_id, task_code, title, description, created_by_id, assignee_id, priority, due_date) VALUES
-(1, 1, 'WEB-1', 'Design Homepage Mockup', 'Create mockups in Figma', 4, 5, 'HIGH', '2025-11-20'),
-(2, 1, 'WEB-2', 'Develop Auth API', 'Setup JWT and endpoints', 4, 5, 'URGENT', '2025-11-15'),
-(3, 2, 'MKTG-1', 'Plan Social Media', 'Draft posts for LinkedIn', 2, 2, 'MEDIUM', '2025-11-10');
+-- KANBAN
+('Kanban Continuous Project', 'KANBAN_STD', 'KANBAN',
+ 'Dự án theo mô hình Kanban, luồng công việc liên tục, giới hạn WIP.',
+ JSON_OBJECT(
+  'statuses', JSON_ARRAY('Backlog', 'To Do', 'Doing', 'Testing', 'Done'),
+  'wip_limit', JSON_OBJECT('Doing', 5)
+ )),
+
+-- WATERFALL
+('Waterfall Project', 'WATERFALL_STD', 'WATERFALL',
+ 'Dự án theo mô hình tuần tự: Phân tích → Thiết kế → Phát triển → Kiểm thử → Triển khai.',
+ JSON_OBJECT(
+  'statuses', JSON_ARRAY('Analysis', 'Design', 'Development', 'Testing', 'Deployment', 'Maintenance')
+ )),
+
+-- HYBRID
+('Hybrid Agile-Waterfall Project', 'HYBRID_STD', 'HYBRID',
+ 'Dự án kết hợp linh hoạt giữa Agile và Waterfall.',
+ JSON_OBJECT(
+  'statuses', JSON_ARRAY('Initiation', 'Planning', 'Execution', 'Sprint', 'Review', 'Closure'),
+  'hybrid_structure', JSON_OBJECT('phase_model', JSON_ARRAY('Agile', 'Waterfall'), 'agile_inside', TRUE)
+ ));
+
+INSERT INTO projects (
+    id, workspace_id, project_type_id, name, project_code, created_by_id, status,
+    description, cover_image_url, goal, manager_id, priority, start_date, due_date, progress
+) VALUES
+(1, 2, (SELECT id FROM project_types WHERE type_code = 'SCRUM_STD'), 'Website Redesign', 'WEB', 4, 'IN_PROGRESS',
+    'Complete redesign of the corporate website (PixelCore Inc.) to improve UX/UI and conversion rates.',
+    'https://picsum.photos/id/201/800/200', 'Launch new website by end of Q1 2026.',
+    10, 'HIGH', '2025-11-01', '2026-03-31', 15.00),
+(2, 1, (SELECT id FROM project_types WHERE type_code = 'KANBAN_STD'), 'Q4 Campaign', 'MKTG', 2, 'NEW',
+    'Execute the Q4 2025 marketing campaign across all social channels.',
+    'https://picsum.photos/id/202/800/200', 'Increase Q4 leads by 20%.',
+    4, 'MEDIUM', '2025-10-01', '2025-12-31', 0.00);
+
+-- TẠO EPICS VÀ SPRINTS TRƯỚC KHI TẠO TASK
+INSERT INTO epics (id, project_id, name, epic_code, description, created_by_id, status) VALUES
+(1, 1, 'User Authentication', 'WEB-E1', 'End-to-end user login, registration, and profile management.', 10, 'IN_PROGRESS');
+
+INSERT INTO sprints (id, project_id, name, sprint_code, status, start_date, end_date, created_by_id) VALUES
+(1, 1, 'Sprint 1 (Foundations)', 'WEB-S1', 'IN_PROGRESS', '2025-11-10', '2025-11-24', 10);
+
+INSERT INTO tasks (
+    id, project_id, epic_id, sprint_id, task_code, title, description,
+    task_type, status, priority,
+    assigner_id, assignee_id,
+    story_points, estimated_hours, start_date, due_date,
+    created_by_id
+) VALUES
+(1, 1, 1, 1, 'WEB-1', 'Design Homepage Mockup', 'Create mockups in Figma for desktop and mobile.',
+    'TASK', 'IN_PROGRESS', 'HIGH',
+    10, 9,
+    5, 16, '2025-11-11', '2025-11-20',
+    4),
+(2, 1, 1, 1, 'WEB-2', 'Develop Auth API', 'Setup JWT and endpoints for login, register, and forgot-password.',
+    'STORY', 'IN_PROGRESS', 'URGENT',
+    10, 7,
+    8, 24, '2025-11-12', '2025-11-18',
+    4),
+(3, 2, NULL, NULL, 'MKTG-1', 'Plan Social Media', 'Draft posts for LinkedIn, Twitter, and Facebook for the first week.',
+    'TASK', 'TO_DO', 'MEDIUM',
+    4, 5,
+    NULL, 8, '2025-11-10', '2025-11-14',
+    2);
 
 -- =============================================
 -- BƯỚC 5: GÁN VAI TRÒ CHO CÁC NHÂN VẬT
