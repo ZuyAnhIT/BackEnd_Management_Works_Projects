@@ -476,13 +476,12 @@ INSERT INTO roles (id, role_code, role_name, level) VALUES
 (1,'SYSTEM_ADMIN', 'System Administrator', 'SYSTEM'),
 (2,'USER', 'System User', 'SYSTEM'),
 (3,'COMPANY_ADMIN', 'Company Administrator', 'COMPANY'),
-(4,'COMPANY_MANAGER', 'Company Manager', 'COMPANY'),
-(5,'COMPANY_MEMBER', 'Company Member', 'COMPANY'),
-(6,'WORKSPACE_ADMIN', 'Workspace Administrator', 'WORKSPACE'),
-(7,'WORKSPACE_MEMBER', 'Workspace Member', 'WORKSPACE'),
-(8,'PROJECT_ADMIN', 'Project Admin', 'PROJECT'),
-(9,'PROJECT_MEMBER', 'Project Member', 'PROJECT'),
-(10,'GUEST_PROJECT', 'Project Guest', 'PROJECT');
+(4,'COMPANY_MEMBER', 'Company Member', 'COMPANY'),
+(5,'WORKSPACE_ADMIN', 'Workspace Administrator', 'WORKSPACE'),
+(6,'WORKSPACE_MEMBER', 'Workspace Member', 'WORKSPACE'),
+(7,'PROJECT_ADMIN', 'Project Admin', 'PROJECT'),
+(8,'PROJECT_MEMBER', 'Project Member', 'PROJECT'),
+(9,'GUEST_PROJECT', 'Project Guest', 'PROJECT');
 
 -- =============================================
 -- BƯỚC 3: LIÊN KẾT ROLE VÀ PERMISSION
@@ -498,32 +497,29 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
     'company:view', 'company:edit', 'company:delete',
     'company:invite_member', 'company:remove_member',
-    'company:manage_roles', 'workspace:create', 'workspace:delete'
+    'company:manage_roles', 
+    'workspace:create', 'workspace:delete','workspace:view','workspace:edit','workspace:invite_member',
+    'project:create', 'project:delete','project:view','project:edit','project:invite_member',
+    'task:assign', 'task:attach_file','task:comment', 'task:comment:view', 'task:create', 'task:delete', 'task:edit', 'task:view'
 ) WHERE r.role_code = 'COMPANY_ADMIN';
-
--- COMPANY_MANAGER (Company)
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'company:view', 'company:invite_member', 'workspace:create'
-) WHERE r.role_code = 'COMPANY_MANAGER';
 
 -- COMPANY_MEMBER (Company)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'company:view', 'workspace:create', 'project:create'
+    'company:view'
 ) WHERE r.role_code = 'COMPANY_MEMBER';
 
 -- WORKSPACE_ADMIN (Workspace)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
     'workspace:view', 'workspace:edit', 'workspace:invite_member',
-    'workspace:remove_member', 'project:create', 'project:delete'
+    'workspace:remove_member', 'project:create', 'project:delete','project:view','project:edit'
 ) WHERE r.role_code = 'WORKSPACE_ADMIN';
 
 -- WORKSPACE_MEMBER (Workspace)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'workspace:view', 'project:create'
+    'workspace:view'
 ) WHERE r.role_code = 'WORKSPACE_MEMBER';
 
 -- PROJECT_ADMIN (Project)
@@ -571,7 +567,7 @@ INSERT INTO users (
 (3, 'anna.admin@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Anna Admin (C-Admin)', 
     'https://i.pravatar.cc/150?img=1', '0912345003', '1992-03-15', 'FEMALE', 
     'ACTIVE', 1),
-(4, 'brian.manager@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Brian Manager (C-Manager)', 
+(4, 'brian.member@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Brian Member (C-Member)', 
     'https://i.pravatar.cc/150?img=2', '0912345004', '1988-05-20', 'MALE', 
     'ACTIVE', 1),
 (5, 'charlie.member@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Charlie Member (C-Member)', 
@@ -634,47 +630,50 @@ INSERT INTO user_roles (user_id, role_id)
 VALUES (2, (SELECT id FROM roles WHERE role_code = 'USER'));
 
 
--- GÁN VAI TRÒ CẤP CÔNG TY
-INSERT INTO company_members (company_id, user_id, role_id, status) VALUES
 -- Công ty 1: PixelCore
-(1, 3, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE'),   -- Anna Admin
-(1, 4, (SELECT id FROM roles WHERE role_code = 'COMPANY_MANAGER'), 'ACTIVE'), -- Brian Manager
-(1, 5, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Charlie Member
-(1, 6, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- David Lead
-(1, 7, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Eva Developer
-(1, 8, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Frank Client
-(1, 9, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'),  -- Grace Dev
-(1, 10, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'), -- Henry Lead
+INSERT INTO company_members (company_id, user_id, role_id, status) VALUES
+(1, 3, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE'), -- Anna
+(1, 4, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'), -- Brian
+(1, 5, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'), -- Charlie
+(1, 6, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'), -- David
+(1, 7, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'), -- Eva
+(1, 8, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'), -- Frank
+(1, 9, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'), -- Grace
+(1, 10, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE'); -- Henry
 
 -- Công ty 2: QuantumLeap
-(2, 11, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE');  -- Quantum Admin
+INSERT INTO company_members (company_id, user_id, role_id, status) VALUES
+(2, 11, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE'); -- Quantum Admin
 
 SELECT * FROM company_members;
 
 -- GÁN VAI TRÒ CẤP WORKSPACE
-INSERT INTO workspace_members (workspace_id, user_id, role_id, status) VALUES
 -- Workspace 1: Marketing
-(1, 4, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Brian Manager
+INSERT INTO workspace_members (workspace_id, user_id, role_id, status) VALUES
+(1, 5, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'),
+(1, 4, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'); -- Brian
 
 -- Workspace 2: Engineering
-(2, 6, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'),  -- David Lead
-(2, 7, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Eva Developer
-(2, 8, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Frank Client
-(2, 9, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'); -- Grace Dev
+INSERT INTO workspace_members (workspace_id, user_id, role_id, status) VALUES
+(2, 6, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'), -- David
+(2, 7, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Eva
+(2, 8, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Frank
+(2, 9, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Grace
+(2, 10, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE');
 
 
 -- GÁN VAI TRÒ CẤP PROJECT
+-- Project 1: Website Redesign (Workspace 2)
 INSERT INTO project_members (project_id, user_id, role_id, status) VALUES
--- Project 1: Website Redesign
-(1, 10, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'),  -- Henry Lead
-(1, 9,  (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'), -- Grace Dev
-(1, 8,  (SELECT id FROM roles WHERE role_code = 'GUEST_PROJECT'), 'ACTIVE');  -- Frank Client
+(1, 10, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'), -- Henry
+(1, 9,  (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'), -- Grace
+(1, 8,  (SELECT id FROM roles WHERE role_code = 'GUEST_PROJECT'), 'ACTIVE'); -- Frank
 
--- Project 2: Q4 Campaign
+-- Project 2: Q4 Campaign (Workspace 1)
 INSERT INTO project_members (project_id, user_id, role_id, status) VALUES
-(2, 4, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'),   -- Brian Manager
-(2, 5, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'),  -- Charlie Member
-(2, 6, (SELECT id FROM roles WHERE role_code = 'GUEST_PROJECT'), 'ACTIVE');   -- David Lead (guest for campaign)
+(2, 4, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'), -- Brian
+(2, 5, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'), -- Charlie
+(2, 6, (SELECT id FROM roles WHERE role_code = 'GUEST_PROJECT'), 'ACTIVE'); -- David
 
 
 -- =============================================
@@ -683,9 +682,9 @@ INSERT INTO project_members (project_id, user_id, role_id, status) VALUES
 
 -- SAMPLE DATA INVITATIONS
 INSERT INTO company_invitations (company_id, email, role_id, invited_by_id, token, status, expires_at) VALUES
--- Anna (ID 1) mời 'user.new@example.com' làm COMPANY_MANAGER (ID 4) cho Cty 1
+-- Anna (ID 1) mời 'user.new@example.com' làm COMPANY_MEMBER (ID 4) cho Cty 1
 (1, 'user.new@example.com', 4, 1, 'token-pending-1', 'PENDING', '2025-12-01 00:00:00'),
--- Quantum Admin (ID 8) mời 'user.accepted@example.com' làm COMPANY_MANAGER (ID 4) cho Cty 2
+-- Quantum Admin (ID 8) mời 'user.accepted@example.com' làm COMPANY_MEMBER (ID 4) cho Cty 2
 (2, 'accepted.user@example.com', 4, 8, 'token-accepted-3', 'ACCEPTED', '2025-10-01 00:00:00'),
 (2, 'expired.user@example.com', 4, 8, 'token-expired-4', 'EXPIRED', '2025-10-01 00:00:00');
 

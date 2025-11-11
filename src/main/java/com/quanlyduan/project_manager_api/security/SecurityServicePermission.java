@@ -33,5 +33,6 @@ public interface SecurityServicePermission {
      * (Hàm này sẽ tìm projectId từ taskId rồi gọi hasProjectPermission)
      * @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:comment')")
      */
-     boolean hasTaskPermission(Integer taskId, String permissionCode);
+    boolean hasTaskPermission(Integer taskId, String permissionCode);
+    boolean hasPermission(String scope, Integer targetId, String permissionCode);
 }
