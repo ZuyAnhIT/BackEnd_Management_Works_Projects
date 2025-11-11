@@ -261,34 +261,20 @@ public class ProjectServiceImpl implements ProjectService {
                 .build();
     }
     @Override
-public ProjectResponse getProjectDetails(Integer companyId, Integer workspaceId, Integer projectId) {
-    Project project = projectRepository.findById(projectId)
-        .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+    public ProjectResponse getProjectDetails(Integer companyId, Integer workspaceId, Integer projectId) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
 
-    // Kiểm tra project có thuộc workspace và company tương ứng không
-    if (!project.getWorkspace().getId().equals(workspaceId)) {
-        throw new BadRequestException("Project does not belong to the specified workspace");
+        // Kiểm tra project có thuộc workspace và company tương ứng không
+        if (!project.getWorkspace().getId().equals(workspaceId)) {
+            throw new BadRequestException("Project does not belong to the specified workspace");
+        }
+
+        if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Workspace does not belong to the specified company");
+        }
+
+        // Dùng mapper chung để đảm bảo đầy đủ field như khi tạo/list
+        return toResponse(project);
     }
-
-    if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
-        throw new BadRequestException("Workspace does not belong to the specified company");
-    }
-
-    // Ánh xạ sang DTO ProjectResponse
-    ProjectResponse response = ProjectResponse.builder()
-        .id(project.getId())
-        .projectCode(project.getProjectCode())
-        .name(project.getName())
-        .description(project.getDescription())
-        .status(project.getStatus().name())
-        .priority(project.getPriority().name())
-        .progress(project.getProgress())
-        .startDate(project.getStartDate())
-        .dueDate(project.getDueDate())
-        .createdById(project.getCreatedBy().getId())
-        .workspaceId(project.getWorkspace().getId())
-        .build();
-
-    return response;
-}
 }
