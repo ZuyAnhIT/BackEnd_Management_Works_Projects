@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 
 /**
  * ProjectController – US7: Tạo Project mới.
@@ -132,6 +133,18 @@ public class ProjectController {
 
         ProjectResponse updated = projectService.updateProjectStatus(companyId, workspaceId, projectId, request);
         return ResponseEntity.ok(ApiResponse.success("Project status updated successfully", updated));
+    }
+
+    @PutMapping("/{projectId}")
+    @PreAuthorize("@securityServicePermission.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<ProjectResponse>> updateProject(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @Valid @RequestBody UpdateProjectRequest request) {
+
+        ProjectResponse updated = projectService.updateProject(companyId, workspaceId, projectId, request);
+        return ResponseEntity.ok(ApiResponse.success("Project updated successfully", updated));
     }
 
 }

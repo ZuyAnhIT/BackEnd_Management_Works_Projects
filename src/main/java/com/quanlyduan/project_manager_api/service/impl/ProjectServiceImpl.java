@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
@@ -37,6 +38,10 @@ public class ProjectServiceImpl implements ProjectService {
     private final UserRepository userRepository;
     private final ProjectTypeRepository projectTypeRepository;
     private final ObjectMapper objectMapper;
+
+    private boolean isProvided(String value) {
+        return value != null && !value.isBlank() && !"string".equalsIgnoreCase(value.trim());
+    }
 
     /**
      * US7: Tạo Project mới trong Workspace.
@@ -231,6 +236,96 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         project.setStatus(newStatus);
+        Project saved = projectRepository.save(project);
+        return toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+        if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Workspace does not belong to the specified company");
+        }
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+        if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
+            throw new BadRequestException("Project does not belong to the specified workspace");
+        }
+
+        // name
+        if (isProvided(request.getName())) {
+            project.setName(request.getName());
+        }
+
+        // projectCode: ensure unique within workspace if changed
+        if (isProvided(request.getProjectCode())) {
+            String newCode = request.getProjectCode();
+            String currentCode = project.getProjectCode();
+            if (!newCode.equalsIgnoreCase(currentCode)) {
+                if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, newCode)) {
+                    throw new BadRequestException("Project code already exists in this workspace");
+                }
+                project.setProjectCode(newCode);
+            }
+        }
+
+        if (isProvided(request.getDescription())) {
+            project.setDescription(request.getDescription());
+        }
+        if (isProvided(request.getGoal())) {
+            project.setGoal(request.getGoal());
+        }
+        if (isProvided(request.getCoverImageUrl())) {
+            project.setCoverImageUrl(request.getCoverImageUrl());
+        }
+        if (request.getPriority() != null) {
+            project.setPriority(request.getPriority());
+        }
+        if (request.getStartDate() != null) {
+            project.setStartDate(request.getStartDate());
+        }
+        if (request.getDueDate() != null) {
+            project.setDueDate(request.getDueDate());
+        }
+        if (request.getCompletedAt() != null) {
+            project.setCompletedAt(request.getCompletedAt());
+        }
+
+        // managerId: null -> giữ nguyên; 0 -> giữ nguyên; >0 -> cập nhật
+        if (request.getManagerId() != null) {
+            Integer managerId = request.getManagerId();
+            if (managerId != 0) {
+                User manager = userRepository.findById(managerId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Manager not found"));
+                project.setManager(manager);
+            }
+        }
+
+        // projectTypeId
+        if (request.getProjectTypeId() != null) {
+            Integer projectTypeId = request.getProjectTypeId();
+            if (projectTypeId == 0) {
+                project.setProjectType(null);
+            } else {
+                ProjectType type = projectTypeRepository.findById(projectTypeId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Project type not found"));
+                project.setProjectType(type);
+            }
+        }
+
+        if (isProvided(request.getBoardConfig())) {
+            // Optional: validate JSON format only when provided and not placeholder
+            try {
+                objectMapper.readTree(request.getBoardConfig());
+            } catch (Exception e) {
+                throw new BadRequestException("boardConfig is not valid JSON");
+            }
+            project.setBoardConfig(request.getBoardConfig());
+        }
+
         Project saved = projectRepository.save(project);
         return toResponse(saved);
     }
