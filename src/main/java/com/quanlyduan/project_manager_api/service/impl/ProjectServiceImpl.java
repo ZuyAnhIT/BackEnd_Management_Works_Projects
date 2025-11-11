@@ -2,6 +2,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
@@ -200,6 +201,38 @@ public class ProjectServiceImpl implements ProjectService {
 
         project.setStatus(ProjectStatus.CANCELLED);
         projectRepository.save(project);
+    }
+
+    @Override
+    @Transactional
+    public ProjectResponse updateProjectStatus(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectStatusRequest request) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+        if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Workspace does not belong to the specified company");
+        }
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+        if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
+            throw new BadRequestException("Project does not belong to the specified workspace");
+        }
+
+        ProjectStatus newStatus = request.getNewStatus();
+        if (newStatus == null) {
+            throw new BadRequestException("New status must not be null");
+        }
+        if (newStatus == ProjectStatus.CANCELLED) {
+            throw new BadRequestException("Cannot update status to CANCELLED. Use the delete endpoint instead.");
+        }
+
+        if (project.getStatus() == newStatus) {
+            throw new BadRequestException("Project is already in the requested status.");
+        }
+
+        project.setStatus(newStatus);
+        Project saved = projectRepository.save(project);
+        return toResponse(saved);
     }
     /**
      * Helper map Entity -> DTO (tối thiểu, không viết mapping phức tạp; chỉ rút gọn trường cần thiết).
