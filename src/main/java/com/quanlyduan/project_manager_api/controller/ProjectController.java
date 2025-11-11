@@ -1,10 +1,12 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.security.SecurityServicePermission;
 import com.quanlyduan.project_manager_api.service.ProjectService;
+import com.quanlyduan.project_manager_api.service.ProjectStatusService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +27,7 @@ public class ProjectController {
 
     private final ProjectService projectService;
     private final SecurityServicePermission securityServicePermission;
+    private final ProjectStatusService projectStatusService;
 
     /**
      * US7 – API tạo Project mới trong Workspace.
@@ -109,5 +112,21 @@ public class ProjectController {
 
         projectService.deleteProject(companyId, workspaceId, projectId);
         return ResponseEntity.ok(ApiResponse.success("Project cancelled successfully", null));
+    }
+
+    /**
+     * API: Cập nhật trạng thái Project (không cho chuyển sang CANCELLED qua API này).
+     * Quyền: yêu cầu quyền update ở mức workspace.
+     */
+    @PatchMapping("/{projectId}/status")
+    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'project:update')")
+    public ResponseEntity<ApiResponse<ProjectResponse>> updateProjectStatus(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @Valid @RequestBody UpdateProjectStatusRequest request
+    ) {
+        ProjectResponse updated = projectStatusService.updateProjectStatus(companyId, workspaceId, projectId, request);
+        return ResponseEntity.ok(ApiResponse.success("Project status updated successfully", updated));
     }
 }

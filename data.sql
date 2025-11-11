@@ -212,7 +212,7 @@ CREATE TABLE projects (
     manager_id INT,
     status ENUM('NEW', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'CANCELLED') DEFAULT 'NEW',
     priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') DEFAULT 'MEDIUM',
-    start_date DATE,
+project_type_id    start_date DATE,
     due_date DATE,
     completed_at DATE,
     progress DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Percentage complete',
