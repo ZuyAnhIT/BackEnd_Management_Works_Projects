@@ -110,4 +110,15 @@ public class ProjectController {
         projectService.deleteProject(companyId, workspaceId, projectId);
         return ResponseEntity.ok(ApiResponse.success("Project cancelled successfully", null));
     }
+    
+    @GetMapping("/{projectId}")
+    @PreAuthorize("@securityServicePermission.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<ProjectResponse>> getProjectDetails(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId) {
+        ProjectResponse response = projectService.getProjectDetails(companyId, workspaceId, projectId);
+        return ResponseEntity.ok(ApiResponse.success("Fetched project details successfully", response));
+    }
+
 }
