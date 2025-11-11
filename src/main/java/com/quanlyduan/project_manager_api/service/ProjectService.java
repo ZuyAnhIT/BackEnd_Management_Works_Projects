@@ -1,3 +1,9 @@
+
+/* =============================
+ * File: ProjectService.java
+ * Path: service/
+ * ============================= */
+
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
@@ -49,5 +55,6 @@ public interface ProjectService {
      * - Yêu cầu quyền project:delete tại Controller bằng @PreAuthorize (project-level permission).
      * - Không xóa cứng; chỉ set status = CANCELLED và lưu.
      */
-    void deleteProject(Integer companyId, Integer workspaceId, Integer projectId);
+    void deleteProject(Integer companyId, Integer workspaceId, Integer projectId);  
+    ProjectResponse getProjectDetails(Integer companyId, Integer workspaceId, Integer projectId);
 }
