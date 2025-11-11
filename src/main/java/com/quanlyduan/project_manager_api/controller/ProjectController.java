@@ -123,7 +123,7 @@ public class ProjectController {
     }
 
     @PutMapping("/{projectId}/status")
-    @PreAuthorize("@securityServicePermission.hasPermission('project', #projectId, 'project:update')")
+    @PreAuthorize("@securityServicePermission.hasPermission('project', #projectId, 'project:edit')")
     public ResponseEntity<ApiResponse<ProjectResponse>> updateProjectStatus(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
