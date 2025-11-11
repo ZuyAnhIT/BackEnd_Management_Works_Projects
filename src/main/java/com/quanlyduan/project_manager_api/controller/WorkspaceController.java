@@ -33,7 +33,7 @@ public class WorkspaceController {
 
     // API TAO KHONG GIAN CONG TY
     @PostMapping
-    @PreAuthorize("@securityServicePermission.hasCompanyPermission(#companyId, 'workspace:create')") // theo quyền Company
+    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'workspace:create')") // theo quyền Company
     public ResponseEntity<ApiResponse<WorkspaceResponse>> createWorkspace( // Sửa kiểu trả về
             @PathVariable Integer companyId, // Đã dịch
             @Valid @RequestBody CreateWorkspaceRequest request) {
@@ -49,7 +49,7 @@ public class WorkspaceController {
     // API XEM DANH SACH KHONG GIAN TRONG CONG TY
     @GetMapping
     // Bảo vệ endpoint: Chỉ thành viên công ty (isCompanyMember) mới được xem
-    @PreAuthorize("@securityService.isCompanyMember(#companyId)") // Đã dịch
+    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'workspace:view')") // Đã dịch
     public ResponseEntity<ApiResponse<List<WorkspaceResponse>>> getWorkspaces(
             @PathVariable Integer companyId) { // Đã dịch
         
@@ -62,7 +62,7 @@ public class WorkspaceController {
     // API XEM CHI TIET KHONG GIAN CONG TY
     @GetMapping("/{workspaceId}")
     // Bảo vệ endpoint: Yêu cầu là thành viên của không gian này
-    @PreAuthorize("@securityService.isWorkspaceMember(#companyId, #workspaceId)") // Đã dịch
+    @PreAuthorize("@securityServicePermission.hasPermission('workspace', #workspaceId, 'workspace:view')") // Đã dịch
     public ResponseEntity<ApiResponse<WorkspaceResponse>> getWorkspaceDetails(
             @PathVariable Integer companyId, // Đã dịch
             @PathVariable Integer workspaceId) {
@@ -76,7 +76,7 @@ public class WorkspaceController {
     // API THEM THANH VIEN VAO KHONG 
     @PostMapping("/{workspaceId}/invite-members")
     // Bảo vệ: Chỉ WORKSPACE_ADMIN mới được mời
-    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'workspace:invite_member')")
+    @PreAuthorize("@securityServicePermission.hasPermission('workspace', #workspaceId, 'workspace:invite_member')")
     public ResponseEntity<ApiResponse<Object>> inviteMemberToWorkspace(
             @PathVariable Integer companyId, // Đã dịch
             @PathVariable Integer workspaceId,
@@ -89,7 +89,7 @@ public class WorkspaceController {
 
     // API CAP NHAT KHONG GIAN
     @PutMapping("/{workspaceId}")
-    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'workspace:edit')")
+    @PreAuthorize("@securityServicePermission.hasPermission('workspace', #workspaceId, 'workspace:edit')")
     public ResponseEntity<ApiResponse<WorkspaceResponse>> updateWorkspace(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
@@ -105,7 +105,7 @@ public class WorkspaceController {
 
     // API XOA MEM
     @DeleteMapping("/{workspaceId}")
-    @PreAuthorize("@securityServicePermission.hasCompanyPermission(#companyId, 'workspace:delete')")
+    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'workspace:delete')")
     public ResponseEntity<ApiResponse<Object>> deleteWorkspace(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId) {
@@ -121,7 +121,7 @@ public class WorkspaceController {
     // API LAY DANH SACH THANH VIEN TRONG KHONG GIAN
     @GetMapping("/{workspaceId}/members")
     // Bảo vệ: Chỉ thành viên của không gian (isWorkspaceMember) mới được xem
-    @PreAuthorize("@securityService.isWorkspaceMember(#companyId, #workspaceId)")
+    @PreAuthorize("@securityServicePermission.hasPermission('workspace', #workspaceId, 'workspace:view')")
     public ResponseEntity<ApiResponse<List<WorkspaceMemberResponse>>> getWorkspaceMembers(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId) {
@@ -135,7 +135,7 @@ public class WorkspaceController {
     // API XEM CHI TIET THANH VIEN TRONG KHONG GIAN
     @GetMapping("/{workspaceId}/members/{memberId}")
     // Bảo vệ: Chỉ thành viên của không gian (isWorkspaceMember) mới được xem
-    @PreAuthorize("@securityService.isWorkspaceMember(#companyId, #workspaceId)")
+    @PreAuthorize("@securityServicePermission.hasPermission('workspace', #workspaceId, 'workspace:view')")
     public ResponseEntity<ApiResponse<WorkspaceMemberResponse>> getWorkspaceMemberDetails(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
@@ -147,7 +147,7 @@ public class WorkspaceController {
     }
 
     // API CAP NHAT TRANG THAI THANH VIEN KHONG GIAN (ACTIVE/SUSPENDED)
-    @PreAuthorize("@securityService.canManageWorkspaceMembers(#companyId, #workspaceId)")
+    @PreAuthorize("@securityServicePermission.hasPermission('workspace', #workspaceId, 'workspace:remove_member')")
     @PutMapping("/{workspaceId}/members/{memberId}/status")
     public ResponseEntity<ApiResponse<WorkspaceMemberResponse>> updateWorkspaceMemberStatus(
             @PathVariable Integer companyId,
@@ -160,7 +160,7 @@ public class WorkspaceController {
     }
 
     // API CAP NHAT TRANG THAI KHONG GIAN (ACTIVE/ARCHIVED/DELETED)
-    @PreAuthorize("@securityService.canManageWorkspaceMembers(#companyId, #workspaceId)") // Tái sử dụng quyền
+    @PreAuthorize("@securityServicePermission.hasPermission('workspace', #workspaceId, 'workspace:edit')")// Tái sử dụng quyền
     @PutMapping("/{workspaceId}/status")
     public ResponseEntity<ApiResponse<WorkspaceResponse>> updateWorkspaceStatus(
             @PathVariable Integer companyId,

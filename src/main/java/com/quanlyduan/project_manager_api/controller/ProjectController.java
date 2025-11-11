@@ -38,7 +38,7 @@ public class ProjectController {
      *   - 201 Created + ApiResponse<ProjectResponse> chứa thông tin project vừa tạo.
      */
     @PostMapping
-    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'project:create')")
+    @PreAuthorize("@securityServicePermission.hasPermission('workspace', #workspaceId, 'project:create')")
     public ResponseEntity<ApiResponse<ProjectResponse>> createProject(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
@@ -61,7 +61,7 @@ public class ProjectController {
      *   - 200 OK + ApiResponse<List<ProjectResponse>>.
      */
     @GetMapping
-    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'workspace:view')")
+    @PreAuthorize("@securityServicePermission.hasPermission('workspace', #workspaceId, 'project:view')")
     public ResponseEntity<ApiResponse<List<ProjectResponse>>> listProjects(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId) {
@@ -81,7 +81,7 @@ public class ProjectController {
      *   - 200 OK + ApiResponse<List<ProjectResponse>>.
      */
     @GetMapping("/trash")
-    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'workspace:view')")
+    @PreAuthorize("@securityServicePermission.hasPermission('workspace', #workspaceId, 'project:view')")
     public ResponseEntity<ApiResponse<List<ProjectResponse>>> listTrashedProjects(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId) {
@@ -101,7 +101,7 @@ public class ProjectController {
      *   - 200 OK + ApiResponse null-data với message thành công.
      */
     @DeleteMapping("/{projectId}")
-    @PreAuthorize("@securityServicePermission.hasWorkspacePermission(#workspaceId, 'project:delete')")
+    @PreAuthorize("@securityServicePermission.hasPermission('workspace', #workspaceId, 'project:delete')")
     public ResponseEntity<ApiResponse<Object>> deleteProject(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
@@ -110,4 +110,15 @@ public class ProjectController {
         projectService.deleteProject(companyId, workspaceId, projectId);
         return ResponseEntity.ok(ApiResponse.success("Project cancelled successfully", null));
     }
+    
+    @GetMapping("/{projectId}")
+    @PreAuthorize("@securityServicePermission.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<ProjectResponse>> getProjectDetails(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId) {
+        ProjectResponse response = projectService.getProjectDetails(companyId, workspaceId, projectId);
+        return ResponseEntity.ok(ApiResponse.success("Fetched project details successfully", response));
+    }
+
 }
