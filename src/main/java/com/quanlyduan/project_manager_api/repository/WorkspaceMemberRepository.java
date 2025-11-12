@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -45,5 +47,15 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
      * Lấy tất cả thành viên (bất kể trạng thái) của một không gian.
      */
     List<WorkspaceMember> findByWorkspace_Id(Integer workspaceId);
+
+    @Query("SELECT COUNT(p.id) > 0 FROM WorkspaceMember wm " +
+           "JOIN wm.role r " +
+           "JOIN r.permissions p " +
+           "WHERE wm.user.id = :userId " +
+           "AND wm.workspace.id = :workspaceId " +
+           "AND p.permissionCode = :permissionCode")
+    boolean checkWorkspacePermission(@Param("userId") Integer userId,
+                                     @Param("workspaceId") Integer workspaceId,
+                                     @Param("permissionCode") String permissionCode);
 
 }

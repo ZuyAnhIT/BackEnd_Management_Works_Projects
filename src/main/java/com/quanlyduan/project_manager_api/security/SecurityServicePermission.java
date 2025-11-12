@@ -35,4 +35,10 @@ public interface SecurityServicePermission {
      */
     boolean hasTaskPermission(Integer taskId, String permissionCode);
     boolean hasPermission(String scope, Integer targetId, String permissionCode);
+    
+    /**
+     * Kiểm tra user có quyền <permissionCode> ở cấp độ HỆ THỐNG không.
+     * @PreAuthorize("@securityService.hasSystemPermission('company:create')")
+     */
+    boolean hasSystemPermission(String permissionCode);
 }

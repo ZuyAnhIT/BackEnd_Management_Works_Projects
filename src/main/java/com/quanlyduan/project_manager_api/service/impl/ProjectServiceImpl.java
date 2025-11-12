@@ -5,9 +5,12 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.Priority;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectTypeRepository;
+import com.quanlyduan.project_manager_api.repository.RoleRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
 import com.quanlyduan.project_manager_api.service.ProjectService;
@@ -21,6 +24,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 
 /**
  * Triển khai ProjectService cho US7 – Tạo Project mới.
@@ -36,7 +40,8 @@ public class ProjectServiceImpl implements ProjectService {
     private final UserRepository userRepository;
     private final ProjectTypeRepository projectTypeRepository;
     private final ObjectMapper objectMapper;
-
+    private final RoleRepository roleRepository;
+    private final ProjectMemberRepository projectMemberRepository;
     /**
      * US7: Tạo Project mới trong Workspace.
      * Logic & Nghiệp vụ:
@@ -118,8 +123,25 @@ public class ProjectServiceImpl implements ProjectService {
             project.setProgress(BigDecimal.ZERO);
         }
 
-        // (5) Lưu và trả response
+            // (5) Lưu Project
         Project saved = projectRepository.save(project);
+
+        // (6) Gán người tạo làm Project Admin
+        Role projectAdminRole = roleRepository.findFirstByRoleCode(RoleCode.PROJECT_ADMIN.name())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Role not found: " + RoleCode.PROJECT_ADMIN.name() + ". Please configure the database."
+                ));
+
+        ProjectMember projectMember = ProjectMember.builder()
+                .project(saved)
+                .user(createdBy)
+                .role(projectAdminRole)
+                .status(MemberStatus.ACTIVE)
+                .build();
+
+        projectMemberRepository.save(projectMember);
+
+        // (7) Trả response
         return toResponse(saved);
     }
     

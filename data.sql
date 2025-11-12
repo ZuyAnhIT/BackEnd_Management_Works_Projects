@@ -700,3 +700,23 @@ GROUP BY r.id
 ORDER BY
     FIELD(r.level, 'SYSTEM', 'COMPANY', 'WORKSPACE', 'PROJECT'),
     r.role_code;
+
+ -- ROLE BY USER
+
+SELECT
+    u.id AS user_id,
+    u.full_name,
+    u.email,
+    GROUP_CONCAT(DISTINCT r.role_code ORDER BY r.level SEPARATOR ', ') AS roles,
+    GROUP_CONCAT(DISTINCT p.permission_code ORDER BY p.permission_code SEPARATOR ', ') AS permissions
+FROM users u
+LEFT JOIN user_roles ur ON ur.user_id = u.id
+LEFT JOIN company_members cm ON cm.user_id = u.id
+LEFT JOIN workspace_members wm ON wm.user_id = u.id
+LEFT JOIN project_members pm ON pm.user_id = u.id
+LEFT JOIN roles r ON r.id IN (ur.role_id, cm.role_id, wm.role_id, pm.role_id)
+LEFT JOIN role_permissions rp ON rp.role_id = r.id
+LEFT JOIN permissions p ON p.id = rp.permission_id
+WHERE u.status = 'ACTIVE'
+GROUP BY u.id, u.full_name, u.email
+ORDER BY u.id; 

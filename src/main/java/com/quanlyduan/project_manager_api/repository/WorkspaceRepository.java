@@ -35,4 +35,5 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, Integer> {
     List<Integer> findWorkspaceIdsByCompanyId(@Param("companyId") Integer companyId);
 
     
+    
 }

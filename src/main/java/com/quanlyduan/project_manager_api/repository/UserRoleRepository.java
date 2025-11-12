@@ -3,6 +3,8 @@ package com.quanlyduan.project_manager_api.repository;
 
 import com.quanlyduan.project_manager_api.model.UserRole; // Đã dịch
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,4 +18,12 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Integer> { /
      * @return Danh sách các NguoiDungRole
      */
     List<UserRole> findByUser_Id(Integer userId); // Đã dịch
+    
+    @Query("SELECT COUNT(p.id) > 0 FROM UserRole ur " + // Bảng user_roles
+           "JOIN ur.role r " +
+           "JOIN r.permissions p " +
+           "WHERE ur.user.id = :userId " +
+           "AND p.permissionCode = :permissionCode")
+    boolean checkSystemPermission(@Param("userId") Integer userId,
+                                  @Param("permissionCode") String permissionCode);
 }

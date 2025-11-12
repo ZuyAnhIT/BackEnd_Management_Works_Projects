@@ -9,8 +9,12 @@ import java.util.List;
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.repository.RoleRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
+import com.quanlyduan.project_manager_api.repository.UserRoleRepository;
+import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -24,9 +28,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true) // Các hàm kiểm tra quyền chỉ đọc
 public class SecurityServiceImpl implements SecurityServicePermission {
 
+    private final CompanyMemberRepository companyMemberRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final ProjectMemberRepository projectMemberRepository;
+    private final UserRoleRepository userRoleRepository;
+
     private final RoleRepository roleRepository;
-     private final TaskRepository taskRepository;
-     private final WorkspaceRepository workspaceRepository;
+    private final TaskRepository taskRepository;
+    private final WorkspaceRepository workspaceRepository;
     private final ProjectRepository projectRepository;
 
     private UserPrincipal getCurrentUser() {
@@ -68,9 +77,8 @@ private Integer getWorkspaceIdFromProject(Integer projectId) {
         Integer userId = getCurrentUserId();
         if (userId == null || companyId == null)
             return false;
-
-        // Gọi truy vấn JPA đã định nghĩa
-        return roleRepository.checkCompanyPermission(userId, companyId, permissionCode);
+        // Gọi repo chính xác
+        return companyMemberRepository.checkCompanyPermission(userId, companyId, permissionCode);
     }
 
     @Override
@@ -78,87 +86,81 @@ private Integer getWorkspaceIdFromProject(Integer projectId) {
         Integer userId = getCurrentUserId();
         if (userId == null || workspaceId == null)
             return false;
-
-        // Gọi truy vấn JPA đã định nghĩa
-        return roleRepository.checkWorkspacePermission(userId, workspaceId, permissionCode);
+        // Gọi repo chính xác
+        return workspaceMemberRepository.checkWorkspacePermission(userId, workspaceId, permissionCode);
     }
-    @Override
-public boolean hasTaskPermission(Integer taskId, String permissionCode) {
-    Integer userId = getCurrentUserId();
-    if (userId == null || taskId == null) return false;
-
-    Task task = taskRepository.findById(taskId)
-        .orElseThrow(() -> new ResourceNotFoundException("Task not found for permission check"));
-
-    Integer projectId = task.getProject().getId();
-
-    // Gọi kiểm tra quyền của Project
-    return hasPermission("project", projectId, permissionCode);
-}
+    
     @Override
     public boolean hasProjectPermission(Integer projectId, String permissionCode) {
         Integer userId = getCurrentUserId();
         if (userId == null || projectId == null)
             return false;
-
-        // Gọi truy vấn JPA đã định nghĩa
-        return roleRepository.checkProjectPermission(userId, projectId, permissionCode);
+        // Gọi repo chính xác
+        return projectMemberRepository.checkProjectPermission(userId, projectId, permissionCode);
     }
     
+    @Override
+    public boolean hasSystemPermission(String permissionCode) {
+        Integer userId = getCurrentUserId();
+        if (userId == null)
+            return false;
+        // Gọi repo chính xác
+        return userRoleRepository.checkSystemPermission(userId, permissionCode);
+    }
 
+    @Override
+    public boolean hasTaskPermission(Integer taskId, String permissionCode) {
+        // Hàm này không đổi, logic vẫn đúng
+        Integer userId = getCurrentUserId();
+        if (userId == null || taskId == null) return false;
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found for permission check"));
+        Integer projectId = task.getProject().getId();
+        return hasPermission("project", projectId, permissionCode);
+    }
 
-     @Override
-public boolean hasPermission(String scope, Integer targetId, String permissionCode) {
-    Integer userId = getCurrentUserId();
-    if (userId == null || targetId == null || scope == null || permissionCode == null)
-        return false;
-
-    switch (scope.toLowerCase()) {
-        case "company":
-            // Kiểm tra trực tiếp quyền ở cấp company
-            boolean hasCompany = roleRepository.checkCompanyPermission(userId, targetId, permissionCode);
-            if (hasCompany) return true;
-
-            // Nếu không có, kiểm tra các workspace thuộc company
-            List<Integer> workspaceIds = workspaceRepository.findWorkspaceIdsByCompanyId(targetId);
-            for (Integer wid : workspaceIds) {
-                if (roleRepository.checkWorkspacePermission(userId, wid, permissionCode)) return true;
-
-                // Nếu không có ở workspace, kiểm tra các project thuộc workspace
-                List<Integer> projectIds = projectRepository.findProjectIdsByWorkspaceId(wid);
-                for (Integer pid : projectIds) {
-                    if (roleRepository.checkProjectPermission(userId, pid, permissionCode)) return true;
-                }
-            }
+    @Override
+    public boolean hasPermission(String scope, Integer targetId, String permissionCode) {
+        Integer userId = getCurrentUserId();
+        if (userId == null || targetId == null || scope == null || permissionCode == null)
             return false;
 
-        case "workspace":
-            boolean hasWorkspace = roleRepository.checkWorkspacePermission(userId, targetId, permissionCode);
-            if (hasWorkspace) return true;
+        switch (scope.toLowerCase()) {
+            case "company":
+                // Sửa: Gọi repo chính xác
+                return companyMemberRepository.checkCompanyPermission(userId, targetId, permissionCode);
 
-            Integer companyId = getCompanyIdFromWorkspace(targetId);
-            return roleRepository.checkCompanyPermission(userId, companyId, permissionCode);
+            case "workspace":
+                // Sửa: Gọi repo chính xác
+                boolean hasWorkspace = workspaceMemberRepository.checkWorkspacePermission(userId, targetId, permissionCode);
+                if (hasWorkspace) return true;
 
-        case "project":
-            boolean hasProject = roleRepository.checkProjectPermission(userId, targetId, permissionCode);
-            if (hasProject) return true;
+                Integer companyId = getCompanyIdFromWorkspace(targetId);
+                // Sửa: Gọi repo chính xác
+                return companyMemberRepository.checkCompanyPermission(userId, companyId, permissionCode);
 
-            Integer workspaceId = getWorkspaceIdFromProject(targetId);
-            boolean hasWorkspaceFromProject = roleRepository.checkWorkspacePermission(userId, workspaceId, permissionCode);
-            if (hasWorkspaceFromProject) return true;
+            case "project":
+                // Sửa: Gọi repo chính xác
+                boolean hasProject = projectMemberRepository.checkProjectPermission(userId, targetId, permissionCode);
+                if (hasProject) return true;
 
-            Integer companyIdFromProject = getCompanyIdFromWorkspace(workspaceId);
-            return roleRepository.checkCompanyPermission(userId, companyIdFromProject, permissionCode);
+                Integer workspaceId = getWorkspaceIdFromProject(targetId);
+                // Sửa: Gọi repo chính xác
+                boolean hasWorkspaceFromProject = workspaceMemberRepository.checkWorkspacePermission(userId, workspaceId, permissionCode);
+                if (hasWorkspaceFromProject) return true;
 
-        case "task":
-            Task task = taskRepository.findById(targetId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found for permission check"));
-            Integer projectId = task.getProject().getId();
-            return hasPermission("project", projectId, permissionCode);
+                Integer companyIdFromProject = getCompanyIdFromWorkspace(workspaceId);
+                // Sửa: Gọi repo chính xác
+                return companyMemberRepository.checkCompanyPermission(userId, companyIdFromProject, permissionCode);
 
-        default:
-            throw new IllegalArgumentException("Unknown permission scope: " + scope);
+            case "task":
+                Task task = taskRepository.findById(targetId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Task not found for permission check"));
+                Integer projectId = task.getProject().getId();
+                return hasPermission("project", projectId, permissionCode);
+
+            default:
+                throw new IllegalArgumentException("Unknown permission scope: " + scope);
+        }
     }
-}
-    
 }

@@ -6,6 +6,8 @@ import com.quanlyduan.project_manager_api.model.ProjectMember;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.quanlyduan.project_manager_api.model.Project;
 
@@ -19,4 +21,13 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, In
     );
     List<ProjectMember> findByUser_Id(Integer userId); // Đã dịch
     
+    @Query("SELECT COUNT(p.id) > 0 FROM ProjectMember pm " +
+           "JOIN pm.role r " +
+           "JOIN r.permissions p " +
+           "WHERE pm.user.id = :userId " +
+           "AND pm.project.id = :projectId " +
+           "AND p.permissionCode = :permissionCode")
+    boolean checkProjectPermission(@Param("userId") Integer userId,
+                                   @Param("projectId") Integer projectId,
+                                   @Param("permissionCode") String permissionCode);
 }
