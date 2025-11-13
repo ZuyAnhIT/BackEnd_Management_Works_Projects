@@ -469,7 +469,7 @@ INSERT INTO permissions (permission_code, permission_name, group_name) VALUES
 ('sprint:delete', 'Delete Sprint', 'Sprint'),
 ('backlog:view', 'View Project Backlog', 'Backlog'),
 ('backlog:manage', 'Manage Backlog (Drag/Drop)', 'Backlog');
--- END Permission
+
 
 -- NẠP VAI TRÒ (ROLES)
 INSERT INTO roles (id, role_code, role_name, level, description) VALUES
