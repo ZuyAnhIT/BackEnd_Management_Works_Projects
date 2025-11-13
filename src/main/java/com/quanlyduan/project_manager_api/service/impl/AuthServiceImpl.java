@@ -112,7 +112,7 @@ public void register(RegisterRequest request) {
 
     // ✅ 5. Lấy Role USER từ DB
     Role userRole = roleRepository.findFirstByRoleCode("USER")
-            .orElseThrow(() -> new RuntimeException("Không tìm thấy vai trò USER"));
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy vai trò NGƯỜI DÙNG"));
 
     // ✅ 6. Tạo UserRole và lưu
     UserRole userRoleEntity = UserRole.builder()
@@ -480,7 +480,7 @@ public void register(RegisterRequest request) {
             
         // ✅ Gán quyền USER
                 Role userRole = roleRepository.findFirstByRoleCode("USER")
-                        .orElseThrow(() -> new RuntimeException("Không tìm thấy vai trò USER"));
+                        .orElseThrow(() -> new RuntimeException("Không tìm thấy vai trò NGƯỜI DÙNG"));
                 
                 if (!userRoleRepository.existsByUserAndRole(user, userRole)) {
                             UserRole userRoleEntity = UserRole.builder()
