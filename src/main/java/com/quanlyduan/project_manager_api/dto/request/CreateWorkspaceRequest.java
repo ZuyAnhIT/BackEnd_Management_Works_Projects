@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class CreateWorkspaceRequest {
 
-    @NotBlank(message = "Workspace name must not be blank") // Đã dịch
+    @NotBlank(message = "Tên không gian làm việc không được để trống") // Đã dịch
     private String workspaceName; // Đã dịch
 
     private String description; // Đã dịch

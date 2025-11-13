@@ -9,14 +9,14 @@ import lombok.Data;
 @Data
 public class RegisterRequest {
 
-    @NotBlank(message = "Full name must not be blank") // Đã dịch
+    @NotBlank(message = "Họ và tên không được để trống") // Đã dịch
     private String fullName; // Đã dịch
 
-    @NotBlank(message = "Email must not be blank") // Đã dịch
-    @Email(message = "Email is not in a valid format") // Đã dịch
+    @NotBlank(message = "Email không được để trống")
+    @Email(message = "Email không đúng định dạng")
     private String email;
 
-    @NotBlank(message = "Password must not be blank") // Đã dịch
-    @Size(min = 6, message = "Password must be at least 6 characters long") // Đã dịch
+    @NotBlank(message = "Mật khẩu không được để trống") // Đã dịch
+    @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự") // Đã dịch
     private String password; // Đã dịch
 }

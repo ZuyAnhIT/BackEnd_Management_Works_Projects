@@ -8,7 +8,7 @@ import java.time.LocalDate;
 
 @Data
 public class UpdateProjectRequest {
-    @Size(min = 1, max = 255, message = "Project name must be between 1 and 255 characters")
+    @Size(min = 1, max = 255, message = "Tên dự án phải từ 1 đến 255 ký tự")
     private String name;
     private String projectCode; // validate unique within workspace if changed
     private String description;

@@ -9,7 +9,7 @@ public class UpdateCompanyRequest {
 
     // Admin có thể chỉ gửi 1 trong các trường này, không bắt buộc tất cả
     
-    @Size(min = 3, max = 255, message = "Company name must be between 3 and 255 characters") // Đã dịch
+    @Size(min = 3, max = 255, message = "Tên công ty phải có độ dài từ 3 đến 255 ký tự") // Đã dịch
     private String companyName; // Đã dịch
 
     private String description; // Đã dịch

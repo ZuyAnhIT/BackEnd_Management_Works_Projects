@@ -25,16 +25,16 @@ public class InvitationServiceImpl implements InvitationService {
     @Override
     public CompanyInvitation validateInvitationToken(String token) { // Đã dịch
         CompanyInvitation invitation = companyInvitationRepository.findByToken(token) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid invitation token")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Mã lời mời không hợp lệ")); // Đã dịch
 
         if (invitation.getStatus() != InvitationStatus.PENDING) { // Đã dịch
-            throw new BadRequestException("This invitation has already been processed or canceled"); // Đã dịch
+            throw new BadRequestException("Lời mời này đã được xử lý hoặc đã bị hủy"); // Đã dịch
         }
 
         if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) { // Đã dịch
             invitation.setStatus(InvitationStatus.EXPIRED); // Đã dịch
             companyInvitationRepository.save(invitation); // Đã dịch
-            throw new BadRequestException("This invitation has expired"); // Đã dịch
+            throw new BadRequestException("Lời mời này đã hết hạn"); // Đã dịch
         }
         return invitation; // Đã dịch
     }

@@ -41,9 +41,9 @@ public class TaskAttachmentServiceImpl implements TaskAttachmentService {
     public TaskAttachmentResponse storeAttachment(Integer taskId, MultipartFile file, Integer uploaderId) throws IOException {
         
         Task task = taskRepository.findById(taskId)
-            .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tác vụ"));
         User uploader = userRepository.findById(uploaderId)
-            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
 
         // (Đây là logic lưu file cục bộ, thực tế nên dùng S3, MinIO...)
         Path dirPath = Paths.get(uploadDir, "task-" + taskId);
@@ -74,7 +74,7 @@ public class TaskAttachmentServiceImpl implements TaskAttachmentService {
     @Transactional(readOnly = true)
     public List<TaskAttachmentResponse> getAttachmentsForTask(Integer taskId) {
         if(!taskRepository.existsById(taskId)) {
-            throw new ResourceNotFoundException("Task not found");
+            throw new ResourceNotFoundException("Không tìm thấy tác vụ");
         }
         
         List<TaskAttachment> attachments = attachmentRepository.findByTask_Id(taskId);

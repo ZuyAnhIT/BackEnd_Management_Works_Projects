@@ -70,14 +70,13 @@ public class CompanyServiceImpl implements CompanyService {
 
         // 2. Kiểm tra tên công ty đã tồn tại chưa
         if (companyRepository.existsByName(request.getCompanyName())) { // Đã dịch
-            throw new BadRequestException("This company name already exists"); // Đã dịch
+            throw new BadRequestException("Tên công ty này đã tồn tại"); // Đã dịch
         }
 
         // 3. Tìm Role "COMPANY_ADMIN" trong CSDL
-        Role adminRole = roleRepository.findFirstByRoleCode(RoleCode.COMPANY_ADMIN.name()) // SỬ DỤNG ENUM // Đã dịch
+        Role adminRole = roleRepository.findFirstByRoleCode(RoleCode.COMPANY_ADMIN.name()) // SỬ DỤNG ENUM
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Role not found: " + RoleCode.COMPANY_ADMIN.name() + ". Please configure the database." // Đã
-                                                                                                                // dịch
+                        "Không tìm thấy vai trò: " + RoleCode.COMPANY_ADMIN.name() + ". Vui lòng cấu hình trong cơ sở dữ liệu."
                 ));
 
         // 4. Tạo công ty mới
@@ -113,12 +112,12 @@ public class CompanyServiceImpl implements CompanyService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || "anonymousUser".equals(authentication.getPrincipal())) {
-            throw new BadRequestException("Authenticated user information not found."); // Đã dịch
+            throw new BadRequestException("Không tìm thấy thông tin người dùng đã xác thực."); // Đã dịch
         }
 
         String email = authentication.getName();
         return userRepository.findByEmail(email) // Đã dịch
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email)); // Đã dịch
+                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng với email:" + email)); // Đã dịch
     }
 
     // LOGIC TAO LOI MOI THANH VIEN VAO CONG TY
@@ -129,32 +128,32 @@ public class CompanyServiceImpl implements CompanyService {
         // 1. Lấy thông tin
         User admin = getCurrentAuthenticatedUser(); // Đã dịch
         Company company = companyRepository.findById(companyId) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Company not found")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty")); // Đã dịch
 
         // *** SỬA LOGIC: Tìm Role bằng roleCode (từ DTO) thay vì roleId ***
         Role role = roleRepository.findFirstByRoleCode(request.getRoleCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found for code: " + request.getRoleCode())); // Đã
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò cho mã: " + request.getRoleCode())); // Đã
                                                                                                                         // dịch
 
         // 2. Validate
         if (role.getLevel() != RoleLevel.COMPANY) { // Đã dịch
-            throw new BadRequestException("Invalid role (Not a COMPANY level role)"); // Đã dịch
+            throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp CÔNG TY)"); // Đã dịch
         }
 
         String invitedEmail = request.getEmail();
         if (admin.getEmail().equals(invitedEmail)) {
-            throw new BadRequestException("You cannot invite yourself"); // Đã dịch
+            throw new BadRequestException("Bạn không thể tự mời mình"); // Đã dịch
         }
 
         // 3. Kiểm tra xem đã là thành viên chưa
         if (companyMemberRepository.existsByCompany_IdAndUser_Email(companyId, invitedEmail)) { // Đã dịch
-            throw new BadRequestException("This user is already a member of the company"); // Đã dịch
+            throw new BadRequestException("Người dùng này đã là thành viên của công ty"); // Đã dịch
         }
 
         // 4. Kiểm tra xem đã có lời mời PENDING chưa
         if (companyInvitationRepository.existsByCompany_IdAndEmailAndStatus(companyId, invitedEmail,
                 InvitationStatus.PENDING)) { // Đã dịch
-            throw new BadRequestException("An invitation has already been sent and is pending"); // Đã dịch
+            throw new BadRequestException("Một lời mời đã được gửi và đang chờ phản hồi"); // Đã dịch
         }
 
         // 5. Tạo lời mời
@@ -176,13 +175,13 @@ public class CompanyServiceImpl implements CompanyService {
         // 6. Gửi Email (Logic giữ nguyên)
         String acceptUrl = frontendUrl + "/accept-invitation?token=" + token;
         String emailBody = String.format(
-                "Hello,<br><br>%s has invited you to join the company %s with the role %s.<br>" + // Đã dịch
-                        "Please click <a href=\"%s\">here</a> to accept the invitation.<br><br>" + // Đã dịch
-                        "This link will expire in 3 days.", // Đã dịch
-                admin.getFullName(), company.getName(), role.getRoleName(), acceptUrl // Đã dịch
+            "Xin chào,<br><br>%s đã mời bạn tham gia công ty %s với vai trò %s.<br>" +
+            "Vui lòng nhấp vào <a href=\"%s\">đây</a> để chấp nhận lời mời.<br><br>" +
+            "Liên kết này sẽ hết hạn sau 3 ngày.",
+            admin.getFullName(), company.getName(), role.getRoleName(), acceptUrl
         );
 
-        emailService.sendEmail(invitedEmail, "Invitation to join " + company.getName(), emailBody); // Đã dịch
+        emailService.sendEmail(invitedEmail, "Lời mời tham gia " + company.getName(), emailBody);
     }
 
     // LOGIC XAC THUC TOKEN LOI MOI
@@ -198,13 +197,13 @@ public class CompanyServiceImpl implements CompanyService {
 
         // 3. Kiểm tra xem lời mời này có đúng là dành cho người đang đăng nhập không
         if (!currentUser.getEmail().equals(invitation.getEmail())) {
-            throw new BadRequestException("This invitation is for a different email account."); // Đã dịch
+            throw new BadRequestException("Lời mời này dành cho một tài khoản email khác."); // Đã dịch
         }
 
         // 4. Kiểm tra (lần nữa) xem họ đã là thành viên chưa
         if (companyMemberRepository.existsByCompany_IdAndUser_Email( // Đã dịch
                 invitation.getCompany().getId(), currentUser.getEmail())) { // Đã dịch
-            throw new BadRequestException("You are already a member of this company"); // Đã dịch
+            throw new BadRequestException("Bạn đã là thành viên của công ty này"); // Đã dịch
         }
 
         // 5. Thêm thành viên vào công ty (SỬ DỤNG SERVICE CHUNG)
@@ -309,7 +308,7 @@ public class CompanyServiceImpl implements CompanyService {
 
         // 3. Lấy thông tin công ty
         Company company = companyRepository.findById(companyId) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Company not found with ID: " + companyId)); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + companyId)); // Đã dịch
 
         // 4. Map sang DTO và trả về
         return mapCompanyToDetailsDto(company); // Đã dịch
@@ -342,12 +341,12 @@ public class CompanyServiceImpl implements CompanyService {
 
         // 1. Lấy công ty
         Company company = companyRepository.findById(companyId) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Company not found with ID: " + companyId)); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + companyId)); // Đã dịch
 
         // 2. Kiểm tra nghiệp vụ (ví dụ: tên công ty mới nếu có)
         if (request.getCompanyName() != null && !request.getCompanyName().equals(company.getName())) { // Đã dịch
             if (companyRepository.existsByName(request.getCompanyName())) { // Đã dịch
-                throw new BadRequestException("This company name already exists"); // Đã dịch
+                throw new BadRequestException("Tên công ty này đã tồn tại"); // Đã dịch
             }
             company.setName(request.getCompanyName()); // Đã dịch
         }
@@ -384,22 +383,22 @@ public class CompanyServiceImpl implements CompanyService {
 
         // 1. Tìm vai trò mới (cấp COMPANY)
         Role newRole = roleRepository.findByRoleCodeAndLevel(newRoleCode, RoleLevel.COMPANY)
-                .orElseThrow(() -> new BadRequestException("Invalid or non-company role code: " + newRoleCode));
+                .orElseThrow(() -> new BadRequestException("Mã vai trò không hợp lệ hoặc không thuộc công ty: " + newRoleCode));
 
         // 2. Tìm thành viên
         CompanyMember member = companyMemberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Company member not found with ID: " + memberId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên công ty với ID: " + memberId));
 
         // 3. Kiểm tra xem thành viên này có thuộc đúng công ty không
         if (!member.getCompany().getId().equals(companyId)) {
             // Ném lỗi 403 Forbidden
-            throw new AccessDeniedException("This member does not belong to this company");
+            throw new AccessDeniedException("Thành viên này không thuộc công ty này");
         }
 
         // 4. *** THÊM BƯỚC KIỂM TRA MỚI TẠI ĐÂY ***
         // Kiểm tra vai trò hiện tại của thành viên
         if (RoleCode.COMPANY_ADMIN.name().equals(member.getRole().getRoleCode())) {
-            throw new BadRequestException("Cannot update the role of a COMPANY_ADMIN.");
+            throw new BadRequestException("Không thể cập nhật vai trò của QUẢN TRỊ VIÊN CÔNG TY.");
         }
         // 5. Cập nhật vai trò
         member.setRole(newRole);
@@ -414,16 +413,16 @@ public class CompanyServiceImpl implements CompanyService {
         // 1. Kiểm tra xem có tự xóa chính mình không
         User admin = getCurrentAuthenticatedUser();
         if (admin.getId().equals(userId)) {
-            throw new BadRequestException("You cannot remove yourself from the company."); // Đã dịch
+            throw new BadRequestException("Bạn không thể tự rút khỏi công ty."); // Đã dịch
         }
 
         // 2. Tìm thành viên (kể cả inactive) để xóa
         CompanyMember member = companyMemberRepository.findByCompany_IdAndUser_Id(companyId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Member not found in this company")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên trong công ty này")); // Đã dịch
 
         // 3. Kiểm tra xem họ đã bị xóa chưa
         if (member.getStatus() == MemberStatus.REMOVED) {
-            throw new BadRequestException("This member has already been removed."); // Đã dịch
+            throw new BadRequestException("Thành viên này đã bị xóa."); // Đã dịch
         }
 
         // 4. Thực hiện xóa mềm
@@ -443,11 +442,11 @@ public class CompanyServiceImpl implements CompanyService {
         
         // 1. Tìm thành viên bằng ID
         CompanyMember member = companyMemberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Member not found with ID: " + memberId)); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên với ID: " + memberId)); // Đã dịch
 
         // 2. KIỂM TRA BẢO MẬT (IDOR): Đảm bảo thành viên này thuộc đúng công ty
         if (!member.getCompany().getId().equals(companyId)) {
-            throw new ResourceNotFoundException("Member not found in this company"); // Đã dịch (Hoặc dùng AccessDeniedException)
+            throw new ResourceNotFoundException("Không tìm thấy thành viên trong công ty này"); // Đã dịch (Hoặc dùng AccessDeniedException)
         }
 
         // 3. Map và trả về
@@ -479,24 +478,24 @@ public class CompanyServiceImpl implements CompanyService {
     public CompanyMemberResponse updateMemberStatus(Integer companyId, Integer memberId, UpdateMemberStatusRequest request) {
         // 1. Lấy thông tin thành viên
         CompanyMember member = companyMemberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Member not found with ID: " + memberId)); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên với ID: " + memberId)); // Đã dịch
 
         // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng công ty
         if (!member.getCompany().getId().equals(companyId)) {
-            throw new ResourceNotFoundException("Member not found in this company"); // Đã dịch
+            throw new ResourceNotFoundException("Không tìm thấy thành viên trong công ty này"); // Đã dịch
         }
 
         // 3. Kiểm tra nghiệp vụ: Không cho phép đổi status của chính mình
         // (Bây giờ 'securityService' đã được nhận diện)
         User admin = securityService.getCurrentAuthenticatedUser();
         if (admin.getId().equals(member.getUser().getId())) {
-            throw new BadRequestException("You cannot change your own status."); // Đã dịch
+            throw new BadRequestException("Bạn không thể thay đổi trạng thái của mình."); // Đã dịch
         }
         
         // 4. Kiểm tra nghiệp vụ: (Logic cũ giữ nguyên)
         MemberStatus newStatus = request.getNewStatus();
         if (newStatus == MemberStatus.REMOVED) {
-            throw new BadRequestException("Please use the 'Remove Member' endpoint to remove a member, not this status update endpoint."); // Đã dịch
+            throw new BadRequestException("Vui lòng sử dụng endpoint 'Remove Member' để loại bỏ thành viên, không phải endpoint cập nhật trạng thái này."); // Đã dịch
         }
 
         // 5. Cập nhật trạng thái

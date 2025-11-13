@@ -37,11 +37,11 @@ public class TaskCommentServiceImpl implements TaskCommentService {
         // 1. Lấy user hiện tại (người bình luận)
         Integer currentUserId = securityServicePermission.getCurrentUserId();
         User currentUser = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng hiện tại"));
 
         // 2. Tìm Task
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tác vụ với ID: " + taskId));
 
         // 3. SỬA: XÓA BỎ XỬ LÝ @mentions
         /*
@@ -71,7 +71,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
     public List<TaskCommentResponse> getComments(Integer taskId) {
 
         if (!taskRepository.existsById(taskId)) {
-            throw new ResourceNotFoundException("Task not found with ID: " + taskId);
+            throw new ResourceNotFoundException("Không tìm thấy tác vụ với ID: " + taskId);
         }
 
         List<TaskComment> comments = commentRepository.findByTask_IdOrderByCreatedAtAsc(taskId);
