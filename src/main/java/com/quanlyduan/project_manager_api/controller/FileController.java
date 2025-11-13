@@ -40,7 +40,7 @@ public class FileController {
 
             // 3. Check if the file exists and is readable
             if (!resource.exists() || !resource.isReadable()) {
-                throw new ResourceNotFoundException("File not found " + filename);
+                throw new ResourceNotFoundException("Không tìm thấy tệp " + filename);
             }
 
             // 4. Determine the file's content type
@@ -59,7 +59,7 @@ public class FileController {
                     .body(resource);
 
         } catch (MalformedURLException ex) {
-            throw new ResourceNotFoundException("File not found " + filename);
+            throw new ResourceNotFoundException("Không tìm thấy tệp dữ liệu " + filename);
         }
     }
 }

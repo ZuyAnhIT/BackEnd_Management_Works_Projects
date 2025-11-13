@@ -24,7 +24,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         // Load người dùng từ DB bằng email
         User user = userRepository.findByEmail(email) // Đã dịch
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email)); // Đã dịch
+                .orElseThrow(() -> new UsernameNotFoundException("Không tìm được người dùng với email: " + email)); // Đã dịch
 
         // Convert NguoiDung sang UserPrincipal
         return UserPrincipal.create(user);

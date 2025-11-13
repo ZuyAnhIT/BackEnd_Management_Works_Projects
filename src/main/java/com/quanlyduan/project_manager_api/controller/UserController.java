@@ -29,7 +29,7 @@ public class UserController {
         
         userService.changePassword(request);
         
-        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu của bạn thành công.", null)); // Đã dịch
     }
     
     // API LAY DAY DU THONG TIN CA NHAN
@@ -38,7 +38,7 @@ public class UserController {
         // API này tự động được bảo vệ (yêu cầu token)
         // vì nó không nằm trong PUBLIC_URLS
         UserProfileResponse userProfile = userService.getCurrentUserProfile();
-        return ResponseEntity.ok(ApiResponse.success("User profile fetched successfully", userProfile)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin người dùng thành công.", userProfile)); // Đã dịch
     }
     // (Sau này chúng ta sẽ thêm endpoint GET /api/users/me để lấy thông tin user)
 
@@ -49,6 +49,6 @@ public class UserController {
         
         UserProfileResponse updatedProfile = userService.updateUserProfile(request);
         
-        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updatedProfile)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin cá nhân thành công.", updatedProfile)); // Đã dịch
     }
 }

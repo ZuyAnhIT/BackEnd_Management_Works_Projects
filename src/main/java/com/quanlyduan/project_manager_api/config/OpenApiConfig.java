@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/config/OpenApiConfig.java
 package com.quanlyduan.project_manager_api.config;
 
 import io.swagger.v3.oas.models.Components;
@@ -21,7 +22,7 @@ public class OpenApiConfig {
             .info(new Info()
                 .title("Project Manager API")
                 .version("v1.0")
-                .description("API Documentation for the Project and Task Management System.")
+                .description("Tài liệu API cho hệ thống Quản lý dự án và công việc.") // Đã dịch
                 .license(new License().name("Apache 2.0").url("http://springdoc.org")))
             
             // 2. Thêm yêu cầu bảo mật (nút Authorize) cho tất cả API
@@ -35,7 +36,7 @@ public class OpenApiConfig {
                         .type(SecurityScheme.Type.HTTP) // Loại là HTTP
                         .scheme("bearer")               // Scheme là "bearer"
                         .bearerFormat("JWT")            // Định dạng là JWT
-                        .description("Enter your JWT Token to access the API.")
+                        .description("Nhập JWT Token của bạn vào đây để truy cập API!") // Đã dịch
                 )
             );
     }

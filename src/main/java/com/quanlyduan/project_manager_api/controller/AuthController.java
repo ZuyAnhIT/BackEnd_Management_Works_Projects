@@ -36,7 +36,7 @@ public class AuthController {
         
         
         ApiResponse<Object> response = ApiResponse.success(
-            "Registration successful. Please check your email for OTP verification.", 
+            "Đăng ký thành công. Vui lòng kiểm tra email để xác thực OTP.", 
             null
         );
         return ResponseEntity.ok(response);
@@ -51,7 +51,7 @@ public class AuthController {
         
         // Trả về ApiResponse chứa Access Token và Refresh Token
         ApiResponse<LoginResponse> response = ApiResponse.success(
-            "Login successful",
+            "Đăng nhập thành công.",
             loginResponse
         );
         return ResponseEntity.ok(response);
@@ -62,7 +62,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Object>> logoutUser(@Valid @RequestBody LogoutRequest logoutRequest) {
         authService.logout(logoutRequest);
         
-        return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
+        return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công.", null));
     }
 
 
@@ -73,7 +73,7 @@ public class AuthController {
         
         
         ApiResponse<Object> response = ApiResponse.success(
-            "Email verified successfully.", 
+            "Xác thực email thành công.", 
             null
         );
         return ResponseEntity.ok(response);
@@ -88,7 +88,7 @@ public class AuthController {
         
         LoginResponse loginResponse = authService.registerFromInvite(request);
         return ResponseEntity.ok(ApiResponse.success(
-            "Registration and company join successful", loginResponse
+            "Đăng ký và tham gia công ty thành công.", loginResponse
         ));
     }
 
@@ -101,7 +101,7 @@ public class AuthController {
         
         // Luôn trả về thành công để bảo mật (tránh dò email)
         return ResponseEntity.ok(ApiResponse.success(
-            "If an account with this email exists, a password reset link has been sent.", // Đã dịch
+            "Nếu tài khoản với email này tồn tại, liên kết đặt lại mật khẩu đã được gửi.", // Đã dịch
             null
         ));
     }
@@ -114,7 +114,7 @@ public class AuthController {
         authService.resetPassword(request);
         
         return ResponseEntity.ok(ApiResponse.success(
-            "Password has been reset successfully. You can now log in.", // Đã dịch
+            "Mật khẩu của bạn đã được đặt lại thành công. Bây giờ bạn có thể đăng nhập ngay bây giờ.", // Đã dịch
             null
         ));
     }
@@ -127,7 +127,7 @@ public class AuthController {
         LoginResponse loginResponse = authService.loginWithGoogle(request);
         
         return ResponseEntity.ok(ApiResponse.success(
-            "Google login successful", 
+            " Đăng nhập bằng Google thành công", 
             loginResponse
         ));
     }

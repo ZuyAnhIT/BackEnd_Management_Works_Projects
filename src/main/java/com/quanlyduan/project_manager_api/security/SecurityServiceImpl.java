@@ -62,13 +62,13 @@ public class SecurityServiceImpl implements SecurityServicePermission {
     private Integer getCompanyIdFromWorkspace(Integer workspaceId) {
     // Truy vấn workspace để lấy companyId
     return workspaceRepository.findById(workspaceId)
-        .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"))
+        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Workspace."))
         .getCompany().getId();
 }
 
 private Integer getWorkspaceIdFromProject(Integer projectId) {
     return projectRepository.findById(projectId)
-        .orElseThrow(() -> new ResourceNotFoundException("Project not found"))
+        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Project."))
         .getWorkspace().getId();
 }
 
@@ -114,7 +114,7 @@ private Integer getWorkspaceIdFromProject(Integer projectId) {
         Integer userId = getCurrentUserId();
         if (userId == null || taskId == null) return false;
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found for permission check"));
+                .orElseThrow(() -> new ResourceNotFoundException("hông tìm thấy Task để kiểm tra quyền."));
         Integer projectId = task.getProject().getId();
         return hasPermission("project", projectId, permissionCode);
     }
@@ -155,12 +155,12 @@ private Integer getWorkspaceIdFromProject(Integer projectId) {
 
             case "task":
                 Task task = taskRepository.findById(targetId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Task not found for permission check"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Task để kiểm tra quyền."));
                 Integer projectId = task.getProject().getId();
                 return hasPermission("project", projectId, permissionCode);
 
             default:
-                throw new IllegalArgumentException("Unknown permission scope: " + scope);
+                throw new IllegalArgumentException("Phạm vi quyền này không xác định: " + scope);
         }
     }
 }
