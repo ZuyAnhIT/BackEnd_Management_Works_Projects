@@ -20,5 +20,6 @@ public interface ProjectRepository extends JpaRepository<Project, Integer> {
 @Query("SELECT p.id FROM Project p WHERE p.workspace.id = :workspaceId")
 List<Integer> findProjectIdsByWorkspaceId(@Param("workspaceId") Integer workspaceId);
 
+
 }
 

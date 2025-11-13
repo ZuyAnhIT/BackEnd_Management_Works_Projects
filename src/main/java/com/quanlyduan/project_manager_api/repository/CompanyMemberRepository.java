@@ -9,6 +9,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -42,5 +44,15 @@ public interface CompanyMemberRepository extends JpaRepository<CompanyMember, In
      * Kiểm tra thành viên HOẠT ĐỘNG có tồn tại không.
      */
     boolean existsByCompany_IdAndUser_IdAndStatus(Integer companyId, Integer userId, MemberStatus status);
+
+    @Query("SELECT COUNT(p.id) > 0 FROM CompanyMember cm " +
+           "JOIN cm.role r " +
+           "JOIN r.permissions p " +
+           "WHERE cm.user.id = :userId " +
+           "AND cm.company.id = :companyId " +
+           "AND p.permissionCode = :permissionCode")
+    boolean checkCompanyPermission(@Param("userId") Integer userId,
+                                   @Param("companyId") Integer companyId,
+                                   @Param("permissionCode") String permissionCode);
 
 }

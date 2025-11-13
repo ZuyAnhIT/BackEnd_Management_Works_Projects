@@ -40,7 +40,7 @@ public class CompanyController {
 
     // API TAO CONG TY
     @PostMapping
-    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'company:create')")
+    @PreAuthorize("@securityServicePermission.hasSystemPermission('company:create')")
     public ResponseEntity<ApiResponse<Company>> createCompany( // Đã dịch CongTy -> Company
             @Valid @RequestBody CreateCompanyRequest request) {
 
