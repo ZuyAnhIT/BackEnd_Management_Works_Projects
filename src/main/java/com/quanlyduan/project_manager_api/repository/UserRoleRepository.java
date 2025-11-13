@@ -1,6 +1,8 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/repository/UserRoleRepository.java
 package com.quanlyduan.project_manager_api.repository;
 
+import com.quanlyduan.project_manager_api.model.Role;
+import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.UserRole; // Đã dịch
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -26,4 +28,6 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Integer> { /
            "AND p.permissionCode = :permissionCode")
     boolean checkSystemPermission(@Param("userId") Integer userId,
                                   @Param("permissionCode") String permissionCode);
+
+    boolean existsByUserAndRole(User user, Role userRole);
 }
