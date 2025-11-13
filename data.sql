@@ -462,7 +462,7 @@ INSERT INTO permissions (permission_code, permission_name, group_name) VALUES
 ('task:assign', 'Assign Task', 'Task'),
 ('task:comment', 'Comment on Task', 'Task'),
 ('task:comment:view', 'View Task Comments', 'Task'),
-('task:attach_file', 'Attach File to Task', 'Task');
+('task:attach_file', 'Attach File to Task', 'Task'),
 ('sprint:create', 'Create Sprint', 'Sprint'),
 ('sprint:start', 'Start Sprint', 'Sprint'),
 ('sprint:edit', 'Edit Sprint Details', 'Sprint'),
