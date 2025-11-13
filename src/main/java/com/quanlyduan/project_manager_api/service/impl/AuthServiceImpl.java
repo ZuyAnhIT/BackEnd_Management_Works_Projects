@@ -10,14 +10,18 @@ import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 // import com.quanlyduan.project_manager_api.model.CongTy; // Not used
 import com.quanlyduan.project_manager_api.model.CompanyInvitation; // Đã dịch
+import com.quanlyduan.project_manager_api.model.Role;
 // import com.quanlyduan.project_manager_api.model.CongTyThanhVien; // Not used
 import com.quanlyduan.project_manager_api.model.User; // Đã dịch
+import com.quanlyduan.project_manager_api.model.UserRole;
 import com.quanlyduan.project_manager_api.model.AuthToken; // Đã dịch
 import com.quanlyduan.project_manager_api.model.common.enums.TokenType;
 import com.quanlyduan.project_manager_api.model.common.enums.UserStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyInvitationRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.RoleRepository;
 // import com.quanlyduan.project_manager_api.repository.CongTyThanhVienRepository; // Not used
 import com.quanlyduan.project_manager_api.repository.UserRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.UserRoleRepository;
 import com.quanlyduan.project_manager_api.repository.AuthTokenRepository; // Đã dịch
 import com.quanlyduan.project_manager_api.security.UserPrincipal;
 import com.quanlyduan.project_manager_api.security.jwt.JwtTokenProvider;
@@ -58,11 +62,12 @@ import java.util.Random;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository; // Đã dịch
+    private final UserRoleRepository userRoleRepository;
     private final AuthTokenRepository authTokenRepository; // Đã dịch
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final GoogleIdTokenVerifier googleIdTokenVerifier;
-    
+    private final RoleRepository roleRepository;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     
@@ -83,31 +88,42 @@ public class AuthServiceImpl implements AuthService {
 
     // LOIGIC DANG KY
     @Override
-    @Transactional
-    public void register(RegisterRequest request) {
-        // 1. Kiểm tra email tồn tại
-        if (userRepository.existsByEmail(request.getEmail())) { // Đã dịch
-            throw new BadRequestException("This email is already in use"); // Đã dịch
-        }
-
-        // 2. Hash mật khẩu
-        String hashedPassword = passwordEncoder.encode(request.getPassword()); // Đã dịch
-
-        // 3. Tạo NguoiDung mới
-        User newUser = User.builder() // Đã dịch
-                .fullName(request.getFullName()) // Đã dịch
-                .email(request.getEmail())
-                .password(hashedPassword) // Đã dịch
-                .status(UserStatus.ACTIVE) // Đã dịch
-                .isEmailVerified(false) // Đã dịch
-                .build();
-
-        // 4. Lưu người dùng
-        User savedUser = userRepository.save(newUser); // Đã dịch
-
-        // 5. Tạo và gửi token xác thực
-        sendVerificationEmail(savedUser);
+@Transactional
+public void register(RegisterRequest request) {
+    // 1. Kiểm tra email tồn tại
+    if (userRepository.existsByEmail(request.getEmail())) {
+        throw new BadRequestException("This email is already in use");
     }
+
+    // 2. Hash mật khẩu
+    String hashedPassword = passwordEncoder.encode(request.getPassword());
+
+    // 3. Tạo User mới
+    User newUser = User.builder()
+            .fullName(request.getFullName())
+            .email(request.getEmail())
+            .password(hashedPassword)
+            .status(UserStatus.ACTIVE)
+            .isEmailVerified(false)
+            .build();
+
+    // 4. Lưu người dùng
+    User savedUser = userRepository.save(newUser);
+
+    // ✅ 5. Lấy Role USER từ DB
+    Role userRole = roleRepository.findFirstByRoleCode("USER")
+            .orElseThrow(() -> new RuntimeException("Role USER not found"));
+
+    // ✅ 6. Tạo UserRole và lưu
+    UserRole userRoleEntity = UserRole.builder()
+            .user(savedUser)
+            .role(userRole)
+            .build();
+    userRoleRepository.save(userRoleEntity);
+
+    // 7. Gửi email xác thực
+    sendVerificationEmail(savedUser);
+}
     
     // LOGIC DANG NHAP
     @Override
