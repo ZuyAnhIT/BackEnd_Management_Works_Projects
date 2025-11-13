@@ -7,6 +7,8 @@
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 
 /**
@@ -57,4 +59,14 @@ public interface ProjectService {
      */
     void deleteProject(Integer companyId, Integer workspaceId, Integer projectId);  
     ProjectResponse getProjectDetails(Integer companyId, Integer workspaceId, Integer projectId);
+
+    /**
+     * Update project status (except CANCELLED which is reserved for delete endpoint).
+     */
+    ProjectResponse updateProjectStatus(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectStatusRequest request);
+
+    /**
+     * Update project general information (excluding auto fields and status).
+     */
+    ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request);
 }
