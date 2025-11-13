@@ -463,6 +463,13 @@ INSERT INTO permissions (permission_code, permission_name, group_name) VALUES
 ('task:comment', 'Comment on Task', 'Task'),
 ('task:comment:view', 'View Task Comments', 'Task'),
 ('task:attach_file', 'Attach File to Task', 'Task');
+('sprint:create', 'Create Sprint', 'Sprint'),
+('sprint:start', 'Start Sprint', 'Sprint'),
+('sprint:edit', 'Edit Sprint Details', 'Sprint'),
+('sprint:delete', 'Delete Sprint', 'Sprint'),
+('backlog:view', 'View Project Backlog', 'Backlog'),
+('backlog:manage', 'Manage Backlog (Drag/Drop)', 'Backlog');
+
 
 -- NẠP VAI TRÒ (ROLES)
 INSERT INTO roles (id, role_code, role_name, level, description) VALUES
@@ -520,14 +527,18 @@ SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
     'project:view', 'project:edit', 'project:invite_member',
-    'task:create', 'task:view', 'task:edit', 'task:delete', 'task:assign', 'task:comment', 'task:comment:view', 'task:attach_file'
+    'task:create', 'task:view', 'task:edit', 'task:delete', 'task:assign', 'task:comment', 'task:comment:view', 'task:attach_file',
+    'sprint:create', 'sprint:start', 'sprint:edit', 'sprint:delete',
+    'backlog:view', 'backlog:manage'
+
 ) WHERE r.role_code = 'PROJECT_ADMIN';
 
 -- PROJECT_MEMBER (Project)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
     'project:view',
-    'task:create', 'task:view', 'task:edit', 'task:comment', 'task:comment:view', 'task:attach_file'
+    'task:create', 'task:view', 'task:edit', 'task:comment', 'task:comment:view', 'task:attach_file',
+    'backlog:view', 'backlog:manage'
 ) WHERE r.role_code = 'PROJECT_MEMBER';
 
 -- GUEST_PROJECT (Project)
