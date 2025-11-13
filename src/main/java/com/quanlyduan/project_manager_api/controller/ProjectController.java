@@ -49,7 +49,7 @@ public class ProjectController {
         Integer creatorId = securityServicePermission.getCurrentUserId();
         ProjectResponse created = projectService.createProject(companyId, workspaceId, request, creatorId);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Project created successfully", created));
+                .body(ApiResponse.success("Tạo dự án thành công.", created));
     }
 
     /**
@@ -69,7 +69,7 @@ public class ProjectController {
             @PathVariable Integer workspaceId) {
 
         List<ProjectResponse> data = projectService.listProjectsByWorkspace(companyId, workspaceId);
-        return ResponseEntity.ok(ApiResponse.success("Fetched projects successfully", data));
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách dự án thành công.", data));
     }
 
     /**
@@ -89,7 +89,7 @@ public class ProjectController {
             @PathVariable Integer workspaceId) {
 
         List<ProjectResponse> data = projectService.listCancelledProjectsByWorkspace(companyId, workspaceId);
-        return ResponseEntity.ok(ApiResponse.success("Fetched trashed projects successfully", data));
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách dự án đã hủy thành công.", data));
     }
 
     /**
@@ -110,7 +110,7 @@ public class ProjectController {
             @PathVariable Integer projectId) {
 
         projectService.deleteProject(companyId, workspaceId, projectId);
-        return ResponseEntity.ok(ApiResponse.success("Project cancelled successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("Hủy dự án thành công.", null));
     }
     
     @GetMapping("/{projectId}")
@@ -120,7 +120,7 @@ public class ProjectController {
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId) {
         ProjectResponse response = projectService.getProjectDetails(companyId, workspaceId, projectId);
-        return ResponseEntity.ok(ApiResponse.success("Fetched project details successfully", response));
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết dự án thành công.", response));
     }
 
     @PutMapping("/{projectId}/status")
@@ -132,7 +132,7 @@ public class ProjectController {
             @Valid @RequestBody UpdateProjectStatusRequest request) {
 
         ProjectResponse updated = projectService.updateProjectStatus(companyId, workspaceId, projectId, request);
-        return ResponseEntity.ok(ApiResponse.success("Project status updated successfully", updated));
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái dự án thành công.", updated));
     }
 
     @PutMapping("/{projectId}")
@@ -144,7 +144,7 @@ public class ProjectController {
             @Valid @RequestBody UpdateProjectRequest request) {
 
         ProjectResponse updated = projectService.updateProject(companyId, workspaceId, projectId, request);
-        return ResponseEntity.ok(ApiResponse.success("Project updated successfully", updated));
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin dự án thành công.", updated));
     }
 
 }

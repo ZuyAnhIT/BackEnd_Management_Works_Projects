@@ -48,7 +48,7 @@ public class CompanyController {
 
         return ResponseEntity
                 .status(HttpStatus.CREATED) // Dùng 201 Created cho việc tạo mới
-                .body(ApiResponse.success("Company created successfully", newCompany)); // Đã dịch
+                .body(ApiResponse.success("Tạo công ty thành công.", newCompany)); // Đã dịch
     }
 
     // (Thêm các API khác cho Company tại đây: GET, PUT, DELETE, ...)
@@ -60,7 +60,7 @@ public class CompanyController {
             @PathVariable Integer companyId) {
 
         List<CompanyMemberResponse> members = companyService.getCompanyMembers(companyId);
-        return ResponseEntity.ok(ApiResponse.success("Fetched company members successfully", members)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên công ty thành công.", members)); // Đã dịch
     }
 
     // API HIEN THI THONG TIN CHI TIET CONG TY
@@ -70,7 +70,7 @@ public class CompanyController {
             @PathVariable Integer companyId) {
 
         CompanyDetailsResponse companyDetails = companyService.getCompanyDetails(companyId);
-        return ResponseEntity.ok(ApiResponse.success("Fetched company details successfully", companyDetails)); // Đã
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết công ty thành công.", companyDetails)); // Đã
                                                                                                                // dịch
     }
 
@@ -82,7 +82,7 @@ public class CompanyController {
             @Valid @RequestBody UpdateCompanyRequest request) {
 
         CompanyDetailsResponse updatedCompany = companyService.updateCompany(companyId, request);
-        return ResponseEntity.ok(ApiResponse.success("Company updated successfully", updatedCompany)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin công ty thành công.", updatedCompany)); // Đã dịch
     }
 
     // API MOI THANH VIEN VAO CONG TY
@@ -93,7 +93,7 @@ public class CompanyController {
             @Valid @RequestBody InviteMemberRequest request) {
 
         companyService.inviteMember(companyId, request); // *** SỬA LỖI ***
-        return ResponseEntity.ok(ApiResponse.success("Invitation sent successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("Gửi lời mời thành công.", null));
     }
 
     /**
@@ -110,7 +110,7 @@ public class CompanyController {
         CompanyMember updatedMember = companyService.updateCompanyMemberRole(companyId, memberId, request.getRoleCode());
 
         // SỬA: Tạo message động
-        String message = String.format("Successfully updated role for user %s (ID: %d) to %s",
+        String message = String.format("Cập nhật vai trò cho người dùng %s (ID: %d) thành %s thành công.",
             updatedMember.getUser().getFullName(),
             updatedMember.getUser().getId(),
             updatedMember.getRole().getRoleCode()
@@ -139,7 +139,7 @@ public class CompanyController {
         
         companyService.removeMemberFromCompany(companyId, userId);
         
-        return ResponseEntity.ok(ApiResponse.success("Member removed successfully", null)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Xóa thành viên thành công.", null)); // Đã dịch
     }
 
     // API XEM CHI TIET THANH VIEN
@@ -150,7 +150,7 @@ public class CompanyController {
             @PathVariable Integer memberId) {
         
         CompanyMemberResponse memberDetails = companyService.getCompanyMemberDetails(companyId, memberId);
-        return ResponseEntity.ok(ApiResponse.success("Fetched member details successfully", memberDetails)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết thành viên thành công.", memberDetails)); // Đã dịch
     }
     
     // API CAP NHAT TRANG THAI THANH VIEN (ACTIVE/SUSPENDED)
@@ -162,6 +162,6 @@ public class CompanyController {
             @Valid @RequestBody UpdateMemberStatusRequest request) {
         
         CompanyMemberResponse updatedMember = companyService.updateMemberStatus(companyId, memberId, request);
-        return ResponseEntity.ok(ApiResponse.success("Member status updated successfully", updatedMember)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái thành viên thành công.", updatedMember)); // Đã dịch
     }
 }

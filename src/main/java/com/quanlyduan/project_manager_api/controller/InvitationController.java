@@ -29,7 +29,7 @@ public class InvitationController {
             @Valid @RequestBody AcceptInvitationRequest request) {
         
         companyService.acceptInvitation(request);
-        return ResponseEntity.ok(ApiResponse.success("Invitation accepted successfully", null)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Chấp nhận lời mời thành công.", null)); // Đã dịch
     }
 
     // API LAY THONG TIN LOI MOI (PUBLIC)
@@ -39,6 +39,6 @@ public class InvitationController {
             @RequestParam String token) {
         
         InvitationDetailsResponse details = companyService.getInvitationDetails(token);
-        return ResponseEntity.ok(ApiResponse.success("Invitation details fetched successfully", details)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết của lời mời thành công.", details)); // Đã dịch
     }
 }

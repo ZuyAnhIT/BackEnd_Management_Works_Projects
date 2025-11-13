@@ -43,7 +43,7 @@ public class WorkspaceController {
         
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Workspace created successfully", newWorkspace)); // Đã dịch
+                .body(ApiResponse.success("Tạo không gian làm việc thành công.", newWorkspace)); // Đã dịch
     }
 
     // API XEM DANH SACH KHONG GIAN TRONG CONG TY
@@ -55,7 +55,7 @@ public class WorkspaceController {
         
         List<WorkspaceResponse> workspaces = workspaceService.getWorkspacesByCompany(companyId); // Đã dịch
         
-        return ResponseEntity.ok(ApiResponse.success("Fetched workspaces successfully", workspaces)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách không gian làm việc thành công.", workspaces)); // Đã dịch
     }
 
 
@@ -69,7 +69,7 @@ public class WorkspaceController {
         
         WorkspaceResponse workspaceDetails = workspaceService.getWorkspaceDetails(workspaceId);
         
-        return ResponseEntity.ok(ApiResponse.success("Fetched workspace details successfully", workspaceDetails)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết không gian làm việc thành công.", workspaceDetails)); // Đã dịch
     }
 
 
@@ -84,7 +84,7 @@ public class WorkspaceController {
         
         workspaceService.inviteMemberToWorkspace(companyId, workspaceId, request); // Đã dịch
         
-        return ResponseEntity.ok(ApiResponse.success("Member added to workspace successfully", null)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Thêm thành viên vào không gian làm việc thành công.", null)); // Đã dịch
     }
 
     // API CAP NHAT KHONG GIAN
@@ -98,7 +98,7 @@ public class WorkspaceController {
         WorkspaceResponse updatedWorkspace = workspaceService.updateWorkspace(workspaceId, request);
 
         return ResponseEntity.ok(ApiResponse.success(
-                "Workspace updated successfully",
+                "Cập nhật không gian làm việc thành công.",
                 updatedWorkspace
         ));
     }
@@ -113,7 +113,7 @@ public class WorkspaceController {
         workspaceService.deleteWorkspace(workspaceId);
 
         return ResponseEntity.ok(ApiResponse.success(
-                "Workspace deleted successfully",
+                "Xóa không gian làm việc thành công.",
                 null
         ));
     }
@@ -128,7 +128,7 @@ public class WorkspaceController {
         
         List<WorkspaceMemberResponse> members = workspaceService.getWorkspaceMembers(workspaceId);
         
-        return ResponseEntity.ok(ApiResponse.success("Fetched workspace members successfully", members)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên của không gian làm việc thành công.", members)); // Đã dịch
     }
 
 
@@ -143,7 +143,7 @@ public class WorkspaceController {
         
         WorkspaceMemberResponse memberDetails = workspaceService.getWorkspaceMemberDetails(workspaceId, memberId);
         
-        return ResponseEntity.ok(ApiResponse.success("Fetched workspace member details successfully", memberDetails)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết thành viên của không gian làm việc thành công.", memberDetails)); // Đã dịch
     }
 
     // API CAP NHAT TRANG THAI THANH VIEN KHONG GIAN (ACTIVE/SUSPENDED)
@@ -156,7 +156,7 @@ public class WorkspaceController {
             @Valid @RequestBody UpdateMemberStatusRequest request) {
         
         WorkspaceMemberResponse updatedMember = workspaceService.updateWorkspaceMemberStatus(companyId, workspaceId, memberId, request);
-        return ResponseEntity.ok(ApiResponse.success("Workspace member status updated successfully", updatedMember)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái thành viên của không gian làm việc thành công.", updatedMember)); // Đã dịch
     }
 
     // API CAP NHAT TRANG THAI KHONG GIAN (ACTIVE/ARCHIVED/DELETED)
@@ -168,7 +168,7 @@ public class WorkspaceController {
             @Valid @RequestBody UpdateWorkspaceStatusRequest request) {
         
         WorkspaceResponse updatedWorkspace = workspaceService.updateWorkspaceStatus(companyId, workspaceId, request);
-        return ResponseEntity.ok(ApiResponse.success("Workspace status updated successfully", updatedWorkspace)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái của không gian làm việc thành công.", updatedWorkspace)); // Đã dịch
     }
     
 }

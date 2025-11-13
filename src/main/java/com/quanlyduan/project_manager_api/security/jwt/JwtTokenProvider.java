@@ -77,7 +77,7 @@ public class JwtTokenProvider {
             Jwts.parser().verifyWith(getSigningKey()).build().parseSignedClaims(authToken);
             return true;
         } catch (Exception ex) {
-            logger.error("JWT authentication failed: {}", ex.getMessage());
+            logger.error("Xác thực của JWT thất bại: {}", ex.getMessage());
         }
         return false;
     }

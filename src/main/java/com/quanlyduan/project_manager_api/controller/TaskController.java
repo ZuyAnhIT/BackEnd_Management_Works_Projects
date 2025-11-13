@@ -46,7 +46,7 @@ public class TaskController {
 
         // 2. Đóng gói kết quả vào ApiResponse (theo chuẩn của base code)
         ApiResponse<TaskCommentResponse> response = ApiResponse.success(
-                "Comment added successfully",
+                "Thêm bình luận thành công.",
                 newComment
         );
 
@@ -68,7 +68,7 @@ public class TaskController {
 
         // 2. Đóng gói kết quả
         ApiResponse<List<TaskCommentResponse>> response = ApiResponse.success(
-                "Fetched comments successfully",
+                "Lấy danh sách bình luận thành công.",
                 comments
         );
 
@@ -88,7 +88,7 @@ public class TaskController {
         Integer uploaderId = securityServicePermission.getCurrentUserId();
         TaskAttachmentResponse attachment = attachmentService.storeAttachment(taskId, file, uploaderId);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("File uploaded successfully", attachment));
+                .body(ApiResponse.success("Tải tệp lên thành công.", attachment));
     }
 
     /**
@@ -100,7 +100,7 @@ public class TaskController {
             @PathVariable Integer taskId) {
         
         List<TaskAttachmentResponse> attachments = attachmentService.getAttachmentsForTask(taskId);
-        return ResponseEntity.ok(ApiResponse.success("Fetched attachments successfully", attachments));
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách của tệp đính kèm thành công.", attachments));
     }
 
 
