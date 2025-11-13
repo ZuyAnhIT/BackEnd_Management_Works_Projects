@@ -112,7 +112,7 @@ public void register(RegisterRequest request) {
 
     // ✅ 5. Lấy Role USER từ DB
     Role userRole = roleRepository.findFirstByRoleCode("USER")
-            .orElseThrow(() -> new RuntimeException("Role USER not found"));
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy vai trò USER"));
 
     // ✅ 6. Tạo UserRole và lưu
     UserRole userRoleEntity = UserRole.builder()
@@ -142,7 +142,7 @@ public void register(RegisterRequest request) {
 
         // 3. Lấy thông tin NguoiDung (chúng ta cần Id để lưu RefreshToken)
         User user = userRepository.findByEmail(request.getEmail()) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("User not found after login")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng sau khi đăng nhập")); // Đã dịch
                 
         // 4. Tạo Access Token
         String accessToken = jwtTokenProvider.generateAccessToken(authentication);
@@ -208,26 +208,26 @@ public void register(RegisterRequest request) {
     public void verifyEmail(VerifyEmailRequest request) {
         // 1. Tìm người dùng
         User user = userRepository.findByEmail(request.getEmail()) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail())); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + request.getEmail())); // Đã dịch
 
         // 2. Kiểm tra nếu đã xác thực
         if (user.getIsEmailVerified()) { // Đã dịch
-            throw new BadRequestException("This email has already been verified"); // Đã dịch
+            throw new BadRequestException("Email này đã được xác minh"); // Đã dịch
         }
         
         // 3. Tìm token (OTP)
         AuthToken token = authTokenRepository.findByTokenAndTokenType(request.getOtp(), TokenType.EMAIL_VERIFICATION) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid OTP")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("OTP không hợp lệ")); // Đã dịch
 
         // 4. Kiểm tra token có đúng của người dùng này không
         if (!token.getUser().getId().equals(user.getId())) { // Đã dịch
-             throw new BadRequestException("Invalid OTP"); // Đã dịch
+             throw new BadRequestException("OTP không hợp lệ"); // Đã dịch
         }
 
         // 5. Kiểm tra token hết hạn
         if (token.getExpiresAt().isBefore(LocalDateTime.now())) { // Đã dịch
             // (Nên có logic gửi lại OTP ở đây)
-            throw new BadRequestException("OTP has expired"); // Đã dịch
+            throw new BadRequestException("Mã OTP đã hết hạn"); // Đã dịch
         }
 
         // 6. Xác thực thành công
@@ -255,13 +255,12 @@ public void register(RegisterRequest request) {
         // 3. Lưu Token
         authTokenRepository.save(verificationToken); // Đã dịch
 
-        String emailBody = "Hi " + user.getFullName() + ",\n\n" // Đã dịch
-                + "Your OTP code to verify your account is: <h3>" + otp + "</h3>" // Đã dịch
-                + "This code will expire in 10 minutes.\n\n" // Đã dịch
-                + "Thank you."; // Đã dịch
+       String emailBody = "Xin chào " + user.getFullName() + ",\n\n"
+                + "Mã OTP để xác thực tài khoản của bạn là: <h3>" + otp + "</h3>\n"
+                + "Mã này sẽ hết hạn sau 10 phút.\n\n"
+                + "Cảm ơn bạn.";
         
-        
-        emailService.sendEmail(user.getEmail(), "Verify Your Account", emailBody); // Đã dịch
+        emailService.sendEmail(user.getEmail(), "Xác minh tài khoản của bạn", emailBody); // Đã dịch
     }
 
     private String generateOtp() {
@@ -282,7 +281,7 @@ public void register(RegisterRequest request) {
 
         // 2. Kiểm tra email (phòng trường hợp người dùng cũ cố tình gọi API này)
         if (userRepository.existsByEmail(invitedEmail)) { // Đã dịch
-            throw new BadRequestException("This email already exists. Please log in to accept the invitation."); // Đã dịch
+            throw new BadRequestException("Email này đã tồn tại. Vui lòng đăng nhập để chấp nhận lời mời."); // Đã dịch
         }
 
         // 3. Tạo NguoiDung mới
@@ -360,11 +359,11 @@ public void register(RegisterRequest request) {
             String resetUrl = String.format("%s/reset-password?token=%s", frontendUrl, token);
 
             String emailBody = String.format(
-                "<p>Hi %s,</p>" + // Đã dịch
-                "<p>You requested to reset your password. Click the link below to set a new password:</p>" + // Đã dịch
-                "<p><a href=\"%s\">Reset Password</a></p>" + // Đã dịch
-                "<p>This link will expire in %d minutes.</p>" + // Đã dịch
-                "<p>If you did not request this, please ignore this email.</p>", // Đã dịch
+                "<p>Xin chào %s,</p>" +
+                "<p>Bạn đã yêu cầu đặt lại mật khẩu. Vui lòng nhấp vào liên kết bên dưới để tạo mật khẩu mới:</p>" +
+                "<p><a href=\"%s\">Đặt lại mật khẩu</a></p>" +
+                "<p>Liên kết này sẽ hết hạn sau %d phút.</p>" +
+                "<p>Nếu bạn không yêu cầu thao tác này, vui lòng bỏ qua email này.</p>",
                 user.getFullName(),
                 resetUrl,
                 RESET_TOKEN_EXPIRATION_MINUTES
@@ -372,12 +371,12 @@ public void register(RegisterRequest request) {
 
             emailService.sendEmail(
                 user.getEmail(), 
-                "Password Reset Request", // Đã dịch
+                "Yêu cầu Đặt lại Mật khẩu", // Đã dịch
                 emailBody
             );
 
         } catch (Exception e) {
-            System.err.println("Error sending password reset email: " + e.getMessage()); // Đã dịch
+            System.err.println("Lỗi khi gửi email đặt lại mật khẩu: " + e.getMessage()); // Đã dịch
         }
     }
 
@@ -387,17 +386,17 @@ public void register(RegisterRequest request) {
     public void resetPassword(ResetPasswordRequest request) {
         // 1. Tìm token trong CSDL
         AuthToken resetToken = authTokenRepository.findByTokenAndTokenType(request.getToken(), TokenType.RESET_PASSWORD)
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired reset token"));
+                .orElseThrow(() -> new ResourceNotFoundException("Mã đặt lại không hợp lệ hoặc đã hết hạn"));
 
         // 2. Kiểm tra token đã hết hạn chưa
         if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
             authTokenRepository.delete(resetToken); 
-            throw new BadRequestException("Password reset token has expired");
+            throw new BadRequestException("Mã đặt lại mật khẩu đã hết hạn");
         }
 
         // 3. Kiểm tra token đã được sử dụng/thu hồi chưa
         if (resetToken.getStatus() != TokenStatus.ACTIVE) {
-             throw new BadRequestException("Invalid or already used reset token");
+             throw new BadRequestException("Mã đặt lại không hợp lệ hoặc đã được sử dụng");
         }
 
         // 4. Lấy người dùng liên quan
@@ -425,7 +424,7 @@ public void register(RegisterRequest request) {
             // 1. Xác thực id_token với máy chủ Google
             GoogleIdToken idToken = googleIdTokenVerifier.verify(request.getGoogleToken());
             if (idToken == null) {
-                throw new BadRequestException("Invalid Google ID token."); // Đã dịch
+                throw new BadRequestException("Mã thông báo ID Google không hợp lệ."); // Đã dịch
             }
 
             // 2. Lấy thông tin người dùng từ token
@@ -436,14 +435,14 @@ public void register(RegisterRequest request) {
             boolean emailVerified = payload.getEmailVerified();
 
             if (!emailVerified) {
-                 throw new BadRequestException("Google email is not verified."); // Đã dịch
+                 throw new BadRequestException("Email Google chưa được xác minh."); // Đã dịch
             }
 
             // 3. Gọi logic Đăng ký hoặc Đăng nhập
             return processOAuthUser(email, fullName, avatarUrl);
 
         } catch (GeneralSecurityException | IOException e) {
-            throw new BadRequestException("Failed to verify Google token: " + e.getMessage()); // Đã dịch
+            throw new BadRequestException("Không thể xác minh token của Google: " + e.getMessage()); // Đã dịch
         }
     }
 
@@ -481,7 +480,7 @@ public void register(RegisterRequest request) {
             
         // ✅ Gán quyền USER
                 Role userRole = roleRepository.findFirstByRoleCode("USER")
-                        .orElseThrow(() -> new RuntimeException("Role USER not found"));
+                        .orElseThrow(() -> new RuntimeException("Không tìm thấy vai trò USER"));
                 
                 if (!userRoleRepository.existsByUserAndRole(user, userRole)) {
                             UserRole userRoleEntity = UserRole.builder()

@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class UpdateProjectStatusRequest {
 
-    @NotNull(message = "New status must not be null")
+    @NotNull(message = "Trạng thái mới không được để trống")
     private ProjectStatus newStatus;
 }
 

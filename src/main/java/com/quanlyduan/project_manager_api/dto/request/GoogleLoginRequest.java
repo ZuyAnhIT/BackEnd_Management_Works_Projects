@@ -7,6 +7,6 @@ import lombok.Data;
 @Data
 public class GoogleLoginRequest {
     
-    @NotBlank(message = "Google token must not be blank") // Đã dịch
+    @NotBlank(message = "Mã thông báo Google không được để trống") // Đã dịch
     private String googleToken; // Đây sẽ là id_token
 }

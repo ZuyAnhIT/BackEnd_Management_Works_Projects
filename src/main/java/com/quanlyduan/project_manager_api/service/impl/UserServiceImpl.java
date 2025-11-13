@@ -206,12 +206,12 @@ public class UserServiceImpl implements UserService {
     private User getCurrentAuthenticatedUser() { // Đã dịch
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-            throw new BadRequestException("Authenticated user information not found."); // Đã dịch
+            throw new BadRequestException("Không tìm thấy thông tin người dùng đã xác thực."); // Đã dịch
         }
         
         String email = authentication.getName();
         return userRepository.findByEmail(email) // Đã dịch
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email)); // Đã dịch
+                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng với email: " + email)); // Đã dịch
     }
 
 

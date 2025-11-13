@@ -57,17 +57,17 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         // 1. Lấy thông tin người dùng và công ty
         User creator = securityService.getCurrentAuthenticatedUser(); // Đã dịch
         Company company = companyRepository.findById(companyId) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Company not found")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty")); // Đã dịch
 
         // 2. Kiểm tra nghiệp vụ (tên trùng)
         if (workspaceRepository.existsByCompany_IdAndName(companyId, request.getWorkspaceName())) { // Đã dịch
-            throw new BadRequestException("This workspace name already exists in the company"); // Đã dịch
+            throw new BadRequestException("Tên không gian làm việc này đã tồn tại trong công ty"); // Đã dịch
         }
 
         // 3. Tìm Role "WORKSPACE_ADMIN"
         Role workspaceAdminRole = roleRepository.findFirstByRoleCode(RoleCode.WORKSPACE_ADMIN.name()) // Đã dịch
                 .orElseThrow(() -> new ResourceNotFoundException(
-                    "Role not found: " + RoleCode.WORKSPACE_ADMIN.name() + ". Please configure the database." // Đã dịch
+                    "Không tìm thấy vai trò: " + RoleCode.WORKSPACE_ADMIN.name() + ".Vui lòng cấu hình cơ sở dữ liệu." // Đã dịch
                 ));
 
         // 4. Tạo không gian mới
@@ -120,7 +120,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         // Tầng service chỉ cần thực hiện logic tìm kiếm.
         
         Workspace workspace = workspaceRepository.findById(workspaceId) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with ID: " + workspaceId)); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc với ID: " + workspaceId)); // Đã dịch
                 
         // Tái sử dụng helper đã tạo
         return mapToWorkspaceResponse(workspace);
@@ -139,7 +139,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         // 1. Lấy thông tin người dùng được mời
         User userToInvite = userRepository.findByEmail(emailToInvite) // Đã dịch
                 .orElseThrow(() -> new ResourceNotFoundException(
-                    "User not found with email: " + emailToInvite // Đã dịch
+                    "Không tìm thấy người dùng với email: " + emailToInvite // Đã dịch
                 ));
 
         // 2. KIỂM TRA ĐIỀU KIỆN (như bạn yêu cầu)
@@ -148,13 +148,13 @@ public class WorkspaceServiceImpl implements WorkspaceService {
             
         if (!isCompanyMember) {
             throw new BadRequestException(
-                "This person is not an active member of the Company. Please contact the Company Admin." // Đã dịch
+                "Người này không phải là thành viên hoạt động của Công ty. Vui lòng liên hệ với Quản trị viên Công ty." // Đã dịch
             );
         }
 
         // 3. Lấy thông tin Workspace và Role
         Workspace workspace = workspaceRepository.findById(workspaceId) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc")); // Đã dịch
 
         // *** SỬA LOGIC: Tìm Role bằng roleCode (từ DTO) thay vì roleId ***
         Role workspaceRole = roleRepository.findFirstByRoleCode(request.getRoleCode())
@@ -162,7 +162,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
         // 4. Validate Role
         if (workspaceRole.getLevel() != RoleLevel.WORKSPACE) { // Đã dịch
-            throw new BadRequestException("Invalid role (Not a WORKSPACE level role)"); // Đã dịch
+            throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp KHÔNG GIAN)"); // Đã dịch
         }
         
         // 5. Kiểm tra xem đã là thành viên của Workspace chưa
@@ -170,7 +170,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
             .findByWorkspace_IdAndUser_Id(workspaceId, userToInvite.getId()); // Đã dịch
 
         if (existingMembership.isPresent()) {
-            throw new BadRequestException("This user is already a member of the workspace"); // Đã dịch
+            throw new BadRequestException("Người dùng này đã là thành viên của không gian làm việc"); // Đã dịch
         }
 
         // 6. Thêm thành viên vào không gian
@@ -200,14 +200,14 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 workspace.getId()); // Đã dịch
 
             String emailBody = String.format(
-                "<p>Hi %s,</p>" + // Đã dịch
-                "<p>You have just been added to the workspace <strong>%s</strong> by %s.</p>" + // Đã dịch
+                "<p>Xin chào %s,</p>" +
+                "<p>Bạn vừa được thêm vào không gian làm việc <strong>%s</strong> bởi %s.</p>" +
                 "<ul>" +
-                "<li><strong>Your role:</strong> %s</li>" + // Đã dịch
-                "<li><strong>Company:</strong> %s</li>" + // Đã dịch
+                "<li><strong>Vai trò của bạn:</strong> %s</li>" +
+                "<li><strong>Công ty:</strong> %s</li>" +
                 "</ul>" +
-                "<p>You can access the workspace now by clicking <a href=\"%s\">this link</a>.</p>" + // Đã dịch
-                "<p>Thanks,<br>The Project Manager Team</p>", // Đã dịch
+                "<p>Bạn có thể truy cập không gian làm việc ngay bằng cách nhấp vào <a href=\"%s\">liên kết này</a>.</p>" +
+                "<p>Cảm ơn,<br>Đội ngũ Quản lý Dự án</p>",
                 userAdded.getFullName(), // Đã dịch
                 admin.getFullName(), // Đã dịch
                 workspace.getName(), // Đã dịch
@@ -218,13 +218,13 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
             emailService.sendEmail(
                 userAdded.getEmail(), 
-                String.format("You have been added to the workspace: %s", workspace.getName()), // Đã dịch
+                String.format("Bạn đã được thêm vào không gian làm việc: %s", workspace.getName()), // Đã dịch
                 emailBody
             );
 
         } catch (Exception e) {
             // (Nên log lỗi này)
-            System.err.println("Error sending workspace notification email: " + e.getMessage()); // Đã dịch
+            System.err.println("Lỗi khi gửi email thông báo không gian làm việc: " + e.getMessage()); // Đã dịch
             // Không ném lỗi ra ngoài để không làm hỏng giao dịch chính
         }
     }
@@ -255,7 +255,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
         // 1. Tìm Workspace
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with ID: " + workspaceId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc với ID: " + workspaceId));
 
         // 2. Xử lý logic cập nhật tên (Nếu có)
         if (request.getName() != null && !request.getName().isEmpty()
@@ -269,7 +269,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
             // Chỉ ném lỗi nếu tìm thấy một workspace KHÁC có CÙNG TÊN
             if (existing.isPresent() && !existing.get().getId().equals(workspace.getId())) {
-                throw new BadRequestException("Workspace name already exists in this company");
+                throw new BadRequestException("Tên không gian làm việc đã tồn tại trong công ty này");
             }
 
             // Nếu không trùng, cập nhật tên mới
@@ -305,11 +305,11 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         // 1. Tìm Workspace
         // Bảo mật (ai được phép gọi) đã được xử lý bởi @PreAuthorize
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with ID: " + workspaceId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc với ID:" + workspaceId));
 
         // 2. Kiểm tra nghiệp vụ: Nếu đã xóa rồi thì báo lỗi
         if (workspace.getStatus() == WorkspaceStatus.DELETED) {
-            throw new BadRequestException("This workspace has already been deleted");
+            throw new BadRequestException("Không gian làm việc này đã bị xóa");
         }
 
         // 3. Thực hiện Xóa Mềm
@@ -360,12 +360,12 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         
         // 1. Tìm thành viên bằng ID
         WorkspaceMember member = workspaceMemberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace member not found with ID: " + memberId)); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên không gian làm việc với ID: " + memberId)); // Đã dịch
 
         // 2. KIỂM TRA BẢO MẬT (IDOR): 
         // Đảm bảo bản ghi 'memberId' này thực sự thuộc về 'workspaceId'
         if (!member.getWorkspace().getId().equals(workspaceId)) {
-            throw new ResourceNotFoundException("Member not found in this workspace"); // Đã dịch
+            throw new ResourceNotFoundException("Không tìm thấy thành viên trong không gian làm việc này"); // Đã dịch
         }
 
         // 3. Map và trả về (tái sử dụng helper)
@@ -378,28 +378,28 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     public WorkspaceMemberResponse updateWorkspaceMemberStatus(Integer companyId, Integer workspaceId, Integer memberId, UpdateMemberStatusRequest request) {
         // 1. Lấy thông tin thành viên
         WorkspaceMember member = workspaceMemberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace member not found with ID: " + memberId)); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên không gian làm việc với ID: " + memberId)); // Đã dịch
 
         // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng không gian
         if (!member.getWorkspace().getId().equals(workspaceId)) {
-            throw new ResourceNotFoundException("Member not found in this workspace"); // Đã dịch
+            throw new ResourceNotFoundException("Không tìm thấy thành viên trong không gian làm việc này"); // Đã dịch
         }
         
         // 3. Kiểm tra bảo mật (IDOR): Đảm bảo không gian này thuộc đúng công ty
         if (!member.getWorkspace().getCompany().getId().equals(companyId)) {
-            throw new ResourceNotFoundException("Workspace not found in this company"); // Đã dịch
+            throw new ResourceNotFoundException("Không tìm thấy không gian làm việc trong công ty này"); // Đã dịch
         }
 
         // 4. Kiểm tra nghiệp vụ: Không cho phép đổi status của chính mình
         User admin = securityService.getCurrentAuthenticatedUser();
         if (admin.getId().equals(member.getUser().getId())) {
-            throw new BadRequestException("You cannot change your own status."); // Đã dịch
+            throw new BadRequestException("Bạn không thể thay đổi trạng thái của mình."); // Đã dịch
         }
         
         // 5. Kiểm tra nghiệp vụ: Không cho phép dùng API này để "Xóa" (REMOVED)
         MemberStatus newStatus = request.getNewStatus();
         if (newStatus == MemberStatus.REMOVED) {
-            throw new BadRequestException("Please use the 'Remove Member' endpoint to remove a member, not this status update endpoint."); // Đã dịch
+            throw new BadRequestException("Vui lòng sử dụng endpoint 'Remove Member' để loại bỏ thành viên, không phải endpoint cập nhật trạng thái này."); // Đã dịch
         }
 
         // 6. Cập nhật trạng thái
@@ -418,16 +418,16 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         
         // 1. Lấy thông tin không gian
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with ID: " + workspaceId)); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc với ID: " + workspaceId)); // Đã dịch
 
         // 2. Kiểm tra bảo mật (IDOR): Đảm bảo không gian này thuộc đúng công ty
         if (!workspace.getCompany().getId().equals(companyId)) {
-            throw new ResourceNotFoundException("Workspace not found in this company"); // Đã dịch
+            throw new ResourceNotFoundException("Không tìm thấy không gian làm việc trong công ty này"); // Đã dịch
         }
         
         // 3. Kiểm tra nghiệp vụ (ví dụ: không cho phép thay đổi trạng thái giống hệt)
         if (workspace.getStatus() == request.getNewStatus()) {
-            throw new BadRequestException("Workspace is already in the requested status."); // Đã dịch
+            throw new BadRequestException("Không gian làm việc đã ở trạng thái yêu cầu."); // Đã dịch
         }
 
         // 4. Cập nhật trạng thái

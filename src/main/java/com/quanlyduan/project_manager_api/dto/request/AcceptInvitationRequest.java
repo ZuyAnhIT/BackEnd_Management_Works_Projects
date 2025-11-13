@@ -6,6 +6,6 @@ import lombok.Data;
 
 @Data
 public class AcceptInvitationRequest {
-    @NotBlank(message = "Invitation token must not be blank") // Đã dịch
+    @NotBlank(message = "Mã mời không được để trống") // Đã dịch
     private String invitationToken;
 }

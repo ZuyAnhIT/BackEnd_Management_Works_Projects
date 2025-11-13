@@ -14,10 +14,10 @@ import java.time.LocalDate;
  */
 @Data
 public class ProjectRequest {
-    @NotBlank(message = "Project name must not be blank")
+    @NotBlank(message = "Tên dự án không được để trống")
     private String name;
 
-    @NotBlank(message = "Project code must not be blank")
+    @NotBlank(message = "Project name must not be blank")
     private String projectCode;
 
     private String description;

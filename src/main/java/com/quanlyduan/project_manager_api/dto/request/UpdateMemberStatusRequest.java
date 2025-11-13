@@ -8,6 +8,6 @@ import lombok.Data;
 @Data
 public class UpdateMemberStatusRequest {
 
-    @NotNull(message = "New status must not be null") // Đã dịch
+    @NotNull(message = "Trạng thái mới không được để trống")
     private MemberStatus newStatus; // (Phải là ACTIVE hoặc SUSPENDED)
 }

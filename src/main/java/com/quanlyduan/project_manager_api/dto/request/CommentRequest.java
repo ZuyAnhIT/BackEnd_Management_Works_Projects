@@ -8,7 +8,7 @@ import lombok.Data;
 @Data
 public class CommentRequest {
 
-    @NotBlank(message = "Comment content must not be blank")
+    @NotBlank(message = "Nội dung bình luận không được để trống")
     private String content;
 
     // SỬA: XÓA BỎ

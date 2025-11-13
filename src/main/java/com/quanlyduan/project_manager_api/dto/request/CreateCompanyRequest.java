@@ -8,8 +8,8 @@ import lombok.Data;
 @Data
 public class CreateCompanyRequest {
 
-    @NotBlank(message = "Company name must not be blank") // Đã dịch
-    @Size(min = 3, max = 255, message = "Company name must be between 3 and 255 characters") // Đã dịch
+    @NotBlank(message = "Tên công ty không được để trống") // Đã dịch
+    @Size(min = 3, max = 255, message = "Tên công ty phải có từ 3 đến 255 ký tự") // Đã dịch
     private String companyName; // Đã dịch
 
     // Các trường khác là tùy chọn

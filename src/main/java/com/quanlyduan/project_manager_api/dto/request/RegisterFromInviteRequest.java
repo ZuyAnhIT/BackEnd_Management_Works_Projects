@@ -7,13 +7,13 @@ import lombok.Data;
 
 @Data
 public class RegisterFromInviteRequest {
-    @NotBlank(message = "Full name must not be blank") // Đã dịch
+    @NotBlank(message = "Họ và tên không được để trống") // Đã dịch
     private String fullName; // Đã dịch
 
-    @NotBlank(message = "Password must not be blank") // Đã dịch
-    @Size(min = 6, message = "Password must be at least 6 characters long") // Đã dịch
+    @NotBlank(message = "Mật khẩu không được để trống") // Đã dịch
+    @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự") // Đã dịch
     private String password; // Đã dịch
 
-    @NotBlank(message = "Invitation token must not be blank") // Đã dịch
+    @NotBlank(message = "Mã mời không được để trống") // Đã dịch
     private String invitationToken;
 }

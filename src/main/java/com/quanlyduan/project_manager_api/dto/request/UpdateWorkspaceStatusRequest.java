@@ -8,6 +8,6 @@ import lombok.Data;
 @Data
 public class UpdateWorkspaceStatusRequest {
 
-    @NotNull(message = "New status must not be null") // Đã dịch
+    @NotNull(message = "Trạng thái mới không được để trống") // Đã dịch
     private WorkspaceStatus newStatus; // (Phải là ACTIVE, ARCHIVED, hoặc DELETED)
 }

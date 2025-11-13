@@ -34,10 +34,10 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(body, true); // true = hỗ trợ HTML
 
             mailSender.send(mimeMessage);
-            System.out.println("Email sent successfully to: " + to); // Đã dịch
+            System.out.println("Email đã gửi thành công tới: " + to); // Đã dịch
         } catch (Exception e) {
             // (Nên log lỗi này)
-            System.err.println("Error sending email: " + e.getMessage()); // Đã dịch
+            System.err.println("Lỗi khi gửi email: " + e.getMessage()); // Đã dịch
         }
     }
 }

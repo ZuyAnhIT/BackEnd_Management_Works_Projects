@@ -6,6 +6,6 @@ import lombok.Data;
 
 @Data
 public class LogoutRequest {
-    @NotBlank(message = "Refresh token must not be blank") // Đã dịch
+    @NotBlank(message = "Mã làm mới không được để trống") // Đã dịch
     private String refreshToken;
 }

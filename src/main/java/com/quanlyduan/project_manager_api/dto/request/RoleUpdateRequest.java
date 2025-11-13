@@ -7,6 +7,6 @@ import lombok.Data;
 @Data
 public class RoleUpdateRequest {
 
-    @NotBlank(message = "Role code cannot be blank")
+    @NotBlank(message = "Mã vai trò không được để trống")
     private String roleCode;
 }

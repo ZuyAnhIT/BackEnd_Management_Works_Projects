@@ -9,11 +9,11 @@ import lombok.Data;
 @Data
 public class InviteWorkspaceMemberRequest {
 
-    @NotBlank(message = "Email must not be blank") // Đã dịch
-    @Email(message = "Email is not in a valid format") // Đã dịch
+    @NotBlank(message = "Email không được để trống")
+    @Email(message = "Email không đúng định dạng")
     private String email;
 
-    @NotBlank(message = "Role code must not be blank") // Đã dịch
+    @NotBlank(message = "Mã vai trò không được để trống") // Đã dịch
     private String roleCode; // Đã dịch (Thay cho roleId)
     // Role ID của Workspace (ví dụ: WORKSPACE_MEMBER)
 }

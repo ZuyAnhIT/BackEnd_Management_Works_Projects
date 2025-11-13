@@ -63,21 +63,21 @@ public class ProjectServiceImpl implements ProjectService {
     public ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId) {
         // (1) Kiểm tra workspace tồn tại
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
 
         // (1b) Xác nhận workspace thuộc đúng companyId theo path (tránh truy cập chéo công ty)
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Workspace does not belong to the specified company");
+            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
         }
 
         // (2) Kiểm tra unique projectCode trong workspace (không phân biệt hoa thường)
         if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, request.getProjectCode())) {
-            throw new BadRequestException("Project code already exists in this workspace");
+            throw new BadRequestException("Mã dự án đã tồn tại trong không gian làm việc này");
         }
 
         // (3) Lấy reference cho createdBy (không cần load entity đầy đủ)
         User createdBy = userRepository.findById(creatorId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
 
         // (4) Khởi tạo Project và gán các trường/quan hệ
         Project project = new Project();
@@ -95,7 +95,7 @@ public class ProjectServiceImpl implements ProjectService {
             try {
                 project.setBoardConfig(objectMapper.writeValueAsString(request.getBoardConfig()));
             } catch (JsonProcessingException e) {
-                throw new BadRequestException("Invalid boardConfig JSON");
+                throw new BadRequestException("JSON boardConfig không hợp lệ");
             }
         }
         project.setStartDate(request.getStartDate());
@@ -114,14 +114,14 @@ public class ProjectServiceImpl implements ProjectService {
         // Manager (optional)
         if (request.getManagerId() != null && request.getManagerId() > 0) {
             User manager = userRepository.findById(request.getManagerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Manager user not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng quản lý"));
             project.setManager(manager);
         }
 
         // Project Type (optional)
         if (request.getProjectTypeId() != null && request.getProjectTypeId() > 0) {
             ProjectType type = projectTypeRepository.findById(request.getProjectTypeId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Project type not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại dự án"));
             project.setProjectType(type);
         }
 
@@ -136,7 +136,7 @@ public class ProjectServiceImpl implements ProjectService {
         // (6) Gán người tạo làm Project Admin
         Role projectAdminRole = roleRepository.findFirstByRoleCode(RoleCode.PROJECT_ADMIN.name())
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Role not found: " + RoleCode.PROJECT_ADMIN.name() + ". Please configure the database."
+                        "Không tìm thấy vai trò: " + RoleCode.PROJECT_ADMIN.name() + ". Vui lòng cấu hình trong cơ sở dữ liệu."
                 ));
 
         ProjectMember projectMember = ProjectMember.builder()
@@ -165,9 +165,9 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional(readOnly = true)
     public List<ProjectResponse> listProjectsByWorkspace(Integer companyId, Integer workspaceId) {
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Workspace does not belong to the specified company");
+            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
         }
 
         List<Project> projects = projectRepository.findByWorkspace_Id(workspaceId);
@@ -190,11 +190,12 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional(readOnly = true)
     public List<ProjectResponse> listCancelledProjectsByWorkspace(Integer companyId, Integer workspaceId) {
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+       Workspace workspace = workspaceRepository.findById(workspaceId)
+        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Workspace does not belong to the specified company");
+            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
         }
+
 
         List<Project> projects = projectRepository.findByWorkspace_Id(workspaceId);
         List<Project> trashed = projects.stream()
@@ -216,17 +217,16 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional
     public void deleteProject(Integer companyId, Integer workspaceId, Integer projectId) {
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Workspace does not belong to the specified company");
+            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
         }
 
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+       Project project = projectRepository.findById(projectId)
+        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
         if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
-            throw new BadRequestException("Project does not belong to the specified workspace");
+            throw new BadRequestException("Dự án không thuộc về không gian làm việc được chỉ định");
         }
-
         project.setStatus(ProjectStatus.CANCELLED);
         projectRepository.save(project);
     }
@@ -235,28 +235,28 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional
     public ProjectResponse updateProjectStatus(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectStatusRequest request) {
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
-        if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Workspace does not belong to the specified company");
-        }
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
+            if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
+                throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
+            }
 
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
-        if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
-            throw new BadRequestException("Project does not belong to the specified workspace");
-        }
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
+            if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
+                throw new BadRequestException("Dự án không thuộc về không gian làm việc được chỉ định");
+            }
 
         ProjectStatus newStatus = request.getNewStatus();
-        if (newStatus == null) {
-            throw new BadRequestException("New status must not be null");
-        }
-        if (newStatus == ProjectStatus.CANCELLED) {
-            throw new BadRequestException("Cannot update status to CANCELLED. Use the delete endpoint instead.");
-        }
+            if (newStatus == null) {
+                throw new BadRequestException("Trạng thái mới không được để trống");
+            }
+            if (newStatus == ProjectStatus.CANCELLED) {
+                throw new BadRequestException("Không thể cập nhật trạng thái thành CANCELLED. Vui lòng sử dụng API xóa thay thế.");
+            }
 
-        if (project.getStatus() == newStatus) {
-            throw new BadRequestException("Project is already in the requested status.");
-        }
+            if (project.getStatus() == newStatus) {
+                throw new BadRequestException("Dự án đã ở trạng thái được yêu cầu.");
+            }
 
         project.setStatus(newStatus);
         Project saved = projectRepository.save(project);
@@ -267,15 +267,15 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional
     public ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request) {
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Workspace does not belong to the specified company");
+            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
         }
 
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
         if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
-            throw new BadRequestException("Project does not belong to the specified workspace");
+            throw new BadRequestException("Dự án không thuộc về không gian làm việc được chỉ định");
         }
 
         // name
@@ -289,7 +289,7 @@ public class ProjectServiceImpl implements ProjectService {
             String currentCode = project.getProjectCode();
             if (!newCode.equalsIgnoreCase(currentCode)) {
                 if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, newCode)) {
-                    throw new BadRequestException("Project code already exists in this workspace");
+                    throw new BadRequestException("Mã dự án đã tồn tại trong không gian làm việc này");
                 }
                 project.setProjectCode(newCode);
             }
@@ -322,7 +322,7 @@ public class ProjectServiceImpl implements ProjectService {
             Integer managerId = request.getManagerId();
             if (managerId != 0) {
                 User manager = userRepository.findById(managerId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Manager not found"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quản lý"));
                 project.setManager(manager);
             }
         }
@@ -334,7 +334,7 @@ public class ProjectServiceImpl implements ProjectService {
                 project.setProjectType(null);
             } else {
                 ProjectType type = projectTypeRepository.findById(projectTypeId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Project type not found"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại dự án"));
                 project.setProjectType(type);
             }
         }
@@ -344,7 +344,7 @@ public class ProjectServiceImpl implements ProjectService {
             try {
                 objectMapper.readTree(request.getBoardConfig());
             } catch (Exception e) {
-                throw new BadRequestException("boardConfig is not valid JSON");
+                throw new BadRequestException("boardConfig không phải là JSON hợp lệ");
             }
             project.setBoardConfig(request.getBoardConfig());
         }
@@ -381,15 +381,15 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     public ProjectResponse getProjectDetails(Integer companyId, Integer workspaceId, Integer projectId) {
         Project project = projectRepository.findById(projectId)
-            .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
 
         // Kiểm tra project có thuộc workspace và company tương ứng không
         if (!project.getWorkspace().getId().equals(workspaceId)) {
-            throw new BadRequestException("Project does not belong to the specified workspace");
+            throw new BadRequestException("Dự án không thuộc về không gian làm việc đã chỉ định");
         }
 
         if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Workspace does not belong to the specified company");
+            throw new BadRequestException("Không gian làm việc không thuộc công ty được chỉ định");
         }
 
         // Dùng mapper chung để đảm bảo đầy đủ field như khi tạo/list
