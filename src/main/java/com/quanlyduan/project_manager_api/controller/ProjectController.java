@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 
 /**
  * ProjectController – US7: Tạo Project mới.
@@ -119,6 +120,18 @@ public class ProjectController {
             @PathVariable Integer projectId) {
         ProjectResponse response = projectService.getProjectDetails(companyId, workspaceId, projectId);
         return ResponseEntity.ok(ApiResponse.success("Fetched project details successfully", response));
+    }
+
+    @PutMapping("/{projectId}/status")
+    @PreAuthorize("@securityServicePermission.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<ProjectResponse>> updateProjectStatus(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @Valid @RequestBody UpdateProjectStatusRequest request) {
+
+        ProjectResponse updated = projectService.updateProjectStatus(companyId, workspaceId, projectId, request);
+        return ResponseEntity.ok(ApiResponse.success("Project status updated successfully", updated));
     }
 
 }
