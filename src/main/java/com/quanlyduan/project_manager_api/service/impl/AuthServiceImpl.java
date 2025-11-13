@@ -477,6 +477,21 @@ public void register(RegisterRequest request) {
                 .status(UserStatus.ACTIVE)
                 .build();
             user = userRepository.save(newUser);
+
+            
+        // ✅ Gán quyền USER
+                Role userRole = roleRepository.findFirstByRoleCode("USER")
+                        .orElseThrow(() -> new RuntimeException("Role USER not found"));
+                
+                if (!userRoleRepository.existsByUserAndRole(user, userRole)) {
+                            UserRole userRoleEntity = UserRole.builder()
+                                    .user(user)
+                                    .role(userRole)
+                                    .build();
+                            userRoleRepository.save(userRoleEntity);
+        }
+
+
         }
 
         // 3. Tạo UserPrincipal (thông tin để tạo token)
