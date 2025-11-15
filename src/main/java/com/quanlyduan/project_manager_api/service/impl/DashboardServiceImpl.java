@@ -5,6 +5,7 @@ import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.Role;
 import com.quanlyduan.project_manager_api.model.Workspace;
 import com.quanlyduan.project_manager_api.model.WorkspaceMember;
+import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.DashboardService;
@@ -35,6 +36,8 @@ public class DashboardServiceImpl implements DashboardService {
         List<WorkspaceMember> memberships = workspaceMemberRepository.findByUser_Id(currentUser.getId());
 
         return memberships.stream()
+                .filter(member -> member.getWorkspace() != null
+                        && member.getWorkspace().getStatus() != WorkspaceStatus.DELETED)
                 .map(this::mapToMyWorkspaceResponse)
                 .collect(Collectors.toList());
     }
