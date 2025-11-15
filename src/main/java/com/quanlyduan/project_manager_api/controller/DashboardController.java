@@ -2,7 +2,9 @@ package com.quanlyduan.project_manager_api.controller;
 
 import java.util.List;
 
+import com.quanlyduan.project_manager_api.dto.response.MyTaskResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,5 +27,15 @@ public class DashboardController {
     public ResponseEntity<ApiResponse<List<MyCompanyResponse>>> getMyCompanies() {
         List<MyCompanyResponse> companies = dashboardService.getMyCompanies();
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách công ty của bạn thành công.", companies));
+    }
+
+    @GetMapping("/my-tasks")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<MyTaskResponse>>> getMyTasks() {
+        List<MyTaskResponse> tasks = dashboardService.getMyTasks();
+        return ResponseEntity.ok(ApiResponse.success(
+                "Fetched my tasks successfully",
+                tasks
+        ));
     }
 }
