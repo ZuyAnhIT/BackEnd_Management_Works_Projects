@@ -143,4 +143,8 @@ public class SecurityService {
     }
 
 
+    public Integer getCurrentUserId() {
+        return getCurrentAuthenticatedUser().getId();
+    }
+
 }
