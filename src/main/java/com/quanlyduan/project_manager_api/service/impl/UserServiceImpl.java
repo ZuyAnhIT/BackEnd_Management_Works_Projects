@@ -104,10 +104,10 @@ public class UserServiceImpl implements UserService {
                 .collect(Collectors.toList());
 
         // 3. Lấy vai trò cấp Công ty
-        List<CompanyMembershipDTO> companyRoles = companyMemberRepository.findByUser_Id(currentUser.getId()) // Đã dịch
+        List<CompanyMembershipDTO> companyRoles = companyMemberRepository.findByUser_Id(currentUser.getId())
                 .stream()
-                .map(cm -> new CompanyMembershipDTO( 
-                        cm.getCompany().getId(), 
+                .map(cm -> new CompanyMembershipDTO(
+                        cm.getCompany().getId(),
                         cm.getCompany().getName(),
                         cm.getRole().getRoleCode() 
                 ))

@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
+import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.DashboardService;
@@ -30,7 +31,9 @@ public class DashboardServiceImpl implements DashboardService {
     public List<MyCompanyResponse> getMyCompanies() {
         Integer userId = securityService.getCurrentUserId();
 
-        return companyMemberRepository.findByUser_Id(userId)
+        List<CompanyStatus> allowedStatuses = List.of(CompanyStatus.ACTIVE, CompanyStatus.SUSPENDED);
+
+        return companyMemberRepository.findByUserIdAndCompanyStatuses(userId, allowedStatuses)
                 .stream()
                 .map(this::mapToMyCompanyResponse)
                 .collect(Collectors.toList());
