@@ -30,8 +30,13 @@ public interface CompanyService {
     // Update thong tin công ty
     CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request); // Đã dịch
     
-        /**
-     * User Story 1: Phân quyền thành viên công ty
+
+    /**
+     * Cập nhật vai trò (Role) của một thành viên trong công ty.
+     * @param companyId ID công ty
+     * @param memberId ID của bản ghi CompanyMember
+     * @param newRoleCode Mã vai trò mới (ví dụ: "COMPANY_MEMBER")
+     * @return CompanyMember DTO đã cập nhật
      */
     CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode);
 

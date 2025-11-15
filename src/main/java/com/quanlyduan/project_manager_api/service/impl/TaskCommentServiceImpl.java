@@ -10,32 +10,39 @@ import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.repository.TaskCommentRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
-import com.quanlyduan.project_manager_api.security.SecurityServicePermission;
+import com.quanlyduan.project_manager_api.security.SecurityService; 
 import com.quanlyduan.project_manager_api.service.TaskCommentService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// import java.util.HashSet; // SỬA: Xóa
-// import java.util.Set; // SỬA: Xóa
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class TaskCommentServiceImpl implements TaskCommentService {
 
     private final TaskCommentRepository commentRepository;
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
-    private final SecurityServicePermission securityServicePermission;
+    private final SecurityService securityService; // Đã sửa
+
+    // *** THÊM CONSTRUCTOR THỦ CÔNG ***
+    public TaskCommentServiceImpl(TaskCommentRepository commentRepository, 
+                                  TaskRepository taskRepository, 
+                                  UserRepository userRepository, 
+                                  SecurityService securityService) {
+        this.commentRepository = commentRepository;
+        this.taskRepository = taskRepository;
+        this.userRepository = userRepository;
+        this.securityService = securityService;
+    }
 
     @Override
     @Transactional
     public TaskCommentResponse addComment(Integer taskId, CommentRequest request) {
 
         // 1. Lấy user hiện tại (người bình luận)
-        Integer currentUserId = securityServicePermission.getCurrentUserId();
+        Integer currentUserId = securityService.getCurrentUserId(); // Đã sửa
         User currentUser = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng hiện tại"));
 
@@ -45,12 +52,12 @@ public class TaskCommentServiceImpl implements TaskCommentService {
 
         // 3. SỬA: XÓA BỎ XỬ LÝ @mentions
         /*
-        Set<User> mentionedUsers = new HashSet<>();
-        if (request.getMentionedUserIds() != null && !request.getMentionedUserIds().isEmpty()) {
-            List<User> foundUsers = userRepository.findAllById(request.getMentionedUserIds());
-            mentionedUsers.addAll(foundUsers);
-        }
-        */
+         Set<User> mentionedUsers = new HashSet<>();
+         if (request.getMentionedUserIds() != null && !request.getMentionedUserIds().isEmpty()) {
+             List<User> foundUsers = userRepository.findAllById(request.getMentionedUserIds());
+             mentionedUsers.addAll(foundUsers);
+         }
+         */
 
         // 4. Tạo và lưu bình luận
         TaskComment newComment = TaskComment.builder()
@@ -94,14 +101,14 @@ public class TaskCommentServiceImpl implements TaskCommentService {
 
         // SỬA: XÓA BỎ MAP DANH SÁCH MENTION
         /*
-        List<TaskCommentResponse.CommentUserResponse> mentionedUsersList = comment.getMentionedUsers().stream()
-                .map(user -> TaskCommentResponse.CommentUserResponse.builder()
-                        .userId(user.getId())
-                        .fullName(user.getFullName())
-                        .avatarUrl(user.getAvatarUrl())
-                        .build())
-                .collect(Collectors.toList());
-        */
+         List<TaskCommentResponse.CommentUserResponse> mentionedUsersList = comment.getMentionedUsers().stream()
+                 .map(user -> TaskCommentResponse.CommentUserResponse.builder()
+                         .userId(user.getId())
+                         .fullName(user.getFullName())
+                         .avatarUrl(user.getAvatarUrl())
+                         .build())
+                 .collect(Collectors.toList());
+         */
 
         // Xây dựng DTO Response cuối cùng
         return TaskCommentResponse.builder()

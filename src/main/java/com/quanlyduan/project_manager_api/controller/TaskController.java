@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/controller/TaskController.java
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CommentRequest;
@@ -7,7 +8,6 @@ import com.quanlyduan.project_manager_api.dto.response.TaskCommentResponse;
 import com.quanlyduan.project_manager_api.service.TaskAttachmentService;
 import com.quanlyduan.project_manager_api.service.TaskCommentService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,18 +15,26 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import org.springframework.http.MediaType;
-import com.quanlyduan.project_manager_api.security.SecurityServicePermission;
+import com.quanlyduan.project_manager_api.security.SecurityService; 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/tasks") // Tất cả API liên quan đến Task sẽ bắt đầu bằng /api/tasks
-@RequiredArgsConstructor
+// @RequiredArgsConstructor // Đã xóa
 public class TaskController {
 
     private final TaskCommentService commentService;
     private final TaskAttachmentService attachmentService;
-    private final SecurityServicePermission securityServicePermission;
+    private final SecurityService securityService; // Đã sửa
+
     
+    public TaskController(TaskCommentService commentService, 
+                          TaskAttachmentService attachmentService, 
+                          SecurityService securityService) {
+        this.commentService = commentService;
+        this.attachmentService = attachmentService;
+        this.securityService = securityService;
+    }
 
 
     // TODO: Thêm các API khác liên quan đến Task (ví dụ: Create Task, Get Task Details...)
@@ -36,7 +44,7 @@ public class TaskController {
      * Endpoint: POST /api/tasks/{taskId}/comments
      */
     @PostMapping("/{taskId}/comments")
-    @PreAuthorize("@securityServicePermission.hasTaskPermission(#taskId, 'task:comment')")
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:comment')") // Đã sửa
     public ResponseEntity<ApiResponse<TaskCommentResponse>> addComment(
             @PathVariable Integer taskId,
             @Valid @RequestBody CommentRequest request) {
@@ -46,7 +54,7 @@ public class TaskController {
 
         // 2. Đóng gói kết quả vào ApiResponse (theo chuẩn của base code)
         ApiResponse<TaskCommentResponse> response = ApiResponse.success(
-                "Thêm bình luận thành công.",
+                "Thêm bình luận thành công.", // Đã dịch
                 newComment
         );
 
@@ -59,7 +67,7 @@ public class TaskController {
      * Endpoint: GET /api/tasks/{taskId}/comments
      */
     @GetMapping("/{taskId}/comments")
-    @PreAuthorize("@securityServicePermission.hasTaskPermission(#taskId, 'task:comment:view')")
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:comment:view')") // Đã sửa
     public ResponseEntity<ApiResponse<List<TaskCommentResponse>>> getComments(
             @PathVariable Integer taskId) {
 
@@ -68,7 +76,7 @@ public class TaskController {
 
         // 2. Đóng gói kết quả
         ApiResponse<List<TaskCommentResponse>> response = ApiResponse.success(
-                "Lấy danh sách bình luận thành công.",
+                "Lấy danh sách bình luận thành công.", // Đã dịch
                 comments
         );
 
@@ -76,32 +84,30 @@ public class TaskController {
         return ResponseEntity.ok(response);
     }
 
-      /**
+     /**
      * User Story 11: Đính kèm tệp tin
      */
     @PostMapping(value = "/{taskId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("@securityServicePermission.hasTaskPermission(#taskId, 'task:attach_file')")
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:attach_file')") // Đã sửa
     public ResponseEntity<ApiResponse<TaskAttachmentResponse>> uploadAttachment(
             @PathVariable Integer taskId,
             @RequestParam("file") MultipartFile file) throws IOException { // <-- Dòng này giữ nguyên
         
-        Integer uploaderId = securityServicePermission.getCurrentUserId();
+        Integer uploaderId = securityService.getCurrentUserId(); // Đã sửa
         TaskAttachmentResponse attachment = attachmentService.storeAttachment(taskId, file, uploaderId);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Tải tệp lên thành công.", attachment));
+                .body(ApiResponse.success("Tải tệp lên thành công.", attachment)); // Đã dịch
     }
 
     /**
      * User Story 11: Lấy danh sách tệp tin (Guest cũng xem được)
      */
     @GetMapping("/{taskId}/attachments")
-    @PreAuthorize("@securityServicePermission.hasTaskPermission(#taskId, 'task:view')") // Chỉ cần quyền xem Task
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:view')") // Chỉ cần quyền xem Task // Đã sửa
     public ResponseEntity<ApiResponse<List<TaskAttachmentResponse>>> getAttachments(
             @PathVariable Integer taskId) {
         
         List<TaskAttachmentResponse> attachments = attachmentService.getAttachmentsForTask(taskId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách của tệp đính kèm thành công.", attachments));
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách tệp đính kèm thành công.", attachments)); // Đã dịch
     }
-
-
 }
