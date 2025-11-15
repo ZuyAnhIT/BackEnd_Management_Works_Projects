@@ -10,7 +10,7 @@ import com.quanlyduan.project_manager_api.repository.TaskAttachmentRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.service.TaskAttachmentService;
-import lombok.RequiredArgsConstructor;
+// import lombok.RequiredArgsConstructor; // Đã xóa
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,16 +26,24 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class TaskAttachmentServiceImpl implements TaskAttachmentService {
 
-    @Value("${app.upload.dir:uploads}") // Đọc từ application.properties
+    @Value("${app.upload.dir:uploads}") 
     private String uploadDir;
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final TaskAttachmentRepository attachmentRepository;
     
+    // *** THÊM CONSTRUCTOR THỦ CÔNG ***
+    public TaskAttachmentServiceImpl(TaskRepository taskRepository, 
+                                     UserRepository userRepository, 
+                                     TaskAttachmentRepository attachmentRepository) {
+        this.taskRepository = taskRepository;
+        this.userRepository = userRepository;
+        this.attachmentRepository = attachmentRepository;
+    }
+
     @Override
     @Transactional
     public TaskAttachmentResponse storeAttachment(Integer taskId, MultipartFile file, Integer uploaderId) throws IOException {

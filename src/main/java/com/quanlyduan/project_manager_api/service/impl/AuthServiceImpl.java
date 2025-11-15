@@ -27,7 +27,7 @@ import com.quanlyduan.project_manager_api.security.UserPrincipal;
 import com.quanlyduan.project_manager_api.security.jwt.JwtTokenProvider;
 import com.quanlyduan.project_manager_api.service.AuthService;
 import com.quanlyduan.project_manager_api.service.EmailService;
-import lombok.RequiredArgsConstructor;
+// import lombok.RequiredArgsConstructor; // Đã xóa
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -58,12 +58,12 @@ import java.io.IOException;
 import java.util.Random;
 
 @Service
-@RequiredArgsConstructor // Tự động @Autowired các trường final
+// @RequiredArgsConstructor // Đã xóa
 public class AuthServiceImpl implements AuthService {
 
-    private final UserRepository userRepository; // Đã dịch
+    private final UserRepository userRepository; 
     private final UserRoleRepository userRoleRepository;
-    private final AuthTokenRepository authTokenRepository; // Đã dịch
+    private final AuthTokenRepository authTokenRepository; 
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final GoogleIdTokenVerifier googleIdTokenVerifier;
@@ -85,45 +85,69 @@ public class AuthServiceImpl implements AuthService {
     private static final long OTP_EXPIRATION_MINUTES = 10;
     private static final long RESET_TOKEN_EXPIRATION_MINUTES = 60;
     
+    // *** THÊM CONSTRUCTOR THỦ CÔNG (Theo yêu cầu) ***
+    public AuthServiceImpl(UserRepository userRepository, 
+                           UserRoleRepository userRoleRepository, 
+                           AuthTokenRepository authTokenRepository, 
+                           PasswordEncoder passwordEncoder, 
+                           EmailService emailService, 
+                           GoogleIdTokenVerifier googleIdTokenVerifier, 
+                           RoleRepository roleRepository, 
+                           AuthenticationManager authenticationManager, 
+                           JwtTokenProvider jwtTokenProvider, 
+                           InvitationService invitationService, 
+                           CompanyInvitationRepository companyInvitationRepository) {
+        this.userRepository = userRepository;
+        this.userRoleRepository = userRoleRepository;
+        this.authTokenRepository = authTokenRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
+        this.googleIdTokenVerifier = googleIdTokenVerifier;
+        this.roleRepository = roleRepository;
+        this.authenticationManager = authenticationManager;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.invitationService = invitationService;
+        this.companyInvitationRepository = companyInvitationRepository;
+    }
 
     // LOIGIC DANG KY
     @Override
-@Transactional
-public void register(RegisterRequest request) {
-    // 1. Kiểm tra email tồn tại
-    if (userRepository.existsByEmail(request.getEmail())) {
-        throw new BadRequestException("This email is already in use");
+    @Transactional
+    public void register(RegisterRequest request) {
+        // 1. Kiểm tra email tồn tại
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new BadRequestException("Email này đã được sử dụng");
+        }
+    
+        // 2. Hash mật khẩu
+        String hashedPassword = passwordEncoder.encode(request.getPassword());
+    
+        // 3. Tạo User mới
+        User newUser = User.builder()
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .password(hashedPassword)
+                .status(UserStatus.ACTIVE)
+                .isEmailVerified(false)
+                .build();
+    
+        // 4. Lưu người dùng
+        User savedUser = userRepository.save(newUser);
+    
+        // ✅ 5. Lấy Role USER từ DB
+        Role userRole = roleRepository.findFirstByRoleCode("USER")
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò USER. Vui lòng cấu hình CSDL.")); // Đã dịch
+    
+        // ✅ 6. Tạo UserRole và lưu
+        UserRole userRoleEntity = UserRole.builder()
+                .user(savedUser)
+                .role(userRole)
+                .build();
+        userRoleRepository.save(userRoleEntity);
+    
+        // 7. Gửi email xác thực
+        sendVerificationEmail(savedUser);
     }
-
-    // 2. Hash mật khẩu
-    String hashedPassword = passwordEncoder.encode(request.getPassword());
-
-    // 3. Tạo User mới
-    User newUser = User.builder()
-            .fullName(request.getFullName())
-            .email(request.getEmail())
-            .password(hashedPassword)
-            .status(UserStatus.ACTIVE)
-            .isEmailVerified(false)
-            .build();
-
-    // 4. Lưu người dùng
-    User savedUser = userRepository.save(newUser);
-
-    // ✅ 5. Lấy Role USER từ DB
-    Role userRole = roleRepository.findFirstByRoleCode("USER")
-            .orElseThrow(() -> new RuntimeException("Không tìm thấy vai trò NGƯỜI DÙNG."));
-
-    // ✅ 6. Tạo UserRole và lưu
-    UserRole userRoleEntity = UserRole.builder()
-            .user(savedUser)
-            .role(userRole)
-            .build();
-    userRoleRepository.save(userRoleEntity);
-
-    // 7. Gửi email xác thực
-    sendVerificationEmail(savedUser);
-}
     
     // LOGIC DANG NHAP
     @Override
@@ -133,7 +157,7 @@ public void register(RegisterRequest request) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
-                        request.getPassword() // Đã dịch
+                        request.getPassword()
                 )
         );
         
@@ -141,8 +165,8 @@ public void register(RegisterRequest request) {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // 3. Lấy thông tin NguoiDung (chúng ta cần Id để lưu RefreshToken)
-        User user = userRepository.findByEmail(request.getEmail()) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng sau khi đăng nhập")); // Đã dịch
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Lỗi: Không tìm thấy người dùng sau khi đăng nhập"));
                 
         // 4. Tạo Access Token
         String accessToken = jwtTokenProvider.generateAccessToken(authentication);
@@ -162,19 +186,19 @@ public void register(RegisterRequest request) {
     
     // --- Private Helper Methods ---
 
-    private void saveRefreshTokenToDB(User user, String refreshToken) { // Đã dịch
+    private void saveRefreshTokenToDB(User user, String refreshToken) {
         
-        AuthToken token = AuthToken.builder() // Đã dịch
-                .user(user) // Đã dịch
+        AuthToken token = AuthToken.builder()
+                .user(user)
                 .token(refreshToken)
-                .tokenType(TokenType.REFRESH) // Đã dịch
-                .status(TokenStatus.ACTIVE) // Đã dịch
+                .tokenType(TokenType.REFRESH)
+                .status(TokenStatus.ACTIVE)
                 
                 // Đổi logic ở dòng này từ .plusMillis() sang .plusMinutes()
-                .expiresAt(LocalDateTime.now().plusMinutes(refreshTokenExpirationMin)) // Đã dịch
+                .expiresAt(LocalDateTime.now().plusMinutes(refreshTokenExpirationMin))
                 
                 .build();
-        authTokenRepository.save(token); // Đã dịch
+        authTokenRepository.save(token);
     }
 
 
@@ -183,8 +207,8 @@ public void register(RegisterRequest request) {
     @Transactional
     public void logout(LogoutRequest request) {
         // 1. Tìm Refresh Token trong CSDL
-        AuthToken storedToken = authTokenRepository // Đã dịch
-                .findByTokenAndTokenType(request.getRefreshToken(), TokenType.REFRESH) // Đã dịch
+        AuthToken storedToken = authTokenRepository
+                .findByTokenAndTokenType(request.getRefreshToken(), TokenType.REFRESH)
                 .orElse(null); // Không ném lỗi, chỉ đơn giản là không tìm thấy
 
         if (storedToken == null) {
@@ -194,11 +218,11 @@ public void register(RegisterRequest request) {
         }
 
         // 2. Xóa token khỏi CSDL
-        authTokenRepository.delete(storedToken); // Đã dịch
+        authTokenRepository.delete(storedToken);
         
         // (Cách 2: Nếu bạn muốn giữ lại lịch sử)
-        // storedToken.setTrangThai(TokenStatus.DA_THU_HOI);
-        // tokenRepository.save(storedToken);
+        // storedToken.setStatus(TokenStatus.REVOKED);
+        // authTokenRepository.save(storedToken);
     }
         
 
@@ -207,60 +231,60 @@ public void register(RegisterRequest request) {
     @Transactional
     public void verifyEmail(VerifyEmailRequest request) {
         // 1. Tìm người dùng
-        User user = userRepository.findByEmail(request.getEmail()) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + request.getEmail())); // Đã dịch
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + request.getEmail()));
 
         // 2. Kiểm tra nếu đã xác thực
-        if (user.getIsEmailVerified()) { // Đã dịch
-            throw new BadRequestException("Email này đã được xác minh"); // Đã dịch
+        if (user.getIsEmailVerified()) {
+            throw new BadRequestException("Email này đã được xác minh");
         }
         
         // 3. Tìm token (OTP)
-        AuthToken token = authTokenRepository.findByTokenAndTokenType(request.getOtp(), TokenType.EMAIL_VERIFICATION) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("OTP không hợp lệ")); // Đã dịch
+        AuthToken token = authTokenRepository.findByTokenAndTokenType(request.getOtp(), TokenType.EMAIL_VERIFICATION)
+                .orElseThrow(() -> new ResourceNotFoundException("OTP không hợp lệ"));
 
         // 4. Kiểm tra token có đúng của người dùng này không
-        if (!token.getUser().getId().equals(user.getId())) { // Đã dịch
-             throw new BadRequestException("OTP không hợp lệ"); // Đã dịch
+        if (!token.getUser().getId().equals(user.getId())) {
+             throw new BadRequestException("OTP không hợp lệ");
         }
 
         // 5. Kiểm tra token hết hạn
-        if (token.getExpiresAt().isBefore(LocalDateTime.now())) { // Đã dịch
+        if (token.getExpiresAt().isBefore(LocalDateTime.now())) {
             // (Nên có logic gửi lại OTP ở đây)
-            throw new BadRequestException("Mã OTP đã hết hạn"); // Đã dịch
+            throw new BadRequestException("Mã OTP đã hết hạn");
         }
 
         // 6. Xác thực thành công
-        user.setIsEmailVerified(true); // Đã dịch
-        userRepository.save(user); // Đã dịch
+        user.setIsEmailVerified(true);
+        userRepository.save(user);
 
         // 7. Xóa token đã sử dụng
-        authTokenRepository.delete(token); // Đã dịch
+        authTokenRepository.delete(token);
     }
 
     // --- Private Helper Methods ---
 
-    private void sendVerificationEmail(User user) { // Đã dịch
+    private void sendVerificationEmail(User user) {
         // 1. Tạo OTP
         String otp = generateOtp();
 
         // 2. Tạo đối tượng Token
-        AuthToken verificationToken = AuthToken.builder() // Đã dịch
-                .user(user) // Đã dịch
+        AuthToken verificationToken = AuthToken.builder()
+                .user(user)
                 .token(otp) // Lưu OTP vào trường token
-                .tokenType(TokenType.EMAIL_VERIFICATION) // Đã dịch
-                .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRATION_MINUTES)) // Đã dịch
+                .tokenType(TokenType.EMAIL_VERIFICATION)
+                .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRATION_MINUTES))
                 .build();
 
         // 3. Lưu Token
-        authTokenRepository.save(verificationToken); // Đã dịch
+        authTokenRepository.save(verificationToken);
 
        String emailBody = "Xin chào " + user.getFullName() + ",\n\n"
                 + "Mã OTP để xác thực tài khoản của bạn là: <h3>" + otp + "</h3>\n"
                 + "Mã này sẽ hết hạn sau 10 phút.\n\n"
                 + "Cảm ơn bạn.";
         
-        emailService.sendEmail(user.getEmail(), "Xác minh tài khoản của bạn", emailBody); // Đã dịch
+        emailService.sendEmail(user.getEmail(), "Xác minh tài khoản của bạn", emailBody);
     }
 
     private String generateOtp() {
@@ -276,33 +300,43 @@ public void register(RegisterRequest request) {
     @Transactional
     public LoginResponse registerFromInvite(RegisterFromInviteRequest request) {
         // 1. Xác thực token lời mời (SỬ DỤNG SERVICE CHUNG)
-        CompanyInvitation invitation = invitationService.validateInvitationToken(request.getInvitationToken()); // Đã dịch
+        CompanyInvitation invitation = invitationService.validateInvitationToken(request.getInvitationToken());
         String invitedEmail = invitation.getEmail();
 
         // 2. Kiểm tra email (phòng trường hợp người dùng cũ cố tình gọi API này)
-        if (userRepository.existsByEmail(invitedEmail)) { // Đã dịch
-            throw new BadRequestException("Email này đã tồn tại. Vui lòng đăng nhập để chấp nhận lời mời."); // Đã dịch
+        if (userRepository.existsByEmail(invitedEmail)) {
+            throw new BadRequestException("Email này đã tồn tại. Vui lòng đăng nhập để chấp nhận lời mời.");
         }
 
         // 3. Tạo NguoiDung mới
-        User newUser = User.builder() // Đã dịch
-                .fullName(request.getFullName()) // Đã dịch
+        User newUser = User.builder()
+                .fullName(request.getFullName())
                 .email(invitedEmail)
-                .password(passwordEncoder.encode(request.getPassword())) // Đã dịch
-                .status(UserStatus.ACTIVE) // Đã dịch
-                .isEmailVerified(true) // Tự động xác thực // Đã dịch
+                .password(passwordEncoder.encode(request.getPassword()))
+                .status(UserStatus.ACTIVE)
+                .isEmailVerified(true) // Tự động xác thực
                 .build();
         
-        User savedUser = userRepository.save(newUser); // Đã dịch
+        User savedUser = userRepository.save(newUser);
+        
+        // 4. *** GÁN QUYỀN 'USER' CẤP HỆ THỐNG ***
+        Role userRole = roleRepository.findFirstByRoleCode("USER")
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò USER. Vui lòng cấu hình CSDL."));
+        
+        UserRole userRoleEntity = UserRole.builder()
+            .user(savedUser)
+            .role(userRole)
+            .build();
+        userRoleRepository.save(userRoleEntity);
 
-        // 4. Thêm người dùng vào công ty (SỬ DỤNG SERVICE CHUNG)
-        invitationService.addMemberToCompany(savedUser, invitation.getCompany(), invitation.getRole()); // Đã dịch
+        // 5. Thêm người dùng vào công ty (SỬ DỤNG SERVICE CHUNG)
+        invitationService.addMemberToCompany(savedUser, invitation.getCompany(), invitation.getRole());
 
-        // 5. Cập nhật lời mời
-        invitation.setStatus(InvitationStatus.ACCEPTED); // Đã dịch
-        companyInvitationRepository.save(invitation); // Đã dịch
+        // 6. Cập nhật lời mời
+        invitation.setStatus(InvitationStatus.ACCEPTED);
+        companyInvitationRepository.save(invitation);
 
-        // 6. Tự động đăng nhập và trả về token (Logic giữ nguyên)
+        // 7. Tự động đăng nhập và trả về token (Logic giữ nguyên)
         UserPrincipal userPrincipal = UserPrincipal.create(savedUser);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
             userPrincipal, null, userPrincipal.getAuthorities()
@@ -371,12 +405,12 @@ public void register(RegisterRequest request) {
 
             emailService.sendEmail(
                 user.getEmail(), 
-                "Yêu cầu Đặt lại Mật khẩu", // Đã dịch
+                "Yêu cầu Đặt lại Mật khẩu",
                 emailBody
             );
 
         } catch (Exception e) {
-            System.err.println("Lỗi khi gửi email đặt lại mật khẩu: " + e.getMessage()); // Đã dịch
+            System.err.println("Lỗi khi gửi email đặt lại mật khẩu: " + e.getMessage());
         }
     }
 
@@ -424,7 +458,7 @@ public void register(RegisterRequest request) {
             // 1. Xác thực id_token với máy chủ Google
             GoogleIdToken idToken = googleIdTokenVerifier.verify(request.getGoogleToken());
             if (idToken == null) {
-                throw new BadRequestException("Mã thông báo ID Google không hợp lệ."); // Đã dịch
+                throw new BadRequestException("Mã thông báo ID Google không hợp lệ.");
             }
 
             // 2. Lấy thông tin người dùng từ token
@@ -435,14 +469,14 @@ public void register(RegisterRequest request) {
             boolean emailVerified = payload.getEmailVerified();
 
             if (!emailVerified) {
-                 throw new BadRequestException("Email Google chưa được xác minh."); // Đã dịch
+                 throw new BadRequestException("Email Google chưa được xác minh.");
             }
 
             // 3. Gọi logic Đăng ký hoặc Đăng nhập
             return processOAuthUser(email, fullName, avatarUrl);
 
         } catch (GeneralSecurityException | IOException e) {
-            throw new BadRequestException("Không thể xác minh token của Google: " + e.getMessage()); // Đã dịch
+            throw new BadRequestException("Không thể xác minh token của Google: " + e.getMessage());
         }
     }
 
@@ -480,17 +514,16 @@ public void register(RegisterRequest request) {
             
         // ✅ Gán quyền USER
                 Role userRole = roleRepository.findFirstByRoleCode("USER")
-                        .orElseThrow(() -> new RuntimeException("Không tìm thấy vai trò NGƯỜI DÙNG."));
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò USER. Vui lòng cấu hình CSDL.")); // Đã dịch
                 
-                if (!userRoleRepository.existsByUserAndRole(user, userRole)) {
+                // *** SỬA LỖI LOGIC: Cần kiểm tra trước khi thêm ***
+                if (userRoleRepository.findByUser_Id(user.getId()).isEmpty()) {
                             UserRole userRoleEntity = UserRole.builder()
                                     .user(user)
                                     .role(userRole)
                                     .build();
                             userRoleRepository.save(userRoleEntity);
-        }
-
-
+                }
         }
 
         // 3. Tạo UserPrincipal (thông tin để tạo token)

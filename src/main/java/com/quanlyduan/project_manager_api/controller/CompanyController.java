@@ -9,11 +9,11 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
-import com.quanlyduan.project_manager_api.model.Company; // Đã dịch CongTy -> Company
+import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
 import com.quanlyduan.project_manager_api.service.CompanyService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+// import lombok.RequiredArgsConstructor; // Đã xóa
 
 import java.util.HashMap;
 import java.util.List;
@@ -33,28 +33,32 @@ import org.springframework.web.bind.annotation.PutMapping;
 
 @RestController
 @RequestMapping("/api/companies")
-@RequiredArgsConstructor
+
 public class CompanyController {
 
     private final CompanyService companyService;
 
+    public CompanyController(CompanyService companyService) {
+        this.companyService = companyService;
+    }
+
     // API TAO CONG TY
     @PostMapping
-    @PreAuthorize("@securityServicePermission.hasSystemPermission('company:create')")
-    public ResponseEntity<ApiResponse<Company>> createCompany( // Đã dịch CongTy -> Company
+    @PreAuthorize("@securityService.hasSystemPermission('company:create')") 
+    public ResponseEntity<ApiResponse<Company>> createCompany(
             @Valid @RequestBody CreateCompanyRequest request) {
 
-        Company newCompany = companyService.createCompany(request); // Đã dịch CongTy -> Company
+        Company newCompany = companyService.createCompany(request); 
 
         return ResponseEntity
                 .status(HttpStatus.CREATED) // Dùng 201 Created cho việc tạo mới
-                .body(ApiResponse.success("Tạo công ty thành công.", newCompany)); // Đã dịch
+                .body(ApiResponse.success("Tạo công ty thành công.", newCompany)); 
     }
 
     // (Thêm các API khác cho Company tại đây: GET, PUT, DELETE, ...)
 
     // API HIEN THI DANH SACH THANH VIEN CONG TY
-    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'company:view')")
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')") 
     @GetMapping("/{companyId}/members")
     public ResponseEntity<ApiResponse<List<CompanyMemberResponse>>> getCompanyMembers(
             @PathVariable Integer companyId) {
@@ -64,18 +68,17 @@ public class CompanyController {
     }
 
     // API HIEN THI THONG TIN CHI TIET CONG TY
-    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'company:view')")
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')") // Đã sửa
     @GetMapping("/{companyId}")
     public ResponseEntity<ApiResponse<CompanyDetailsResponse>> getCompanyDetails(
             @PathVariable Integer companyId) {
 
         CompanyDetailsResponse companyDetails = companyService.getCompanyDetails(companyId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết công ty thành công.", companyDetails)); // Đã
-                                                                                                               // dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết công ty thành công.", companyDetails)); // Đã dịch
     }
 
     // API CAP NHAT THONG TIN CONG TY
-    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'company:edit')")
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:edit')") // Đã sửa
     @PutMapping("/{companyId}")
     public ResponseEntity<ApiResponse<CompanyDetailsResponse>> updateCompany(
             @PathVariable Integer companyId,
@@ -86,21 +89,21 @@ public class CompanyController {
     }
 
     // API MOI THANH VIEN VAO CONG TY
-    @PostMapping("/{companyId}/invitations") // Đường dẫn là 'companyId'
-    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'company:invite_member')")
+    @PostMapping("/{companyId}/invitations")
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:invite_member')") // Đã sửa
     public ResponseEntity<ApiResponse<Object>> inviteMember(
-            @PathVariable Integer companyId, // *** SỬA LỖI: Tên biến phải khớp với đường dẫn ***
+            @PathVariable Integer companyId,
             @Valid @RequestBody InviteMemberRequest request) {
 
-        companyService.inviteMember(companyId, request); // *** SỬA LỖI ***
-        return ResponseEntity.ok(ApiResponse.success("Gửi lời mời thành công.", null));
+        companyService.inviteMember(companyId, request);
+        return ResponseEntity.ok(ApiResponse.success("Gửi lời mời thành công.", null)); // Đã dịch
     }
 
     /**
      * Sprint 2 - User Story 1: Phân quyền thành viên công ty
      */
     @PutMapping("/{companyId}/members/{memberId}/role")
-    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'company:manage_roles')")
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:manage_roles')") // Đã sửa
     public ResponseEntity<ApiResponse<Object>> updateCompanyMemberRole(
             @PathVariable Integer companyId,
             @PathVariable Integer memberId,
@@ -114,7 +117,7 @@ public class CompanyController {
             updatedMember.getUser().getFullName(),
             updatedMember.getUser().getId(),
             updatedMember.getRole().getRoleCode()
-        );
+        ); // Đã dịch
 
         // SỬA: Tạo data trả về
         Map<String, Object> responseData = new HashMap<>();
@@ -132,7 +135,7 @@ public class CompanyController {
     // API XOA MEM THANH VIEN
     @DeleteMapping("/{companyId}/members/{userId}")
     // Bảo vệ: Chỉ Admin công ty mới được xóa
-    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'company:delete')")
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:remove_member')") // Đã sửa (từ delete -> remove_member)
     public ResponseEntity<ApiResponse<Object>> removeMember(
             @PathVariable Integer companyId,
             @PathVariable Integer userId) {
@@ -143,7 +146,7 @@ public class CompanyController {
     }
 
     // API XEM CHI TIET THANH VIEN
-    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'company:view')")
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')") // Đã sửa
     @GetMapping("/{companyId}/members/{memberId}")
     public ResponseEntity<ApiResponse<CompanyMemberResponse>> getCompanyMemberDetails(
             @PathVariable Integer companyId,
@@ -154,7 +157,7 @@ public class CompanyController {
     }
     
     // API CAP NHAT TRANG THAI THANH VIEN (ACTIVE/SUSPENDED)
-    @PreAuthorize("@securityServicePermission.hasPermission('company', #companyId, 'company:edit')")
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:manage_roles')") // Đã sửa (từ edit -> manage_roles)
     @PutMapping("/{companyId}/members/{memberId}/status")
     public ResponseEntity<ApiResponse<CompanyMemberResponse>> updateMemberStatus(
             @PathVariable Integer companyId,

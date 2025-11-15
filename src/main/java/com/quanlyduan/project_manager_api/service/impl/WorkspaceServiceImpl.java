@@ -15,15 +15,12 @@ import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.repository.*;
 import com.quanlyduan.project_manager_api.service.EmailService;
-import com.quanlyduan.project_manager_api.service.SecurityService; 
+import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
 
 import org.springframework.beans.factory.annotation.Value;
-
-import lombok.RequiredArgsConstructor;
-
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,16 +30,32 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.Objects;
 @Service
-@RequiredArgsConstructor
 public class WorkspaceServiceImpl implements WorkspaceService {
 
-    private final WorkspaceRepository workspaceRepository; // Đã dịch
-    private final WorkspaceMemberRepository workspaceMemberRepository; // Đã dịch
-    private final CompanyRepository companyRepository; // Đã dịch
+    private final WorkspaceRepository workspaceRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final CompanyRepository companyRepository; 
     private final RoleRepository roleRepository;
     private final SecurityService securityService; 
-    private final UserRepository userRepository; // Đã dịch
-    private final CompanyMemberRepository companyMemberRepository; // Đã dịch
+    private final UserRepository userRepository; 
+    private final CompanyMemberRepository companyMemberRepository; 
+    public WorkspaceServiceImpl(WorkspaceRepository workspaceRepository,
+                                WorkspaceMemberRepository workspaceMemberRepository,
+                                CompanyRepository companyRepository,
+                                RoleRepository roleRepository,
+                                SecurityService securityService,
+                                UserRepository userRepository,
+                                CompanyMemberRepository companyMemberRepository,
+                                EmailService emailService) {
+        this.workspaceRepository = workspaceRepository;
+        this.workspaceMemberRepository = workspaceMemberRepository;
+        this.companyRepository = companyRepository;
+        this.roleRepository = roleRepository;
+        this.securityService = securityService;
+        this.userRepository = userRepository;
+        this.companyMemberRepository = companyMemberRepository;
+        this.emailService = emailService;
+    }
 
     private final EmailService emailService;
     
@@ -76,22 +89,22 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 .name(request.getWorkspaceName()) // Đã dịch
                 .description(request.getDescription()) // Đã dịch
                 .coverImageUrl(request.getCoverImage()) // Đã dịch
-                .color(request.getColor() != null ? request.getColor() : "#3498db") // Đã dịch
+                .color(request.getColor() != null ? request.getColor() : "#3498db") 
                 .createdBy(creator) // Đã dịch
                 .status(WorkspaceStatus.ACTIVE) // Đã dịch
                 .build();
         
-        Workspace savedWorkspace = workspaceRepository.save(newWorkspace); // Đã dịch
+        Workspace savedWorkspace = workspaceRepository.save(newWorkspace); 
 
         // 5. Tự động gán người tạo làm Admin của không gian
-        WorkspaceMember membership = WorkspaceMember.builder() // Đã dịch
-                .workspace(savedWorkspace) // Đã dịch
-                .user(creator) // Đã dịch
+        WorkspaceMember membership = WorkspaceMember.builder() 
+                .workspace(savedWorkspace) 
+                .user(creator) 
                 .role(workspaceAdminRole)
-                .status(MemberStatus.ACTIVE) // Đã dịch
+                .status(MemberStatus.ACTIVE) 
                 .build();
         
-        workspaceMemberRepository.save(membership); // Đã dịch
+        workspaceMemberRepository.save(membership); 
 
         // 6. Map Entity sang DTO và trả về
         return mapToWorkspaceResponse(savedWorkspace);

@@ -35,24 +35,24 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserServiceImpl implements UserService {
 
-    private final UserRepository userRepository; // Đã dịch
+    private final UserRepository userRepository; 
     private final PasswordEncoder passwordEncoder;
-    private final UserRoleRepository userRoleRepository; // Đã dịch
-    private final CompanyMemberRepository companyMemberRepository; // Đã dịch
-    private final WorkspaceMemberRepository workspaceMemberRepository; // Đã dịch
+    private final UserRoleRepository userRoleRepository; 
+    private final CompanyMemberRepository companyMemberRepository; 
+    private final WorkspaceMemberRepository workspaceMemberRepository; 
     private final ProjectMemberRepository projectMemberRepository;
     private final AuthTokenRepository authTokenRepository;
 
     public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, UserRoleRepository userRoleRepository, CompanyMemberRepository companyMemberRepository, WorkspaceMemberRepository workspaceMemberRepository, ProjectMemberRepository projectMemberRepository, AuthTokenRepository authTokenRepository) { // Đã dịch
-        this.userRepository = userRepository; // Đã dịch
+        this.userRepository = userRepository; 
         this.passwordEncoder = passwordEncoder;
-        this.userRoleRepository = userRoleRepository; // Đã dịch
-        this.companyMemberRepository = companyMemberRepository; // Đã dịch
-        this.workspaceMemberRepository = workspaceMemberRepository; // Đã dịch
+        this.userRoleRepository = userRoleRepository; 
+        this.companyMemberRepository = companyMemberRepository; 
+        this.workspaceMemberRepository = workspaceMemberRepository; 
         this.projectMemberRepository = projectMemberRepository;
         this.authTokenRepository = authTokenRepository;
     }
-    // (Sau này sẽ inject TokenRepository để hủy Refresh Token)
+
 
     // LOGIC THAY DOI MAT KHAU
     @Override
@@ -82,9 +82,9 @@ public class UserServiceImpl implements UserService {
         // 6. Lưu vào CSDL
         userRepository.save(currentUser);
 
-        // 7. (NÂNG CẤP) Thu hồi tất cả Refresh Token 
+        // 7.Thu hồi tất cả Refresh Token 
         // Đây là bước quan trọng để bảo mật. Khi đổi mật khẩu,
-        // tất cả các phiên đăng nhập ở thiết bị khác sẽ bị buộc đăng xuất.
+        // Tất cả các phiên đăng nhập ở thiết bị khác sẽ bị buộc đăng xuất.
         authTokenRepository.revokeAllUserRefreshTokens(currentUser.getId());
     }
 
@@ -95,47 +95,45 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public UserProfileResponse getCurrentUserProfile() {
         // 1. Lấy người dùng (từ token)
-        User currentUser = getCurrentAuthenticatedUser(); // Đã dịch
+        User currentUser = getCurrentAuthenticatedUser(); 
 
         // 2. Lấy vai trò cấp Hệ thống
-        List<String> systemRoles = userRoleRepository.findByUser_Id(currentUser.getId()) // Đã dịch
+        List<String> systemRoles = userRoleRepository.findByUser_Id(currentUser.getId()) 
                 .stream()
-                .map(userRole -> userRole.getRole().getRoleCode()) // Đã dịch
+                .map(userRole -> userRole.getRole().getRoleCode()) 
                 .collect(Collectors.toList());
 
         // 3. Lấy vai trò cấp Công ty
         List<CompanyMembershipDTO> companyRoles = companyMemberRepository.findByUser_Id(currentUser.getId()) // Đã dịch
                 .stream()
-                .map(cm -> new CompanyMembershipDTO( // Đã dịch
-                        cm.getCompany().getId(), // Đã dịch
-                        cm.getCompany().getName(), // Đã dịch
-                        cm.getRole().getRoleCode() // Đã dịch
+                .map(cm -> new CompanyMembershipDTO( 
+                        cm.getCompany().getId(), 
+                        cm.getCompany().getName(),
+                        cm.getRole().getRoleCode() 
                 ))
                 .collect(Collectors.toList());
 
         // 4. Lấy vai trò cấp Không gian
         List<WorkspaceMembershipDTO> workspaceRoles = workspaceMemberRepository.findByUser_Id(currentUser.getId()) // Đã dịch
                 .stream()
-                .map(wm -> new WorkspaceMembershipDTO( // Đã dịch
-                        wm.getWorkspace().getId(), // Đã dịch
-                        wm.getWorkspace().getName(), // Đã dịch
-                        wm.getWorkspace().getCompany().getId(), // Đã dịch
-                        wm.getRole().getRoleCode() // Đã dịch
+                .map(wm -> new WorkspaceMembershipDTO( 
+                        wm.getWorkspace().getId(), 
+                        wm.getWorkspace().getName(), 
+                        wm.getWorkspace().getCompany().getId(), 
+                        wm.getRole().getRoleCode() 
                 ))
                 .collect(Collectors.toList());
-        // *** NEW LOGIC FOR AVATAR URL ***
+        
         String avatarUrlFromDb = currentUser.getAvatarUrl();
-        String finalAvatarUrl = avatarUrlFromDb; // Default
+        String finalAvatarUrl = avatarUrlFromDb; 
 
         if (avatarUrlFromDb != null && !avatarUrlFromDb.isBlank() && !avatarUrlFromDb.startsWith("http")) {
             // If the URL is NOT an internet link, it's a local file.
             // Build a URL that points to our new FileController.
             finalAvatarUrl = "/api/files/" + avatarUrlFromDb;
         }
-        // *** END OF NEW LOGIC ***
+       
         // 5. Xây dựng và trả về DTO
-        // *** 5. BỔ SUNG: Lấy vai trò cấp Dự án ***
-    // (Giả định bạn đã inject projectMemberRepository)
     List<ProjectMembershipDTO> projectRoles = projectMemberRepository.findByUser_Id(currentUser.getId())
             .stream()
             .map(pm -> new ProjectMembershipDTO(
@@ -151,8 +149,7 @@ public class UserServiceImpl implements UserService {
                 .id(currentUser.getId())
                 .fullName(currentUser.getFullName())
                 .email(currentUser.getEmail())
-                .avatarUrl(finalAvatarUrl) // Đã dịch
-                // --- PHẦN BỔ SUNG ---
+                .avatarUrl(finalAvatarUrl) 
                 .phoneNumber(currentUser.getPhoneNumber())
                 .dateOfBirth(currentUser.getDateOfBirth())
                 .gender(currentUser.getGender())
@@ -160,12 +157,11 @@ public class UserServiceImpl implements UserService {
                 .isEmailVerified(currentUser.getIsEmailVerified())
                 .createdAt(currentUser.getCreatedAt())
                 .lastLoginAt(currentUser.getLastLoginAt())
-                // --- KẾT THÚC BỔ SUNG ---
                 .avatarUrl(currentUser.getAvatarUrl())
                 .systemRoles(systemRoles)
                 .companyMemberships(companyRoles)
                 .workspaceMemberships(workspaceRoles)
-                .projectMemberships(projectRoles) // <-- Thêm dòng này
+                .projectMemberships(projectRoles) 
                 .build();
     }
 

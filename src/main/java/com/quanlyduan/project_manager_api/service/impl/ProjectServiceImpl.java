@@ -16,7 +16,6 @@ import com.quanlyduan.project_manager_api.repository.RoleRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
 import com.quanlyduan.project_manager_api.service.ProjectService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,13 +27,7 @@ import java.util.stream.Collectors;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 
-/**
- * Triển khai ProjectService cho US7 – Tạo Project mới.
- * - Tận dụng ánh xạ JPA sẵn có: gán quan hệ qua reference, không viết mapping thủ công phức tạp.
- * - Không sửa code cũ; chỉ thêm mới service để controller gọi.
- */
 @Service
-@RequiredArgsConstructor
 public class ProjectServiceImpl implements ProjectService {
 
     private final ProjectRepository projectRepository;
@@ -45,10 +38,25 @@ public class ProjectServiceImpl implements ProjectService {
     private final RoleRepository roleRepository;
     private final ProjectMemberRepository projectMemberRepository;
 
+    public ProjectServiceImpl(ProjectRepository projectRepository,
+                              WorkspaceRepository workspaceRepository,
+                              UserRepository userRepository,
+                              ProjectTypeRepository projectTypeRepository,
+                              ObjectMapper objectMapper,
+                              RoleRepository roleRepository,
+                              ProjectMemberRepository projectMemberRepository) {
+        this.projectRepository = projectRepository;
+        this.workspaceRepository = workspaceRepository;
+        this.userRepository = userRepository;
+        this.projectTypeRepository = projectTypeRepository;
+        this.objectMapper = objectMapper;
+        this.roleRepository = roleRepository;
+        this.projectMemberRepository = projectMemberRepository;
+    }
+
     private boolean isProvided(String value) {
         return value != null && !value.isBlank() && !"string".equalsIgnoreCase(value.trim());
     }
-
     /**
      * US7: Tạo Project mới trong Workspace.
      * Logic & Nghiệp vụ:

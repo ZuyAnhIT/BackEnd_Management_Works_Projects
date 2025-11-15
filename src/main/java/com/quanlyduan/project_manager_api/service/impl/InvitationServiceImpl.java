@@ -6,48 +6,52 @@ import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import com.quanlyduan.project_manager_api.repository.CompanyInvitationRepository; // Đã dịch
-import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.CompanyInvitationRepository; 
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; 
 import com.quanlyduan.project_manager_api.service.InvitationService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
 @Service
-@RequiredArgsConstructor
 public class InvitationServiceImpl implements InvitationService {
 
-    private final CompanyInvitationRepository companyInvitationRepository; // Đã dịch
-    private final CompanyMemberRepository companyMemberRepository; // Đã dịch
+    private final CompanyInvitationRepository companyInvitationRepository; 
+    private final CompanyMemberRepository companyMemberRepository; 
+
+    public InvitationServiceImpl(CompanyInvitationRepository companyInvitationRepository, 
+                                 CompanyMemberRepository companyMemberRepository) {
+        this.companyInvitationRepository = companyInvitationRepository;
+        this.companyMemberRepository = companyMemberRepository;
+    }
 
     // LOGIC TẠO TOKEN LOI MOI
     @Override
-    public CompanyInvitation validateInvitationToken(String token) { // Đã dịch
-        CompanyInvitation invitation = companyInvitationRepository.findByToken(token) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Mã lời mời không hợp lệ")); // Đã dịch
+    public CompanyInvitation validateInvitationToken(String token) { 
+        CompanyInvitation invitation = companyInvitationRepository.findByToken(token) 
+                .orElseThrow(() -> new ResourceNotFoundException("Mã lời mời không hợp lệ")); 
 
-        if (invitation.getStatus() != InvitationStatus.PENDING) { // Đã dịch
-            throw new BadRequestException("Lời mời này đã được xử lý hoặc đã bị hủy"); // Đã dịch
+        if (invitation.getStatus() != InvitationStatus.PENDING) { 
+            throw new BadRequestException("Lời mời này đã được xử lý hoặc đã bị hủy"); 
         }
 
-        if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) { // Đã dịch
-            invitation.setStatus(InvitationStatus.EXPIRED); // Đã dịch
-            companyInvitationRepository.save(invitation); // Đã dịch
-            throw new BadRequestException("Lời mời này đã hết hạn"); // Đã dịch
+        if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) { 
+            invitation.setStatus(InvitationStatus.EXPIRED); 
+            companyInvitationRepository.save(invitation); 
+            throw new BadRequestException("Lời mời này đã hết hạn"); 
         }
-        return invitation; // Đã dịch
+        return invitation; 
     }
 
     // LOGIC THEM THANH VIEN
     @Override
-    public void addMemberToCompany(User user, Company company, Role role) { // Đã dịch
-        CompanyMember membership = CompanyMember.builder() // Đã dịch
-                .user(user) // Đã dịch
-                .company(company) // Đã dịch
+    public void addMemberToCompany(User user, Company company, Role role) { 
+        CompanyMember membership = CompanyMember.builder() 
+                .user(user) 
+                .company(company) 
                 .role(role)
-                .status(MemberStatus.ACTIVE) // Đã dịch
+                .status(MemberStatus.ACTIVE) 
                 .build();
-        companyMemberRepository.save(membership); // Đã dịch
+        companyMemberRepository.save(membership); 
     }
 }

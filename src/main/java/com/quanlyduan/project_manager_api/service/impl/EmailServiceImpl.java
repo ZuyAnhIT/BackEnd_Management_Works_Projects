@@ -3,7 +3,6 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.service.EmailService;
 import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -11,7 +10,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
@@ -19,6 +17,10 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    
+    public EmailServiceImpl(JavaMailSender mailSender) {
+        this.mailSender = mailSender;
+    }
 
     // LOGIC FORM EMAIL
     @Override
@@ -34,10 +36,9 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(body, true); // true = hỗ trợ HTML
 
             mailSender.send(mimeMessage);
-            System.out.println("Email đã gửi thành công tới: " + to); // Đã dịch
+            System.out.println("Email đã gửi thành công tới: " + to); 
         } catch (Exception e) {
-            // (Nên log lỗi này)
-            System.err.println("Lỗi khi gửi email: " + e.getMessage()); // Đã dịch
+            System.err.println("Lỗi khi gửi email: " + e.getMessage()); 
         }
     }
 }

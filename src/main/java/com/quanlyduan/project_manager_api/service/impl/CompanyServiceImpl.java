@@ -2,7 +2,6 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
-import com.quanlyduan.project_manager_api.exception.AccessDeniedException; // Note: This import was unused in the original
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.common.enums.CombinedMemberStatus;
@@ -14,16 +13,14 @@ import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
-import com.quanlyduan.project_manager_api.service.SecurityService;
+import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
-// import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus; // Duplicate import
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.repository.*;
-// import com.quanlyduan.project_manager_api.service.CompanyService; // Duplicate import
 import com.quanlyduan.project_manager_api.service.EmailService;
 import com.quanlyduan.project_manager_api.service.InvitationService;
 
@@ -32,34 +29,48 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Objects;
 
 @Service
-@RequiredArgsConstructor
 public class CompanyServiceImpl implements CompanyService {
 
-    private final CompanyRepository companyRepository; // Đã dịch
-    private final CompanyMemberRepository companyMemberRepository; // Đã dịch
-    private final UserRepository userRepository; // Đã dịch
+    private final CompanyRepository companyRepository; 
+    private final CompanyMemberRepository companyMemberRepository; 
+    private final UserRepository userRepository; 
     private final RoleRepository roleRepository;
-
-    // // Định nghĩa mã role mặc định cho người tạo công ty
-    // private static final String COMPANY_ADMIN_ROLE_CODE = "COMPANY_ADMIN";
-
-    private final CompanyInvitationRepository companyInvitationRepository; // Đã dịch
+    private final CompanyInvitationRepository companyInvitationRepository; 
     private final EmailService emailService;
     private final SecurityService securityService;
-
     private final InvitationService invitationService;
+    
+    private final ProjectRepository projectRepository;
 
     @Value("${app.frontend.url}") // Thêm URL frontend vào application.properties
     private String frontendUrl;
+
+    public CompanyServiceImpl(CompanyRepository companyRepository, 
+                              CompanyMemberRepository companyMemberRepository, 
+                              UserRepository userRepository, 
+                              RoleRepository roleRepository, 
+                              CompanyInvitationRepository companyInvitationRepository, 
+                              EmailService emailService, 
+                              SecurityService securityService, 
+                              InvitationService invitationService, 
+                              ProjectRepository projectRepository) {
+        this.companyRepository = companyRepository;
+        this.companyMemberRepository = companyMemberRepository;
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.companyInvitationRepository = companyInvitationRepository;
+        this.emailService = emailService;
+        this.securityService = securityService;
+        this.invitationService = invitationService;
+        this.projectRepository = projectRepository;
+    }
 
     // LOGIC TAO CONG TY
     @Override
@@ -216,24 +227,9 @@ public class CompanyServiceImpl implements CompanyService {
 
     // LOGIC XEM DANH SACH THANH VIEN TRONG CONG TY
     @Override
-    @Transactional(readOnly = true) // Dùng readOnly=true cho các hàm GET
-    public List<CompanyMemberResponse> getCompanyMembers(Integer companyId) { // Đã dịch
+    @Transactional(readOnly = true) 
+    public List<CompanyMemberResponse> getCompanyMembers(Integer companyId) { 
 
-        // Bỏ check quyền thủ
-        // // 1. Lấy thông tin người dùng hiện tại
-        // NguoiDung currentUser = getCurrentAuthenticatedUser();
-
-        // // 2. KIỂM TRA BẢO MẬT: Người dùng có phải là thành viên của công ty này
-        // không?
-        // // (Chúng ta sẽ nâng cấp lên @PreAuthorize sau, nhưng đây là logic cơ bản)
-        // boolean isMember = congTyThanhVienRepository
-        // .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId,
-        // currentUser.getIdNguoiDung());
-
-        // if (!isMember) {
-        // throw new AccessDeniedException("Bạn không có quyền xem danh sách thành viên
-        // của công ty này");
-        // }
 
         // 3. Tạo danh sách trả về
         List<CompanyMemberResponse> responseList = new ArrayList<>();
@@ -289,22 +285,8 @@ public class CompanyServiceImpl implements CompanyService {
     // LOGIC LAY THONG TIN CHI TIET CONG TY
     @Override
     @Transactional(readOnly = true)
-    public CompanyDetailsResponse getCompanyDetails(Integer companyId) { // Đã dịch
+    public CompanyDetailsResponse getCompanyDetails(Integer companyId) { 
 
-        // Bỏ check quyền thủ công
-        // // 1. Lấy thông tin người dùng hiện tại
-        // NguoiDung currentUser = getCurrentAuthenticatedUser();
-
-        // // 2. KIỂM TRA BẢO MẬT: Người dùng có phải là thành viên của công ty này
-        // không?
-        // boolean isMember = congTyThanhVienRepository
-        // .existsByCongTy_IdCongTyAndNguoiDung_IdNguoiDung(congTyId,
-        // currentUser.getIdNguoiDung());
-
-        // if (!isMember) {
-        // throw new AccessDeniedException("Bạn không có quyền xem thông tin của công ty
-        // này");
-        // }
 
         // 3. Lấy thông tin công ty
         Company company = companyRepository.findById(companyId) // Đã dịch
@@ -376,33 +358,36 @@ public class CompanyServiceImpl implements CompanyService {
         return mapCompanyToDetailsDto(updatedCompany); // Đã dịch
     }
 
-    // LOGIC PHAN QUYEN THANH VIEN CONG TY
+    // LOGIC CAP NHAT VAI TRO THANH VIEN CONG TY
     @Override
     @Transactional
     public CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode) {
-
-        // 1. Tìm vai trò mới (cấp COMPANY)
-        Role newRole = roleRepository.findByRoleCodeAndLevel(newRoleCode, RoleLevel.COMPANY)
-                .orElseThrow(() -> new BadRequestException("Mã vai trò không hợp lệ hoặc không thuộc công ty: " + newRoleCode));
-
-        // 2. Tìm thành viên
+        // 1. Lấy thông tin thành viên
         CompanyMember member = companyMemberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên công ty với ID: " + memberId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên với ID: " + memberId));
 
-        // 3. Kiểm tra xem thành viên này có thuộc đúng công ty không
+        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng công ty
         if (!member.getCompany().getId().equals(companyId)) {
-            // Ném lỗi 403 Forbidden
-            throw new AccessDeniedException("Thành viên này không thuộc công ty này");
+            throw new ResourceNotFoundException("Không tìm thấy thành viên này trong công ty");
         }
 
-        // 4. *** THÊM BƯỚC KIỂM TRA MỚI TẠI ĐÂY ***
-        // Kiểm tra vai trò hiện tại của thành viên
-        if (RoleCode.COMPANY_ADMIN.name().equals(member.getRole().getRoleCode())) {
-            throw new BadRequestException("Không thể cập nhật vai trò của QUẢN TRỊ VIÊN CÔNG TY.");
+        // 3. Kiểm tra nghiệp vụ: Không cho phép đổi vai trò của chính mình
+        User admin = securityService.getCurrentAuthenticatedUser();
+        if (admin.getId().equals(member.getUser().getId())) {
+            throw new BadRequestException("Bạn không thể thay đổi vai trò của chính mình.");
         }
-        // 5. Cập nhật vai trò
+
+        // 4. Tìm vai trò (Role) mới
+        Role newRole = roleRepository.findFirstByRoleCode(newRoleCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với mã: " + newRoleCode));
+
+        // 5. Kiểm tra nghiệp vụ: Đảm bảo vai trò mới là CẤP CÔNG TY
+        if (newRole.getLevel() != RoleLevel.COMPANY) {
+            throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp CÔNG TY)");
+        }
+        
+        // 6. Cập nhật vai trò
         member.setRole(newRole);
-        // 6. Lưu và trả về
         return companyMemberRepository.save(member);
     }
 
@@ -453,7 +438,6 @@ public class CompanyServiceImpl implements CompanyService {
         return mapToCompanyMemberResponse(member);
     }
 
-    // *** THÊM HÀM HELPER NÀY ***
     /**
      * Hàm helper (tách ra từ getCompanyMembers) để map CompanyMember sang DTO
      */
