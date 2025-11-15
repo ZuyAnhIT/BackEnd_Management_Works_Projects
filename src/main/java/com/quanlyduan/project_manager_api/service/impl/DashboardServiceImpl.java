@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.quanlyduan.project_manager_api.dto.response.MyWorkspaceResponse;
 import com.quanlyduan.project_manager_api.model.Workspace;
 import com.quanlyduan.project_manager_api.model.WorkspaceMember;
+import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository;
 import com.quanlyduan.project_manager_api.service.SecurityService;
 import com.quanlyduan.project_manager_api.service.DashboardService;
@@ -32,6 +33,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         return workspaceMemberRepository.findByUser_Id(userId)
                 .stream()
+                .filter(member -> member.getWorkspace().getStatus() != WorkspaceStatus.DELETED)
                 .map(this::mapToMyWorkspaceResponse)
                 .collect(Collectors.toList());
     }
