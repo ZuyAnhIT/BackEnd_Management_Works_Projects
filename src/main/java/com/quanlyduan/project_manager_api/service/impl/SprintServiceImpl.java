@@ -83,10 +83,15 @@ public class SprintServiceImpl implements SprintService {
     // US-S3-8: Bắt đầu Sprint
     @Override
     @Transactional
-    public SprintResponse startSprint(Integer sprintId) {
+    public SprintResponse startSprint(Integer projectId, Integer sprintId) {
         Sprint sprint = sprintRepository.findById(sprintId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sprint not found"));
 
+        // === THÊM BƯỚC VALIDATION QUAN TRỌNG ===
+        // Đảm bảo sprint này thuộc đúng project trên URL
+        if (!sprint.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("Sprint ID and Project ID mismatch.");
+        }
         if (sprint.getStatus() != SprintStatus.NOT_STARTED) {
             throw new BadRequestException("Sprint has already been started or is completed");
         }
@@ -109,8 +114,90 @@ public class SprintServiceImpl implements SprintService {
         return mapToSprintResponse(savedSprint, tasks);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<SprintResponse> getSprintsByProject(Integer projectId, String status) {
+        
+        List<Sprint> sprints;
 
+        if (status != null && !status.trim().isEmpty()) {
+            // Trường hợp 1: Client có cung cấp 'status'
+            try {
+                // Chuyển String (ví dụ "COMPLETED") sang Enum (SprintStatus.COMPLETED)
+                SprintStatus statusEnum = SprintStatus.valueOf(status.toUpperCase());
+                // Gọi hàm repository có lọc
+                sprints = sprintRepository.findByProject_IdAndStatusOrderByStartDateDesc(projectId, statusEnum);
+            } catch (IllegalArgumentException e) {
+                // Nếu client gửi status bậy (ví dụ "ABC")
+                throw new BadRequestException("Invalid status value: " + status);
+            }
+        } else {
+            // Trường hợp 2: Client không cung cấp 'status' -> Lấy tất cả
+            sprints = sprintRepository.findByProject_IdOrderByStartDateDesc(projectId);
+        }
 
+        // 2. Map sang DTO (giữ nguyên logic cũ)
+        return sprints.stream()
+                .map(sprint -> mapToSprintResponse(sprint, Collections.emptyList()))
+                .collect(Collectors.toList());
+    }
+        @Override
+    @Transactional
+    public SprintResponse completeSprint(Integer projectId, Integer sprintId) {
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new ResourceNotFoundException("Sprint not found"));
+
+        // 1. Validation: Đảm bảo sprint này thuộc đúng project trên URL
+        if (!sprint.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("Sprint ID and Project ID mismatch.");
+        }
+
+        // 2. Validation: Chỉ có thể Hoàn thành Sprint đang "IN_PROGRESS"
+        if (sprint.getStatus() != SprintStatus.IN_PROGRESS) {
+            throw new BadRequestException("Only sprints that are IN_PROGRESS can be completed.");
+        }
+
+        // 3. Cập nhật trạng thái và ngày kết thúc
+        sprint.setStatus(SprintStatus.COMPLETED);
+        // Tự động gán ngày kết thúc nếu chưa có (hoặc ghi đè)
+        sprint.setEndDate(java.time.LocalDate.now()); 
+        
+        Sprint savedSprint = sprintRepository.save(sprint);
+        
+        // 4. Lấy các task liên quan để trả về (tương tự startSprint)
+        // (Trong tương lai, bạn có thể thêm logic di chuyển task chưa xong về Backlog ở đây)
+        List<Task> tasks = taskRepository.findBySprint_IdOrderBySortOrderAsc(savedSprint.getId());
+        return mapToSprintResponse(savedSprint, tasks);
+    }
+    @Override
+    @Transactional
+    public SprintResponse cancelSprint(Integer projectId, Integer sprintId) {
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new ResourceNotFoundException("Sprint not found"));
+
+        // 1. Validation: Đảm bảo sprint này thuộc đúng project trên URL
+        if (!sprint.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("Sprint ID and Project ID mismatch.");
+        }
+
+        // 2. Validation: Không thể Hủy Sprint đã Hoàn thành
+        SprintStatus currentStatus = sprint.getStatus();
+        if (currentStatus == SprintStatus.COMPLETED) {
+            throw new BadRequestException("Cannot cancel a sprint that is already COMPLETED.");
+        }
+        // (Vẫn có thể hủy sprint đang CANCELLED - không sao cả, kết quả vẫn vậy)
+
+        // 3. Cập nhật trạng thái
+        sprint.setStatus(SprintStatus.CANCELLED);
+        
+        Sprint savedSprint = sprintRepository.save(sprint);
+        
+        // 4. Lấy các task liên quan để trả về
+        // (Logic nghiệp vụ: Bạn có thể muốn thêm code ở đây để
+        //  di chuyển các task của sprint này về Backlog)
+        List<Task> tasks = taskRepository.findBySprint_IdOrderBySortOrderAsc(savedSprint.getId());
+        return mapToSprintResponse(savedSprint, tasks);
+    }
     // Helper cho Security
     @Override
     @Transactional(readOnly = true)

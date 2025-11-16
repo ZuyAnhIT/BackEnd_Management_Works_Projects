@@ -11,8 +11,13 @@ public interface SprintService {
     SprintResponse createSprint(Integer projectId, CreateSprintRequest request);
 
     // US-S3-8
-    SprintResponse startSprint(Integer sprintId);
-
+    SprintResponse startSprint(Integer projectId, Integer sprintId);
+    SprintResponse completeSprint(Integer projectId, Integer sprintId);
+    SprintResponse cancelSprint(Integer projectId, Integer sprintId);
+    // lay danh sach sprint theo project     
+    List<SprintResponse> getSprintsByProject(Integer projectId, String status); // <-- THÊM STATUS
     // (Helper cho Security)
     Integer getProjectIdBySprint(Integer sprintId);
+
+    
 }
