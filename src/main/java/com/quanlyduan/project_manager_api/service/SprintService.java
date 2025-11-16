@@ -14,6 +14,8 @@ public interface SprintService {
     SprintResponse startSprint(Integer projectId, Integer sprintId);
     SprintResponse completeSprint(Integer projectId, Integer sprintId);
     SprintResponse cancelSprint(Integer projectId, Integer sprintId);
+    // us-s3-9
+    SprintResponse getSprintDetails(Integer sprintId);
     // lay danh sach sprint theo project     
     List<SprintResponse> getSprintsByProject(Integer projectId, String status); // <-- THÊM STATUS
     // (Helper cho Security)
