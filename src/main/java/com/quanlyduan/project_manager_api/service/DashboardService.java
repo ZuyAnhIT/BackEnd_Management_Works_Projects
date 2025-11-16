@@ -1,19 +1,25 @@
 package com.quanlyduan.project_manager_api.service;
 
-import java.util.List;
-
 import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.MyWorkspaceResponse;
+
+import java.util.List;
 
 public interface DashboardService {
 
-    List<MyCompanyResponse> getMyCompanies();
-
-    // (Có thể đã có các phương thức khác ở đây)
+    /**
+     * Lấy danh sách workspace mà người dùng hiện tại tham gia.
+     */
+    List<MyWorkspaceResponse> getMyWorkspaces();
 
     /**
-     * US-S3-3: Lấy danh sách các project mà người dùng hiện tại đang tham gia.
-     * @return Danh sách MyProjectResponse
+     * Lấy danh sách công ty mà người dùng hiện tại thuộc về.
+     */
+    List<MyCompanyResponse> getMyCompanies();
+
+    /**
+     * Lấy danh sách project mà người dùng hiện tại đang tham gia.
      */
     List<MyProjectResponse> getMyProjects();
 }
