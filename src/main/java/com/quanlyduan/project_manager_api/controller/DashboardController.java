@@ -20,6 +20,16 @@ public class DashboardController {
 
     private final DashboardService dashboardService;
 
+    public DashboardController(DashboardService dashboardService) {
+        this.dashboardService = dashboardService;
+    }
+
+    @GetMapping("/companies")
+    public ResponseEntity<ApiResponse<List<MyCompanyResponse>>> getMyCompanies() {
+        List<MyCompanyResponse> companies = dashboardService.getMyCompanies();
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách công ty của bạn thành công.", companies));
+    }
+}
     // (Các API khác của DashboardController có thể đã có ở đây)
 
     /**

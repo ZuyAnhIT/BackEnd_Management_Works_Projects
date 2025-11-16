@@ -250,15 +250,15 @@ public class WorkspaceServiceImpl implements WorkspaceService {
      */
     private WorkspaceResponse mapToWorkspaceResponse(Workspace kg) { // Đã dịch
         return WorkspaceResponse.builder()
-                .workspaceId(kg.getId()) // Đã dịch
-                .companyId(kg.getCompany().getId()) // Lấy ID an toàn // Đã dịch
-                .workspaceName(kg.getName()) // Đã dịch
-                .description(kg.getDescription()) // Đã dịch
-                .coverImage(kg.getCoverImageUrl()) // Đã dịch
-                .color(kg.getColor()) // Đã dịch
-                .createdById(kg.getCreatedBy().getId()) // Lấy ID an toàn // Đã dịch
-                .status(kg.getStatus().name()) // Trả về tên Enum (String) // Đã dịch
-                .createdAt(kg.getCreatedAt()) // Đã dịch
+                .workspaceId(kg.getId())
+                .companyId(kg.getCompany().getId())
+                .workspaceName(kg.getName())
+                .description(kg.getDescription())
+                .coverImage(kg.getCoverImageUrl())
+                .color(kg.getColor())
+                .createdById(kg.getCreatedBy().getId())
+                .status(kg.getStatus().name())
+                .createdAt(kg.getCreatedAt())
                 .build();
     }
 

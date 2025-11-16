@@ -1,9 +1,13 @@
 package com.quanlyduan.project_manager_api.service;
 
-import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
 import java.util.List;
 
+import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
+import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
+
 public interface DashboardService {
+
+    List<MyCompanyResponse> getMyCompanies();
 
     // (Có thể đã có các phương thức khác ở đây)
 

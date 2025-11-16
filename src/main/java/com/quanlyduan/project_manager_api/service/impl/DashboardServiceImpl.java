@@ -1,72 +1,98 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
-import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
-import com.quanlyduan.project_manager_api.model.Company;
-import com.quanlyduan.project_manager_api.model.Project;
-import com.quanlyduan.project_manager_api.model.ProjectMember;
-import com.quanlyduan.project_manager_api.model.Workspace;
-// import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
-// SỬA: Import lớp triển khai (implementation)
-import com.quanlyduan.project_manager_api.security.SecurityServiceImpl;
-import com.quanlyduan.project_manager_api.service.DashboardService;
-// import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired; // Có thể cần
-import org.springframework.beans.factory.annotation.Qualifier; // Có thể cần
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
+import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
+import com.quanlyduan.project_manager_api.model.Company;
+import com.quanlyduan.project_manager_api.model.CompanyMember;
+import com.quanlyduan.project_manager_api.model.Project;
+import com.quanlyduan.project_manager_api.model.ProjectMember;
+import com.quanlyduan.project_manager_api.model.Workspace;
+import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
+import com.quanlyduan.project_manager_api.security.SecurityService;
+import com.quanlyduan.project_manager_api.service.DashboardService;
 
 @Service
 @Transactional(readOnly = true)
 public class DashboardServiceImpl implements DashboardService {
 
+    private final SecurityService securityService;
+    private final CompanyMemberRepository companyMemberRepository;
     private final ProjectMemberRepository projectMemberRepository;
 
-    // SỬA: Đổi tên biến thành "securityService"
-    private final SecurityServiceImpl securityService;
+    public DashboardServiceImpl(
+            SecurityService securityService,
+            CompanyMemberRepository companyMemberRepository,
+            ProjectMemberRepository projectMemberRepository) {
 
-    /**
-     * SỬA: Constructor tiêm SecurityServiceImpl (lớp)
-     * * @param projectMemberRepository
-     * @param securityService - Spring sẽ tìm bean tên "securityService"
-     */
-    @Autowired // Thêm @Autowired để rõ ràng
-    public DashboardServiceImpl(ProjectMemberRepository projectMemberRepository,
-                                @Qualifier("securityService") SecurityServiceImpl securityService) {
+        this.securityService = securityService;
+        this.companyMemberRepository = companyMemberRepository;
         this.projectMemberRepository = projectMemberRepository;
-        this.securityService = securityService; // Sửa tên biến
     }
 
-    /**
-     * US-S3-3: Lấy danh sách các project mà người dùng hiện tại đang tham gia.
-     */
+    // ==========================
+    // 1. Lấy danh sách công ty của tôi
+    // ==========================
+    @Override
+    public List<MyCompanyResponse> getMyCompanies() {
+        Integer userId = securityService.getCurrentUserId();
+
+        List<CompanyStatus> allowedStatuses = List.of(
+                CompanyStatus.ACTIVE,
+                CompanyStatus.SUSPENDED
+        );
+
+        return companyMemberRepository.findByUserIdAndCompanyStatuses(userId, allowedStatuses)
+                .stream()
+                .map(this::mapToMyCompanyResponse)
+                .collect(Collectors.toList());
+    }
+
+    private MyCompanyResponse mapToMyCompanyResponse(CompanyMember companyMember) {
+        Company company = companyMember.getCompany();
+
+        return MyCompanyResponse.builder()
+                .companyId(company.getId())
+                .companyName(company.getName())
+                .companyCode(company.getCompanyCode())
+                .description(company.getDescription())
+                .logoUrl(company.getLogoUrl())
+                .roleCode(companyMember.getRole().getRoleCode())
+                .memberStatus(companyMember.getStatus().name())
+                .jobTitle(companyMember.getJobTitle())
+                .department(companyMember.getDepartment())
+                .joinedAt(companyMember.getJoinedAt())
+                .build();
+    }
+
+    // ==========================
+    // 2. Lấy danh sách project tôi tham gia
+    // ==========================
     @Override
     public List<MyProjectResponse> getMyProjects() {
-        // 1. Lấy ID người dùng hiện tại
-        // SỬA: Gọi từ biến "securityService"
         Integer currentUserId = securityService.getCurrentUserId();
 
         if (currentUserId == null) {
             return List.of();
         }
 
-        // 2. Lấy danh sách "tư cách thành viên" (memberships)
-        List<ProjectMember> memberships = projectMemberRepository.findByUser_Id(currentUserId);
+        List<ProjectMember> memberships =
+                projectMemberRepository.findByUser_Id(currentUserId);
 
-        // 3. Map danh sách ProjectMember sang MyProjectResponse DTO
         return memberships.stream()
                 .map(this::mapToMyProjectResponse)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Hàm helper để chuyển đổi (map) ProjectMember sang MyProjectResponse.
-     */
-    private MyProjectResponse mapToMyProjectResponse(ProjectMember membership) {
-        Project project = membership.getProject();
+    private MyProjectResponse mapToMyProjectResponse(ProjectMember member) {
+        Project project = member.getProject();
         Workspace workspace = project.getWorkspace();
         Company company = workspace.getCompany();
 
@@ -79,7 +105,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .workspaceName(workspace.getName())
                 .companyId(company.getId())
                 .companyName(company.getName())
-                .myRoleName(membership.getRole().getRoleName())
+                .myRoleName(member.getRole().getRoleName())
                 .build();
     }
 }
