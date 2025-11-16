@@ -2,11 +2,14 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CommentRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateTaskSprintRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskAttachmentResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskCommentResponse;
 import com.quanlyduan.project_manager_api.service.TaskAttachmentService;
 import com.quanlyduan.project_manager_api.service.TaskCommentService;
+import com.quanlyduan.project_manager_api.service.TaskService;
+
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,14 +29,18 @@ public class TaskController {
     private final TaskCommentService commentService;
     private final TaskAttachmentService attachmentService;
     private final SecurityService securityService; // Đã sửa
+     private final TaskService taskService; // Inject TaskService mới
+
 
     
     public TaskController(TaskCommentService commentService, 
                           TaskAttachmentService attachmentService, 
-                          SecurityService securityService) {
+                          SecurityService securityService,
+                          TaskService taskService) {
         this.commentService = commentService;
         this.attachmentService = attachmentService;
         this.securityService = securityService;
+        this.taskService = taskService;
     }
 
 
@@ -85,7 +92,7 @@ public class TaskController {
     }
 
      /**
-     * User Story 11: Đính kèm tệp tin
+     * Sp2 - User Story 11: Đính kèm tệp tin
      */
     @PostMapping(value = "/{taskId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:attach_file')") // Đã sửa
@@ -100,7 +107,7 @@ public class TaskController {
     }
 
     /**
-     * User Story 11: Lấy danh sách tệp tin (Guest cũng xem được)
+     * Sp2 - User Story 11: Lấy danh sách tệp tin (Guest cũng xem được)
      */
     @GetMapping("/{taskId}/attachments")
     @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:view')") // Chỉ cần quyền xem Task // Đã sửa
@@ -110,4 +117,19 @@ public class TaskController {
         List<TaskAttachmentResponse> attachments = attachmentService.getAttachmentsForTask(taskId);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách tệp đính kèm thành công.", attachments)); // Đã dịch
     }
+
+       /**
+     * US-S3-7: Kéo thả Task vào Sprint (hoặc về Backlog)
+     */
+    @PutMapping("/{taskId}/sprint")
+    @PreAuthorize("@securityService.hasPermission('task', #taskId, 'backlog:manage')")
+    public ResponseEntity<ApiResponse<Object>> updateTaskSprint(
+            @PathVariable Integer taskId,
+            @Valid @RequestBody UpdateTaskSprintRequest request) {
+        
+        taskService.updateTaskSprint(taskId, request.getSprintId());
+        String message = (request.getSprintId() == null) ? "Task moved to backlog" : "Task sprint updated";
+        return ResponseEntity.ok(ApiResponse.success(message, null));
+    }
+
 }
