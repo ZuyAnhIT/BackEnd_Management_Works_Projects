@@ -118,4 +118,33 @@ public class DashboardServiceImpl implements DashboardService {
     public List<MyProjectResponse> getMyProjects() {
         Integer currentUserId = securityService.getCurrentUserId();
 
-        if (currentUserId == null)
+        if (currentUserId == null) {
+            return List.of();
+        }
+
+        List<ProjectMember> memberships =
+                projectMemberRepository.findByUser_Id(currentUserId);
+
+        return memberships.stream()
+                .map(this::mapToMyProjectResponse)
+                .collect(Collectors.toList());
+    }
+
+    private MyProjectResponse mapToMyProjectResponse(ProjectMember member) {
+        Project project = member.getProject();
+        Workspace workspace = project.getWorkspace();
+        Company company = workspace.getCompany();
+
+        return MyProjectResponse.builder()
+                .projectId(project.getId())
+                .projectName(project.getName())
+                .description(project.getDescription())
+                .coverImage(project.getCoverImageUrl())
+                .workspaceId(workspace.getId())
+                .workspaceName(workspace.getName())
+                .companyId(company.getId())
+                .companyName(company.getName())
+                .myRoleName(member.getRole().getRoleName())
+                .build();
+    }
+}
