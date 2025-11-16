@@ -39,7 +39,31 @@ public class TaskServiceImpl implements TaskService {
         this.userRepository = userRepository;
         this.securityService = securityService;
     }
-  
+     // US-S3-7: Kéo/thả Task vào Sprint
+    @Override
+    @Transactional
+    public void updateTaskSprint(Integer taskId, Integer newSprintId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+
+        if (newSprintId == null) {
+            // Kéo về Backlog
+            task.setSprint(null);
+        } else {
+            // Kéo vào 1 Sprint
+            Sprint sprint = sprintRepository.findById(newSprintId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Sprint not found"));
+            
+            // Validate: Task và Sprint phải cùng Project
+            if (!task.getProject().getId().equals(sprint.getProject().getId())) {
+                throw new BadRequestException("Task and Sprint do not belong to the same project");
+            }
+            task.setSprint(sprint);
+        }
+        
+        taskRepository.save(task);
+    }
+
     // === HÀM HELPER MAPPING ===
     @Override
     public TaskResponse mapToTaskResponse(Task task) {
