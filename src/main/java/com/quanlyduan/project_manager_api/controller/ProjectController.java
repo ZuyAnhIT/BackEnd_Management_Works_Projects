@@ -17,6 +17,7 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 
 @RestController
 @RequestMapping("/api/companies/{companyId}/workspaces/{workspaceId}/projects")
+@CrossOrigin("*")
 
 public class ProjectController {
 
