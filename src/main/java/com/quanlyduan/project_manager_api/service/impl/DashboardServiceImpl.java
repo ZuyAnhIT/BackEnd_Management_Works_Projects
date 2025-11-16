@@ -2,12 +2,14 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.MyTaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyWorkspaceResponse;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
+import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.DashboardService;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,16 +29,19 @@ public class DashboardServiceImpl implements DashboardService {
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final CompanyMemberRepository companyMemberRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final TaskRepository taskRepository;
 
     public DashboardServiceImpl(SecurityService securityService,
                                 WorkspaceMemberRepository workspaceMemberRepository,
                                 CompanyMemberRepository companyMemberRepository,
-                                ProjectMemberRepository projectMemberRepository) {
+                                ProjectMemberRepository projectMemberRepository,
+                                TaskRepository taskRepository) {
 
         this.securityService = securityService;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.companyMemberRepository = companyMemberRepository;
         this.projectMemberRepository = projectMemberRepository;
+        this.taskRepository = taskRepository;
     }
 
     // ======================================================
@@ -145,6 +151,44 @@ public class DashboardServiceImpl implements DashboardService {
                 .companyId(company.getId())
                 .companyName(company.getName())
                 .myRoleName(member.getRole().getRoleName())
+                .build();
+    }
+
+    //US4-sprint3: Logic lấy tất cả Task được giao cho tôi
+    @Override
+    @Transactional(readOnly = true)
+    public List<MyTaskResponse> getMyTasks() {
+        // 1. Lấy user ID từ SecurityService (Bean "securityService")
+        Integer currentUserId = securityService.getCurrentUserId();
+
+        // 2. Định nghĩa các status đã hoàn thành (bạn có thể thay đổi)
+        Set<String> completedStatuses = Set.of("DONE", "COMPLETED", "CANCELLED");
+
+        // 3. Gọi repository (hàm mới bạn tạo ở trên)
+        List<Task> tasks = taskRepository.findByAssignee_IdAndStatusNotInWithDetails(
+                currentUserId,
+                completedStatuses
+        );
+
+        // 4. Map sang DTO
+        return tasks.stream()
+                .map(this::mapToMyTaskResponse) // Sử dụng helper
+                .collect(Collectors.toList());
+    }
+
+     // Hàm helper để map từ Task Entity sang MyTaskResponse DTO
+    private MyTaskResponse mapToMyTaskResponse(Task task) {
+        return MyTaskResponse.builder()
+                .taskId(task.getId())
+                .taskCode(task.getTaskCode())
+                .taskTitle(task.getTitle())
+                .taskStatus(task.getStatus())
+                .taskPriority(task.getPriority())
+                .taskDueDate(task.getDueDate())
+                .projectId(task.getProject().getId())
+                .projectName(task.getProject().getName())
+                .workspaceId(task.getProject().getWorkspace().getId())
+                .workspaceName(task.getProject().getWorkspace().getName())
                 .build();
     }
 }
