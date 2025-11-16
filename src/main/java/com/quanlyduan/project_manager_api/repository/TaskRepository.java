@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Collection;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Integer> {
@@ -35,5 +36,15 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
     @Query("UPDATE Task t SET t.sprint = :sprint WHERE t.id IN :taskIds")
     void updateSprintForTasks(@Param("sprint") Sprint sprint, @Param("taskIds") List<Integer> taskIds);
 
+    // US4-sprnt3: Lấy task được gán cho user, ngoại trừ các status đã hoàn thành.
+    @Query("SELECT t FROM Task t " +
+            "JOIN FETCH t.project p " +
+            "JOIN FETCH p.workspace w " +
+            "WHERE t.assignee.id = :assigneeId " +
+            "AND t.status NOT IN :excludedStatuses")
+    List<Task> findByAssignee_IdAndStatusNotInWithDetails(
+            @Param("assigneeId") Integer assigneeId,
+            @Param("excludedStatuses") Collection<String> excludedStatuses
+    );
 
 }

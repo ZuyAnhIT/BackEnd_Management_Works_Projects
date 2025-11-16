@@ -5,12 +5,14 @@ import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyWorkspaceResponse;
 import com.quanlyduan.project_manager_api.service.DashboardService;
+import com.quanlyduan.project_manager_api.dto.response.MyTaskResponse;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -57,5 +59,16 @@ public class DashboardController {
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy danh sách dự án thành công.", projects)
         );
+    }
+
+     // US4-sprin3: Lấy danh sách các task (chưa hoàn thành) được giao cho tôi
+    @GetMapping("/my-tasks")
+    @PreAuthorize("isAuthenticated()") // Chỉ cần đăng nhập
+    public ResponseEntity<ApiResponse<List<MyTaskResponse>>> getMyTasks() {
+        List<MyTaskResponse> tasks = dashboardService.getMyTasks();
+        return ResponseEntity.ok(ApiResponse.success(
+                "Fetched my tasks successfully",
+                tasks
+        ));
     }
 }
