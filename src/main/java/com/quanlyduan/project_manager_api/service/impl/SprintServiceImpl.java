@@ -1,5 +1,4 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/SprintServiceImpl.java
-// (MỚI)
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateSprintRequest;
@@ -141,7 +140,8 @@ public class SprintServiceImpl implements SprintService {
                 .map(sprint -> mapToSprintResponse(sprint, Collections.emptyList()))
                 .collect(Collectors.toList());
     }
-        @Override
+
+    @Override
     @Transactional
     public SprintResponse completeSprint(Integer projectId, Integer sprintId) {
         Sprint sprint = sprintRepository.findById(sprintId)
@@ -198,6 +198,26 @@ public class SprintServiceImpl implements SprintService {
         List<Task> tasks = taskRepository.findBySprint_IdOrderBySortOrderAsc(savedSprint.getId());
         return mapToSprintResponse(savedSprint, tasks);
     }
+    
+    // === PHƯƠNG THỨC MỚI ĐƯỢC BỔ SUNG ===
+    /**
+     * Lấy chi tiết một Sprint, bao gồm danh sách Task của nó.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public SprintResponse getSprintDetails(Integer sprintId) {
+        // 1. Tìm sprint bằng ID
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new ResourceNotFoundException("Sprint not found"));
+        
+        // 2. Lấy danh sách task con của sprint đó
+        List<Task> tasks = taskRepository.findBySprint_IdOrderBySortOrderAsc(sprintId);
+        
+        // 3. Map sang DTO và trả về (tái sử dụng hàm helper)
+        return mapToSprintResponse(sprint, tasks);
+    }
+    // ====================================
+
     // Helper cho Security
     @Override
     @Transactional(readOnly = true)
