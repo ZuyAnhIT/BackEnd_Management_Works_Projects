@@ -12,7 +12,6 @@ FLUSH PRIVILEGES;
 
 -- =============================================
 -- DATABASE SCHEMA - PROJECT MANAGEMENT SYSTEM
--- Supports Scrum, Kanban models
 -- =============================================
 -- 1. USERS TABLE
 CREATE TABLE users (
@@ -435,7 +434,7 @@ CREATE TABLE company_invitations (
 -- =============================================
 -- BƯỚC 2: NẠP ĐỊNH NGHĨA (QUYỀN & VAI TRÒ)
 -- =============================================
--- NẠP QUYỀN (PERMISSIONS) - ĐÃ DỊCH SANG TIẾNG ANH
+-- NẠP QUYỀN (PERMISSIONS)
 INSERT INTO permissions (permission_code, permission_name, group_name) VALUES
 ('company:create', 'Create Company', 'Company'),
 ('company:view', 'View Company', 'Company'),
@@ -484,7 +483,7 @@ INSERT INTO roles (id, role_code, role_name, level, description) VALUES
 (9, 'GUEST_PROJECT', 'Project Guest', 'PROJECT', 'View-only access to a project (Client)');
 
 -- =============================================
--- BƯỚC 3: LIÊN KẾT ROLE VÀ PERMISSION (ĐÃ SỬA LỖI)
+-- BƯỚC 3: LIÊN KẾT ROLE VÀ PERMISSION
 -- =============================================
 -- USER (System)
 INSERT INTO role_permissions (role_id, permission_id)
@@ -505,7 +504,7 @@ SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
     'company:view',
-    'workspace:create' -- *** ĐÃ THÊM (THEO YÊU CẦU CỦA BẠN) ***
+    'workspace:create'
 ) WHERE r.role_code = 'COMPANY_MEMBER';
 
 -- WORKSPACE_ADMIN (Workspace)
@@ -519,8 +518,8 @@ SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
     'workspace:view',
-    'project:create', -- *** ĐÃ THÊM (CHO HỢP LOGIC) ***
-    'project:view'    -- *** ĐÃ THÊM (CHO HỢP LOGIC) ***
+    'project:create',
+    'project:view'
 ) WHERE r.role_code = 'WORKSPACE_MEMBER';
 
 -- PROJECT_ADMIN (Project)
@@ -551,54 +550,89 @@ SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
 
 
 -- =============================================
--- BƯỚC 4: TẠO DỮ LIỆU THỰC TẾ (ĐÃ BỔ SUNG)
--- Mật khẩu cho tất cả user: admin123
+-- BƯỚC 4: TẠO DỮ LIỆU CƠ BẢN (TRỪ TASK)
+-- Mật khẩu cho tất cả user: admin123 (Hash: $2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG)
 -- =============================================
--- TẠO CÁC USER (BẮT ĐẦU TỪ ID 1)
+-- TẠO CÁC USER
 INSERT INTO users (id, email, password, full_name, avatar_url, phone_number, date_of_birth, gender, status, is_email_verified) VALUES
--- HỆ THỐNG
-(1, 'super.admin@system.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'System Admin (S-Admin)', NULL, '0900000001', '1990-01-01', 'MALE', 'ACTIVE', 1),
-(2, 'new.user@system.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'System User (S-User)', NULL, '0900000002', '1995-02-10', 'FEMALE', 'ACTIVE', 1),
--- CÔNG TY 1: PixelCore
-(3, 'anna.admin@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Anna Admin (C-Admin)', 'https://i.pravatar.cc/150?img=1', '0912345003', '1992-03-15', 'FEMALE', 'ACTIVE', 1),
-(4, 'brian.member@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Brian Member (C-Member)', 'https://i.pravatar.cc/150?img=2', '0912345004', '1988-05-20', 'MALE', 'ACTIVE', 1),
-(5, 'charlie.member@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Charlie Member (C-Member)', 'https://i.pravatar.cc/150?img=3', '0912345005', '1998-10-30', 'MALE', 'ACTIVE', 1),
--- WORKSPACE (Công ty 1)
-(6, 'david.lead@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'David Lead (W-Admin)', 'https://i.pravatar.cc/150?img=4', '0912345006', '1994-07-07', 'MALE', 'ACTIVE', 1),
-(7, 'eva.dev@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Eva Developer (W-Member)', 'https://i.pravatar.cc/150?img=5', '0912345007', '2000-11-22', 'FEMALE', 'ACTIVE', 1),
--- PROJECT (Công ty 1)
-(8, 'frank.client@external.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Frank Client (P-Guest)', NULL, '0912345008', '1985-12-01', 'MALE', 'ACTIVE', 1),
-(9, 'grace.dev@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Grace Dev (P-Member)', 'https://i.pravatar.cc/150?img=6', '0912345009', '1999-01-19', 'FEMALE', 'ACTIVE', 1),
-(10, 'henry.lead@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Henry Lead (P-Admin)', 'https://i.pravatar.cc/150?img=7', '0912345010', '1993-08-25', 'MALE', 'ACTIVE', 1),
--- CÔNG TY 2: QuantumLeap
-(11, 'admin@quantum.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Quantum Admin (C-Admin-2)', NULL, '0912345011', '1990-06-12', 'OTHER', 'ACTIVE', 1);
+(1, 'super.admin@system.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Quản trị Hệ thống (S-Admin)', NULL, '0900000001', '1990-01-01', 'MALE', 'ACTIVE', 1),
+(2, 'new.user@system.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Người dùng Hệ thống (S-User)', NULL, '0900000002', '1995-02-10', 'FEMALE', 'ACTIVE', 1),
+(3, 'anna.admin@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Admin Anna (C-Admin)', 'https://i.pravatar.cc/150?img=1', '0912345003', '1992-03-15', 'FEMALE', 'ACTIVE', 1),
+(4, 'brian.member@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Thành viên Brian (C-Member)', 'https://i.pravatar.cc/150?img=2', '0912345004', '1988-05-20', 'MALE', 'ACTIVE', 1),
+(5, 'charlie.member@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Thành viên Charlie (C-Member)', 'https://i.pravatar.cc/150?img=3', '0912345005', '1998-10-30', 'MALE', 'ACTIVE', 1),
+(6, 'david.lead@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Trưởng nhóm David (W-Admin)', 'https://i.pravatar.cc/150?img=4', '0912345006', '1994-07-07', 'MALE', 'ACTIVE', 1),
+(7, 'eva.dev@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Lập trình viên Eva (W-Member)', 'https://i.pravatar.cc/150?img=5', '0912345007', '2000-11-22', 'FEMALE', 'ACTIVE', 1),
+(8, 'frank.client@external.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Khách hàng Frank (P-Guest)', NULL, '0912345008', '1985-12-01', 'MALE', 'ACTIVE', 1),
+(9, 'grace.dev@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Lập trình viên Grace (P-Member)', 'https://i.pravatar.cc/150?img=6', '0912345009', '1999-01-19', 'FEMALE', 'ACTIVE', 1),
+(10, 'henry.lead@pixelcore.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Trưởng dự án Henry (P-Admin)', 'https://i.pravatar.cc/150?img=7', '0912345010', '1993-08-25', 'MALE', 'ACTIVE', 1),
+(11, 'admin@quantum.com', '$2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG', 'Admin Quantum (C-Admin-2)', NULL, '0912345011', '1990-06-12', 'OTHER', 'ACTIVE', 1);
 
 -- BỔ SUNG BẢNG PROJECT TYPES
 INSERT INTO project_types (id, type_name, type_code, model, description) VALUES
 (1, 'Phát triển phần mềm (Scrum)', 'SW_SCRUM', 'SCRUM', 'Mô hình Scrum cho dự án phần mềm 2 tuần/sprint.'),
 (2, 'Marketing (Kanban)', 'MKT_KANBAN', 'KANBAN', 'Mô hình Kanban liên tục cho team Marketing.');
 
--- TẠO MÔI TRƯỜNG (ĐÃ BỔ SUNG DỮ LIỆU)
+-- TẠO MÔI TRƯỜNG (CÔNG TY, WORKSPACE, PROJECT)
 INSERT INTO companies (id, name, company_code, created_by_id, status, description, logo_url, phone_number, email) VALUES
 (1, 'PixelCore Inc.', 'PIXEL', 3, 'ACTIVE', 'Công ty chuyên về thiết kế UI/UX và phát triển web.', 'https://logo.clearbit.com/pixelcore.com', '02838123456', 'contact@pixelcore.com'),
 (2, 'QuantumLeap Solutions', 'QUANTUM', 11, 'ACTIVE', 'Công ty giải pháp phần mềm doanh nghiệp.', 'https://logo.clearbit.com/quantum.com', '02438765432', 'info@quantum.com');
 
 INSERT INTO workspaces (id, company_id, name, created_by_id, status, description, cover_image_url) VALUES
-(1, 1, 'Marketing', 3, 'ACTIVE', 'Không gian cho team Marketing PixelCore.', 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=2070'),
-(2, 1, 'Engineering', 3, 'ACTIVE', 'Không gian cho team Kỹ thuật PixelCore.', 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=2070'),
-(3, 2, 'Quantum Sales', 11, 'ACTIVE', 'Không gian cho team Sales QuantumLeap.', 'https://images.unsplash.com/photo-1556761175-577380e911d0?q=80&w=1974');
+(1, 1, 'Phòng Marketing', 3, 'ACTIVE', 'Không gian cho team Marketing PixelCore.', 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=2070'),
+(2, 1, 'Phòng Kỹ thuật', 3, 'ACTIVE', 'Không gian cho team Kỹ thuật PixelCore.', 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=2070'),
+(3, 2, 'Phòng Kinh doanh Quantum', 11, 'ACTIVE', 'Không gian cho team Sales QuantumLeap.', 'https://images.unsplash.com/photo-1556761175-577380e911d0?q=80&w=1974');
 
 INSERT INTO projects (id, workspace_id, project_type_id, name, project_code, created_by_id, status, description, manager_id, start_date, due_date) VALUES
-(1, 2, 1, 'Website Redesign', 'WEB', 6, 'IN_PROGRESS', 'Dự án thiết kế lại website pixelcore.com', 10, '2025-11-01', '2026-02-28'),
-(2, 1, 2, 'Q4 Campaign', 'MKTG', 4, 'NEW', 'Chiến dịch marketing Quý 4', 4, '2025-10-01', '2025-12-31');
-
-INSERT INTO tasks (id, project_id, task_code, title, description, created_by_id, assigner_id, assignee_id, priority, due_date, status, start_date, story_points) VALUES
-(1, 1, 'WEB-1', 'Design Homepage Mockup', 'Create mockups in Figma for desktop and mobile.', 10, 10, 9, 'HIGH', '2025-11-20', 'IN_PROGRESS', '2025-11-12', 5),
-(2, 1, 'WEB-2', 'Develop Auth API', 'Setup JWT and endpoints for login, register.', 10, 10, 7, 'URGENT', '2025-11-15', 'TO_DO', '2025-11-10', 8),
-(3, 2, 'MKTG-1', 'Plan Social Media', 'Draft posts for LinkedIn and Facebook.', 4, 4, 5, 'MEDIUM', '2025-11-10', 'DONE', '2025-11-05', 3);
+(1, 2, 1, 'Thiết kế lại Website', 'WEB', 6, 'IN_PROGRESS', 'Dự án thiết kế lại website pixelcore.com', 10, '2025-11-01', '2026-02-28'),
+(2, 1, 2, 'Chiến dịch Quý 4', 'MKTG', 4, 'NEW', 'Chiến dịch marketing Quý 4', 4, '2025-10-01', '2025-12-31');
 
 -- =============================================
--- BƯỚC 5: GÁN VAI TRÒ CHO CÁC NHÂN VẬT (*** ĐÃ CẬP NHẬT LOGIC ***)
+-- BƯỚC 5: TẠO DỮ LIỆU LIÊN QUAN (SPRINT, TASK,...)
+-- (ĐÃ SẮP XẾP LẠI THỨ TỰ ĐỂ FIX LỖI 1452)
+-- =============================================
+
+-- BƯỚC 5.1: TẠO SPRINTS (PHẢI CHẠY TRƯỚC KHI TẠO TASK)
+INSERT INTO sprints (id, project_id, name, goal, status, start_date, end_date, created_by_id) VALUES
+(1, 1, 'Sprint 1.1 (Cấu trúc & API)', 'Hoàn thành cấu trúc API cơ bản và thiết kế trang chủ.', 'IN_PROGRESS', '2025-11-10', '2025-11-24', 10),
+(2, 1, 'Sprint 1.2 (Tích hợp)', 'Tích hợp Frontend và Backend, hoàn thành luồng hồ sơ người dùng.', 'NOT_STARTED', '2025-11-25', '2025-12-09', 10);
+
+-- BƯỚC 5.2: GỘP TẤT CẢ INSERT TASKS VÀO ĐÂY
+INSERT INTO tasks (id, project_id, sprint_id, task_code, title, description, created_by_id, assigner_id, assignee_id, priority, due_date, status, start_date, story_points, task_type) VALUES
+-- Task cũ (ĐÃ BỔ SUNG task_type)
+(1, 1, 1, 'WEB-1', 'Thiết kế Mockup Trang chủ', 'Tạo mockup trên Figma cho desktop và mobile.', 10, 10, 9, 'HIGH', '2025-11-20', 'IN_PROGRESS', '2025-11-12', 5, 'TASK'),
+(2, 1, 1, 'WEB-2', 'Phát triển API Xác thực', 'Cài đặt JWT và các endpoint cho đăng nhập, đăng ký.', 10, 10, 7, 'URGENT', '2025-11-15', 'TO_DO', '2025-11-10', 8, 'TASK'),
+(3, 2, NULL, 'MKTG-1', 'Lên kế hoạch Social Media', 'Soạn bài đăng cho LinkedIn và Facebook.', 4, 4, 5, 'MEDIUM', '2025-11-10', 'DONE', '2025-11-05', 3, 'TASK'),
+-- Task mới
+(4, 1, 1, 'WEB-3', 'Thiết lập CSDL và Môi trường', 'Cài đặt MySQL, cấu hình Spring Boot data source.', 10, 10, 7, 'HIGH', '2025-11-12', 'DONE', '2025-11-10', 3, 'TASK'),
+(5, 1, 1, 'WEB-4', 'Tích hợp trang chủ Frontend (HTML/CSS)', 'Chuyển đổi mockup Figma sang HTML/CSS/Tailwind.', 10, 10, 9, 'MEDIUM', '2025-11-22', 'IN_PROGRESS', '2025-11-18', 5, 'TASK'),
+(6, 1, 1, 'WEB-5', 'Bug: Nút Đăng nhập không hoạt động trên mobile', 'Nút Đăng nhập trên trang chủ không thể click trên Safari (iOS).', 9, 10, 9, 'HIGH', '2025-11-19', 'TO_DO', '2025-11-18', 3, 'BUG'),
+(7, 1, 2, 'WEB-6', 'Story: Xem hồ sơ cá nhân', 'Là người dùng đã đăng nhập, tôi muốn xem và cập nhật hồ sơ cá nhân của mình.', 10, 10, NULL, 'MEDIUM', '2025-12-01', 'TO_DO', NULL, 8, 'STORY'),
+(8, 2, NULL, 'MKTG-2', 'Viết bài blog cho sản phẩm mới', 'Viết bài blog 1000 từ về tính năng mới.', 4, 4, 5, 'MEDIUM', '2025-11-25', 'IN_PROGRESS', '2025-11-15', 5, 'TASK'),
+(9, 2, NULL, 'MKTG-3', 'Thiết kế banner quảng cáo Facebook', 'Thiết kế 3 mẫu banner cho chiến dịch Q4.', 4, 4, 4, 'LOW', '2025-11-30', 'TO_DO', NULL, 2, 'TASK');
+
+
+-- BƯỚC 5.3: THÊM SUB-TASKS (CHO TASK ID 2)
+INSERT INTO sub_tasks (id, parent_task_id, title, status, assignee_id, created_by_id) VALUES
+(1, 2, 'Endpoint /register', 'DONE', 7, 10),
+(2, 2, 'Endpoint /login (JWT)', 'IN_PROGRESS', 7, 10),
+(3, 2, 'Endpoint /forgot-password', 'TO_DO', 7, 10);
+
+-- BƯỚC 5.4: THÊM TASK COMMENTS
+INSERT INTO task_comments (id, task_id, commenter_id, content, parent_comment_id) VALUES
+(1, 1, 10, 'Em check lại màu sắc cho nút CTA nhé, hơi tối.', NULL),
+(2, 1, 9, 'Dạ vâng, em đã cập nhật lại màu #3498db ạ.', 1),
+(3, 1, 8, 'Thiết kế nhìn ổn, tôi thích.', NULL),
+(4, 3, 4, 'Charlie duyệt xong nội dung chưa? Nhớ thêm hashtag #PixelCore nhé.', NULL),
+(5, 3, 5, 'Dạ em duyệt xong rồi, đã lên lịch đăng ạ.', 4);
+
+-- BƯỚC 5.5: THÊM TASK ATTACHMENTS (CHO TASK ID 1)
+INSERT INTO task_attachments (id, task_id, file_name, file_path, file_type, file_size, uploaded_by_id) VALUES
+(1, 1, 'Homepage_Mockup_v1.fig', '/uploads/project1/Homepage_Mockup_v1.fig', 'application/figma', 1024000, 9),
+(2, 1, 'Homepage_Mockup_v2_updated.fig', '/uploads/project1/Homepage_Mockup_v2_updated.fig', 'application/figma', 1056000, 9);
+
+
+-- =============================================
+-- BƯỚC 6: GÁN VAI TRÒ CHO CÁC NHÂN VẬT 
 -- =============================================
 
 -- GÁN VAI TRÒ CẤP HỆ THỐNG
@@ -607,78 +641,63 @@ INSERT INTO user_roles (user_id, role_id) VALUES
 (2, (SELECT id FROM roles WHERE role_code = 'USER'));
 
 -- GÁN VAI TRÒ CẤP CÔNG TY
--- Công ty 1: PixelCore
 INSERT INTO company_members (company_id, user_id, role_id, status, job_title, department) VALUES
-(1, 3, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE', 'Giám đốc Điều hành', 'Ban Giám đốc'), -- Anna
-(1, 4, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Trưởng phòng Marketing', 'Marketing'), -- Brian
-(1, 5, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Nhân viên Content', 'Marketing'), -- Charlie
-(1, 6, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Trưởng nhóm Kỹ thuật', 'Kỹ thuật'), -- David
-(1, 7, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Lập trình viên Backend', 'Kỹ thuật'), -- Eva
-(1, 8, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Khách hàng', 'Đối tác'), -- Frank (Khách hàng cũng là thành viên cty)
-(1, 9, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Lập trình viên Frontend', 'Kỹ thuật'), -- Grace
-(1, 10, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Quản lý Dự án', 'Ban Quản lý'); -- Henry
-
--- Công ty 2: QuantumLeap
+(1, 3, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE', 'Giám đốc Điều hành', 'Ban Giám đốc'),
+(1, 4, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Trưởng phòng Marketing', 'Marketing'),
+(1, 5, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Nhân viên Content', 'Marketing'),
+(1, 6, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Trưởng nhóm Kỹ thuật', 'Kỹ thuật'),
+(1, 7, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Lập trình viên Backend', 'Kỹ thuật'),
+(1, 8, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Khách hàng', 'Đối tác'),
+(1, 9, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Lập trình viên Frontend', 'Kỹ thuật'),
+(1, 10, (SELECT id FROM roles WHERE role_code = 'COMPANY_MEMBER'), 'ACTIVE', 'Quản lý Dự án', 'Ban Quản lý');
 INSERT INTO company_members (company_id, user_id, role_id, status, job_title, department) VALUES
-(2, 11, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE', 'Giám đốc', 'Ban Giám đốc'); -- Quantum Admin
+(2, 11, (SELECT id FROM roles WHERE role_code = 'COMPANY_ADMIN'), 'ACTIVE', 'Giám đốc', 'Ban Giám đốc');
 
 -- GÁN VAI TRÒ CẤP WORKSPACE
--- Workspace 1: Marketing (Thuộc Cty 1)
 INSERT INTO workspace_members (workspace_id, user_id, role_id, status) VALUES
-(1, 4, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'), -- Brian là Admin WS Marketing
-(1, 5, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Charlie là Member WS Marketing
-(1, 3, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'); -- *** BỔ SUNG: Anna (C-Admin) là W-Admin của WS 1 ***
-
--- Workspace 2: Engineering (Thuộc Cty 1)
+(1, 4, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'),
+(1, 5, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'),
+(1, 3, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE');
 INSERT INTO workspace_members (workspace_id, user_id, role_id, status) VALUES
-(2, 6, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'), -- David là Admin WS Kỹ thuật
-(2, 7, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Eva
-(2, 9, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Grace
-(2, 10, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Henry
-(2, 8, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'), -- Frank (Khách hàng) cũng được thêm vào WS Kỹ thuật
-(2, 3, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'); -- *** BỔ SUNG: Anna (C-Admin) là W-Admin của WS 2 ***
-
--- Workspace 3: Quantum Sales (Thuộc Cty 2)
+(2, 6, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'),
+(2, 7, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'),
+(2, 9, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'),
+(2, 10, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'),
+(2, 8, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_MEMBER'), 'ACTIVE'),
+(2, 3, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE');
 INSERT INTO workspace_members (workspace_id, user_id, role_id, status) VALUES
-(3, 11, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE'); -- *** BỔ SUNG: Quantum Admin (C-Admin) là W-Admin của WS 3 ***
+(3, 11, (SELECT id FROM roles WHERE role_code = 'WORKSPACE_ADMIN'), 'ACTIVE');
 
 -- GÁN VAI TRÒ CẤP PROJECT
--- Project 1: Website Redesign (Thuộc WS 2)
 INSERT INTO project_members (project_id, user_id, role_id, status) VALUES
-(1, 10, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'), -- Henry là Project Admin
-(1, 9, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'), -- Grace là Project Member
-(1, 7, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'), -- Eva là Project Member
-(1, 8, (SELECT id FROM roles WHERE role_code = 'GUEST_PROJECT'), 'ACTIVE'), -- Frank là Khách (chỉ xem)
-(1, 3, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'), -- *** BỔ SUNG: Anna (C-Admin) là P-Admin của P1 ***
-(1, 6, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'); -- *** BỔ SUNG: David (W-Admin) là P-Admin của P1 ***
-
--- Project 2: Q4 Campaign (Thuộc WS 1)
+(1, 10, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'),
+(1, 9, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'),
+(1, 7, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'),
+(1, 8, (SELECT id FROM roles WHERE role_code = 'GUEST_PROJECT'), 'ACTIVE'),
+(1, 3, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'),
+(1, 6, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE');
 INSERT INTO project_members (project_id, user_id, role_id, status) VALUES
-(2, 4, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'), -- Brian là Project Admin
-(2, 5, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'), -- Charlie là Project Member
-(2, 3, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'); -- *** BỔ SUNG: Anna (C-Admin) là P-Admin của P2 ***
+(2, 4, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE'),
+(2, 5, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'),
+(2, 3, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE');
 
 
 -- =============================================
--- BƯỚC 6: THÊM DỮ LIỆU MẪU (THEO YÊU CẦU)
+-- BƯỚC 7: DỮ LIỆU MẪU KHÁC (INVITATIONS, TOKENS)
 -- =============================================
--- SAMPLE DATA INVITATIONS
 INSERT INTO company_invitations (company_id, email, role_id, invited_by_id, token, status, expires_at) VALUES
--- Anna (ID 3) mời 'user.new@example.com' làm COMPANY_MEMBER (ID 4) cho Cty 1
 (1, 'user.new@example.com', 4, 3, 'token-pending-1', 'PENDING', '2025-12-01 00:00:00'),
--- Quantum Admin (ID 11) mời 'user.accepted@example.com' làm COMPANY_MEMBER (ID 4) cho Cty 2
 (2, 'accepted.user@example.com', 4, 11, 'token-accepted-3', 'ACCEPTED', '2025-10-01 00:00:00'),
 (2, 'expired.user@example.com', 4, 11, 'token-expired-4', 'EXPIRED', '2025-10-01 00:00:00');
 
--- SAMPLE DATA TOKENS
 INSERT INTO auth_tokens (user_id, token, token_type, status, expires_at) VALUES
 (3, 'token-anna-reset', 'RESET_PASSWORD', 'ACTIVE', '2025-12-01 00:00:00'),
 (4, 'token-brian-verify', 'EMAIL_VERIFICATION', 'ACTIVE', '2025-12-01 00:00:00');
 
+
 -- =============================================
--- BƯỚC 7: CÁC CÂU TRUY VẤN KIỂM TRA (DEBUG)
+-- BƯỚC 8: CÁC CÂU TRUY VẤN KIỂM TRA (DEBUG)
 -- =============================================
--- (Giữ nguyên các câu SELECT debug của bạn)
 SELECT
     p.group_name AS permission_group,
     p.permission_code,
@@ -692,7 +711,7 @@ LEFT JOIN role_permissions rp ON p.id = rp.permission_id
 LEFT JOIN roles r ON r.id = rp.role_id
 GROUP BY p.id
 ORDER BY
-    FIELD(p.group_name, 'Company', 'Workspace', 'Project', 'Task'),
+    FIELD(p.group_name, 'Company', 'Workspace', 'Project', 'Task', 'Sprint', 'Backlog'),
     p.permission_code;
 
 -- Permission by Role
@@ -713,7 +732,6 @@ ORDER BY
     r.role_code;
 
  -- ROLE BY USER
-
 SELECT
     u.id AS user_id,
     u.full_name,
@@ -730,4 +748,4 @@ LEFT JOIN role_permissions rp ON rp.role_id = r.id
 LEFT JOIN permissions p ON p.id = rp.permission_id
 WHERE u.status = 'ACTIVE'
 GROUP BY u.id, u.full_name, u.email
-ORDER BY u.id; 
+ORDER BY u.id;
