@@ -303,16 +303,15 @@ public class CompanyServiceImpl implements CompanyService {
     // Helper mới để map CongTy sang DTO
     private CompanyDetailsResponse mapCompanyToDetailsDto(Company company) { // Đã dịch
         return CompanyDetailsResponse.builder()
-                .companyId(company.getId()) // Đã dịch
-                .companyName(company.getName()) // Đã dịch
-                .companyCode(company.getCompanyCode()) // Đã dịch
-                .description(company.getDescription()) // Đã dịch
-                .logo(company.getLogoUrl()) // Đã dịch
-                .address(company.getAddress()) // Đã dịch
-                .phoneNumber(company.getPhoneNumber()) // Đã dịch
+                .companyId(company.getId())
+                .companyName(company.getName())
+                .companyCode(company.getCompanyCode())
+                .description(company.getDescription())
+                .logo(company.getLogoUrl())
+                .address(company.getAddress())
+                .phoneNumber(company.getPhoneNumber())
                 .email(company.getEmail())
                 .website(company.getWebsite())
-                .createdById(company.getCreatedById()) // Đã dịch
                 .build();
     }
 

@@ -20,6 +20,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/tasks") // Tất cả API liên quan đến Task sẽ bắt đầu bằng /api/tasks
+@CrossOrigin("*")
 // @RequiredArgsConstructor // Đã xóa
 public class TaskController {
 

@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.repository;
 
 import com.quanlyduan.project_manager_api.model.CompanyMember; // Đã dịch
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +30,14 @@ public interface CompanyMemberRepository extends JpaRepository<CompanyMember, In
     
     
     List<CompanyMember> findByUser_Id(Integer userId); // Đã dịch
+
+    @Query("""
+            SELECT cm FROM CompanyMember cm
+            WHERE cm.user.id = :userId
+              AND cm.company.status IN :allowedStatuses
+            """)
+    List<CompanyMember> findByUserIdAndCompanyStatuses(@Param("userId") Integer userId,
+                                                       @Param("allowedStatuses") List<CompanyStatus> allowedStatuses);
 
     boolean existsByCompany_IdAndUser_IdAndRole_RoleCode(Integer companyId, Integer userId, String roleCode);
 
