@@ -14,6 +14,8 @@ import java.time.LocalDate;
  */
 @Data
 public class ProjectRequest {
+    private Integer workspaceId;
+    
     @NotBlank(message = "Tên dự án không được để trống")
     private String name;
 
