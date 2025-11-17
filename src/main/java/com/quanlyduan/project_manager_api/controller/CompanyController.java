@@ -94,36 +94,33 @@ public class CompanyController {
     }
 
     /**
-     * Sprint 2 - User Story 1: Phân quyền thành viên công ty
+     * API Cập nhật vai trò (Role) của thành viên trong công ty
      */
     @PutMapping("/{companyId}/members/{memberId}/role")
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:manage_roles')") // Đã sửa
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:manage_roles')") // Dùng quyền quản lý
     public ResponseEntity<ApiResponse<Object>> updateCompanyMemberRole(
             @PathVariable Integer companyId,
             @PathVariable Integer memberId,
             @Valid @RequestBody RoleUpdateRequest request) {
 
-        // SỬA: Bắt lấy kết quả trả về từ service
+        // 1. Gọi service
         CompanyMember updatedMember = companyService.updateCompanyMemberRole(companyId, memberId, request.getRoleCode());
 
-        // SỬA: Tạo message động
-        String message = String.format("Cập nhật vai trò cho người dùng %s (ID: %d) thành %s thành công.",
+        // 2. Tạo message động
+        String message = String.format("Cập nhật vai trò cho người dùng '%s' (ID: %d) thành '%s' thành công.",
             updatedMember.getUser().getFullName(),
             updatedMember.getUser().getId(),
-            updatedMember.getRole().getRoleCode()
-        ); // Đã dịch
+            updatedMember.getRole().getRoleName() // Dùng RoleName cho dễ đọc
+        );
 
-        // SỬA: Tạo data trả về
+        // 3. Tạo data trả về
         Map<String, Object> responseData = new HashMap<>();
         responseData.put("userId", updatedMember.getUser().getId());
         responseData.put("fullName", updatedMember.getUser().getFullName());
         responseData.put("newRoleCode", updatedMember.getRole().getRoleCode());
+        responseData.put("newRoleName", updatedMember.getRole().getRoleName());
 
-        // SỬA: Trả về message và data mới
-        return ResponseEntity.ok(ApiResponse.success(
-                message,
-                responseData
-            ));
+        return ResponseEntity.ok(ApiResponse.success(message, responseData));
     }
 
     // API XOA MEM THANH VIEN
