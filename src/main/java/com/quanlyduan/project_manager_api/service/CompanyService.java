@@ -30,17 +30,6 @@ public interface CompanyService {
     // Update thong tin công ty
     CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request); // Đã dịch
     
-
-    /**
-     * Cập nhật vai trò (Role) của một thành viên trong công ty.
-     * @param companyId ID công ty
-     * @param memberId ID của bản ghi CompanyMember
-     * @param newRoleCode Mã vai trò mới (ví dụ: "COMPANY_MEMBER")
-     * @return CompanyMember DTO đã cập nhật
-     */
-    CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode);
-
-    
     /**
      * Xóa mềm một thành viên khỏi công ty (chuyển status thành REMOVED).
      * @param companyId ID công ty
@@ -72,4 +61,12 @@ public interface CompanyService {
      */
     InvitationDetailsResponse getInvitationDetails(String token);
     
+    /**
+     * Cập nhật vai trò (Role) của một thành viên trong công ty.
+     * @param companyId ID công ty
+     * @param memberId ID của bản ghi CompanyMember
+     * @param newRoleCode Mã vai trò mới (ví dụ: "COMPANY_MEMBER")
+     * @return CompanyMember Entity đã cập nhật (để Controller lấy thông tin)
+     */
+    CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode);
 }

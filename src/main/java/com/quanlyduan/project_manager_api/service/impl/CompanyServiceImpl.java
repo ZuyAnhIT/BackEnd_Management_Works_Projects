@@ -357,7 +357,7 @@ public class CompanyServiceImpl implements CompanyService {
         return mapCompanyToDetailsDto(updatedCompany); // Đã dịch
     }
 
-    // LOGIC CAP NHAT VAI TRO THANH VIEN CONG TY
+    // LOGIC CAP NHAT VAI TRO THANH VIEN CAP CONG TY
     @Override
     @Transactional
     public CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode) {
