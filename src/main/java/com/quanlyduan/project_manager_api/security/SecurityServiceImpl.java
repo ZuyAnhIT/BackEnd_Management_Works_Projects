@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.security;
 
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.Sprint;
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
@@ -14,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.quanlyduan.project_manager_api.model.Sprint; 
 
 @Service("securityService") // Đặt tên Bean là "securityService" (thay vì securityServicePermission)
 @Transactional(readOnly = true) // Các hàm kiểm tra quyền chỉ đọc
@@ -28,6 +30,7 @@ public class SecurityServiceImpl implements SecurityService {
     private final TaskRepository taskRepository;
     private final WorkspaceRepository workspaceRepository;
     private final ProjectRepository projectRepository;
+    private final SprintRepository sprintRepository;
 
     // === CONSTRUCTOR THỦ CÔNG (THEO YÊU CẦU) ===
     public SecurityServiceImpl(CompanyMemberRepository companyMemberRepository,
@@ -37,7 +40,8 @@ public class SecurityServiceImpl implements SecurityService {
                                UserRepository userRepository,
                                TaskRepository taskRepository,
                                WorkspaceRepository workspaceRepository,
-                               ProjectRepository projectRepository) {
+                               ProjectRepository projectRepository,
+                               SprintRepository sprintRepository) {
         this.companyMemberRepository = companyMemberRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.projectMemberRepository = projectMemberRepository;
@@ -46,6 +50,7 @@ public class SecurityServiceImpl implements SecurityService {
         this.taskRepository = taskRepository;
         this.workspaceRepository = workspaceRepository;
         this.projectRepository = projectRepository;
+        this.sprintRepository = sprintRepository;
     }
 
     // =============================================
@@ -259,4 +264,20 @@ public class SecurityServiceImpl implements SecurityService {
         // Hàm hasPermission đã tự xử lý thừa kế (Admin Cty cũng có quyền này)
         return hasPermission("workspace", workspaceId, "workspace:invite_member");
     }
+
+    @Override
+    public boolean hasSprintPermission(Integer sprintId, String permissionCode) {
+        Integer userId = getCurrentUserId();
+        if (userId == null || sprintId == null) return false;
+        
+        // 1. Tìm Sprint để lấy Project ID
+        Sprint sprint = sprintRepository.findById(sprintId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint để kiểm tra quyền."));
+        
+        Integer projectId = sprint.getProject().getId();
+        
+        // 2. Gọi kiểm tra quyền của Project
+        return hasPermission("project", projectId, permissionCode);
+    }
+    
 }
