@@ -1,7 +1,7 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
-import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
+import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
@@ -21,6 +21,7 @@ import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
 import com.quanlyduan.project_manager_api.service.ProjectService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.quanlyduan.project_manager_api.security.SecurityService;
 
 import java.math.BigDecimal;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
+import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 
 @Service
 public class ProjectServiceImpl implements ProjectService {
@@ -41,6 +43,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final RoleRepository roleRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
+    private final SecurityService securityService;
 
     public ProjectServiceImpl(ProjectRepository projectRepository,
                               WorkspaceRepository workspaceRepository,
@@ -49,7 +52,8 @@ public class ProjectServiceImpl implements ProjectService {
                               ObjectMapper objectMapper,
                               RoleRepository roleRepository,
                               ProjectMemberRepository projectMemberRepository,
-                              TaskRepository taskRepository) {
+                              TaskRepository taskRepository,
+                              SecurityService securityService) {
         this.projectRepository = projectRepository;
         this.workspaceRepository = workspaceRepository;
         this.userRepository = userRepository;
@@ -58,6 +62,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.roleRepository = roleRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.taskRepository = taskRepository;
+        this.securityService = securityService;
     }
 
     private boolean isProvided(String value) {
@@ -477,10 +482,43 @@ public class ProjectServiceImpl implements ProjectService {
                 .map(this::mapToProjectMemberResponse) // Dùng helper mới
                 .collect(Collectors.toList());
     }
+
+    // LOGIC CAP NHAT VAI TRO THANH VIEN DU AN
+    @Override
+    @Transactional
+    public ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode) {
+        // 1. Lấy thông tin thành viên
+        ProjectMember member = projectMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên dự án với ID: " + memberId));
+
+        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng dự án
+        if (!member.getProject().getId().equals(projectId)) {
+            throw new ResourceNotFoundException("Không tìm thấy thành viên này trong dự án");
+        }
+
+        // 3. Kiểm tra nghiệp vụ: Không cho phép đổi vai trò của chính mình
+        User admin = securityService.getCurrentAuthenticatedUser();
+        if (admin.getId().equals(member.getUser().getId())) {
+            throw new BadRequestException("Bạn không thể thay đổi vai trò của chính mình.");
+        }
+
+        // 4. Tìm vai trò (Role) mới
+        Role newRole = roleRepository.findFirstByRoleCode(newRoleCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với mã: " + newRoleCode));
+
+        // 5. Kiểm tra nghiệp vụ: Đảm bảo vai trò mới là CẤP DỰ ÁN
+        if (newRole.getLevel() != RoleLevel.PROJECT) {
+            throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp DỰ ÁN)");
+        }
+        
+        // 6. Cập nhật vai trò
+        member.setRole(newRole);
+        ProjectMember updatedMember = projectMemberRepository.save(member);
+
+        // 7. Trả về DTO đã cập nhật (tái sử dụng helper)
+        return mapToProjectMemberResponse(updatedMember);
+    }
     
-    /**
-     * Hàm helper để map ProjectMember (Entity) sang ProjectMemberResponse (DTO)
-     */
     private ProjectMemberResponse mapToProjectMemberResponse(ProjectMember member) {
         return ProjectMemberResponse.builder()
                 .memberId(member.getId())
