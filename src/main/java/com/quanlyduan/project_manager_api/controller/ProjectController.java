@@ -1,12 +1,15 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/controller/ProjectController.java
 package com.quanlyduan.project_manager_api.controller;
 
+import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.security.SecurityService; 
 import com.quanlyduan.project_manager_api.service.ProjectService;
+import com.quanlyduan.project_manager_api.service.TaskService;
+
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,11 +27,12 @@ public class ProjectController {
 
     private final ProjectService projectService;
     private final SecurityService securityService; 
-
+    private final TaskService taskService;
     
-    public ProjectController(ProjectService projectService, SecurityService securityService) {
+    public ProjectController(ProjectService projectService, SecurityService securityService, TaskService taskService) {
         this.projectService = projectService;
         this.securityService = securityService;
+        this.taskService = taskService;
     }
 
     /**
@@ -162,6 +166,23 @@ public class ProjectController {
         List<TaskSummaryResponse> backlog = projectService.getProjectBacklog(companyId, workspaceId, projectId);
         
         return ResponseEntity.ok(ApiResponse.success("Lấy backlog dự án thành công.", backlog)); 
+    }
+
+    // API TAO TASK MOI
+    @PostMapping("/{projectId}/tasks") 
+    // Bảo vệ: Yêu cầu quyền 'task:create' trong dự án
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:create')")
+    public ResponseEntity<ApiResponse<TaskSummaryResponse>> createTask(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @Valid @RequestBody CreateTaskRequest request) {
+                
+        // Chúng ta không cần companyId và workspaceId ở đây
+        // vì projectService.createTask sẽ tự tìm
+        TaskSummaryResponse newTask = taskService.createTask(projectId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Tạo công việc mới thành công.", newTask));
     }
 
 }
