@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectMemberSimpleResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.security.SecurityService; 
@@ -205,6 +206,18 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên dự án thành công.", members)); // Đã dịch
     }
 
+
+    @GetMapping(value = "/{projectId}/members", params = "view=simple")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<ProjectMemberSimpleResponse>>> getProjectMembersSimple(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId) {
+
+        List<ProjectMemberSimpleResponse> members = projectService.getProjectMembersSimple(projectId);
+
+        return ResponseEntity.ok(ApiResponse.success("L���y danh sA�ch thA�nh viA�n (simple) thA�nh cA'ng.", members));
+    }
 
     // API CAP NHAT VAI TRO THANH VIEN DU AN
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:manage_roles')")

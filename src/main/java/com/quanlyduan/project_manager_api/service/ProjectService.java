@@ -10,6 +10,7 @@ import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectMemberSimpleResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import java.util.List;
@@ -89,6 +90,12 @@ public interface ProjectService {
      */
     List<ProjectMemberResponse> getProjectMembers(Integer projectId);
 
+    /**
+     * L���y danh sA�ch thA�nh viA�n d���ng payload ��n gi��n h��n.
+     * @param projectId ID d��� A�n
+     * @return Danh sA�ch ProjectMemberSimpleResponse DTO
+     */
+    List<ProjectMemberSimpleResponse> getProjectMembersSimple(Integer projectId);
 
     /**
      * Cập nhật vai trò (Role) của một thành viên trong dự án.

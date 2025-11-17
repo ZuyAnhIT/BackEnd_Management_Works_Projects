@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectMemberSimpleResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
@@ -483,6 +484,16 @@ public class ProjectServiceImpl implements ProjectService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProjectMemberSimpleResponse> getProjectMembersSimple(Integer projectId) {
+        List<ProjectMember> members = projectMemberRepository.findByProject_Id(projectId);
+
+        return members.stream()
+                .map(this::mapToProjectMemberSimpleResponse)
+                .collect(Collectors.toList());
+    }
+
     // LOGIC CAP NHAT VAI TRO THANH VIEN DU AN
     @Override
     @Transactional
@@ -519,6 +530,17 @@ public class ProjectServiceImpl implements ProjectService {
         return mapToProjectMemberResponse(updatedMember);
     }
     
+    private ProjectMemberSimpleResponse mapToProjectMemberSimpleResponse(ProjectMember member) {
+        return ProjectMemberSimpleResponse.builder()
+                .memberId(member.getId())
+                .userId(member.getUser().getId())
+                .fullName(member.getUser().getFullName())
+                .email(member.getUser().getEmail())
+                .roleName(member.getRole().getRoleName())
+                .status(member.getStatus())
+                .build();
+    }
+
     private ProjectMemberResponse mapToProjectMemberResponse(ProjectMember member) {
         return ProjectMemberResponse.builder()
                 .memberId(member.getId())
