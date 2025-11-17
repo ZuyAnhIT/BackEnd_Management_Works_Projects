@@ -2,6 +2,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -13,6 +14,7 @@ import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectTypeRepository;
 import com.quanlyduan.project_manager_api.repository.RoleRepository;
+import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
 import com.quanlyduan.project_manager_api.service.ProjectService;
@@ -37,6 +39,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ObjectMapper objectMapper;
     private final RoleRepository roleRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final TaskRepository taskRepository;
 
     public ProjectServiceImpl(ProjectRepository projectRepository,
                               WorkspaceRepository workspaceRepository,
@@ -44,7 +47,8 @@ public class ProjectServiceImpl implements ProjectService {
                               ProjectTypeRepository projectTypeRepository,
                               ObjectMapper objectMapper,
                               RoleRepository roleRepository,
-                              ProjectMemberRepository projectMemberRepository) {
+                              ProjectMemberRepository projectMemberRepository,
+                              TaskRepository taskRepository) {
         this.projectRepository = projectRepository;
         this.workspaceRepository = workspaceRepository;
         this.userRepository = userRepository;
@@ -52,6 +56,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.objectMapper = objectMapper;
         this.roleRepository = roleRepository;
         this.projectMemberRepository = projectMemberRepository;
+        this.taskRepository = taskRepository;
     }
 
     private boolean isProvided(String value) {
@@ -402,5 +407,57 @@ public class ProjectServiceImpl implements ProjectService {
 
         // Dùng mapper chung để đảm bảo đầy đủ field như khi tạo/list
         return toResponse(project);
+    }
+
+    // LOGIC LAY BACKLOG CUA DU AN
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskSummaryResponse> getProjectBacklog(Integer companyId, Integer workspaceId, Integer projectId) {
+        // 1. Kiểm tra (IDOR): Đảm bảo Project thuộc Workspace và Company
+        // (Logic này có thể đã được @PreAuthorize xử lý, nhưng kiểm tra lại ở Service là an toàn)
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+        
+        if (!project.getWorkspace().getId().equals(workspaceId) || 
+            !project.getWorkspace().getCompany().getId().equals(companyId)) {
+            throw new ResourceNotFoundException("Không tìm thấy dự án trong không gian hoặc công ty này");
+        }
+
+        // 2. Lấy danh sách Task từ CSDL
+        List<Task> tasks = taskRepository.findByProjectIdWithDetails(projectId);
+
+        // 3. Map sang DTO
+        return tasks.stream()
+                .map(this::mapToTaskSummaryResponse)
+                .collect(Collectors.toList());
+    }
+
+    // *** THÊM HÀM HELPER NÀY ***
+    /**
+     * Hàm helper để map Task (Entity) sang TaskSummaryResponse (DTO)
+     */
+    private TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
+        // Xử lý an toàn nếu assignee hoặc epic là null
+        User assignee = task.getAssignee();
+        Epic epic = task.getEpic();
+
+        return TaskSummaryResponse.builder()
+                .id(task.getId())
+                .taskCode(task.getTaskCode())
+                .title(task.getTitle())
+                .taskType(task.getTaskType())
+                .status(task.getStatus())
+                .priority(task.getPriority())
+                .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
+                .assigneeId(assignee != null ? assignee.getId() : null)
+                .assigneeName(assignee != null ? assignee.getFullName() : null)
+                .assigneeAvatarUrl(assignee != null ? assignee.getAvatarUrl() : null)
+                .epicId(epic != null ? epic.getId() : null)
+                .epicName(epic != null ? epic.getName() : null)
+                .epicColor(epic != null ? epic.getColor() : null)
+                .storyPoints(task.getStoryPoints())
+                .dueDate(task.getDueDate())
+                .sortOrder(task.getSortOrder())
+                .build();
     }
 }

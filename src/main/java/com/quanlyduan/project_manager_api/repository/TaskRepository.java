@@ -47,4 +47,15 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
             @Param("excludedStatuses") Collection<String> excludedStatuses
     );
 
+    /**
+     * Lấy tất cả các task thuộc về một dự án (project).
+     * Sắp xếp theo Sprint (NULL = Backlog lên trước), sau đó theo thứ tự (sortOrder).
+     */
+    @Query("SELECT t FROM Task t " +
+           "LEFT JOIN FETCH t.assignee " + // Lấy thông tin assignee
+           "LEFT JOIN FETCH t.epic " + // Lấy thông tin epic
+           "WHERE t.project.id = :projectId " +
+           "ORDER BY t.sprint.id ASC NULLS FIRST, t.sortOrder ASC") // Sắp xếp Backlog (sprint_id IS NULL) lên đầu
+    List<Task> findByProjectIdWithDetails(Integer projectId);
+
 }

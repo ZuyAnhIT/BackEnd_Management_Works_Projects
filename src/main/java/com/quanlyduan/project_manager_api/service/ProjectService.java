@@ -10,6 +10,8 @@ import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
+import java.util.List;
 
 /**
  * Service cho Project – US7 chỉ yêu cầu tạo mới Project.
@@ -69,4 +71,13 @@ public interface ProjectService {
      * Update project general information (excluding auto fields and status).
      */
     ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request);
+
+    /**
+     * Lấy danh sách Backlog (tất cả task) của một dự án.
+     * @param companyId ID công ty (để kiểm tra)
+     * @param workspaceId ID không gian (để kiểm tra)
+     * @param projectId ID dự án
+     * @return Danh sách TaskSummaryResponse DTO
+     */
+    List<TaskSummaryResponse> getProjectBacklog(Integer companyId, Integer workspaceId, Integer projectId);
 }

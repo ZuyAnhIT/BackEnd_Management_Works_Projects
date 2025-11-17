@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.controller;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.security.SecurityService; 
 import com.quanlyduan.project_manager_api.service.ProjectService;
 import jakarta.validation.Valid;
@@ -147,6 +148,20 @@ public class ProjectController {
 
         ProjectResponse updated = projectService.updateProject(companyId, workspaceId, projectId, request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin dự án thành công.", updated)); // Đã dịch
+    }
+
+    // API LAY DANH SACH BACKLOG CUA DU AN
+    @GetMapping("/{projectId}/backlog")
+    // Bảo vệ: Chỉ thành viên dự án (project:view) mới được xem
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<TaskSummaryResponse>>> getProjectBacklog(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId) {
+        
+        List<TaskSummaryResponse> backlog = projectService.getProjectBacklog(companyId, workspaceId, projectId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy backlog dự án thành công.", backlog)); 
     }
 
 }
