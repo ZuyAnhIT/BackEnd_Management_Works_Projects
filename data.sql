@@ -449,11 +449,13 @@ INSERT INTO permissions (permission_code, permission_name, group_name) VALUES
 ('workspace:delete', 'Delete Workspace', 'Workspace'),
 ('workspace:invite_member', 'Invite Workspace Member', 'Workspace'),
 ('workspace:remove_member', 'Remove Workspace Member', 'Workspace'),
+('workspace:manage_roles', 'Manage Workspace Roles', 'Workspace'), -- *** ĐÃ BỔ SUNG ***
 ('project:create', 'Create Project', 'Project'),
 ('project:view', 'View Project', 'Project'),
 ('project:edit', 'Edit Project', 'Project'),
 ('project:delete', 'Delete Project', 'Project'),
 ('project:invite_member', 'Invite Project Member', 'Project'),
+('project:manage_roles', 'Manage Project Roles', 'Project'), -- *** ĐÃ BỔ SUNG ***
 ('task:create', 'Create Task', 'Task'),
 ('task:view', 'View Task', 'Task'),
 ('task:edit', 'Edit Task', 'Task'),
@@ -495,9 +497,11 @@ SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
     'company:view', 'company:edit', 'company:delete', 'company:invite_member', 'company:remove_member', 'company:manage_roles',
-    'workspace:create', 'workspace:delete', 'workspace:view', 'workspace:edit', 'workspace:invite_member', 'workspace:remove_member',
-    'project:create', 'project:delete', 'project:view', 'project:edit', 'project:invite_member',
-    'task:assign', 'task:attach_file', 'task:comment', 'task:comment:view', 'task:create', 'task:delete', 'task:edit', 'task:view'
+    'workspace:create', 'workspace:delete', 'workspace:view', 'workspace:edit', 'workspace:invite_member', 'workspace:remove_member', 'workspace:manage_roles',
+    'project:create', 'project:delete', 'project:view', 'project:edit', 'project:invite_member', 'project:manage_roles',
+    'task:assign', 'task:attach_file', 'task:comment', 'task:comment:view', 'task:create', 'task:delete', 'task:edit', 'task:view',
+    'sprint:create', 'sprint:start', 'sprint:edit', 'sprint:delete',
+    'backlog:view', 'backlog:manage'
 ) WHERE r.role_code = 'COMPANY_ADMIN';
 
 -- COMPANY_MEMBER (Company)
@@ -510,7 +514,7 @@ SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
 -- WORKSPACE_ADMIN (Workspace)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'workspace:view', 'workspace:edit', 'workspace:invite_member', 'workspace:remove_member',
+    'workspace:view', 'workspace:edit', 'workspace:invite_member', 'workspace:remove_member', 'workspace:manage_roles', -- *** ĐÃ BỔ SUNG ***
     'project:create', 'project:delete', 'project:view', 'project:edit'
 ) WHERE r.role_code = 'WORKSPACE_ADMIN';
 
@@ -525,11 +529,10 @@ SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
 -- PROJECT_ADMIN (Project)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'project:view', 'project:edit', 'project:invite_member',
+    'project:view', 'project:edit', 'project:invite_member', 'project:manage_roles', -- *** ĐÃ BỔ SUNG ***
     'task:create', 'task:view', 'task:edit', 'task:delete', 'task:assign', 'task:comment', 'task:comment:view', 'task:attach_file',
     'sprint:create', 'sprint:start', 'sprint:edit', 'sprint:delete',
     'backlog:view', 'backlog:manage'
-
 ) WHERE r.role_code = 'PROJECT_ADMIN';
 
 -- PROJECT_MEMBER (Project)
