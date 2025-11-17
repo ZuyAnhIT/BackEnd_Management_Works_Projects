@@ -1,6 +1,7 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
+import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
@@ -458,6 +459,38 @@ public class ProjectServiceImpl implements ProjectService {
                 .storyPoints(task.getStoryPoints())
                 .dueDate(task.getDueDate())
                 .sortOrder(task.getSortOrder())
+                .build();
+    }
+
+
+    // LOGIC LAY DANH SACH THANH VIEN DU AN
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProjectMemberResponse> getProjectMembers(Integer projectId) {
+        // Bảo mật (ai được xem) đã được xử lý bởi @PreAuthorize ở Controller.
+        
+        // 1. Lấy danh sách thành viên từ CSDL
+        List<ProjectMember> members = projectMemberRepository.findByProject_Id(projectId);
+
+        // 2. Map sang DTO
+        return members.stream()
+                .map(this::mapToProjectMemberResponse) // Dùng helper mới
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Hàm helper để map ProjectMember (Entity) sang ProjectMemberResponse (DTO)
+     */
+    private ProjectMemberResponse mapToProjectMemberResponse(ProjectMember member) {
+        return ProjectMemberResponse.builder()
+                .memberId(member.getId())
+                .userId(member.getUser().getId())
+                .fullName(member.getUser().getFullName())
+                .email(member.getUser().getEmail())
+                .avatarUrl(member.getUser().getAvatarUrl())
+                .roleName(member.getRole().getRoleName())
+                .joinedAt(member.getJoinedAt())
+                .status(member.getStatus())
                 .build();
     }
 }

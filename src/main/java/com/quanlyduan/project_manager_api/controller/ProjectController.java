@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.controller;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.security.SecurityService; 
@@ -184,5 +185,21 @@ public class ProjectController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Tạo công việc mới thành công.", newTask));
     }
+
+
+    // API LAY DANH SACH THANH VIEN TRONG DU AN
+    @GetMapping("/{projectId}/members")
+    // Bảo vệ: Chỉ thành viên dự án (project:view) mới được xem
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<ProjectMemberResponse>>> getProjectMembers(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId) {
+        
+        List<ProjectMemberResponse> members = projectService.getProjectMembers(projectId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên dự án thành công.", members)); // Đã dịch
+    }
+
 
 }
