@@ -89,4 +89,13 @@ public interface ProjectService {
      */
     List<ProjectMemberResponse> getProjectMembers(Integer projectId);
 
+
+    /**
+     * Cập nhật vai trò (Role) của một thành viên trong dự án.
+     * @param projectId ID dự án
+     * @param memberId ID của bản ghi ProjectMember
+     * @param newRoleCode Mã vai trò mới (ví dụ: "PROJECT_MEMBER")
+     * @return ProjectMemberResponse DTO đã cập nhật
+     */
+    ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode);
 }
