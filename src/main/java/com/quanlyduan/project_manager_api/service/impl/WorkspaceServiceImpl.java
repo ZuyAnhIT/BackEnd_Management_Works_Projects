@@ -451,4 +451,47 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         return mapToWorkspaceResponse(updatedWorkspace);
     }
 
+    // LOGIC CAP NHAT VAI TRO THANH VIEN KHONG GIAN
+    @Override
+    @Transactional
+    public WorkspaceMemberResponse updateWorkspaceMemberRole(Integer companyId, Integer workspaceId, Integer memberId, String newRoleCode) {
+        // 1. Lấy thông tin thành viên
+        WorkspaceMember member = workspaceMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên không gian làm việc với ID: " + memberId));
+
+        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng không gian
+        if (!member.getWorkspace().getId().equals(workspaceId)) {
+            throw new ResourceNotFoundException("Không tìm thấy thành viên trong không gian làm việc này");
+        }
+
+        // 3. Kiểm tra bảo mật (IDOR): Đảm bảo không gian này thuộc đúng công ty
+        if (!member.getWorkspace().getCompany().getId().equals(companyId)) {
+            throw new ResourceNotFoundException("Không tìm thấy không gian làm việc trong công ty này");
+        }
+
+        // 4. Kiểm tra nghiệp vụ: Không cho phép đổi vai trò của chính mình
+        User admin = securityService.getCurrentAuthenticatedUser();
+        if (admin.getId().equals(member.getUser().getId())) {
+            throw new BadRequestException("Bạn không thể thay đổi vai trò của chính mình.");
+        }
+
+        // 5. Tìm vai trò (Role) mới
+        Role newRole = roleRepository.findFirstByRoleCode(newRoleCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với mã: " + newRoleCode));
+
+        // 6. Kiểm tra nghiệp vụ: Đảm bảo vai trò mới là CẤP KHÔNG GIAN
+        if (newRole.getLevel() != RoleLevel.WORKSPACE) {
+            throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp KHÔNG GIAN)");
+        }
+        
+        // 7. Cập nhật vai trò
+        member.setRole(newRole);
+        WorkspaceMember updatedMember = workspaceMemberRepository.save(member);
+
+        // 8. Trả về DTO đã cập nhật (tái sử dụng helper)
+        return mapToWorkspaceMemberResponse(updatedMember);
+    }
+
+    
+
 }

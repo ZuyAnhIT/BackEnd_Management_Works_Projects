@@ -94,4 +94,13 @@ public interface WorkspaceService {
      */
     WorkspaceResponse updateWorkspaceStatus(Integer companyId, Integer workspaceId, UpdateWorkspaceStatusRequest request);
 
+    /**
+     * Cập nhật vai trò (Role) của một thành viên trong không gian làm việc.
+     * @param companyId ID công ty (để kiểm tra)
+     * @param workspaceId ID không gian
+     * @param memberId ID của bản ghi WorkspaceMember
+     * @param newRoleCode Mã vai trò mới (ví dụ: "WORKSPACE_MEMBER")
+     * @return WorkspaceMemberResponse DTO đã cập nhật
+     */
+    WorkspaceMemberResponse updateWorkspaceMemberRole(Integer companyId, Integer workspaceId, Integer memberId, String newRoleCode);
 }
