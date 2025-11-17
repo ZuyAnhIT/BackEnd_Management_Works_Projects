@@ -64,4 +64,14 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
      */
     long countByProjectId(Integer projectId);
     
+    /**
+     * Lấy tất cả task (cùng thông tin assignee, epic) thuộc về một Sprint.
+     * Sắp xếp theo thứ tự (sortOrder).
+     */
+    @Query("SELECT t FROM Task t " +
+           "LEFT JOIN FETCH t.assignee " +
+           "LEFT JOIN FETCH t.epic " +
+           "WHERE t.sprint.id = :sprintId " +
+           "ORDER BY t.sortOrder ASC")
+    List<Task> findBySprintIdWithDetails(Integer sprintId);
 }

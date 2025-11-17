@@ -3,6 +3,7 @@
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateSprintRequest;
+import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintResponse;
 import java.util.List;
 
@@ -19,5 +20,12 @@ public interface SprintService {
     // (Helper cho Security)
     Integer getProjectIdBySprint(Integer sprintId);
 
-    
+   /**
+     * API XEM CHI TIẾT SPRINT
+     * (Bao gồm danh sách task trong Sprint đó)
+     * @param projectId ID của Project (để kiểm tra bảo mật)
+     * @param sprintId ID của Sprint
+     * @return Chi tiết Sprint
+     */
+    SprintDetailsResponse getSprintDetails(Integer projectId, Integer sprintId);
 }

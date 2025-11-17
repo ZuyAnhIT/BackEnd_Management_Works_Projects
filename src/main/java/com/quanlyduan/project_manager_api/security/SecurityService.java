@@ -92,4 +92,11 @@ public interface SecurityService {
      * [ĐÃ NÂNG CẤP] Kiểm tra user có quyền quản lý Workspace Member không.
      */
     boolean canManageWorkspaceMembers(Integer companyId, Integer workspaceId);
+
+    /**
+     * Kiểm tra user có quyền <permissionCode> liên quan đến sprint <sprintId> không.
+     * (Hàm này sẽ tìm projectId từ sprintId rồi gọi hasProjectPermission)
+     * @PreAuthorize("@securityService.hasSprintPermission(#sprintId, 'project:view')")
+     */
+    boolean hasSprintPermission(Integer sprintId, String permissionCode);
 }

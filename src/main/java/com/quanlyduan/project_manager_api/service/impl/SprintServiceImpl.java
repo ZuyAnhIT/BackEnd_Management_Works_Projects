@@ -3,8 +3,10 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateSprintRequest;
+import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
@@ -222,6 +224,67 @@ public class SprintServiceImpl implements SprintService {
                 .endDate(sprint.getEndDate())
                 .projectId(sprint.getProject().getId())
                 .tasks(taskDTOs)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SprintDetailsResponse getSprintDetails(Integer projectId, Integer sprintId) { 
+        // 1. Tìm Sprint
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint với ID: " + sprintId));
+
+        // 2. *** KIỂM TRA BẢO MẬT (IDOR) ***
+        // Kiểm tra xem Sprint này có thuộc Project trong URL không
+        if (!sprint.getProject().getId().equals(projectId)) {
+            throw new ResourceNotFoundException("Không tìm thấy Sprint này trong dự án được chỉ định");
+        }
+        // (Quyền xem dự án đã được @PreAuthorize xử lý)
+
+        // 3. Tìm tất cả Task thuộc Sprint đó
+        List<Task> tasks = taskRepository.findBySprintIdWithDetails(sprintId);
+
+        // 4. Map danh sách Task sang DTO
+        List<TaskSummaryResponse> taskDTOs = tasks.stream()
+                .map(this::mapToTaskSummaryResponse) // Tái sử dụng helper
+                .collect(Collectors.toList());
+
+        // 5. Map Sprint sang DTO
+        return SprintDetailsResponse.builder()
+                .id(sprint.getId())
+                .name(sprint.getName())
+                .goal(sprint.getGoal())
+                .status(sprint.getStatus())
+                .startDate(sprint.getStartDate())
+                .endDate(sprint.getEndDate())
+                .projectId(sprint.getProject().getId())
+                .tasks(taskDTOs) // Gán danh sách Task DTO
+                .build();
+    }
+
+    // --- HÀM HELPER ---
+    // (Hàm này được copy từ ProjectServiceImpl/TaskServiceImpl để tái sử dụng)
+    private TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
+        User assignee = task.getAssignee();
+        Epic epic = task.getEpic();
+
+        return TaskSummaryResponse.builder()
+                .id(task.getId())
+                .taskCode(task.getTaskCode())
+                .title(task.getTitle())
+                .taskType(task.getTaskType())
+                .status(task.getStatus())
+                .priority(task.getPriority())
+                .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
+                .assigneeId(assignee != null ? assignee.getId() : null)
+                .assigneeName(assignee != null ? assignee.getFullName() : null)
+                .assigneeAvatarUrl(assignee != null ? assignee.getAvatarUrl() : null)
+                .epicId(epic != null ? epic.getId() : null)
+                .epicName(epic != null ? epic.getName() : null)
+                .epicColor(epic != null ? epic.getColor() : null)
+                .storyPoints(task.getStoryPoints())
+                .dueDate(task.getDueDate())
+                .sortOrder(task.getSortOrder())
                 .build();
     }
 }
