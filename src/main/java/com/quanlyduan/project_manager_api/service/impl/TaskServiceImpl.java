@@ -23,19 +23,22 @@ public class TaskServiceImpl implements TaskService {
     private final UserRepository userRepository;
     private final SecurityService securityService;
     private final EpicRepository epicRepository;
+    private final ProjectMemberRepository projectMemberRepository;
 
     public TaskServiceImpl(TaskRepository taskRepository,
                            ProjectRepository projectRepository,
                            SprintRepository sprintRepository,
                            UserRepository userRepository,
                            EpicRepository epicRepository,
-                           SecurityService securityService) {
+                           SecurityService securityService,
+                           ProjectMemberRepository projectMemberRepository) {
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
         this.sprintRepository = sprintRepository;
         this.userRepository = userRepository;
         this.securityService = securityService;
         this.epicRepository = epicRepository;
+        this.projectMemberRepository = projectMemberRepository;
     }
      // US-S3-7: Kéo/thả Task vào Sprint
     @Override
@@ -60,6 +63,31 @@ public class TaskServiceImpl implements TaskService {
         }
         
         taskRepository.save(task);
+    }
+
+    @Override
+    @Transactional
+    public TaskResponse updateTaskAssignee(Integer taskId, Integer assigneeId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+
+        User assignee = null;
+        if (assigneeId != null) {
+            assignee = userRepository.findById(assigneeId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+            boolean isMember = projectMemberRepository.existsByProject_IdAndUser_Id(task.getProject().getId(), assignee.getId());
+            if (!isMember) {
+                throw new BadRequestException("User is not a member of this project");
+            }
+        }
+
+        User currentUser = securityService.getCurrentAuthenticatedUser();
+        task.setAssignee(assignee);
+        task.setAssigner(currentUser);
+
+        Task saved = taskRepository.save(task);
+        return mapToTaskResponse(saved);
     }
 
     // === HÀM HELPER MAPPING ===

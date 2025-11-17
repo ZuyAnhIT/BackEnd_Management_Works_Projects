@@ -23,4 +23,12 @@ public interface TaskService {
      * @return TaskSummaryResponse DTO của task vừa tạo
      */
     TaskSummaryResponse createTask(Integer projectId, CreateTaskRequest request);
+
+    /**
+     * Cập nhật assignee cho task.
+     * @param taskId ID công việc
+     * @param assigneeId ID người được gán
+     * @return TaskResponse sau khi cập nhật
+     */
+    TaskResponse updateTaskAssignee(Integer taskId, Integer assigneeId);
 }

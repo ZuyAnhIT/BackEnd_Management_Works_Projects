@@ -4,9 +4,11 @@ package com.quanlyduan.project_manager_api.controller;
 import com.quanlyduan.project_manager_api.dto.request.CommentRequest;
 // import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest; // Đã xóa
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskSprintRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateTaskAssigneeRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskAttachmentResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskCommentResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 // import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse; // Đã xóa
 import com.quanlyduan.project_manager_api.service.TaskAttachmentService;
 import com.quanlyduan.project_manager_api.service.TaskCommentService;
@@ -132,5 +134,14 @@ public class TaskController {
         taskService.updateTaskSprint(taskId, request.getSprintId());
         String message = (request.getSprintId() == null) ? "Chuyển công việc về Backlog thành công" : "Cập nhật Sprint cho công việc thành công"; // Đã dịch
         return ResponseEntity.ok(ApiResponse.success(message, null));
+    }
+    @PutMapping("/{taskId}/assignee")
+    @PreAuthorize("@securityService.hasPermission('task', #taskId, 'task:edit')")
+    public ResponseEntity<ApiResponse<TaskResponse>> updateTaskAssignee(
+            @PathVariable Integer taskId,
+            @Valid @RequestBody UpdateTaskAssigneeRequest request) {
+
+        TaskResponse updated = taskService.updateTaskAssignee(taskId, request.getAssigneeId());
+        return ResponseEntity.ok(ApiResponse.success("Cap nhat nguoi duoc gan thanh cong.", updated));
     }
 }
