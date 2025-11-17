@@ -58,4 +58,10 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
            "ORDER BY t.sprint.id ASC NULLS FIRST, t.sortOrder ASC") // Sắp xếp Backlog (sprint_id IS NULL) lên đầu
     List<Task> findByProjectIdWithDetails(Integer projectId);
 
+    /**
+     * Đếm số lượng task trong một dự án.
+     * Dùng để tạo task_code mới (ví dụ: WEB-4)
+     */
+    long countByProjectId(Integer projectId);
+    
 }

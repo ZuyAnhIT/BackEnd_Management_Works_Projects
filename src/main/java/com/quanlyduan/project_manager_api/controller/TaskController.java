@@ -2,14 +2,15 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CommentRequest;
+// import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest; // Đã xóa
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskSprintRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskAttachmentResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskCommentResponse;
+// import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse; // Đã xóa
 import com.quanlyduan.project_manager_api.service.TaskAttachmentService;
 import com.quanlyduan.project_manager_api.service.TaskCommentService;
 import com.quanlyduan.project_manager_api.service.TaskService;
-
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,12 +31,11 @@ public class TaskController {
     private final TaskCommentService commentService;
     private final TaskAttachmentService attachmentService;
     private final SecurityService securityService; // Đã sửa
-     private final TaskService taskService; // Inject TaskService mới
+    private final TaskService taskService;
 
-
-    
-    public TaskController(TaskCommentService commentService, 
-                          TaskAttachmentService attachmentService, 
+    // *** THÊM CONSTRUCTOR THỦ CÔNG ***
+    public TaskController(TaskCommentService commentService,
+                          TaskAttachmentService attachmentService,
                           SecurityService securityService,
                           TaskService taskService) {
         this.commentService = commentService;
@@ -44,8 +44,9 @@ public class TaskController {
         this.taskService = taskService;
     }
 
-
-    // TODO: Thêm các API khác liên quan đến Task (ví dụ: Create Task, Get Task Details...)
+    // TODO: Thêm các API khác liên quan đến Task (ví dụ: Get Task Details...)
+    
+    // *** API TAO TASK MOI ĐÃ ĐƯỢC DI CHUYỂN SANG PROJECTCONTROLLER ***
 
     /**
      * API Thêm bình luận vào Task
@@ -62,7 +63,7 @@ public class TaskController {
 
         // 2. Đóng gói kết quả vào ApiResponse (theo chuẩn của base code)
         ApiResponse<TaskCommentResponse> response = ApiResponse.success(
-                "Thêm bình luận thành công.", // Đã dịch
+                "Thêm bình luận thành công.",
                 newComment
         );
 
@@ -84,7 +85,7 @@ public class TaskController {
 
         // 2. Đóng gói kết quả
         ApiResponse<List<TaskCommentResponse>> response = ApiResponse.success(
-                "Lấy danh sách bình luận thành công.", // Đã dịch
+                "Lấy danh sách bình luận thành công.",
                 comments
         );
 
@@ -92,7 +93,7 @@ public class TaskController {
         return ResponseEntity.ok(response);
     }
 
-     /**
+    /**
      * Sp2 - User Story 11: Đính kèm tệp tin
      */
     @PostMapping(value = "/{taskId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -104,7 +105,7 @@ public class TaskController {
         Integer uploaderId = securityService.getCurrentUserId(); // Đã sửa
         TaskAttachmentResponse attachment = attachmentService.storeAttachment(taskId, file, uploaderId);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Tải tệp lên thành công.", attachment)); // Đã dịch
+                .body(ApiResponse.success("Tải tệp lên thành công.", attachment));
     }
 
     /**
@@ -116,21 +117,20 @@ public class TaskController {
             @PathVariable Integer taskId) {
         
         List<TaskAttachmentResponse> attachments = attachmentService.getAttachmentsForTask(taskId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách tệp đính kèm thành công.", attachments)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách tệp đính kèm thành công.", attachments));
     }
 
-       /**
+    /**
      * US-S3-7: Kéo thả Task vào Sprint (hoặc về Backlog)
      */
     @PutMapping("/{taskId}/sprint")
-    @PreAuthorize("@securityService.hasPermission('task', #taskId, 'backlog:manage')")
+    @PreAuthorize("@securityService.hasPermission('task', #taskId, 'backlog:manage')") // Đã sửa
     public ResponseEntity<ApiResponse<Object>> updateTaskSprint(
             @PathVariable Integer taskId,
             @Valid @RequestBody UpdateTaskSprintRequest request) {
         
         taskService.updateTaskSprint(taskId, request.getSprintId());
-        String message = (request.getSprintId() == null) ? "Task moved to backlog" : "Task sprint updated";
+        String message = (request.getSprintId() == null) ? "Chuyển công việc về Backlog thành công" : "Cập nhật Sprint cho công việc thành công"; // Đã dịch
         return ResponseEntity.ok(ApiResponse.success(message, null));
     }
-
 }

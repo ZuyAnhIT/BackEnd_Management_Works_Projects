@@ -1,8 +1,6 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/repository/SprintRepository.java
-// (MỚI)
 package com.quanlyduan.project_manager_api.repository;
 
-import com.quanlyduan.project_manager_api.model.Project;
 import com.quanlyduan.project_manager_api.model.Sprint;
 import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
