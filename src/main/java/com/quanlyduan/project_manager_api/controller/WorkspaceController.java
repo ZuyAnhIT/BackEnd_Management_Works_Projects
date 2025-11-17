@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
+import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
@@ -11,6 +12,9 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
 
 import jakarta.validation.Valid;
+
+import java.util.HashMap;
+import java.util.Map; 
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -172,4 +176,32 @@ public class WorkspaceController {
         return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái của không gian làm việc thành công.", updatedWorkspace));
     }
     
+    // API CAP NHAT VAI TRO THANH VIEN KHONG GIAN
+    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'workspace:manage_roles')") // Giả định quyền là 'workspace:manage_roles'
+    @PutMapping("/{workspaceId}/members/{memberId}/role")
+    public ResponseEntity<ApiResponse<Object>> updateWorkspaceMemberRole(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer memberId,
+            @Valid @RequestBody RoleUpdateRequest request) { // Tái sử dụng DTO
+
+        // 1. Gọi service
+        WorkspaceMemberResponse updatedMember = workspaceService.updateWorkspaceMemberRole(companyId, workspaceId, memberId, request.getRoleCode());
+
+        // 2. Tạo message động
+        String message = String.format("Cập nhật vai trò cho người dùng '%s' (ID: %d) thành '%s' thành công.",
+            updatedMember.getFullName(),
+            updatedMember.getUserId(),
+            updatedMember.getRoleName()
+        );
+
+        // 3. Tạo data trả về
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("userId", updatedMember.getUserId());
+        responseData.put("fullName", updatedMember.getFullName());
+        responseData.put("newRoleCode", request.getRoleCode()); // Trả về role code
+        responseData.put("newRoleName", updatedMember.getRoleName());
+
+        return ResponseEntity.ok(ApiResponse.success(message, responseData));
+    }
 }
