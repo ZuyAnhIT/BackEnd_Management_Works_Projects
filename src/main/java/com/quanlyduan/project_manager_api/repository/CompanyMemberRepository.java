@@ -5,6 +5,7 @@ import com.quanlyduan.project_manager_api.model.CompanyMember; // Đã dịch
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -64,4 +65,17 @@ public interface CompanyMemberRepository extends JpaRepository<CompanyMember, In
                                    @Param("companyId") Integer companyId,
                                    @Param("permissionCode") String permissionCode);
 
+
+    /**
+     * Tìm các thành viên công ty của user,
+     * lọc theo danh sách trạng thái CÔNG TY (không phải trạng thái thành viên).
+     */
+    @Query("SELECT cm FROM CompanyMember cm " +
+           "JOIN FETCH cm.company c " +
+           "JOIN FETCH cm.role r " +
+           "WHERE cm.user.id = :userId AND c.status IN :statuses")
+    List<CompanyMember> findByUser_IdAndCompany_StatusIn(
+        @Param("userId") Integer userId, 
+        @Param("statuses") Collection<CompanyStatus> statuses
+    );
 }

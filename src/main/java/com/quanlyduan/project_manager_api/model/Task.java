@@ -23,7 +23,6 @@ import java.util.Set;
 @AllArgsConstructor
 @Entity
 @Table(name = "tasks", uniqueConstraints = {
-    // uk_task_code (task_code, project_id)
     @UniqueConstraint(columnNames = {"task_code", "project_id"})
 })
 public class Task {
@@ -62,8 +61,9 @@ public class Task {
     @Column(name = "task_type")
     private TaskType taskType;
 
-    @Column(name = "status", length = 50)
-    private String status;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "status_id") 
+    private ProjectStatus status; 
 
     @Enumerated(EnumType.STRING)
     @Column(name = "priority")
@@ -91,13 +91,13 @@ public class Task {
     private BigDecimal loggedHours;
 
     @Column(name = "start_date")
-    private LocalDate startDate; // CSDL là DATE
+    private LocalDate startDate; 
 
     @Column(name = "due_date")
-    private LocalDate dueDate; // CSDL là DATE
+    private LocalDate dueDate; 
 
     @Column(name = "completed_at")
-    private LocalDate completedAt; // CSDL là DATE
+    private LocalDate completedAt; 
 
     @Column(name = "sort_order")
     private Integer sortOrder;
@@ -108,11 +108,11 @@ public class Task {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; // CSDL là TIMESTAMP
+    private LocalDateTime createdAt; 
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // CSDL là TIMESTAMP
+    private LocalDateTime updatedAt; 
 
     // --- CÁC QUAN HỆ NGHỊCH ĐẢO (One-to-Many) ---
 
@@ -136,7 +136,4 @@ public class Task {
     @OrderBy("uploadedAt ASC")
     private List<TaskAttachment> attachments;
     
-    // // Các Tag (liên kết từ Bảng 21: task_tags)
-    // @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
-    // private Set<TaskTag> taskTags;
 }

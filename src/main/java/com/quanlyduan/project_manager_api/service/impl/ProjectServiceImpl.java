@@ -1,7 +1,8 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/ProjectServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
-import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
+import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse; 
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
@@ -10,7 +11,7 @@ import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.Priority;
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
 import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectTypeRepository;
@@ -21,16 +22,22 @@ import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
 import com.quanlyduan.project_manager_api.service.ProjectService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.quanlyduan.project_manager_api.security.SecurityService;
+import com.quanlyduan.project_manager_api.security.SecurityService; 
 
 import java.math.BigDecimal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.util.List;
+import java.util.Objects; 
 import java.util.stream.Collectors;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
+
+// *** IMPORT CÁC REPO CÒN THIẾU ***
+import com.quanlyduan.project_manager_api.repository.SprintRepository;
+import com.quanlyduan.project_manager_api.repository.EpicRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
 
 @Service
 public class ProjectServiceImpl implements ProjectService {
@@ -44,7 +51,12 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
     private final SecurityService securityService;
+    
+    private final SprintRepository sprintRepository;
+    private final EpicRepository epicRepository;
+    private final ProjectStatusRepository projectStatusRepository;
 
+    // *** CONSTRUCTOR THỦ CÔNG ĐÃ CẬP NHẬT (12 tham số) ***
     public ProjectServiceImpl(ProjectRepository projectRepository,
                               WorkspaceRepository workspaceRepository,
                               UserRepository userRepository,
@@ -53,7 +65,11 @@ public class ProjectServiceImpl implements ProjectService {
                               RoleRepository roleRepository,
                               ProjectMemberRepository projectMemberRepository,
                               TaskRepository taskRepository,
-                              SecurityService securityService) {
+                              SecurityService securityService,
+                              SprintRepository sprintRepository, // Thêm
+                              EpicRepository epicRepository, // Thêm
+                              ProjectStatusRepository projectStatusRepository // Thêm
+                              ) {
         this.projectRepository = projectRepository;
         this.workspaceRepository = workspaceRepository;
         this.userRepository = userRepository;
@@ -63,6 +79,9 @@ public class ProjectServiceImpl implements ProjectService {
         this.projectMemberRepository = projectMemberRepository;
         this.taskRepository = taskRepository;
         this.securityService = securityService;
+        this.sprintRepository = sprintRepository; // Thêm
+        this.epicRepository = epicRepository; // Thêm
+        this.projectStatusRepository = projectStatusRepository; // Thêm
     }
 
     private boolean isProvided(String value) {
@@ -71,11 +90,7 @@ public class ProjectServiceImpl implements ProjectService {
     /**
      * US7: Tạo Project mới trong Workspace.
      * Logic & Nghiệp vụ:
-     * 1) Xác thực Workspace tồn tại (404 nếu không thấy).
-     * 2) Ràng buộc unique projectCode trong cùng workspace (400 nếu đã tồn tại).
-     * 3) Lấy reference cho các quan hệ (workspace, createdBy, manager, projectType): không cần load đầy đủ.
-     * 4) Thiết lập các trường scalar từ request; giữ mặc định entity cho status/priority/progress nếu request không cung cấp.
-     * 5) Lưu Project, trả ProjectResponse (tránh trả Entity trực tiếp để an toàn serialize).
+     * (Giữ nguyên comment)
      */
     @Override
     @Transactional
@@ -123,11 +138,8 @@ public class ProjectServiceImpl implements ProjectService {
         // Priority (nếu client gửi), nếu null giữ mặc định của entity
         // Nếu priority invalid hoặc null -> dùng MEDIUM (thân thiện hơn)
         if (request.getPriority() != null) {
-            try {
-                project.setPriority(Priority.valueOf(request.getPriority().toUpperCase()));
-            } catch (IllegalArgumentException ex) {
-                project.setPriority(Priority.MEDIUM);
-            }
+             // DTO đã dùng Enum ProjectPriority
+            project.setPriority(request.getPriority());
         }
 
         // Manager (optional)
@@ -149,7 +161,7 @@ public class ProjectServiceImpl implements ProjectService {
             project.setProgress(BigDecimal.ZERO);
         }
 
-            // (5) Lưu Project
+        // (5) Lưu Project
         Project saved = projectRepository.save(project);
 
         // (6) Gán người tạo làm Project Admin
@@ -174,11 +186,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     /**
      * US8: Lấy danh sách Project trong Workspace.
-     * Logic & Nghiệp vụ:
-     * 1) Xác thực workspace tồn tại và thuộc companyId; sai → 400.
-     * 2) Lấy danh sách project theo workspace.
-     * 3) (Tuỳ chọn) Loại bỏ các project có status CANCELLED khỏi kết quả để tránh hiển thị dự án đã hủy.
-     * 4) Map tối thiểu sang DTO ProjectResponse và trả về.
+     * (Giữ nguyên comment)
      */
     @Override
     @Transactional(readOnly = true)
@@ -201,10 +209,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     /**
      * Project Trash: trả về các project có trạng thái CANCELLED trong workspace.
-     * Logic:
-     * 1) Xác thực workspace tồn tại và thuộc companyId (sai → 400).
-     * 2) Lấy danh sách project theo workspace và lọc status = CANCELLED.
-     * 3) Map sang DTO và trả về.
+     * (Giữ nguyên comment)
      */
     @Override
     @Transactional(readOnly = true)
@@ -226,11 +231,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     /**
      * US9: Xóa dự án (soft delete) bằng cách chuyển trạng thái sang CANCELLED.
-     * Logic & Nghiệp vụ:
-     * 1) Xác thực workspace tồn tại và thuộc companyId (sai → 400) để ngăn truy cập chéo công ty.
-     * 2) Lấy Project theo projectId (404 nếu không tồn tại).
-     * 3) Kiểm tra Project thuộc đúng workspaceId trong path (sai → 400).
-     * 4) Set status = CANCELLED và lưu. Không xóa cứng để giữ dữ liệu lịch sử/liên kết.
+     * (Giữ nguyên comment)
      */
     @Override
     @Transactional
@@ -254,13 +255,13 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional
     public ProjectResponse updateProjectStatus(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectStatusRequest request) {
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
             if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
                 throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
             }
 
         Project project = projectRepository.findById(projectId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
             if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
                 throw new BadRequestException("Dự án không thuộc về không gian làm việc được chỉ định");
             }
@@ -400,7 +401,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     public ProjectResponse getProjectDetails(Integer companyId, Integer workspaceId, Integer projectId) {
         Project project = projectRepository.findById(projectId)
-            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
 
         // Kiểm tra project có thuộc workspace và company tương ứng không
         if (!project.getWorkspace().getId().equals(workspaceId)) {
@@ -420,7 +421,6 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional(readOnly = true)
     public List<TaskSummaryResponse> getProjectBacklog(Integer companyId, Integer workspaceId, Integer projectId) {
         // 1. Kiểm tra (IDOR): Đảm bảo Project thuộc Workspace và Company
-        // (Logic này có thể đã được @PreAuthorize xử lý, nhưng kiểm tra lại ở Service là an toàn)
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
         
@@ -438,21 +438,28 @@ public class ProjectServiceImpl implements ProjectService {
                 .collect(Collectors.toList());
     }
 
-    // *** THÊM HÀM HELPER NÀY ***
+    // *** HÀM HELPER MAPPING (ĐÃ SỬA LỖI LOGIC) ***
     /**
      * Hàm helper để map Task (Entity) sang TaskSummaryResponse (DTO)
      */
     private TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
-        // Xử lý an toàn nếu assignee hoặc epic là null
         User assignee = task.getAssignee();
         Epic epic = task.getEpic();
+        
+        // *** SỬA LỖI: Lấy đối tượng ProjectStatus ***
+        com.quanlyduan.project_manager_api.model.ProjectStatus status = task.getStatus(); 
 
         return TaskSummaryResponse.builder()
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
                 .taskType(task.getTaskType())
-                .status(task.getStatus())
+                
+                // *** SỬA LỖI: Đọc từ đối tượng status ***
+                .statusId(status != null ? status.getId() : null)
+                .statusName(status != null ? status.getName() : "N/A")
+                .statusColor(status != null ? status.getColor() : "#FFFFFF")
+
                 .priority(task.getPriority())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
                 .assigneeId(assignee != null ? assignee.getId() : null)
@@ -482,45 +489,46 @@ public class ProjectServiceImpl implements ProjectService {
                 .map(this::mapToProjectMemberResponse) // Dùng helper mới
                 .collect(Collectors.toList());
     }
-@Override
-@Transactional
-public ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode) {
-    // 1. Lấy thông tin thành viên
-    ProjectMember member = projectMemberRepository.findById(memberId)
-            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên dự án với ID: " + memberId));
 
-    // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng dự án
-    if (!member.getProject().getId().equals(projectId)) {
-        throw new ResourceNotFoundException("Không tìm thấy thành viên này trong dự án");
+    @Override
+    @Transactional
+    public ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode) {
+        // 1. Lấy thông tin thành viên
+        ProjectMember member = projectMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên dự án với ID: " + memberId));
+
+        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng dự án
+        if (!member.getProject().getId().equals(projectId)) {
+            throw new ResourceNotFoundException("Không tìm thấy thành viên này trong dự án");
+        }
+
+        // 3. Kiểm tra nghiệp vụ: Không cho phép đổi vai trò của chính mình
+        User admin = securityService.getCurrentAuthenticatedUser();
+        if (admin.getId().equals(member.getUser().getId())) {
+            throw new BadRequestException("Bạn không thể thay đổi vai trò của chính mình.");
+        }
+
+        // 4. Kiểm tra nếu vai trò mới trùng với vai trò hiện tại
+        if (member.getRole().getRoleCode().equals(newRoleCode)) {
+            throw new BadRequestException("Vai trò mới trùng với vai trò hiện tại, không cần cập nhật.");
+        }
+
+        // 5. Tìm vai trò (Role) mới
+        Role newRole = roleRepository.findFirstByRoleCode(newRoleCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với mã: " + newRoleCode));
+
+        // 6. Kiểm tra nghiệp vụ: Đảm bảo vai trò mới là CẤP DỰ ÁN
+        if (newRole.getLevel() != RoleLevel.PROJECT) {
+            throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp DỰ ÁN)");
+        }
+
+        // 7. Cập nhật vai trò
+        member.setRole(newRole);
+        ProjectMember updatedMember = projectMemberRepository.save(member);
+
+        // 8. Trả về DTO đã cập nhật
+        return mapToProjectMemberResponse(updatedMember);
     }
-
-    // 3. Kiểm tra nghiệp vụ: Không cho phép đổi vai trò của chính mình
-    User admin = securityService.getCurrentAuthenticatedUser();
-    if (admin.getId().equals(member.getUser().getId())) {
-        throw new BadRequestException("Bạn không thể thay đổi vai trò của chính mình.");
-    }
-
-    // 4. Kiểm tra nếu vai trò mới trùng với vai trò hiện tại
-    if (member.getRole().getRoleCode().equals(newRoleCode)) {
-        throw new BadRequestException("Vai trò mới trùng với vai trò hiện tại, không cần cập nhật.");
-    }
-
-    // 5. Tìm vai trò (Role) mới
-    Role newRole = roleRepository.findFirstByRoleCode(newRoleCode)
-            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với mã: " + newRoleCode));
-
-    // 6. Kiểm tra nghiệp vụ: Đảm bảo vai trò mới là CẤP DỰ ÁN
-    if (newRole.getLevel() != RoleLevel.PROJECT) {
-        throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp DỰ ÁN)");
-    }
-
-    // 7. Cập nhật vai trò
-    member.setRole(newRole);
-    ProjectMember updatedMember = projectMemberRepository.save(member);
-
-    // 8. Trả về DTO đã cập nhật
-    return mapToProjectMemberResponse(updatedMember);
-}
     
     private ProjectMemberResponse mapToProjectMemberResponse(ProjectMember member) {
         return ProjectMemberResponse.builder()

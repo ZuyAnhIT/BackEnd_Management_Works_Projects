@@ -47,31 +47,33 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
             @Param("excludedStatuses") Collection<String> excludedStatuses
     );
 
-    /**
-     * Lấy tất cả các task thuộc về một dự án (project).
-     * Sắp xếp theo Sprint (NULL = Backlog lên trước), sau đó theo thứ tự (sortOrder).
-     */
     @Query("SELECT t FROM Task t " +
-           "LEFT JOIN FETCH t.assignee " + // Lấy thông tin assignee
-           "LEFT JOIN FETCH t.epic " + // Lấy thông tin epic
+           "LEFT JOIN FETCH t.assignee " + 
+           "LEFT JOIN FETCH t.epic " +
+           "LEFT JOIN FETCH t.status " + 
            "WHERE t.project.id = :projectId " +
-           "ORDER BY t.sprint.id ASC NULLS FIRST, t.sortOrder ASC") // Sắp xếp Backlog (sprint_id IS NULL) lên đầu
+           "ORDER BY t.sprint.id ASC NULLS FIRST, t.sortOrder ASC")
     List<Task> findByProjectIdWithDetails(Integer projectId);
-
-    /**
-     * Đếm số lượng task trong một dự án.
-     * Dùng để tạo task_code mới (ví dụ: WEB-4)
-     */
-    long countByProjectId(Integer projectId);
     
-    /**
-     * Lấy tất cả task (cùng thông tin assignee, epic) thuộc về một Sprint.
-     * Sắp xếp theo thứ tự (sortOrder).
-     */
+    long countByProjectId(Integer projectId);
+
     @Query("SELECT t FROM Task t " +
            "LEFT JOIN FETCH t.assignee " +
            "LEFT JOIN FETCH t.epic " +
+           "LEFT JOIN FETCH t.status " + 
            "WHERE t.sprint.id = :sprintId " +
            "ORDER BY t.sortOrder ASC")
     List<Task> findBySprintIdWithDetails(Integer sprintId);
+
+    /**
+     * Lấy tất cả task được gán cho một user,
+     * kèm theo chi tiết (project, workspace, status)
+     */
+    @Query("SELECT t FROM Task t " +
+           "JOIN FETCH t.project p " +
+           "JOIN FETCH p.workspace w " +
+           "LEFT JOIN FETCH t.status s " +
+           "WHERE t.assignee.id = :assigneeId " +
+           "ORDER BY t.dueDate ASC")
+    List<Task> findByAssignee_IdWithDetails(@Param("assigneeId") Integer assigneeId);
 }

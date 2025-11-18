@@ -1,25 +1,23 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/ProjectRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
+
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.time.LocalDate;
 
-/**
- * Payload tạo Project mới (US7) – phiên bản refactor "viết lại" theo yêu cầu:
- * - Chấp nhận boardConfig là JSON (JsonNode) để client gửi JSON trực tiếp, không cần escape.
- * - priority là String tự do; service sẽ parse, nếu invalid sẽ dùng mặc định MEDIUM (thân thiện hơn).
- * - managerId / projectTypeId: nếu null hoặc <= 0, coi như không gửi để tránh 404 không cần thiết.
- */
 @Data
 public class ProjectRequest {
-    private Integer workspaceId;
+    // workspaceId được lấy từ @PathVariable trong Controller, không cần trong body
+    // private Integer workspaceId; 
     
     @NotBlank(message = "Tên dự án không được để trống")
     private String name;
 
-    @NotBlank(message = "Project name must not be blank")
+    @NotBlank(message = "Mã dự án không được để trống") // Đã dịch
     private String projectCode;
 
     private String description;
@@ -31,7 +29,7 @@ public class ProjectRequest {
     private Integer managerId;     // optional
 
     // Optional planning fields
-    private String priority;       // e.g. LOW, MEDIUM, HIGH, URGENT (invalid -> default MEDIUM)
+    private ProjectPriority priority;
     private LocalDate startDate;
     private LocalDate dueDate;
 }

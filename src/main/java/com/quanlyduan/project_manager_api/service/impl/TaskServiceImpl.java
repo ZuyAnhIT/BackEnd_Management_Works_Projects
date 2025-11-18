@@ -23,26 +23,29 @@ public class TaskServiceImpl implements TaskService {
     private final UserRepository userRepository;
     private final SecurityService securityService;
     private final EpicRepository epicRepository;
+    private final ProjectStatusRepository projectStatusRepository;
 
     public TaskServiceImpl(TaskRepository taskRepository,
                            ProjectRepository projectRepository,
                            SprintRepository sprintRepository,
                            UserRepository userRepository,
                            EpicRepository epicRepository,
-                           SecurityService securityService) {
+                           SecurityService securityService,
+                           ProjectStatusRepository projectStatusRepository) {
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
         this.sprintRepository = sprintRepository;
         this.userRepository = userRepository;
         this.securityService = securityService;
         this.epicRepository = epicRepository;
+        this.projectStatusRepository = projectStatusRepository;
     }
      // US-S3-7: Kéo/thả Task vào Sprint
     @Override
     @Transactional
     public void updateTaskSprint(Integer taskId, Integer newSprintId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc")); // Đã dịch
 
         if (newSprintId == null) {
             // Kéo về Backlog
@@ -50,11 +53,11 @@ public class TaskServiceImpl implements TaskService {
         } else {
             // Kéo vào 1 Sprint
             Sprint sprint = sprintRepository.findById(newSprintId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Sprint not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint")); // Đã dịch
             
             // Validate: Task và Sprint phải cùng Project
             if (!task.getProject().getId().equals(sprint.getProject().getId())) {
-                throw new BadRequestException("Task and Sprint do not belong to the same project");
+                throw new BadRequestException("Công việc và Sprint không thuộc cùng một dự án"); // Đã dịch
             }
             task.setSprint(sprint);
         }
@@ -65,26 +68,45 @@ public class TaskServiceImpl implements TaskService {
     // === HÀM HELPER MAPPING ===
     @Override
     public TaskResponse mapToTaskResponse(Task task) {
+        ProjectStatus status = task.getStatus(); 
+        User assigner = task.getAssigner();
+        User assignee = task.getAssignee();
+        User createdBy = task.getCreatedBy();
+        
         return TaskResponse.builder()
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
                 .description(task.getDescription())
-                .taskType(task.getTaskType().name())
-                .status(task.getStatus())
-                .priority(task.getPriority().name())
+                
+                // *** SỬA LỖI LOGIC: Gán các trường status mới ***
+                .statusId(status != null ? status.getId() : null)
+                .statusName(status != null ? status.getName() : "N/A")
+                .statusColor(status != null ? status.getColor() : "#FFFFFF")
+
+                .taskType(task.getTaskType() != null ? task.getTaskType().name() : null)
+                .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                
                 .storyPoints(task.getStoryPoints())
+                .estimatedHours(task.getEstimatedHours()) // Thêm
+                .loggedHours(task.getLoggedHours()) // Thêm
+                .startDate(task.getStartDate()) // Thêm
                 .dueDate(task.getDueDate())
+                .completedAt(task.getCompletedAt()) // Thêm
+
                 .projectId(task.getProject().getId())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
                 .epicId(task.getEpic() != null ? task.getEpic().getId() : null)
-                .assignerId(task.getAssigner() != null ? task.getAssigner().getId() : null)
-                .assignerName(task.getAssigner() != null ? task.getAssigner().getFullName() : null)
-                .assigneeId(task.getAssignee() != null ? task.getAssignee().getId() : null)
-                .assigneeName(task.getAssignee() != null ? task.getAssignee().getFullName() : null)
-                .assigneeAvatar(task.getAssignee() != null ? task.getAssignee().getAvatarUrl() : null)
-                .createdById(task.getCreatedBy().getId())
-                .createdByName(task.getCreatedBy().getFullName())
+                
+                .assignerId(assigner != null ? assigner.getId() : null)
+                .assignerName(assigner != null ? assigner.getFullName() : null)
+                
+                .assigneeId(assignee != null ? assignee.getId() : null)
+                .assigneeName(assignee != null ? assignee.getFullName() : null)
+                .assigneeAvatar(assignee != null ? assignee.getAvatarUrl() : null)
+                
+                .createdById(createdBy.getId()) // Giả định createdBy không bao giờ null
+                .createdByName(createdBy.getFullName())
                 .createdAt(task.getCreatedAt())
                 .build();
     }
@@ -94,37 +116,33 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskSummaryResponse createTask(Integer projectId, CreateTaskRequest request) {
         
-        // 1. Lấy thông tin người tạo (từ SecurityContext)
         User creator = securityService.getCurrentAuthenticatedUser();
         
-        // 2. Lấy dự án (Project)
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
 
-        // 3. (Tùy chọn) Lấy Sprint và Epic nếu có
+        // *** LOGIC MỚI: TÌM TRẠNG THÁI (CỘT) MẶC ĐỊNH ***
+        ProjectStatus defaultStatus = projectStatusRepository.findFirstByProject_IdOrderBySortOrderAsc(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dự án này chưa có cột trạng thái (status). Vui lòng cấu hình."));
+        
+        // (Logic tìm Sprint, Epic, Assignee giữ nguyên)
         Sprint sprint = null;
         if (request.getSprintId() != null) {
             sprint = sprintRepository.findById(request.getSprintId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint với ID: " + request.getSprintId()));
-            // (Nên kiểm tra sprint này có thuộc project này không)
         }
-        
         Epic epic = null;
         if (request.getEpicId() != null) {
             epic = epicRepository.findById(request.getEpicId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Epic với ID: " + request.getEpicId()));
-            // (Nên kiểm tra epic này có thuộc project này không)
         }
-        
-        // 4. (Tùy chọn) Lấy người được gán (assignee)
         User assignee = null;
         if (request.getAssigneeId() != null) {
             assignee = userRepository.findById(request.getAssigneeId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng (assignee) với ID: " + request.getAssigneeId()));
-            // (Nên kiểm tra assignee này có phải là thành viên dự án không)
         }
 
-        // 5. TODO: Logic tạo Task Code tự động (ví dụ: WEB-4)
+        // (Logic tạo Task Code giữ nguyên)
         String newCode = project.getProjectCode() + "-" + (taskRepository.countByProjectId(projectId) + 1);
 
         // 6. Tạo Task Entity
@@ -132,18 +150,18 @@ public class TaskServiceImpl implements TaskService {
                 .project(project)
                 .title(request.getTitle())
                 .description(request.getDescription())
-                .taskCode(newCode) // Dùng mã tự động
+                .taskCode(newCode)
                 .taskType(request.getTaskType())
-                .status(request.getStatus() != null ? request.getStatus() : "TO_DO") // Mặc định là TO_DO
+                .status(defaultStatus) // *** ĐÃ SỬA: Gán đối tượng ProjectStatus ***
                 .priority(request.getPriority())
                 .sprint(sprint)
                 .epic(epic)
                 .assignee(assignee)
-                .assigner(creator) // Người gán task
-                .createdBy(creator) // Người tạo task
+                .assigner(creator) 
+                .createdBy(creator) 
                 .storyPoints(request.getStoryPoints())
                 .dueDate(request.getDueDate())
-                .sortOrder(0) // Mặc định
+                .sortOrder(0) 
                 .build();
         
         Task savedTask = taskRepository.save(newTask);
@@ -152,20 +170,21 @@ public class TaskServiceImpl implements TaskService {
         return mapToTaskSummaryResponse(savedTask);
     }
 
-    /**
-     * Hàm helper để map Task (Entity) sang TaskSummaryResponse (DTO)
-     * (Tái sử dụng từ ProjectServiceImpl)
-     */
+    // === HÀM HELPER (ĐÃ CẬP NHẬT) ===
     private TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
         User assignee = task.getAssignee();
         Epic epic = task.getEpic();
+        ProjectStatus status = task.getStatus(); // Lấy đối tượng Status
 
         return TaskSummaryResponse.builder()
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
                 .taskType(task.getTaskType())
-                .status(task.getStatus())
+                .statusId(status != null ? status.getId() : null)
+                .statusName(status != null ? status.getName() : "N/A")
+                .statusColor(status != null ? status.getColor() : "#FFFFFF")
+                
                 .priority(task.getPriority())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
                 .assigneeId(assignee != null ? assignee.getId() : null)

@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/DashboardServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
@@ -18,7 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Set;
+import java.util.Set; 
 import java.util.stream.Collectors;
 
 @Service
@@ -30,12 +31,13 @@ public class DashboardServiceImpl implements DashboardService {
     private final CompanyMemberRepository companyMemberRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
-
+    
+    // *** THÊM CONSTRUCTOR THỦ CÔNG (Theo yêu cầu) ***
     public DashboardServiceImpl(SecurityService securityService,
-                                WorkspaceMemberRepository workspaceMemberRepository,
-                                CompanyMemberRepository companyMemberRepository,
-                                ProjectMemberRepository projectMemberRepository,
-                                TaskRepository taskRepository) {
+                                  WorkspaceMemberRepository workspaceMemberRepository,
+                                  CompanyMemberRepository companyMemberRepository,
+                                  ProjectMemberRepository projectMemberRepository,
+                                  TaskRepository taskRepository) {
 
         this.securityService = securityService;
         this.workspaceMemberRepository = workspaceMemberRepository;
@@ -93,9 +95,11 @@ public class DashboardServiceImpl implements DashboardService {
 
         List<CompanyStatus> allowedStatuses =
                 List.of(CompanyStatus.ACTIVE, CompanyStatus.SUSPENDED);
+        
+        // (Giả sử bạn đã thêm hàm findByUserIdAndCompanyStatuses vào Repository)
+        List<CompanyMember> members = companyMemberRepository.findByUser_IdAndCompany_StatusIn(userId, allowedStatuses);
 
-        return companyMemberRepository.findByUserIdAndCompanyStatuses(userId, allowedStatuses)
-                .stream()
+        return members.stream()
                 .map(this::mapToMyCompanyResponse)
                 .collect(Collectors.toList());
     }
@@ -154,35 +158,44 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
-    //US4-sprint3: Logic lấy tất cả Task được giao cho tôi
+    // ======================================================
+    // 4. US4-sprint3: Logic lấy tất cả Task được giao cho tôi 
+    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public List<MyTaskResponse> getMyTasks() {
         // 1. Lấy user ID từ SecurityService (Bean "securityService")
         Integer currentUserId = securityService.getCurrentUserId();
-
-        // 2. Định nghĩa các status đã hoàn thành (bạn có thể thay đổi)
-        Set<String> completedStatuses = Set.of("DONE", "COMPLETED", "CANCELLED");
-
-        // 3. Gọi repository (hàm mới bạn tạo ở trên)
-        List<Task> tasks = taskRepository.findByAssignee_IdAndStatusNotInWithDetails(
-                currentUserId,
-                completedStatuses
+        if (currentUserId == null) {
+            return List.of();
+        }
+        
+        List<Task> tasks = taskRepository.findByAssignee_IdWithDetails(
+                currentUserId
         );
 
-        // 4. Map sang DTO
+        // 4. Map sang DTO VÀ LỌC
         return tasks.stream()
-                .map(this::mapToMyTaskResponse) // Sử dụng helper
-                .collect(Collectors.toList());
+            // *** SỬA: Lọc các task chưa hoàn thành (isCompletedStatus = false) ***
+            .filter(task -> task.getStatus() != null && !task.getStatus().getIsCompletedStatus())
+            .map(this::mapToMyTaskResponse) // Sử dụng helper đã sửa
+            .collect(Collectors.toList());
     }
 
-     // Hàm helper để map từ Task Entity sang MyTaskResponse DTO
+    // Hàm helper để map từ Task Entity sang MyTaskResponse DTO (ĐÃ SỬA)
     private MyTaskResponse mapToMyTaskResponse(Task task) {
+        // *** SỬA: Lấy đối tượng ProjectStatus ***
+        ProjectStatus status = task.getStatus();
+        
         return MyTaskResponse.builder()
                 .taskId(task.getId())
                 .taskCode(task.getTaskCode())
                 .taskTitle(task.getTitle())
-                .taskStatus(task.getStatus())
+                
+                .taskStatusId(status != null ? status.getId() : null)
+                .taskStatusName(status != null ? status.getName() : "Không xác định")
+                .taskStatusColor(status != null ? status.getColor() : "#CCCCCC")
+                
                 .taskPriority(task.getPriority())
                 .taskDueDate(task.getDueDate())
                 .projectId(task.getProject().getId())
