@@ -488,7 +488,11 @@ if (member.getStatus() == newStatus) {
         if (newRole.getLevel() != RoleLevel.WORKSPACE) {
             throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp KHÔNG GIAN)");
         }
-        
+        // 6.1 Kiểm tra vai trò mới có trùng vai trò hiện tại không
+        if (member.getRole().getRoleCode().equals(newRoleCode)) {
+            throw new BadRequestException("Vai trò mới giống với vai trò hiện tại. Không có gì để cập nhật.");
+        }
+
         // 7. Cập nhật vai trò
         member.setRole(newRole);
         WorkspaceMember updatedMember = workspaceMemberRepository.save(member);
