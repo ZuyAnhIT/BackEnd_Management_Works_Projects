@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.repository;
 import com.quanlyduan.project_manager_api.model.ProjectStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -18,11 +19,14 @@ public interface ProjectStatusRepository extends JpaRepository<ProjectStatus, In
      */
     Optional<ProjectStatus> findFirstByProject_IdOrderBySortOrderAsc(Integer projectId);
 
-    // *** HÀM CHO CHỨC NĂNG NÀY ***
     // Lấy tất cả status của project, sắp xếp theo sortOrder
     List<ProjectStatus> findByProject_IdOrderBySortOrderAsc(Integer projectId);
-    
-    // Tìm giá trị sort_order lớn nhất hiện tại (dùng cho chức năng tạo sau này)
-    @Query("SELECT MAX(s.sortOrder) FROM ProjectStatus s WHERE s.project.id = :projectId")
-    Integer findMaxSortOrderByProjectId(Integer projectId);
+
+    // Kiểm tra trùng tên trong cùng 1 project (không phân biệt hoa thường)
+    boolean existsByProject_IdAndNameIgnoreCase(Integer projectId, String name);
+
+    // 2. Tìm giá trị sort_order lớn nhất hiện tại (để thêm vào cuối)
+    // COALESCE để trả về 0 nếu chưa có cột nào
+    @Query("SELECT COALESCE(MAX(s.sortOrder), -1) FROM ProjectStatus s WHERE s.project.id = :projectId")
+    Integer findMaxSortOrderByProjectId(@Param("projectId") Integer projectId);
 }
