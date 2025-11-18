@@ -10,6 +10,7 @@ import com.quanlyduan.project_manager_api.model.Project;
 import com.quanlyduan.project_manager_api.model.ProjectStatus;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
+import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.service.ProjectStatusService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,12 +25,15 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
 
     private final ProjectStatusRepository projectStatusRepository;
     private final ProjectRepository projectRepository;
+    private final TaskRepository taskRepository;
 
     // *** CONSTRUCTOR THỦ CÔNG ***
     public ProjectStatusServiceImpl(ProjectStatusRepository projectStatusRepository,
-                                    ProjectRepository projectRepository) {
+                                    ProjectRepository projectRepository, 
+                                    TaskRepository taskRepository) {
         this.projectStatusRepository = projectStatusRepository;
         this.projectRepository = projectRepository;
+        this.taskRepository = taskRepository;
     }
 
     // LOGIC LẤY DANH SÁCH TRẠNG THÁI
@@ -133,5 +137,27 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
             // (Lưu trong vòng lặp, hoặc dùng saveAll cuối cùng)
             projectStatusRepository.save(status);
         }
+    }
+
+    // LOGIC XOA TRANG THAI (COT)
+    @Override
+    @Transactional
+    public void deleteStatus(Integer projectId, Integer statusId) {
+        // 1. Tìm Status
+        ProjectStatus status = projectStatusRepository.findById(statusId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trạng thái với ID: " + statusId)); // Đã dịch
+
+        // 2. Validate: Status phải thuộc về Project này (Tránh xóa nhầm của dự án khác)
+        if (!status.getProject().getId().equals(projectId)) {
+             throw new BadRequestException("Trạng thái này không thuộc về dự án được chỉ định"); // Đã dịch
+        }
+        
+        // 3. Validate: Không cho phép xóa nếu còn Task trong cột này
+        if (taskRepository.existsByStatus_Id(statusId)) {
+            throw new BadRequestException("Không thể xóa trạng thái này vì đang có công việc (task) bên trong. Vui lòng di chuyển các công việc sang cột khác trước."); // Đã dịch
+        }
+        
+        // 4. Thực hiện xóa cứng (vì đây là cấu trúc bảng, có thể xóa cứng nếu rỗng)
+        projectStatusRepository.delete(status);
     }
 }
