@@ -482,42 +482,45 @@ public class ProjectServiceImpl implements ProjectService {
                 .map(this::mapToProjectMemberResponse) // Dùng helper mới
                 .collect(Collectors.toList());
     }
+@Override
+@Transactional
+public ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode) {
+    // 1. Lấy thông tin thành viên
+    ProjectMember member = projectMemberRepository.findById(memberId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên dự án với ID: " + memberId));
 
-    // LOGIC CAP NHAT VAI TRO THANH VIEN DU AN
-    @Override
-    @Transactional
-    public ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode) {
-        // 1. Lấy thông tin thành viên
-        ProjectMember member = projectMemberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên dự án với ID: " + memberId));
-
-        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng dự án
-        if (!member.getProject().getId().equals(projectId)) {
-            throw new ResourceNotFoundException("Không tìm thấy thành viên này trong dự án");
-        }
-
-        // 3. Kiểm tra nghiệp vụ: Không cho phép đổi vai trò của chính mình
-        User admin = securityService.getCurrentAuthenticatedUser();
-        if (admin.getId().equals(member.getUser().getId())) {
-            throw new BadRequestException("Bạn không thể thay đổi vai trò của chính mình.");
-        }
-
-        // 4. Tìm vai trò (Role) mới
-        Role newRole = roleRepository.findFirstByRoleCode(newRoleCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với mã: " + newRoleCode));
-
-        // 5. Kiểm tra nghiệp vụ: Đảm bảo vai trò mới là CẤP DỰ ÁN
-        if (newRole.getLevel() != RoleLevel.PROJECT) {
-            throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp DỰ ÁN)");
-        }
-        
-        // 6. Cập nhật vai trò
-        member.setRole(newRole);
-        ProjectMember updatedMember = projectMemberRepository.save(member);
-
-        // 7. Trả về DTO đã cập nhật (tái sử dụng helper)
-        return mapToProjectMemberResponse(updatedMember);
+    // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng dự án
+    if (!member.getProject().getId().equals(projectId)) {
+        throw new ResourceNotFoundException("Không tìm thấy thành viên này trong dự án");
     }
+
+    // 3. Kiểm tra nghiệp vụ: Không cho phép đổi vai trò của chính mình
+    User admin = securityService.getCurrentAuthenticatedUser();
+    if (admin.getId().equals(member.getUser().getId())) {
+        throw new BadRequestException("Bạn không thể thay đổi vai trò của chính mình.");
+    }
+
+    // 4. Kiểm tra nếu vai trò mới trùng với vai trò hiện tại
+    if (member.getRole().getRoleCode().equals(newRoleCode)) {
+        throw new BadRequestException("Vai trò mới trùng với vai trò hiện tại, không cần cập nhật.");
+    }
+
+    // 5. Tìm vai trò (Role) mới
+    Role newRole = roleRepository.findFirstByRoleCode(newRoleCode)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với mã: " + newRoleCode));
+
+    // 6. Kiểm tra nghiệp vụ: Đảm bảo vai trò mới là CẤP DỰ ÁN
+    if (newRole.getLevel() != RoleLevel.PROJECT) {
+        throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp DỰ ÁN)");
+    }
+
+    // 7. Cập nhật vai trò
+    member.setRole(newRole);
+    ProjectMember updatedMember = projectMemberRepository.save(member);
+
+    // 8. Trả về DTO đã cập nhật
+    return mapToProjectMemberResponse(updatedMember);
+}
     
     private ProjectMemberResponse mapToProjectMemberResponse(ProjectMember member) {
         return ProjectMemberResponse.builder()
