@@ -226,60 +226,71 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     // LOGIC XEM DANH SACH THANH VIEN TRONG CONG TY
+    // LOGIC XEM DANH SACH THANH VIEN TRONG CONG TY
     @Override
     @Transactional(readOnly = true) 
     public List<CompanyMemberResponse> getCompanyMembers(Integer companyId) { 
-
 
         // 3. Tạo danh sách trả về
         List<CompanyMemberResponse> responseList = new ArrayList<>();
 
         // 4. Lấy danh sách thành viên (Active/Inactive)
-        List<CompanyMember> members = companyMemberRepository.findByCompany_Id(companyId); // Đã dịch
-
-        for (CompanyMember member : members) { // Đã dịch
+        List<CompanyMember> members = companyMemberRepository.findByCompany_Id(companyId); 
+        
+        for (CompanyMember member : members) { 
             CompanyMemberResponse dto = CompanyMemberResponse.builder()
-                    .memberId(member.getId()) // *** BỔ SUNG YÊU CẦU ***
-                    .userId(member.getUser().getId()) // Đã dịch
-                    .fullName(member.getUser().getFullName()) // Đã dịch
+                    .memberId(member.getId()) 
+                    .userId(member.getUser().getId()) 
+                    .fullName(member.getUser().getFullName()) 
                     .email(member.getUser().getEmail())
-                    .avatarUrl(member.getUser().getAvatarUrl()) // Đã dịch
-                    .roleName(member.getRole().getRoleName()) // Đã dịch
-                    .jobTitle(member.getJobTitle()) // Đã dịch
-                    .joinedAt(member.getJoinedAt()) // Đã dịch
-                    .status(mapMemberStatus(member.getStatus())) // Helper map status // Đã dịch
+                    .avatarUrl(member.getUser().getAvatarUrl()) 
+                    .roleName(member.getRole().getRoleName()) 
+                    .jobTitle(member.getJobTitle()) 
+                    .joinedAt(member.getJoinedAt()) 
+                    .status(mapMemberStatus(member.getStatus())) // *** SỬA LOGIC Ở HÀM HELPER NÀY ***
                     .build();
             responseList.add(dto);
         }
 
         // 5. Lấy danh sách lời mời (Pending)
-        List<CompanyInvitation> invitations = companyInvitationRepository // Đã dịch
-                .findByCompany_IdAndStatus(companyId, InvitationStatus.PENDING); // Đã dịch
+        List<CompanyInvitation> invitations = companyInvitationRepository 
+                .findByCompany_IdAndStatus(companyId, InvitationStatus.PENDING); 
 
-        for (CompanyInvitation invitation : invitations) { // Đã dịch
+        for (CompanyInvitation invitation : invitations) { 
             CompanyMemberResponse dto = CompanyMemberResponse.builder()
-                    .memberId(null) // *** BỔ SUNG YÊU CẦU *** (null vì đây là lời mời)
-                    .userId(null) // Chưa có user
-                    .fullName("Pending...") // Hoặc (loiMoi.getEmail()) // Đã dịch
-                    .email(invitation.getEmail()) // Đã dịch
-                    .avatarUrl(null) // Đã dịch
-                    .roleName(invitation.getRole().getRoleName()) // Role được mời // Đã dịch
-                    .jobTitle(null) // Đã dịch
-                    .joinedAt(invitation.getCreatedAt()) // Ngày mời // Đã dịch
-                    .status(CombinedMemberStatus.PENDING)
+                    .memberId(null) 
+                    .userId(null) 
+                    .fullName("Đang chờ...") 
+                    .email(invitation.getEmail()) 
+                    .avatarUrl(null) 
+                    .roleName(invitation.getRole().getRoleName()) 
+                    .jobTitle(null) 
+                    .joinedAt(invitation.getCreatedAt()) 
+                    .status(CombinedMemberStatus.PENDING) // Trạng thái PENDING giữ nguyên
                     .build();
             responseList.add(dto);
         }
         // 6. Trả về danh sách tổng hợp
         return responseList;
     }
+    
     // --- Private Helper Method ---
-
+    
+    // *** ĐÃ SỬA LẠI LOGIC HÀM NÀY ***
     private CombinedMemberStatus mapMemberStatus(MemberStatus status) {
-        if (status == MemberStatus.ACTIVE) { // Đã dịch
-            return CombinedMemberStatus.ACTIVE;
+        // Chuyển đổi trực tiếp từ MemberStatus (ACTIVE, SUSPENDED, REMOVED)
+        // sang CombinedMemberStatus (ACTIVE, SUSPENDED, REMOVED)
+        switch (status) {
+            case ACTIVE:
+                return CombinedMemberStatus.ACTIVE;
+            case SUSPENDED:
+                return CombinedMemberStatus.SUSPENDED;
+            case REMOVED:
+                return CombinedMemberStatus.REMOVED;
+            default:
+                // Xử lý dự phòng, mặc dù không bao giờ nên xảy ra
+                return CombinedMemberStatus.REMOVED; 
         }
-        return CombinedMemberStatus.INACTIVE; // Gộp TAM_DUNG và DA_ROI thành INACTIVE
     }
 
     // LOGIC LAY THONG TIN CHI TIET CONG TY
