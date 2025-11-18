@@ -204,4 +204,18 @@ public class WorkspaceController {
 
         return ResponseEntity.ok(ApiResponse.success(message, responseData));
     }
+    // API XOA THANH VIEN KHOI WORKSPACE (Soft Delete)
+    // SỬA Ở ĐÂY: Bỏ "{companyId}/workspaces/" đi vì class đã định nghĩa rồi
+    @DeleteMapping("/{workspaceId}/members/{memberId}") 
+    // Bảo vệ: Kiểm tra quyền 'workspace:remove_member'
+    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'workspace:remove_member')")
+    public ResponseEntity<ApiResponse<Object>> removeWorkspaceMember(
+            @PathVariable Integer companyId, // Vẫn lấy được từ đường dẫn cha (Class level)
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer memberId) {
+        
+        workspaceService.removeMemberFromWorkspace(companyId, workspaceId, memberId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Xóa thành viên khỏi không gian làm việc thành công.", null));
+    }
 }

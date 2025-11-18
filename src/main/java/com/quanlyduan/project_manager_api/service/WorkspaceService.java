@@ -103,4 +103,6 @@ public interface WorkspaceService {
      * @return WorkspaceMemberResponse DTO đã cập nhật
      */
     WorkspaceMemberResponse updateWorkspaceMemberRole(Integer companyId, Integer workspaceId, Integer memberId, String newRoleCode);
+
+    void removeMemberFromWorkspace(Integer companyId, Integer workspaceId, Integer memberId);
 }
