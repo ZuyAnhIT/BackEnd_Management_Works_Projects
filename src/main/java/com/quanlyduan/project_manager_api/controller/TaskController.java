@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CommentRequest;
+import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
 // import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest; // Đã xóa
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskSprintRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
@@ -43,11 +44,7 @@ public class TaskController {
         this.securityService = securityService;
         this.taskService = taskService;
     }
-
-    // TODO: Thêm các API khác liên quan đến Task (ví dụ: Get Task Details...)
     
-    // *** API TAO TASK MOI ĐÃ ĐƯỢC DI CHUYỂN SANG PROJECTCONTROLLER ***
-
     /**
      * API Thêm bình luận vào Task
      * Endpoint: POST /api/tasks/{taskId}/comments
@@ -132,5 +129,21 @@ public class TaskController {
         taskService.updateTaskSprint(taskId, request.getSprintId());
         String message = (request.getSprintId() == null) ? "Chuyển công việc về Backlog thành công" : "Cập nhật Sprint cho công việc thành công"; // Đã dịch
         return ResponseEntity.ok(ApiResponse.success(message, null));
+    }
+
+    /**
+     * US: Kéo thả Task sang cột khác (Thay đổi trạng thái)
+     * Endpoint: PUT /api/tasks/{taskId}/move
+     */
+    @PutMapping("/{taskId}/move")
+    // Bảo vệ: Cần quyền 'task:edit' (Sửa task)
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:edit')")
+    public ResponseEntity<ApiResponse<Object>> moveTask(
+            @PathVariable Integer taskId,
+            @Valid @RequestBody MoveTaskStatusRequest request) {
+        
+        taskService.moveTaskToStatus(taskId, request);
+        
+        return ResponseEntity.ok(ApiResponse.success("Di chuyển công việc thành công.", null)); // Đã dịch
     }
 }
