@@ -76,4 +76,10 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
            "WHERE t.assignee.id = :assigneeId " +
            "ORDER BY t.dueDate ASC")
     List<Task> findByAssignee_IdWithDetails(@Param("assigneeId") Integer assigneeId);
+
+    /**
+     * Kiểm tra xem có bất kỳ task nào đang ở trạng thái này không.
+     * Dùng để chặn việc xóa Status đang có dữ liệu.
+     */
+    boolean existsByStatus_Id(Integer statusId);
 }

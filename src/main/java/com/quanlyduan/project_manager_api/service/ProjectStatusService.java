@@ -31,5 +31,14 @@ public interface ProjectStatusService {
      */
     void reorderStatuses(Integer projectId, ReorderStatusRequest request);
     
+    /**
+     * Xóa một trạng thái (cột).
+     * Chỉ xóa được nếu cột rỗng (không có task).
+     * @param projectId ID dự án (để kiểm tra bảo mật)
+     * @param statusId ID trạng thái cần xóa
+     */
+    void deleteStatus(Integer projectId, Integer statusId);
+
+    
     // (Các hàm create, reorder, delete sẽ làm ở bước sau)
 }

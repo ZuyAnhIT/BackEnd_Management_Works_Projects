@@ -63,4 +63,17 @@ public class ProjectStatusController {
         
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thứ tự trạng thái thành công.", null)); // Đã dịch
     }
+
+    // API XOA TRANG THAI (COT)
+    @DeleteMapping("/{statusId}")
+    // Bảo vệ: Cần quyền 'project:edit' (Sửa dự án/cấu trúc bảng)
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<Object>> deleteStatus(
+            @PathVariable Integer projectId,
+            @PathVariable Integer statusId) {
+        
+        projectStatusService.deleteStatus(projectId, statusId);
+        return ResponseEntity.ok(ApiResponse.success("Xóa trạng thái thành công.", null)); // Đã dịch
+    }
+    
 }
