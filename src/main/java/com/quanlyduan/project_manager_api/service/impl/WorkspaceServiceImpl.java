@@ -414,7 +414,12 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         if (newStatus == MemberStatus.REMOVED) {
             throw new BadRequestException("Vui lòng sử dụng endpoint 'Remove Member' để loại bỏ thành viên, không phải endpoint cập nhật trạng thái này."); // Đã dịch
         }
-
+        // 5.1. Kiểm tra nếu trạng thái mới trùng với trạng thái hiện tại
+if (member.getStatus() == newStatus) {
+    throw new BadRequestException(
+        "Trạng thái mới giống với trạng thái hiện tại. Không có gì để cập nhật."
+    );
+}
         // 6. Cập nhật trạng thái
         member.setStatus(newStatus);
         WorkspaceMember updatedMember = workspaceMemberRepository.save(member);
@@ -491,7 +496,39 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         // 8. Trả về DTO đã cập nhật (tái sử dụng helper)
         return mapToWorkspaceMemberResponse(updatedMember);
     }
+    // LOGIC XOA THANH VIEN KHOI WORKSPACE
+        @Override
+        @Transactional
+        public void removeMemberFromWorkspace(Integer companyId, Integer workspaceId, Integer memberId) {
+            // 1. Tìm thành viên trực tiếp bằng memberId
+            WorkspaceMember member = workspaceMemberRepository.findById(memberId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên với ID: " + memberId));
 
+            // 2. Validate: Đảm bảo member này thuộc đúng workspace đang thao tác
+            if (!member.getWorkspace().getId().equals(workspaceId)) {
+                throw new BadRequestException("Thành viên này không thuộc không gian làm việc hiện tại.");
+            }
+
+            // 3. Validate: Đảm bảo workspace thuộc đúng company
+            if (!member.getWorkspace().getCompany().getId().equals(companyId)) {
+                throw new ResourceNotFoundException("Dữ liệu không khớp với công ty hiện tại.");
+            }
+
+            // 4. Kiểm tra xem có tự xóa chính mình không (Lấy User từ Member)
+            User currentUser = securityService.getCurrentAuthenticatedUser();
+            if (currentUser.getId().equals(member.getUser().getId())) {
+                throw new BadRequestException("Bạn không thể tự xóa mình khỏi không gian làm việc.");
+            }
+
+            // 5. Kiểm tra xem họ đã bị xóa chưa
+            if (member.getStatus() == MemberStatus.REMOVED) {
+                throw new BadRequestException("Thành viên này đã bị xóa khỏi không gian làm việc.");
+            }
+
+            // 6. Thực hiện xóa mềm
+            member.setStatus(MemberStatus.REMOVED);
+            workspaceMemberRepository.save(member);
+        }
     
 
 }
