@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.ReorderStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectStatusResponse;
 import java.util.List;
 
@@ -39,6 +40,10 @@ public interface ProjectStatusService {
      */
     void deleteStatus(Integer projectId, Integer statusId);
 
-    
+    /**
+     * Cập nhật thông tin trạng thái (tên, màu sắc, cờ hoàn thành).
+     */
+    ProjectStatusResponse updateStatus(Integer projectId, Integer statusId, UpdateStatusRequest request);
+   
     // (Các hàm create, reorder, delete sẽ làm ở bước sau)
 }

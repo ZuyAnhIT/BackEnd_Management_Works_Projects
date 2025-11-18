@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.ReorderStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectStatusResponse;
 import com.quanlyduan.project_manager_api.service.ProjectStatusService;
@@ -76,4 +77,17 @@ public class ProjectStatusController {
         return ResponseEntity.ok(ApiResponse.success("Xóa trạng thái thành công.", null)); // Đã dịch
     }
     
+    // API CAP NHAT THONG TIN TRANG THAI
+    @PutMapping("/{statusId}")
+    // Bảo vệ: Cần quyền 'project:edit'
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<ProjectStatusResponse>> updateStatus(
+            @PathVariable Integer projectId,
+            @PathVariable Integer statusId,
+            @Valid @RequestBody UpdateStatusRequest request) { // *** DÙNG FILE MỚI ***
+        
+        ProjectStatusResponse response = projectStatusService.updateStatus(projectId, statusId, request);
+        
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái thành công.", response)); // Đã dịch
+    }
 }
