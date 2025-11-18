@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
+import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.Task;
@@ -28,4 +29,11 @@ public interface TaskService {
      * (Hàm này có thể được chuyển sang private hoặc một Mapper riêng sau này)
      */
     TaskResponse mapToTaskResponse(Task task);
+
+    /**
+     * Di chuyển Task sang một trạng thái (cột) khác.
+     * @param taskId ID của task cần di chuyển
+     * @param request DTO chứa ID trạng thái mới
+     */
+    void moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request);
 }

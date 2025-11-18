@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
+import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -197,5 +198,36 @@ public class TaskServiceImpl implements TaskService {
                 .dueDate(task.getDueDate())
                 .sortOrder(task.getSortOrder())
                 .build();
+    }
+
+    // LOGIC DI CHUYEN TASK (KEO THA)
+    @Override
+    @Transactional
+    public void moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request) {
+        // 1. Tìm Task
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc với ID: " + taskId)); // Đã dịch
+
+        // 2. Tìm Status mới
+        ProjectStatus newStatus = projectStatusRepository.findById(request.getNewStatusId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trạng thái với ID: " + request.getNewStatusId())); // Đã dịch
+
+        // 3. Validate: Status mới phải thuộc cùng Project với Task
+        // (Tránh trường hợp kéo task của Dự án A vào cột của Dự án B)
+        if (!newStatus.getProject().getId().equals(task.getProject().getId())) {
+            throw new BadRequestException("Trạng thái mới không thuộc về dự án của công việc này"); // Đã dịch
+        }
+
+        // 4. Cập nhật
+        task.setStatus(newStatus);
+        
+        // (Tùy chọn: Nếu cột mới là "DONE", có thể tự động cập nhật completedAt)
+        if (newStatus.getIsCompletedStatus()) {
+            task.setCompletedAt(java.time.LocalDate.now());
+        } else {
+            task.setCompletedAt(null); // Nếu kéo ngược lại, xóa ngày hoàn thành
+        }
+
+        taskRepository.save(task);
     }
 }
