@@ -369,37 +369,48 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     // LOGIC CAP NHAT VAI TRO THANH VIEN CAP CONG TY
-    @Override
-    @Transactional
-    public CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode) {
-        // 1. Lấy thông tin thành viên
-        CompanyMember member = companyMemberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên với ID: " + memberId));
+  @Override
+@Transactional
+public CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode) {
+    // 1. Lấy thông tin thành viên
+    CompanyMember member = companyMemberRepository.findById(memberId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên với ID: " + memberId));
 
-        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng công ty
-        if (!member.getCompany().getId().equals(companyId)) {
-            throw new ResourceNotFoundException("Không tìm thấy thành viên này trong công ty");
-        }
-
-        // 3. Kiểm tra nghiệp vụ: Không cho phép đổi vai trò của chính mình
-        User admin = securityService.getCurrentAuthenticatedUser();
-        if (admin.getId().equals(member.getUser().getId())) {
-            throw new BadRequestException("Bạn không thể thay đổi vai trò của chính mình.");
-        }
-
-        // 4. Tìm vai trò (Role) mới
-        Role newRole = roleRepository.findFirstByRoleCode(newRoleCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với mã: " + newRoleCode));
-
-        // 5. Kiểm tra nghiệp vụ: Đảm bảo vai trò mới là CẤP CÔNG TY
-        if (newRole.getLevel() != RoleLevel.COMPANY) {
-            throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp CÔNG TY)");
-        }
-        
-        // 6. Cập nhật vai trò
-        member.setRole(newRole);
-        return companyMemberRepository.save(member);
+    // 2. Kiểm tra bảo mật (IDOR)
+    if (!member.getCompany().getId().equals(companyId)) {
+        throw new ResourceNotFoundException("Không tìm thấy thành viên này trong công ty");
     }
+
+    // 3. Không cho phép đổi vai trò của chính mình
+    User admin = securityService.getCurrentAuthenticatedUser();
+    if (admin.getId().equals(member.getUser().getId())) {
+        throw new BadRequestException("Bạn không thể thay đổi vai trò của chính mình.");
+    }
+
+    // ⭐ 4. Không thể cập nhật vai trò nếu đã REMOVED
+    if (member.getStatus() == MemberStatus.REMOVED) {
+        throw new BadRequestException("Không thể cập nhật vai trò vì thành viên này đã bị REMOVED.");
+    }
+
+    // 5. Tìm vai trò mới
+    Role newRole = roleRepository.findFirstByRoleCode(newRoleCode)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với mã: " + newRoleCode));
+
+    // 6. Vai trò phải là cấp công ty
+    if (newRole.getLevel() != RoleLevel.COMPANY) {
+        throw new BadRequestException("Vai trò không hợp lệ (Không phải vai trò cấp CÔNG TY)");
+    }
+
+    // ⭐ 7. Không cho phép cập nhật nếu TRÙNG vai trò
+    if (member.getRole().getId().equals(newRole.getId())) {
+        throw new BadRequestException("Vai trò mới trùng với vai trò hiện tại — không có gì để cập nhật.");
+    }
+
+    // 8. Cập nhật vai trò
+    member.setRole(newRole);
+    return companyMemberRepository.save(member);
+}
+
 
     // LOGIC XOA MEM THANH VIEN
     @Override
@@ -468,37 +479,47 @@ public class CompanyServiceImpl implements CompanyService {
 
     // LOGIC CAP NHAT TRANG THAI THANH VIEN
     @Override
-    @Transactional
-    public CompanyMemberResponse updateMemberStatus(Integer companyId, Integer memberId, UpdateMemberStatusRequest request) {
-        // 1. Lấy thông tin thành viên
-        CompanyMember member = companyMemberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên với ID: " + memberId)); // Đã dịch
+@Transactional
+public CompanyMemberResponse updateMemberStatus(Integer companyId, Integer memberId, UpdateMemberStatusRequest request) {
+    // 1. Lấy thông tin thành viên
+    CompanyMember member = companyMemberRepository.findById(memberId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên với ID: " + memberId));
 
-        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng công ty
-        if (!member.getCompany().getId().equals(companyId)) {
-            throw new ResourceNotFoundException("Không tìm thấy thành viên trong công ty này"); // Đã dịch
-        }
-
-        // 3. Kiểm tra nghiệp vụ: Không cho phép đổi status của chính mình
-        // (Bây giờ 'securityService' đã được nhận diện)
-        User admin = securityService.getCurrentAuthenticatedUser();
-        if (admin.getId().equals(member.getUser().getId())) {
-            throw new BadRequestException("Bạn không thể thay đổi trạng thái của mình."); // Đã dịch
-        }
-        
-        // 4. Kiểm tra nghiệp vụ: (Logic cũ giữ nguyên)
-        MemberStatus newStatus = request.getNewStatus();
-        if (newStatus == MemberStatus.REMOVED) {
-            throw new BadRequestException("Vui lòng sử dụng endpoint 'Remove Member' để loại bỏ thành viên, không phải endpoint cập nhật trạng thái này."); // Đã dịch
-        }
-
-        // 5. Cập nhật trạng thái
-        member.setStatus(newStatus);
-        CompanyMember updatedMember = companyMemberRepository.save(member);
-
-        // 6. Trả về DTO đã cập nhật (tái sử dụng helper)
-        return mapToCompanyMemberResponse(updatedMember);
+    // 2. Kiểm tra bảo mật (IDOR)
+    if (!member.getCompany().getId().equals(companyId)) {
+        throw new ResourceNotFoundException("Không tìm thấy thành viên trong công ty này");
     }
+
+    // 3. Không cho phép đổi status của chính mình
+    User admin = securityService.getCurrentAuthenticatedUser();
+    if (admin.getId().equals(member.getUser().getId())) {
+        throw new BadRequestException("Bạn không thể thay đổi trạng thái của mình.");
+    }
+
+    MemberStatus newStatus = request.getNewStatus();
+    // ⭐ 5. Không cho phép thay đổi nếu trạng thái hiện tại đã là REMOVED
+    if (member.getStatus() == MemberStatus.REMOVED) {
+        throw new BadRequestException("Không thể thay đổi trạng thái vì thành viên này đã bị REMOVED.");
+    }
+    // ⭐ 4. Không cho phép cập nhật nếu TRÙNG trạng thái
+    if (member.getStatus() == newStatus) {
+        throw new BadRequestException("Trạng thái mới trùng với trạng thái hiện tại — không có gì để cập nhật.");
+    }
+
+    
+
+    // 6. Không được dùng endpoint này để set REMOVED
+    if (newStatus == MemberStatus.REMOVED) {
+        throw new BadRequestException("Vui lòng sử dụng endpoint 'Remove Member' để loại bỏ thành viên.");
+    }
+
+    // 7. Cập nhật trạng thái
+    member.setStatus(newStatus);
+    CompanyMember updatedMember = companyMemberRepository.save(member);
+
+    return mapToCompanyMemberResponse(updatedMember);
+}
+
 
     // LOGIC LAY CHI TIET LOI MOI (PUBLIC)
     @Override
