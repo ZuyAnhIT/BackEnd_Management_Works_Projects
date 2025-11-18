@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.ReorderStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectStatusResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
@@ -159,5 +160,44 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
         
         // 4. Thực hiện xóa cứng (vì đây là cấu trúc bảng, có thể xóa cứng nếu rỗng)
         projectStatusRepository.delete(status);
+    }
+
+    // LOGIC CAP NHAT TRANG THAI (TEN, MAU, FLAG)
+    @Override
+    @Transactional
+    public ProjectStatusResponse updateStatus(Integer projectId, Integer statusId, UpdateStatusRequest request) {
+        // 1. Tìm Status
+        ProjectStatus status = projectStatusRepository.findById(statusId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trạng thái với ID: " + statusId)); // Đã dịch
+
+        // 2. Validate: Status phải thuộc về Project này
+        if (!status.getProject().getId().equals(projectId)) {
+             throw new BadRequestException("Trạng thái này không thuộc về dự án được chỉ định"); // Đã dịch
+        }
+
+        // 3. Cập nhật Tên (nếu có thay đổi)
+        if (request.getName() != null && !request.getName().trim().isEmpty() 
+                && !request.getName().equalsIgnoreCase(status.getName())) {
+            
+            // Kiểm tra trùng tên trong project
+            if (projectStatusRepository.existsByProject_IdAndNameIgnoreCase(projectId, request.getName())) {
+                throw new BadRequestException("Tên trạng thái đã tồn tại trong dự án này"); // Đã dịch
+            }
+            status.setName(request.getName());
+        }
+
+        // 4. Cập nhật Màu (nếu có)
+        if (request.getColor() != null) {
+            status.setColor(request.getColor());
+        }
+
+        // 5. Cập nhật Cờ hoàn thành (nếu có)
+        if (request.getIsCompletedStatus() != null) {
+            status.setIsCompletedStatus(request.getIsCompletedStatus());
+        }
+
+        // 6. Lưu và trả về
+        ProjectStatus updatedStatus = projectStatusRepository.save(status);
+        return mapToResponse(updatedStatus);
     }
 }
