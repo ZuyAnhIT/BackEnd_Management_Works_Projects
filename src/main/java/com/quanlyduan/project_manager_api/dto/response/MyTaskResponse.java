@@ -2,34 +2,26 @@
 package com.quanlyduan.project_manager_api.dto.response;
 
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDate;
 
-/**
- * DTO tóm tắt thông tin Task cho US4-sprint3 (Lấy task của tôi trên Dashboard)
- */
 @Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class MyTaskResponse {
-    // Thông tin Task
     private Integer taskId;
     private String taskCode;
     private String taskTitle;
-    private String taskStatus;
+    
+    private Integer taskStatusId;   
+    private String taskStatusName;  
+    private String taskStatusColor; 
+
     private TaskPriority taskPriority;
     private LocalDate taskDueDate;
-
-    // Thông tin Project
+    
     private Integer projectId;
     private String projectName;
-
-    // Thông tin Workspace
     private Integer workspaceId;
     private String workspaceName;
 }

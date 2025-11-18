@@ -14,10 +14,12 @@ public class TaskSummaryResponse {
     private String taskCode;
     private String title;
     private TaskType taskType;
-    private String status;
-    private TaskPriority priority;
     
-    // ID của Sprint (có thể null nếu nằm trong Backlog)
+    private Integer statusId; // ID của trạng thái
+    private String statusName; // Tên trạng thái (ví dụ: "Cần làm")
+    private String statusColor; // Mã màu (ví dụ: "#808080")
+    
+    private TaskPriority priority;
     private Integer sprintId;
     
     // Thông tin người được gán (Assignee)

@@ -1,10 +1,14 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/model/Project.java
 package com.quanlyduan.project_manager_api.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import com.quanlyduan.project_manager_api.model.common.enums.Priority;
+
+// Import đúng Enum ProjectPriority
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,7 +42,10 @@ public class Project {
     @Column(name = "project_code", nullable = false)
     private String projectCode;
 
+    @Column(name = "description")
     private String description;
+    
+    @Column(name = "goal")
     private String goal;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -46,10 +53,15 @@ public class Project {
     private User manager;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    @Builder.Default
     private ProjectStatus status = ProjectStatus.NEW;
 
+    // *** ĐÃ SỬA: Đổi 'Priority' thành 'ProjectPriority' ***
     @Enumerated(EnumType.STRING)
-    private Priority priority = Priority.MEDIUM;
+    @Column(name = "priority", nullable = false)
+    @Builder.Default
+    private ProjectPriority priority = ProjectPriority.MEDIUM;
 
     // SỬA: Bổ sung @Column
     @Column(name = "start_date")
@@ -62,6 +74,7 @@ public class Project {
     @Column(name = "completed_at")
     private LocalDate completedAt;
 
+    @Column(name = "progress")
     private BigDecimal progress;
 
     // BỔ SUNG: Cột này bị thiếu trong file Java

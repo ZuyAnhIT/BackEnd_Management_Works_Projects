@@ -1,20 +1,12 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/TaskService.java
-// (MỚI)
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
-// import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
-import com.quanlyduan.project_manager_api.model.Task; // Cần cho hàm map
+import com.quanlyduan.project_manager_api.model.Task;
 
 public interface TaskService {
-
-     // US-S3-7
-    void updateTaskSprint(Integer taskId, Integer newSprintId);
-
-    // (Helper để các service khác tái sử dụng)
-    TaskResponse mapToTaskResponse(Task task);
 
     /**
      * Tạo một Task mới trong dự án.
@@ -23,4 +15,17 @@ public interface TaskService {
      * @return TaskSummaryResponse DTO của task vừa tạo
      */
     TaskSummaryResponse createTask(Integer projectId, CreateTaskRequest request);
+    
+    /**
+     * Cập nhật Sprint cho một Task (kéo/thả vào Backlog hoặc Sprint).
+     * @param taskId ID của task
+     * @param sprintId ID của Sprint mới (hoặc null nếu về Backlog)
+     */
+    void updateTaskSprint(Integer taskId, Integer sprintId);
+    
+    /**
+     * Hàm helper để map Task (Entity) sang TaskResponse (DTO chi tiết).
+     * (Hàm này có thể được chuyển sang private hoặc một Mapper riêng sau này)
+     */
+    TaskResponse mapToTaskResponse(Task task);
 }
