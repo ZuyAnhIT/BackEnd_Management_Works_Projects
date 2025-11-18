@@ -80,19 +80,19 @@ CREATE TABLE activity_logs (
 -- 5. ROLES TABLE
 CREATE TABLE roles (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    role_code VARCHAR(100) NOT NULL UNIQUE COMMENT 'Identifier code, e.g., SYSTEM_ADMIN, COMPANY_ADMIN, PROJECT_MEMBER',
-    role_name VARCHAR(255) NOT NULL COMMENT 'Display name, e.g., System Administrator, Company Admin, Project Member',
+    role_code VARCHAR(100) NOT NULL UNIQUE,
+    role_name VARCHAR(255) NOT NULL,
     description TEXT,
-    level ENUM('SYSTEM', 'COMPANY', 'WORKSPACE', 'PROJECT') NOT NULL COMMENT 'Scope of the role: System, Company, Workspace, Project',
+    level ENUM('SYSTEM', 'COMPANY', 'WORKSPACE', 'PROJECT') NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 6. PERMISSIONS TABLE
 CREATE TABLE permissions (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    permission_code VARCHAR(100) NOT NULL UNIQUE COMMENT 'Identifier code, e.g., task:create, task:delete, project:invite_member',
-    permission_name VARCHAR(255) NOT NULL COMMENT 'Display name, e.g., Create Task, Delete Task, Invite Project Member',
-    group_name VARCHAR(100) COMMENT 'Permission group for management, e.g., Task Management, Project Management',
+    permission_code VARCHAR(100) NOT NULL UNIQUE,
+    permission_name VARCHAR(255) NOT NULL,
+    group_name VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -111,14 +111,14 @@ CREATE TABLE role_permissions (
 CREATE TABLE user_roles (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
-    role_id INT NOT NULL COMMENT 'FK to Role with level = SYSTEM',
+    role_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
     UNIQUE KEY uk_user_role (user_id, role_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. COMPANIES/ORGANIZATIONS TABLE
+-- 9. COMPANIES TABLE
 CREATE TABLE companies (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
@@ -141,7 +141,7 @@ CREATE TABLE company_members (
     id INT PRIMARY KEY AUTO_INCREMENT,
     company_id INT NOT NULL,
     user_id INT NOT NULL,
-    role_id INT NOT NULL COMMENT 'FK to Role (level = COMPANY)',
+    role_id INT NOT NULL,
     job_title VARCHAR(100),
     department VARCHAR(100),
     status ENUM('ACTIVE', 'SUSPENDED', 'REMOVED') DEFAULT 'ACTIVE',
@@ -175,7 +175,7 @@ CREATE TABLE workspace_members (
     id INT PRIMARY KEY AUTO_INCREMENT,
     workspace_id INT NOT NULL,
     user_id INT NOT NULL,
-    role_id INT NOT NULL COMMENT 'FK to Role (level = WORKSPACE)',
+    role_id INT NOT NULL,
     status ENUM('ACTIVE', 'REMOVED') DEFAULT 'ACTIVE',
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -192,7 +192,7 @@ CREATE TABLE project_types (
     type_code VARCHAR(50) UNIQUE,
     model ENUM('SCRUM', 'KANBAN', 'WATERFALL', 'HYBRID') NOT NULL,
     description TEXT,
-    configuration JSON COMMENT 'Configuration for workflow, statuses, processes',
+    configuration JSON,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -212,9 +212,9 @@ CREATE TABLE projects (
     start_date DATE,
     due_date DATE,
     completed_at DATE,
-    progress DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Percentage complete',
+    progress DECIMAL(5,2) DEFAULT 0.00,
     created_by_id INT NOT NULL,
-    board_config JSON COMMENT 'Column configuration, board workflow',
+    board_config JSON,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -229,7 +229,7 @@ CREATE TABLE project_members (
     id INT PRIMARY KEY AUTO_INCREMENT,
     project_id INT NOT NULL,
     user_id INT NOT NULL,
-    role_id INT NOT NULL COMMENT 'FK to Role (level = PROJECT)',
+    role_id INT NOT NULL,
     status ENUM('ACTIVE', 'REMOVED') DEFAULT 'ACTIVE',
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -249,7 +249,7 @@ CREATE TABLE sprints (
     status ENUM('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED') DEFAULT 'NOT_STARTED',
     start_date DATE,
     end_date DATE,
-    duration_days INT COMMENT 'Expected duration in days',
+    duration_days INT,
     created_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -289,7 +289,7 @@ CREATE TABLE tags (
     UNIQUE KEY uk_tag_project (name, project_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 19. TASKS TABLE
+-- *** BẢNG 19: TASKS (ĐÃ CẬP NHẬT) ***
 CREATE TABLE tasks (
     id INT PRIMARY KEY AUTO_INCREMENT,
     project_id INT NOT NULL,
@@ -300,7 +300,10 @@ CREATE TABLE tasks (
     title VARCHAR(500) NOT NULL,
     description TEXT,
     task_type ENUM('STORY', 'TASK', 'BUG', 'EPIC', 'SUBTASK') DEFAULT 'TASK',
-    status VARCHAR(50) DEFAULT 'TO_DO',
+    
+    -- status VARCHAR(50) DEFAULT 'TO_DO', -- *** ĐÃ XÓA CỘT NÀY ***
+    status_id INT, -- *** ĐÃ THÊM CỘT NÀY ***
+
     priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') DEFAULT 'MEDIUM',
     assigner_id INT,
     assignee_id INT,
@@ -315,6 +318,7 @@ CREATE TABLE tasks (
     created_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (epic_id) REFERENCES epics(id) ON DELETE SET NULL,
     FOREIGN KEY (sprint_id) REFERENCES sprints(id) ON DELETE SET NULL,
@@ -323,6 +327,9 @@ CREATE TABLE tasks (
     FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE RESTRICT,
+    
+    -- *** KHÓA NGOẠI MỚI SẼ ĐƯỢC THÊM SAU KHI TẠO BẢNG 27 ***
+    
     UNIQUE KEY uk_task_code (task_code, project_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -431,6 +438,24 @@ CREATE TABLE company_invitations (
     UNIQUE KEY uk_company_email_pending (company_id, email, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- *** BẢNG 27: BẢNG TRẠNG THÁI (MỚI) ***
+CREATE TABLE project_statuses (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    project_id INT NOT NULL,
+    name VARCHAR(100) NOT NULL COMMENT 'Tên cột (ví dụ: "To Do", "In Progress", "Done")',
+    color VARCHAR(7) DEFAULT '#CCCCCC' COMMENT 'Màu sắc của cột',
+    sort_order INT NOT NULL DEFAULT 0 COMMENT 'Thứ tự của cột (0, 1, 2...)',
+    is_completed_status BOOLEAN DEFAULT FALSE COMMENT 'Đánh dấu đây có phải là cột "Hoàn thành"?',
+    
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_project_name (project_id, name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- *** CẬP NHẬT BẢNG TASKS (THÊM KHÓA NGOẠI) ***
+ALTER TABLE tasks
+ADD CONSTRAINT fk_tasks_project_statuses
+FOREIGN KEY (status_id) REFERENCES project_statuses(id) ON DELETE SET NULL;
+
 -- =============================================
 -- BƯỚC 2: NẠP ĐỊNH NGHĨA (QUYỀN & VAI TRÒ)
 -- =============================================
@@ -449,13 +474,13 @@ INSERT INTO permissions (permission_code, permission_name, group_name) VALUES
 ('workspace:delete', 'Delete Workspace', 'Workspace'),
 ('workspace:invite_member', 'Invite Workspace Member', 'Workspace'),
 ('workspace:remove_member', 'Remove Workspace Member', 'Workspace'),
-('workspace:manage_roles', 'Manage Workspace Roles', 'Workspace'), -- *** ĐÃ BỔ SUNG ***
+('workspace:manage_roles', 'Manage Workspace Roles', 'Workspace'),
 ('project:create', 'Create Project', 'Project'),
 ('project:view', 'View Project', 'Project'),
 ('project:edit', 'Edit Project', 'Project'),
 ('project:delete', 'Delete Project', 'Project'),
 ('project:invite_member', 'Invite Project Member', 'Project'),
-('project:manage_roles', 'Manage Project Roles', 'Project'), -- *** ĐÃ BỔ SUNG ***
+('project:manage_roles', 'Manage Project Roles', 'Project'),
 ('task:create', 'Create Task', 'Task'),
 ('task:view', 'View Task', 'Task'),
 ('task:edit', 'Edit Task', 'Task'),
@@ -470,7 +495,6 @@ INSERT INTO permissions (permission_code, permission_name, group_name) VALUES
 ('sprint:delete', 'Delete Sprint', 'Sprint'),
 ('backlog:view', 'View Project Backlog', 'Backlog'),
 ('backlog:manage', 'Manage Backlog (Drag/Drop)', 'Backlog');
-
 
 -- NẠP VAI TRÒ (ROLES)
 INSERT INTO roles (id, role_code, role_name, level, description) VALUES
@@ -487,74 +511,26 @@ INSERT INTO roles (id, role_code, role_name, level, description) VALUES
 -- =============================================
 -- BƯỚC 3: LIÊN KẾT ROLE VÀ PERMISSION
 -- =============================================
--- USER (System)
+-- (Giữ nguyên các INSERT INTO role_permissions của bạn, chúng đã chính xác)
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'company:create'
-) WHERE r.role_code = 'USER';
-
--- COMPANY_ADMIN (Company)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN ('company:create') WHERE r.role_code = 'USER';
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'company:view', 'company:edit', 'company:delete', 'company:invite_member', 'company:remove_member', 'company:manage_roles',
-    'workspace:create', 'workspace:delete', 'workspace:view', 'workspace:edit', 'workspace:invite_member', 'workspace:remove_member', 'workspace:manage_roles',
-    'project:create', 'project:delete', 'project:view', 'project:edit', 'project:invite_member', 'project:manage_roles',
-    'task:assign', 'task:attach_file', 'task:comment', 'task:comment:view', 'task:create', 'task:delete', 'task:edit', 'task:view',
-    'sprint:create', 'sprint:start', 'sprint:edit', 'sprint:delete',
-    'backlog:view', 'backlog:manage'
-) WHERE r.role_code = 'COMPANY_ADMIN';
-
--- COMPANY_MEMBER (Company)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN ('company:view', 'company:edit', 'company:delete', 'company:invite_member', 'company:remove_member', 'company:manage_roles', 'workspace:create', 'workspace:delete', 'workspace:view', 'workspace:edit', 'workspace:invite_member', 'workspace:remove_member', 'workspace:manage_roles', 'project:create', 'project:delete', 'project:view', 'project:edit', 'project:invite_member', 'project:manage_roles', 'task:assign', 'task:attach_file', 'task:comment', 'task:comment:view', 'task:create', 'task:delete', 'task:edit', 'task:view', 'sprint:create', 'sprint:start', 'sprint:edit', 'sprint:delete', 'backlog:view', 'backlog:manage') WHERE r.role_code = 'COMPANY_ADMIN';
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'company:view',
-    'workspace:create'
-) WHERE r.role_code = 'COMPANY_MEMBER';
-
--- WORKSPACE_ADMIN (Workspace)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN ('company:view', 'workspace:create') WHERE r.role_code = 'COMPANY_MEMBER';
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'workspace:view', 'workspace:edit', 'workspace:invite_member', 'workspace:remove_member', 'workspace:manage_roles', -- *** ĐÃ BỔ SUNG ***
-    'project:create', 'project:delete', 'project:view', 'project:edit'
-) WHERE r.role_code = 'WORKSPACE_ADMIN';
-
--- WORKSPACE_MEMBER (Workspace)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN ('workspace:view', 'workspace:edit', 'workspace:invite_member', 'workspace:remove_member', 'workspace:manage_roles', 'project:create', 'project:delete', 'project:view', 'project:edit') WHERE r.role_code = 'WORKSPACE_ADMIN';
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'workspace:view',
-    'project:create',
-    'project:view'
-) WHERE r.role_code = 'WORKSPACE_MEMBER';
-
--- PROJECT_ADMIN (Project)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN ('workspace:view', 'project:create', 'project:view') WHERE r.role_code = 'WORKSPACE_MEMBER';
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'project:view', 'project:edit', 'project:invite_member', 'project:manage_roles', -- *** ĐÃ BỔ SUNG ***
-    'task:create', 'task:view', 'task:edit', 'task:delete', 'task:assign', 'task:comment', 'task:comment:view', 'task:attach_file',
-    'sprint:create', 'sprint:start', 'sprint:edit', 'sprint:delete',
-    'backlog:view', 'backlog:manage'
-) WHERE r.role_code = 'PROJECT_ADMIN';
-
--- PROJECT_MEMBER (Project)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN ('project:view', 'project:edit', 'project:invite_member', 'project:manage_roles', 'task:create', 'task:view', 'task:edit', 'task:delete', 'task:assign', 'task:comment', 'task:comment:view', 'task:attach_file', 'sprint:create', 'sprint:start', 'sprint:edit', 'sprint:delete', 'backlog:view', 'backlog:manage') WHERE r.role_code = 'PROJECT_ADMIN';
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'project:view',
-    'task:create', 'task:view', 'task:edit', 'task:comment', 'task:comment:view', 'task:attach_file',
-    'backlog:view', 'backlog:manage'
-) WHERE r.role_code = 'PROJECT_MEMBER';
-
--- GUEST_PROJECT (Project)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN ('project:view', 'task:create', 'task:view', 'task:edit', 'task:comment', 'task:comment:view', 'task:attach_file', 'backlog:view', 'backlog:manage') WHERE r.role_code = 'PROJECT_MEMBER';
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
-    'project:view',
-    'task:view',
-    'task:comment:view'
-) WHERE r.role_code = 'GUEST_PROJECT';
-
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN ('project:view', 'task:view', 'task:comment:view') WHERE r.role_code = 'GUEST_PROJECT';
 
 -- =============================================
--- BƯỚC 4: TẠO DỮ LIỆU CƠ BẢN (TRỪ TASK)
--- Mật khẩu cho tất cả user: admin123 (Hash: $2a$10$ldKpmYjkmjDzALsBGZ0x3Ov6pSpZu35IvLoccRqlRd7Drk9HVHKkG)
+-- BƯỚC 4: TẠO DỮ LIỆU CƠ BẢN
 -- =============================================
 -- TẠO CÁC USER
 INSERT INTO users (id, email, password, full_name, avatar_url, phone_number, date_of_birth, gender, status, is_email_verified) VALUES
@@ -590,37 +566,52 @@ INSERT INTO projects (id, workspace_id, project_type_id, name, project_code, cre
 (2, 1, 2, 'Chiến dịch Quý 4', 'MKTG', 4, 'NEW', 'Chiến dịch marketing Quý 4', 4, '2025-10-01', '2025-12-31');
 
 -- =============================================
--- BƯỚC 5: TẠO DỮ LIỆU LIÊN QUAN (SPRINT, TASK,...)
--- (ĐÃ SẮP XẾP LẠI THỨ TỰ ĐỂ FIX LỖI 1452)
+-- BƯỚC 5: TẠO DỮ LIỆU TRẠNG THÁI (MỚI)
+-- =============================================
+-- Nạp trạng thái mặc định cho Project 1 (Scrum)
+INSERT INTO project_statuses (id, project_id, name, color, sort_order, is_completed_status) VALUES
+(1, 1, 'To Do', '#4A90E2', 0, 0),
+(2, 1, 'In Progress', '#F5A623', 1, 0),
+(3, 1, 'Code Review', '#BD10E0', 2, 0),
+(4, 1, 'Done', '#7ED321', 3, 1);
+
+-- Nạp trạng thái mặc định cho Project 2 (Kanban)
+INSERT INTO project_statuses (id, project_id, name, color, sort_order, is_completed_status) VALUES
+(5, 2, 'Backlog', '#9B9B9B', 0, 0),
+(6, 2, 'In Progress', '#F5A623', 1, 0),
+(7, 2, 'Done', '#7ED321', 2, 1);
+
+
+-- =============================================
+-- BƯỚC 6: TẠO DỮ LIỆU LIÊN QUAN (SPRINT, TASK,...)
 -- =============================================
 
--- BƯỚC 5.1: TẠO SPRINTS (PHẢI CHẠY TRƯỚC KHI TẠO TASK)
+-- BƯỚC 6.1: TẠO SPRINTS
 INSERT INTO sprints (id, project_id, name, goal, status, start_date, end_date, created_by_id) VALUES
 (1, 1, 'Sprint 1.1 (Cấu trúc & API)', 'Hoàn thành cấu trúc API cơ bản và thiết kế trang chủ.', 'IN_PROGRESS', '2025-11-10', '2025-11-24', 10),
 (2, 1, 'Sprint 1.2 (Tích hợp)', 'Tích hợp Frontend và Backend, hoàn thành luồng hồ sơ người dùng.', 'NOT_STARTED', '2025-11-25', '2025-12-09', 10);
 
--- BƯỚC 5.2: GỘP TẤT CẢ INSERT TASKS VÀO ĐÂY
-INSERT INTO tasks (id, project_id, sprint_id, task_code, title, description, created_by_id, assigner_id, assignee_id, priority, due_date, status, start_date, story_points, task_type) VALUES
--- Task cũ (ĐÃ BỔ SUNG task_type)
-(1, 1, 1, 'WEB-1', 'Thiết kế Mockup Trang chủ', 'Tạo mockup trên Figma cho desktop và mobile.', 10, 10, 9, 'HIGH', '2025-11-20', 'IN_PROGRESS', '2025-11-12', 5, 'TASK'),
-(2, 1, 1, 'WEB-2', 'Phát triển API Xác thực', 'Cài đặt JWT và các endpoint cho đăng nhập, đăng ký.', 10, 10, 7, 'URGENT', '2025-11-15', 'TO_DO', '2025-11-10', 8, 'TASK'),
-(3, 2, NULL, 'MKTG-1', 'Lên kế hoạch Social Media', 'Soạn bài đăng cho LinkedIn và Facebook.', 4, 4, 5, 'MEDIUM', '2025-11-10', 'DONE', '2025-11-05', 3, 'TASK'),
--- Task mới
-(4, 1, 1, 'WEB-3', 'Thiết lập CSDL và Môi trường', 'Cài đặt MySQL, cấu hình Spring Boot data source.', 10, 10, 7, 'HIGH', '2025-11-12', 'DONE', '2025-11-10', 3, 'TASK'),
-(5, 1, 1, 'WEB-4', 'Tích hợp trang chủ Frontend (HTML/CSS)', 'Chuyển đổi mockup Figma sang HTML/CSS/Tailwind.', 10, 10, 9, 'MEDIUM', '2025-11-22', 'IN_PROGRESS', '2025-11-18', 5, 'TASK'),
-(6, 1, 1, 'WEB-5', 'Bug: Nút Đăng nhập không hoạt động trên mobile', 'Nút Đăng nhập trên trang chủ không thể click trên Safari (iOS).', 9, 10, 9, 'HIGH', '2025-11-19', 'TO_DO', '2025-11-18', 3, 'BUG'),
-(7, 1, 2, 'WEB-6', 'Story: Xem hồ sơ cá nhân', 'Là người dùng đã đăng nhập, tôi muốn xem và cập nhật hồ sơ cá nhân của mình.', 10, 10, NULL, 'MEDIUM', '2025-12-01', 'TO_DO', NULL, 8, 'STORY'),
-(8, 2, NULL, 'MKTG-2', 'Viết bài blog cho sản phẩm mới', 'Viết bài blog 1000 từ về tính năng mới.', 4, 4, 5, 'MEDIUM', '2025-11-25', 'IN_PROGRESS', '2025-11-15', 5, 'TASK'),
-(9, 2, NULL, 'MKTG-3', 'Thiết kế banner quảng cáo Facebook', 'Thiết kế 3 mẫu banner cho chiến dịch Q4.', 4, 4, 4, 'LOW', '2025-11-30', 'TO_DO', NULL, 2, 'TASK');
+-- BƯỚC 6.2: TẠO TASKS (ĐÃ CẬP NHẬT DÙNG status_id)
+INSERT INTO tasks (id, project_id, sprint_id, task_code, title, description, created_by_id, assigner_id, assignee_id, priority, due_date, status_id, start_date, story_points, task_type) VALUES
+-- Task cho Project 1 (Dùng status_id 1-4)
+(1, 1, 1, 'WEB-1', 'Thiết kế Mockup Trang chủ', 'Tạo mockup trên Figma cho desktop và mobile.', 10, 10, 9, 'HIGH', '2025-11-20', 2, '2025-11-12', 5, 'TASK'), -- In Progress
+(2, 1, 1, 'WEB-2', 'Phát triển API Xác thực', 'Cài đặt JWT và các endpoint cho đăng nhập, đăng ký.', 10, 10, 7, 'URGENT', '2025-11-15', 1, '2025-11-10', 8, 'TASK'), -- To Do
+(4, 1, 1, 'WEB-3', 'Thiết lập CSDL và Môi trường', 'Cài đặt MySQL, cấu hình Spring Boot data source.', 10, 10, 7, 'HIGH', '2025-11-12', 4, '2025-11-10', 3, 'TASK'), -- Done
+(5, 1, 1, 'WEB-4', 'Tích hợp trang chủ Frontend (HTML/CSS)', 'Chuyển đổi mockup Figma sang HTML/CSS/Tailwind.', 10, 10, 9, 'MEDIUM', '2025-11-22', 2, '2025-11-18', 5, 'TASK'), -- In Progress
+(6, 1, 1, 'WEB-5', 'Bug: Nút Đăng nhập không hoạt động trên mobile', 'Nút Đăng nhập trên trang chủ không thể click trên Safari (iOS).', 9, 10, 9, 'HIGH', '2025-11-19', 1, '2025-11-18', 3, 'BUG'), -- To Do
+(7, 1, 2, 'WEB-6', 'Story: Xem hồ sơ cá nhân', 'Là người dùng đã đăng nhập, tôi muốn xem và cập nhật hồ sơ cá nhân của mình.', 10, 10, NULL, 'MEDIUM', '2025-12-01', 1, NULL, 8, 'STORY'), -- To Do (Sprint 2)
+-- Task cho Project 2 (Dùng status_id 5-7)
+(3, 2, NULL, 'MKTG-1', 'Lên kế hoạch Social Media', 'Soạn bài đăng cho LinkedIn và Facebook.', 4, 4, 5, 'MEDIUM', '2025-11-10', 7, '2025-11-05', 3, 'TASK'), -- Done
+(8, 2, NULL, 'MKTG-2', 'Viết bài blog cho sản phẩm mới', 'Viết bài blog 1000 từ về tính năng mới.', 4, 4, 5, 'MEDIUM', '2025-11-25', 6, '2025-11-15', 5, 'TASK'), -- In Progress
+(9, 2, NULL, 'MKTG-3', 'Thiết kế banner quảng cáo Facebook', 'Thiết kế 3 mẫu banner cho chiến dịch Q4.', 4, 4, 4, 'LOW', '2025-11-30', 5, NULL, 2, 'TASK'); -- Backlog
 
-
--- BƯỚC 5.3: THÊM SUB-TASKS (CHO TASK ID 2)
+-- BƯỚC 6.3: THÊM SUB-TASKS (CHO TASK ID 2)
 INSERT INTO sub_tasks (id, parent_task_id, title, status, assignee_id, created_by_id) VALUES
 (1, 2, 'Endpoint /register', 'DONE', 7, 10),
 (2, 2, 'Endpoint /login (JWT)', 'IN_PROGRESS', 7, 10),
 (3, 2, 'Endpoint /forgot-password', 'TO_DO', 7, 10);
 
--- BƯỚC 5.4: THÊM TASK COMMENTS
+-- BƯỚC 6.4: THÊM TASK COMMENTS
 INSERT INTO task_comments (id, task_id, commenter_id, content, parent_comment_id) VALUES
 (1, 1, 10, 'Em check lại màu sắc cho nút CTA nhé, hơi tối.', NULL),
 (2, 1, 9, 'Dạ vâng, em đã cập nhật lại màu #3498db ạ.', 1),
@@ -628,14 +619,14 @@ INSERT INTO task_comments (id, task_id, commenter_id, content, parent_comment_id
 (4, 3, 4, 'Charlie duyệt xong nội dung chưa? Nhớ thêm hashtag #PixelCore nhé.', NULL),
 (5, 3, 5, 'Dạ em duyệt xong rồi, đã lên lịch đăng ạ.', 4);
 
--- BƯỚC 5.5: THÊM TASK ATTACHMENTS (CHO TASK ID 1)
+-- BƯỚC 6.5: THÊM TASK ATTACHMENTS (CHO TASK ID 1)
 INSERT INTO task_attachments (id, task_id, file_name, file_path, file_type, file_size, uploaded_by_id) VALUES
 (1, 1, 'Homepage_Mockup_v1.fig', '/uploads/project1/Homepage_Mockup_v1.fig', 'application/figma', 1024000, 9),
 (2, 1, 'Homepage_Mockup_v2_updated.fig', '/uploads/project1/Homepage_Mockup_v2_updated.fig', 'application/figma', 1056000, 9);
 
 
 -- =============================================
--- BƯỚC 6: GÁN VAI TRÒ CHO CÁC NHÂN VẬT 
+-- BƯỚC 7: GÁN VAI TRÒ CHO CÁC NHÂN VẬT 
 -- =============================================
 
 -- GÁN VAI TRÒ CẤP HỆ THỐNG
@@ -684,9 +675,8 @@ INSERT INTO project_members (project_id, user_id, role_id, status) VALUES
 (2, 5, (SELECT id FROM roles WHERE role_code = 'PROJECT_MEMBER'), 'ACTIVE'),
 (2, 3, (SELECT id FROM roles WHERE role_code = 'PROJECT_ADMIN'), 'ACTIVE');
 
-
 -- =============================================
--- BƯỚC 7: DỮ LIỆU MẪU KHÁC (INVITATIONS, TOKENS)
+-- BƯỚC 8: DỮ LIỆU MẪU KHÁC (INVITATIONS, TOKENS)
 -- =============================================
 INSERT INTO company_invitations (company_id, email, role_id, invited_by_id, token, status, expires_at) VALUES
 (1, 'user.new@example.com', 4, 3, 'token-pending-1', 'PENDING', '2025-12-01 00:00:00'),
@@ -697,10 +687,10 @@ INSERT INTO auth_tokens (user_id, token, token_type, status, expires_at) VALUES
 (3, 'token-anna-reset', 'RESET_PASSWORD', 'ACTIVE', '2025-12-01 00:00:00'),
 (4, 'token-brian-verify', 'EMAIL_VERIFICATION', 'ACTIVE', '2025-12-01 00:00:00');
 
-
 -- =============================================
--- BƯỚC 8: CÁC CÂU TRUY VẤN KIỂM TRA (DEBUG)
+-- BƯỚC 9: CÁC CÂU TRUY VẤN KIỂM TRA (DEBUG)
 -- =============================================
+-- (Giữ nguyên các câu SELECT debug của bạn)
 SELECT
     p.group_name AS permission_group,
     p.permission_code,
