@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateProjectStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.ReorderStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectStatusResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
@@ -15,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Map; 
+import java.util.function.Function; 
 
 @Service
 public class ProjectStatusServiceImpl implements ProjectStatusService {
@@ -90,5 +93,45 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
                 .sortOrder(s.getSortOrder())
                 .isCompletedStatus(s.getIsCompletedStatus())
                 .build();
+    }
+
+    // LOGIC SAP XEP LAI VI TRI COT
+    @Override
+    @Transactional
+    public void reorderStatuses(Integer projectId, ReorderStatusRequest request) {
+        // 1. Kiểm tra dự án tồn tại
+        if (!projectRepository.existsById(projectId)) {
+            throw new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId); // Đã dịch
+        }
+
+        List<Integer> orderedIds = request.getOrderedStatusIds();
+        
+        // 2. Lấy tất cả status hiện tại của dự án
+        List<ProjectStatus> currentStatuses = projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId);
+
+        // 3. Validate: Số lượng ID gửi lên phải khớp với số lượng hiện có
+        if (orderedIds.size() != currentStatuses.size()) {
+            throw new BadRequestException("Danh sách ID sắp xếp không khớp với số lượng trạng thái hiện có của dự án."); // Đã dịch
+        }
+
+        // Tạo Map để tìm kiếm nhanh
+        Map<Integer, ProjectStatus> statusMap = currentStatuses.stream()
+                .collect(Collectors.toMap(ProjectStatus::getId, Function.identity()));
+
+        // 4. Duyệt qua danh sách ID mới và cập nhật sortOrder
+        for (int i = 0; i < orderedIds.size(); i++) {
+            Integer statusId = orderedIds.get(i);
+            ProjectStatus status = statusMap.get(statusId);
+
+            if (status == null) {
+                throw new BadRequestException("ID trạng thái không hợp lệ hoặc không thuộc dự án này: " + statusId); // Đã dịch
+            }
+
+            // Cập nhật vị trí mới (0, 1, 2...)
+            status.setSortOrder(i);
+            
+            // (Lưu trong vòng lặp, hoặc dùng saveAll cuối cùng)
+            projectStatusRepository.save(status);
+        }
     }
 }

@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateProjectStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.ReorderStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectStatusResponse;
 import com.quanlyduan.project_manager_api.service.ProjectStatusService;
@@ -48,5 +49,18 @@ public class ProjectStatusController {
         
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Tạo trạng thái mới thành công.", response)); // Đã dịch
+    }
+
+    // API SAP XEP LAI THU TU COT (KEO THA)
+    @PutMapping("/reorder")
+    // Bảo vệ: Cần quyền 'project:edit' (Sửa dự án) để thay đổi cấu trúc bảng
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<Object>> reorderStatuses(
+            @PathVariable Integer projectId,
+            @Valid @RequestBody ReorderStatusRequest request) {
+        
+        projectStatusService.reorderStatuses(projectId, request);
+        
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thứ tự trạng thái thành công.", null)); // Đã dịch
     }
 }

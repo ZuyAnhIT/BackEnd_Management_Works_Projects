@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateProjectStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.ReorderStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectStatusResponse;
 import java.util.List;
 
@@ -21,6 +22,14 @@ public interface ProjectStatusService {
      * @return DTO status vừa tạo
      */
     ProjectStatusResponse createStatus(Integer projectId, CreateProjectStatusRequest request);
+
+    // *** THÊM PHƯƠNG THỨC NÀY ***
+    /**
+     * Sắp xếp lại thứ tự các trạng thái (cột) trong dự án.
+     * @param projectId ID dự án
+     * @param request DTO chứa danh sách ID theo thứ tự mới
+     */
+    void reorderStatuses(Integer projectId, ReorderStatusRequest request);
     
     // (Các hàm create, reorder, delete sẽ làm ở bước sau)
 }
