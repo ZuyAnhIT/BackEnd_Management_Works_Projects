@@ -1,8 +1,11 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/ProjectStatusServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.dto.request.CreateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectStatusResponse;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.Project;
 import com.quanlyduan.project_manager_api.model.ProjectStatus;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
@@ -42,6 +45,39 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
         return statuses.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    // LOGIC TAO TRANG THAI MOI
+    @Override
+    @Transactional
+    public ProjectStatusResponse createStatus(Integer projectId, CreateProjectStatusRequest request) {
+        // 1. Tìm dự án
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId)); // Đã dịch
+
+        // 2. Kiểm tra trùng tên (Trong cùng 1 dự án không được có 2 cột cùng tên)
+        if (projectStatusRepository.existsByProject_IdAndNameIgnoreCase(projectId, request.getName())) {
+            throw new BadRequestException("Tên trạng thái này đã tồn tại trong dự án.");
+        }
+
+        // 3. Tính toán vị trí (sortOrder)
+        // Lấy max hiện tại, cột mới sẽ là max + 1
+        Integer maxSortOrder = projectStatusRepository.findMaxSortOrderByProjectId(projectId);
+        int newSortOrder = maxSortOrder + 1;
+
+        // 4. Tạo Entity
+        ProjectStatus status = ProjectStatus.builder()
+                .project(project)
+                .name(request.getName())
+                .color(request.getColor() != null ? request.getColor() : "#CCCCCC") // Mặc định màu xám nếu null
+                .sortOrder(newSortOrder)
+                .isCompletedStatus(request.getIsCompletedStatus() != null ? request.getIsCompletedStatus() : false)
+                .build();
+
+        ProjectStatus saved = projectStatusRepository.save(status);
+        
+        // 5. Map và trả về
+        return mapToResponse(saved);
     }
 
     // Helper mapping
