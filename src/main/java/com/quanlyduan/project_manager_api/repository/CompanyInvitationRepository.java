@@ -23,4 +23,9 @@ public interface CompanyInvitationRepository extends JpaRepository<CompanyInvita
     List<CompanyInvitation> findByCompany_IdAndStatus( // Đã dịch
         Integer companyId, InvitationStatus status // Đã dịch
     );
+
+    /**
+     * Đếm số lượng lời mời theo trạng thái (dùng để tính lại phân trang).
+     */
+    long countByCompany_IdAndStatus(Integer companyId, InvitationStatus status);
 }

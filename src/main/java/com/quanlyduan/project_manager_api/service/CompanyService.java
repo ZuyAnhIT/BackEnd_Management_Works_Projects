@@ -1,8 +1,6 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/CompanyService.java
 package com.quanlyduan.project_manager_api.service;
 
-import java.util.List;
-
 import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
@@ -11,18 +9,26 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
-import com.quanlyduan.project_manager_api.model.Company; // Đã dịch
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.model.Company; 
 import com.quanlyduan.project_manager_api.model.CompanyMember;
 
 public interface CompanyService {
-    Company createCompany(CreateCompanyRequest request); // Đã dịch
+    Company createCompany(CreateCompanyRequest request); 
 
-    void inviteMember(Integer companyId, InviteMemberRequest request); // Đã dịch
+    void inviteMember(Integer companyId, InviteMemberRequest request); 
 
     void acceptInvitation(AcceptInvitationRequest request);
 
-    // Danh sach thanh vien cong ty 
-    List<CompanyMemberResponse> getCompanyMembers(Integer companyId); // Đã dịch
+    /**
+     * Lấy danh sách thành viên công ty (Phân trang & Sắp xếp).
+     * @param companyId ID công ty
+     * @param page Số trang (bắt đầu từ 0)
+     * @param size Kích thước trang
+     * @param sortBy Trường cần sắp xếp ("joinedAt", "name", "role")
+     * @param sortDir Hướng sắp xếp ("asc", "desc")
+     */
+    PageResponseDTO<CompanyMemberResponse> getCompanyMembers(Integer companyId, int page, int size, String sortBy, String sortDir);
 
     // Xem chi tiet cong ty
     CompanyDetailsResponse getCompanyDetails(Integer companyId); // Đã dịch
@@ -54,7 +60,7 @@ public interface CompanyService {
      */
     CompanyMemberResponse updateMemberStatus(Integer companyId, Integer memberId, UpdateMemberStatusRequest request);
 
-/**
+    /**
      * Lấy chi tiết lời mời (public) để frontend quyết định luồng.
      * @param token Token từ link
      * @return DTO chứa email, tên cty, và user đã tồn tại hay chưa

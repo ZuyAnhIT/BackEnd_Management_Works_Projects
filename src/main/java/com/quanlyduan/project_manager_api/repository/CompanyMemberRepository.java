@@ -1,7 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/repository/CompanyMemberRepository.java
 package com.quanlyduan.project_manager_api.repository;
 
-import com.quanlyduan.project_manager_api.model.CompanyMember; // Đã dịch
+import com.quanlyduan.project_manager_api.model.CompanyMember; 
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
 
@@ -10,27 +10,25 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+
 @Repository
-public interface CompanyMemberRepository extends JpaRepository<CompanyMember, Integer> { // Đã dịch
+public interface CompanyMemberRepository extends JpaRepository<CompanyMember, Integer> { 
     
-    boolean existsByCompany_IdAndUser_Email(Integer companyId, String email); // Đã dịch
+    boolean existsByCompany_IdAndUser_Email(Integer companyId, String email); 
 
-    // Lấy tất cả thành viên của công ty
-    List<CompanyMember> findByCompany_Id(Integer companyId); // Đã dịch
+    // Kiểm tra xem user có phải là thành viên không
+    boolean existsByCompany_IdAndUser_Id(Integer companyId, Integer userId); 
 
-    // (Bảo mật) Kiểm tra xem user có phải là thành viên không
-    boolean existsByCompany_IdAndUser_Id(Integer companyId, Integer userId); // Đã dịch
-
-
-    Optional<CompanyMember> findByCompany_IdAndUser_Id(Integer companyId, Integer userId); // Đã dịch
+    Optional<CompanyMember> findByCompany_IdAndUser_Id(Integer companyId, Integer userId); 
     
-    
-    List<CompanyMember> findByUser_Id(Integer userId); // Đã dịch
+    List<CompanyMember> findByUser_Id(Integer userId); 
 
     @Query("""
             SELECT cm FROM CompanyMember cm
@@ -43,16 +41,11 @@ public interface CompanyMemberRepository extends JpaRepository<CompanyMember, In
     boolean existsByCompany_IdAndUser_IdAndRole_RoleCode(Integer companyId, Integer userId, String roleCode);
 
     boolean existsByCompany_IdAndUser_IdAndRole_RoleCodeIn(Integer companyId, Integer userId, Set<String> roleCodes);
-    /**
-     * Tìm thành viên đang HOẠT ĐỘNG theo Company ID và User ID.
-     * Dùng cho kiểm tra bảo mật.
-     */
+    
+    // Tìm thành viên đang HOẠT ĐỘNG theo Company ID và User ID.
     Optional<CompanyMember> findByCompany_IdAndUser_IdAndStatus(Integer companyId, Integer userId, MemberStatus status);
 
-    
-    /**
-     * Kiểm tra thành viên HOẠT ĐỘNG có tồn tại không.
-     */
+    // Kiểm tra thành viên HOẠT ĐỘNG có tồn tại không.
     boolean existsByCompany_IdAndUser_IdAndStatus(Integer companyId, Integer userId, MemberStatus status);
 
     @Query("SELECT COUNT(p.id) > 0 FROM CompanyMember cm " +
@@ -74,8 +67,12 @@ public interface CompanyMemberRepository extends JpaRepository<CompanyMember, In
            "JOIN FETCH cm.company c " +
            "JOIN FETCH cm.role r " +
            "WHERE cm.user.id = :userId AND c.status IN :statuses")
+           
     List<CompanyMember> findByUser_IdAndCompany_StatusIn(
         @Param("userId") Integer userId, 
         @Param("statuses") Collection<CompanyStatus> statuses
     );
+
+    // Spring Data JPA tự động xử lý Pageable
+    Page<CompanyMember> findByCompany_Id(Integer companyId, Pageable pageable);
 }

@@ -29,11 +29,21 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO; 
+import com.quanlyduan.project_manager_api.util.SortUtils; 
+import org.springframework.data.domain.Page; 
+import org.springframework.data.domain.PageRequest; 
+import org.springframework.data.domain.Pageable; 
+import org.springframework.data.domain.Sort; 
+import java.util.Map; 
+import java.util.Collections;
 
 @Service
 public class CompanyServiceImpl implements CompanyService {
@@ -49,7 +59,7 @@ public class CompanyServiceImpl implements CompanyService {
     
     private final ProjectRepository projectRepository;
 
-    @Value("${app.frontend.url}") // Thêm URL frontend vào application.properties
+    @Value("${app.frontend.url}") 
     private String frontendUrl;
 
     public CompanyServiceImpl(CompanyRepository companyRepository, 
@@ -141,7 +151,7 @@ public class CompanyServiceImpl implements CompanyService {
         Company company = companyRepository.findById(companyId) // Đã dịch
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty")); // Đã dịch
 
-        // *** SỬA LOGIC: Tìm Role bằng roleCode (từ DTO) thay vì roleId ***
+        //Tìm Role bằng roleCode (từ DTO)
         Role role = roleRepository.findFirstByRoleCode(request.getRoleCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò cho mã: " + request.getRoleCode())); // Đã
                                                                                                                         // dịch
@@ -163,7 +173,7 @@ public class CompanyServiceImpl implements CompanyService {
 
         // 4. Kiểm tra xem đã có lời mời PENDING chưa
         if (companyInvitationRepository.existsByCompany_IdAndEmailAndStatus(companyId, invitedEmail,
-                InvitationStatus.PENDING)) { // Đã dịch
+                InvitationStatus.PENDING)) { 
             throw new BadRequestException("Một lời mời đã được gửi và đang chờ phản hồi"); // Đã dịch
         }
 
@@ -225,58 +235,88 @@ public class CompanyServiceImpl implements CompanyService {
         companyInvitationRepository.save(invitation); // Đã dịch
     }
 
-    // LOGIC XEM DANH SACH THANH VIEN TRONG CONG TY
-    // LOGIC XEM DANH SACH THANH VIEN TRONG CONG TY
+    // LOGIC XEM DANH SACH THANH VIEN (ĐÃ NÂNG CẤP: GỘP PENDING + ACTIVE)
     @Override
-    @Transactional(readOnly = true) 
-    public List<CompanyMemberResponse> getCompanyMembers(Integer companyId) { 
-
-        // 3. Tạo danh sách trả về
-        List<CompanyMemberResponse> responseList = new ArrayList<>();
-
-        // 4. Lấy danh sách thành viên (Active/Inactive)
-        List<CompanyMember> members = companyMemberRepository.findByCompany_Id(companyId); 
+    @Transactional(readOnly = true)
+    public PageResponseDTO<CompanyMemberResponse> getCompanyMembers(Integer companyId, int page, int size, String sortBy, String sortDir) {
         
-        for (CompanyMember member : members) { 
-            CompanyMemberResponse dto = CompanyMemberResponse.builder()
-                    .memberId(member.getId()) 
-                    .userId(member.getUser().getId()) 
-                    .fullName(member.getUser().getFullName()) 
-                    .email(member.getUser().getEmail())
-                    .avatarUrl(member.getUser().getAvatarUrl()) 
-                    .roleName(member.getRole().getRoleName()) 
-                    .jobTitle(member.getJobTitle()) 
-                    .joinedAt(member.getJoinedAt()) 
-                    .status(mapMemberStatus(member.getStatus())) // *** SỬA LOGIC Ở HÀM HELPER NÀY ***
-                    .build();
-            responseList.add(dto);
+        // 1. Tạo Sort và Pageable cho danh sách Members
+        Map<String, String> sortMapping = Map.of(
+            "joinedAt", "joinedAt",
+            "name", "user.fullName",
+            "role", "role.roleName"
+        );
+        Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // 2. Lấy danh sách Members chính thức (Active/Suspended/Removed) từ DB
+        Page<CompanyMember> membersPage = companyMemberRepository.findByCompany_Id(companyId, pageable);
+        
+        // 3. Map Members sang DTO
+        List<CompanyMemberResponse> finalContent = new ArrayList<>();
+        
+        // map() của Page trả về Page mới, ta lấy content ra list
+        List<CompanyMemberResponse> memberDtos = membersPage.stream()
+                .map(this::mapToCompanyMemberResponse)
+                .collect(Collectors.toList());
+
+        // 4. XỬ LÝ GỘP: Lấy danh sách Pending (Chỉ lấy nếu đang ở Trang 0)
+        long pendingCount = 0;
+        
+        // Nếu user đang xem trang đầu tiên hoặc không phân trang
+        if (page == 0) {
+            List<CompanyInvitation> pendingInvitations = companyInvitationRepository
+                    .findByCompany_IdAndStatus(companyId, InvitationStatus.PENDING);
+            
+            pendingCount = pendingInvitations.size();
+
+            // Map Pending Invitations sang DTO
+            List<CompanyMemberResponse> pendingDtos = pendingInvitations.stream()
+                    .map(invitation -> CompanyMemberResponse.builder()
+                            .memberId(null) // Chưa là member
+                            .userId(null)   // Chưa có user
+                            .fullName(invitation.getEmail()) // Hiển thị email vào chỗ tên
+                            .email(invitation.getEmail())
+                            .avatarUrl(null)
+                            .roleName(invitation.getRole().getRoleName() + " (Invited)") // Đánh dấu là đã mời
+                            .jobTitle(null)
+                            .joinedAt(invitation.getCreatedAt()) // Ngày mời
+                            .status(CombinedMemberStatus.PENDING) // Trạng thái PENDING
+                            .build())
+                    .collect(Collectors.toList());
+
+            // QUAN TRỌNG: Đưa Pending lên ĐẦU danh sách
+            finalContent.addAll(pendingDtos);
+        } else {
+            // Nếu ở trang 2, 3... thì vẫn phải đếm số lượng pending để tính lại Tổng số phần tử chính xác
+            // (Tùy chọn: có thể bỏ qua nếu muốn tối ưu query, nhưng count(*) thì nhanh)
+             pendingCount = companyInvitationRepository.countByCompany_IdAndStatus(companyId, InvitationStatus.PENDING);
         }
 
-        // 5. Lấy danh sách lời mời (Pending)
-        List<CompanyInvitation> invitations = companyInvitationRepository 
-                .findByCompany_IdAndStatus(companyId, InvitationStatus.PENDING); 
+        // 5. Thêm danh sách Member vào sau
+        finalContent.addAll(memberDtos);
 
-        for (CompanyInvitation invitation : invitations) { 
-            CompanyMemberResponse dto = CompanyMemberResponse.builder()
-                    .memberId(null) 
-                    .userId(null) 
-                    .fullName("Đang chờ...") 
-                    .email(invitation.getEmail()) 
-                    .avatarUrl(null) 
-                    .roleName(invitation.getRole().getRoleName()) 
-                    .jobTitle(null) 
-                    .joinedAt(invitation.getCreatedAt()) 
-                    .status(CombinedMemberStatus.PENDING) // Trạng thái PENDING giữ nguyên
-                    .build();
-            responseList.add(dto);
-        }
-        // 6. Trả về danh sách tổng hợp
-        return responseList;
+        // 6. Tính toán lại các thông số phân trang
+        long realTotalElements = membersPage.getTotalElements() + pendingCount;
+        // Tính lại tổng số trang dựa trên tổng số phần tử mới
+        int realTotalPages = (int) Math.ceil((double) realTotalElements / size);
+        // Xác định xem đây có phải trang cuối không
+        boolean isLast = (page + 1) >= realTotalPages; 
+        boolean isFirst = (page == 0);
+
+        // 7. Trả về DTO thủ công (Không dùng constructor PageResponseDTO(Page) nữa vì dữ liệu đã bị đổi)
+        return PageResponseDTO.<CompanyMemberResponse>builder()
+                .content(finalContent)          // Danh sách đã gộp (Pending + Members)
+                .pageNumber(page)
+                .pageSize(size)
+                .totalElements(realTotalElements) // Tổng số thực tế (bao gồm cả pending)
+                .totalPages(realTotalPages)
+                .last(isLast)
+                .first(isFirst)
+                .build();
     }
     
     // --- Private Helper Method ---
-    
-    // *** ĐÃ SỬA LẠI LOGIC HÀM NÀY ***
     private CombinedMemberStatus mapMemberStatus(MemberStatus status) {
         // Chuyển đổi trực tiếp từ MemberStatus (ACTIVE, SUSPENDED, REMOVED)
         // sang CombinedMemberStatus (ACTIVE, SUSPENDED, REMOVED)
