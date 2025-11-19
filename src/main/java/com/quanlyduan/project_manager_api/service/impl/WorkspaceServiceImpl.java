@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -17,11 +18,20 @@ import com.quanlyduan.project_manager_api.repository.*;
 import com.quanlyduan.project_manager_api.service.EmailService;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
+import com.quanlyduan.project_manager_api.util.SortUtils;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.util.SortUtils;
+import org.springframework.data.domain.Page; 
+import org.springframework.data.domain.PageRequest; 
+import org.springframework.data.domain.Pageable; 
+import org.springframework.data.domain.Sort; 
+import java.util.Map; 
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -169,7 +179,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         Workspace workspace = workspaceRepository.findById(workspaceId) // Đã dịch
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc")); // Đã dịch
 
-        // *** SỬA LOGIC: Tìm Role bằng roleCode (từ DTO) thay vì roleId ***
+        //Tìm Role bằng roleCode (từ DTO)
         Role workspaceRole = roleRepository.findFirstByRoleCode(request.getRoleCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found for code: " + request.getRoleCode())); // Đã dịch
 
@@ -200,7 +210,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         sendWorkspaceNotificationEmail(admin, userToInvite, workspace, workspaceRole); // Đã dịch
     }
 
-    // *** HÀM HELPER (Giữ nguyên) ***
     /**
      * Gửi email thông báo cho người dùng khi họ được thêm vào không gian làm việc.
      */
@@ -333,22 +342,39 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     }
     
 
-    // LOGIC LAY DANH SACH THANH VIEN KHONG GIAN
+    // LOGIC LAY DANH SACH THANH VIEN KHONG GIAN (DA NANG CAP)
     @Override
     @Transactional(readOnly = true)
-    public List<WorkspaceMemberResponse> getWorkspaceMembers(Integer workspaceId) {
+    public PageResponseDTO<WorkspaceMemberResponse> getWorkspaceMembers(Integer workspaceId, int page, int size, String sortBy, String sortDir) {
         // Bảo mật đã được xử lý ở Controller
-        
-        // 1. Lấy danh sách thành viên từ CSDL
-        List<WorkspaceMember> members = workspaceMemberRepository.findByWorkspace_Id(workspaceId);
 
-        // 2. Map sang DTO
-        return members.stream()
-                .map(this::mapToWorkspaceMemberResponse) // Dùng helper mới
-                .collect(Collectors.toList());
+        // 1. Cấu hình Map ánh xạ cho việc sắp xếp (4 trường bạn yêu cầu)
+        // Key (Frontend gửi) -> Value (JPA Entity Path)
+        Map<String, String> sortMapping = Map.of(
+            "joinedAt", "joinedAt",          // Ngày tham gia (Mặc định)
+            "name", "user.fullName",         // Tên người dùng
+            "email", "user.email",           // Email
+            "role", "role.roleName"          // Tên vai trò
+        );
+
+        // 2. Tạo đối tượng Sort an toàn bằng Utils
+        // Mặc định: "joinedAt" và hướng "DESC" (Mới nhất lên đầu)
+        Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);
+
+        // 3. Tạo đối tượng Pageable
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // 4. Gọi Repository lấy dữ liệu phân trang
+        Page<WorkspaceMember> membersPage = workspaceMemberRepository.findByWorkspace_Id(workspaceId, pageable);
+
+        // 5. Map từng phần tử Entity sang DTO
+        // .map() của Page tự động giữ lại thông tin phân trang (totalElements, totalPages...)
+        Page<WorkspaceMemberResponse> dtoPage = membersPage.map(this::mapToWorkspaceMemberResponse);
+
+        // 6. Đóng gói vào PageResponseDTO và trả về
+        return new PageResponseDTO<>(dtoPage);
     }
 
-    // *** THÊM HÀM HELPER NÀY ***
     /**
      * Hàm helper để chuyển đổi WorkspaceMember (Entity) sang WorkspaceMemberResponse (DTO).
      */

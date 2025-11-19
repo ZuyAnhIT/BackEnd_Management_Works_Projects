@@ -244,6 +244,7 @@ public class CompanyServiceImpl implements CompanyService {
         Map<String, String> sortMapping = Map.of(
             "joinedAt", "joinedAt",
             "name", "user.fullName",
+            "email", "user.email",        
             "role", "role.roleName"
         );
         Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);

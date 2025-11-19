@@ -6,10 +6,10 @@ import java.util.List;
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
-// import com.quanlyduan.project_manager_api.model.KhongGian; // Unused import removed
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
 
 public interface WorkspaceService {
@@ -20,7 +20,7 @@ public interface WorkspaceService {
      * @param request DTO chứa thông tin không gian mới
      * @return WorkspaceResponse DTO của không gian vừa tạo
      */
-    WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request); // Đã dịch
+    WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request); 
 
     
     /**
@@ -28,7 +28,7 @@ public interface WorkspaceService {
      * @param congTyId ID của công ty
      * @return Danh sách WorkspaceResponse DTO
      */
-    List<WorkspaceResponse> getWorkspacesByCompany(Integer companyId); // Đã dịch
+    List<WorkspaceResponse> getWorkspacesByCompany(Integer companyId); 
 
     /**
      * Lấy thông tin chi tiết của một không gian làm việc.
@@ -60,11 +60,15 @@ public interface WorkspaceService {
     void deleteWorkspace(Integer workspaceId);
 
     /**
-     * Lấy danh sách thành viên của một không gian làm việc.
+     * Lấy danh sách thành viên của một không gian làm việc (Phân trang & Sắp xếp).
      * @param workspaceId ID của không gian
-     * @return Danh sách WorkspaceMemberResponse DTO
+     * @param page Trang số mấy
+     * @param size Kích thước trang
+     * @param sortBy Trường sắp xếp
+     * @param sortDir Hướng sắp xếp
+     * @return PageResponseDTO
      */
-    List<WorkspaceMemberResponse> getWorkspaceMembers(Integer workspaceId);
+    PageResponseDTO<WorkspaceMemberResponse> getWorkspaceMembers(Integer workspaceId, int page, int size, String sortBy, String sortDir);
 
     /**
      * Lấy thông tin chi tiết của một thành viên trong không gian.
