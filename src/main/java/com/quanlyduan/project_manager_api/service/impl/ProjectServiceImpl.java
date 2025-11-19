@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse; 
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
@@ -11,7 +12,6 @@ import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
 import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectTypeRepository;
@@ -20,6 +20,14 @@ import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
 import com.quanlyduan.project_manager_api.service.ProjectService;
+import com.quanlyduan.project_manager_api.util.SortUtils;
+
+import org.springframework.data.domain.Page; 
+import org.springframework.data.domain.PageRequest; 
+import org.springframework.data.domain.Pageable; 
+import org.springframework.data.domain.Sort; 
+import java.util.Map; 
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.quanlyduan.project_manager_api.security.SecurityService; 
@@ -34,7 +42,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 
-// *** IMPORT CÁC REPO CÒN THIẾU ***
+
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
@@ -475,19 +483,36 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
 
-    // LOGIC LAY DANH SACH THANH VIEN DU AN
+   // LOGIC LAY DANH SACH THANH VIEN DU AN (DA NANG CAP)
     @Override
     @Transactional(readOnly = true)
-    public List<ProjectMemberResponse> getProjectMembers(Integer projectId) {
+    public PageResponseDTO<ProjectMemberResponse> getProjectMembers(Integer projectId, int page, int size, String sortBy, String sortDir) {
         // Bảo mật (ai được xem) đã được xử lý bởi @PreAuthorize ở Controller.
-        
-        // 1. Lấy danh sách thành viên từ CSDL
-        List<ProjectMember> members = projectMemberRepository.findByProject_Id(projectId);
 
-        // 2. Map sang DTO
-        return members.stream()
-                .map(this::mapToProjectMemberResponse) // Dùng helper mới
-                .collect(Collectors.toList());
+        // 1. Cấu hình Map ánh xạ cho việc sắp xếp (4 trường bạn yêu cầu)
+        // Key (Frontend gửi) -> Value (JPA Entity Path)
+        Map<String, String> sortMapping = Map.of(
+            "joinedAt", "joinedAt",          // Ngày tham gia (Mặc định)
+            "name", "user.fullName",         // Tên người dùng
+            "email", "user.email",           // Email
+            "role", "role.roleName"          // Tên vai trò
+        );
+
+        // 2. Tạo đối tượng Sort an toàn bằng Utils
+        // Mặc định: "joinedAt" và hướng "DESC" (Mới nhất lên đầu)
+        Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);
+
+        // 3. Tạo đối tượng Pageable
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        // 4. Gọi Repository lấy dữ liệu phân trang
+        Page<ProjectMember> membersPage = projectMemberRepository.findByProject_Id(projectId, pageable);
+
+        // 5. Map từng phần tử Entity sang DTO
+        Page<ProjectMemberResponse> dtoPage = membersPage.map(this::mapToProjectMemberResponse);
+
+        // 6. Đóng gói vào PageResponseDTO và trả về
+        return new PageResponseDTO<>(dtoPage);
     }
 
     @Override

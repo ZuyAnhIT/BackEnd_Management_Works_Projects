@@ -9,8 +9,8 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
-import com.quanlyduan.project_manager_api.model.Project;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Integer> {
     
@@ -34,8 +34,10 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, In
     // Dùng cho UserServiceImpl (lấy hồ sơ)
     List<ProjectMember> findByUser_Id(Integer userId);
 
-    // Dùng cho chức năng MỚI (lấy danh sách)
-    List<ProjectMember> findByProject_Id(Integer projectId);
+    /**
+     * Lấy danh sách thành viên của dự án (có phân trang).
+     */
+    Page<ProjectMember> findByProject_Id(Integer projectId, Pageable pageable);
 
     // Dùng cho các chức năng sau (cập nhật, xóa)
     Optional<ProjectMember> findByProject_IdAndUser_Id(Integer projectId, Integer userId);

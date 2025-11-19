@@ -5,6 +5,7 @@ import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
@@ -191,16 +192,23 @@ public class ProjectController {
     }
 
 
-    // API LAY DANH SACH THANH VIEN TRONG DU AN
+    // API LAY DANH SACH THANH VIEN TRONG DU AN (PHAN TRANG & SORT)
     @GetMapping("/{projectId}/members")
     // Bảo vệ: Chỉ thành viên dự án (project:view) mới được xem
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
-    public ResponseEntity<ApiResponse<List<ProjectMemberResponse>>> getProjectMembers(
+    public ResponseEntity<ApiResponse<PageResponseDTO<ProjectMemberResponse>>> getProjectMembers(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
-            @PathVariable Integer projectId) {
+            @PathVariable Integer projectId,
+            
+            // Các tham số tùy chọn (Có giá trị mặc định an toàn)
+            @RequestParam(defaultValue = "0") int page,             // Trang 0
+            @RequestParam(defaultValue = "10") int size,            // 10 người/trang
+            @RequestParam(defaultValue = "joinedAt") String sortBy, // Sắp xếp theo ngày tham gia
+            @RequestParam(defaultValue = "desc") String sortDir     // Mới nhất trước
+    ) {
         
-        List<ProjectMemberResponse> members = projectService.getProjectMembers(projectId);
+        PageResponseDTO<ProjectMemberResponse> members = projectService.getProjectMembers(projectId, page, size, sortBy, sortDir);
         
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên dự án thành công.", members)); // Đã dịch
     }

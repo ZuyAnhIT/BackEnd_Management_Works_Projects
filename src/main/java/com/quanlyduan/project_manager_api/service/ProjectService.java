@@ -9,6 +9,7 @@ package com.quanlyduan.project_manager_api.service;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
@@ -83,11 +84,15 @@ public interface ProjectService {
     List<TaskSummaryResponse> getProjectBacklog(Integer companyId, Integer workspaceId, Integer projectId);
 
     /**
-     * Lấy danh sách thành viên của một dự án.
+     * Lấy danh sách thành viên của dự án (Phân trang & Sắp xếp).
      * @param projectId ID dự án
-     * @return Danh sách ProjectMemberResponse DTO
+     * @param page Trang số mấy
+     * @param size Kích thước trang
+     * @param sortBy Trường sắp xếp
+     * @param sortDir Hướng sắp xếp
+     * @return PageResponseDTO
      */
-    List<ProjectMemberResponse> getProjectMembers(Integer projectId);
+    PageResponseDTO<ProjectMemberResponse> getProjectMembers(Integer projectId, int page, int size, String sortBy, String sortDir);
 
 
     /**
