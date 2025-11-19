@@ -420,6 +420,11 @@ if (member.getStatus() == newStatus) {
         "Trạng thái mới giống với trạng thái hiện tại. Không có gì để cập nhật."
     );
 }
+        // 5.2. Không cho phép thay đổi trạng thái nếu thành viên đã bị REMOVE
+if (member.getStatus() == MemberStatus.REMOVED) {
+    throw new BadRequestException("Không thể thay đổi trạng thái vì thành viên này đã bị REMOVE.");
+}
+
         // 6. Cập nhật trạng thái
         member.setStatus(newStatus);
         WorkspaceMember updatedMember = workspaceMemberRepository.save(member);
@@ -492,6 +497,10 @@ if (member.getStatus() == newStatus) {
         if (member.getRole().getRoleCode().equals(newRoleCode)) {
             throw new BadRequestException("Vai trò mới giống với vai trò hiện tại. Không có gì để cập nhật.");
         }
+        // 6.2. Không cho phép thay đổi vai trò nếu thành viên đã bị REMOVE
+if (member.getStatus() == MemberStatus.REMOVED) {
+    throw new BadRequestException("Không thể thay đổi vai trò vì thành viên này đã bị REMOVE.");
+}
 
         // 7. Cập nhật vai trò
         member.setRole(newRole);
