@@ -9,14 +9,14 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
 import com.quanlyduan.project_manager_api.service.CompanyService;
 import jakarta.validation.Valid;
-// import lombok.RequiredArgsConstructor; // Đã xóa
+import org.springframework.web.bind.annotation.RequestParam; 
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -49,15 +49,19 @@ public class CompanyController {
                 .body(ApiResponse.success("Tạo công ty thành công.", newCompany)); 
     }
 
-    // (Thêm các API khác cho Company tại đây: GET, PUT, DELETE, ...)
-
-    // API HIEN THI DANH SACH THANH VIEN CONG TY
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')") 
+    // API HIEN THI DANH SACH THANH VIEN CONG TY (PHAN TRANG)
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')")
     @GetMapping("/{companyId}/members")
-    public ResponseEntity<ApiResponse<List<CompanyMemberResponse>>> getCompanyMembers(
-            @PathVariable Integer companyId) {
+    public ResponseEntity<ApiResponse<PageResponseDTO<CompanyMemberResponse>>> getCompanyMembers(
+            @PathVariable Integer companyId,
+            @RequestParam(defaultValue = "0") int page,       // Mặc định trang 0
+            @RequestParam(defaultValue = "10") int size,      // Mặc định 10 người/trang
+            @RequestParam(defaultValue = "joinedAt") String sortBy, // Mặc định theo ngày tham gia
+            @RequestParam(defaultValue = "desc") String sortDir     // Mặc định mới nhất trước
+    ) {
 
-        List<CompanyMemberResponse> members = companyService.getCompanyMembers(companyId);
+        PageResponseDTO<CompanyMemberResponse> members = companyService.getCompanyMembers(companyId, page, size, sortBy, sortDir);
+        
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên công ty thành công.", members)); // Đã dịch
     }
 
