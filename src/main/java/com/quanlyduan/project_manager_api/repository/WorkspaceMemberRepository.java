@@ -7,15 +7,16 @@ import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 @Repository
 public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember, Integer> { // Đã dịch
 
-    // *** THÊM PHƯƠNG THỨC NÀY ***
     /**
      * Tìm kiếm tư cách thành viên dựa trên ID không gian và ID người dùng.
      * @param khongGianId ID của không gian
@@ -36,7 +37,7 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
         Integer workspaceId, Integer userId, MemberStatus status
     );
 
-     // (Mới)
+    
     boolean existsByWorkspace_IdAndUser_Id(Integer workspaceId, Integer userId);
 
     boolean existsByWorkspace_IdAndUser_IdAndRole_RoleCode(
@@ -44,9 +45,10 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     );
 
     /**
-     * Lấy tất cả thành viên (bất kể trạng thái) của một không gian.
+     * Lấy danh sách thành viên của một không gian (có phân trang).
+     * Spring Data JPA sẽ tự động tạo câu lệnh COUNT và SELECT có LIMIT.
      */
-    List<WorkspaceMember> findByWorkspace_Id(Integer workspaceId);
+    Page<WorkspaceMember> findByWorkspace_Id(Integer workspaceId, Pageable pageable);
 
     @Query("SELECT COUNT(p.id) > 0 FROM WorkspaceMember wm " +
            "JOIN wm.role r " +

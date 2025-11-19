@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberReque
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
@@ -122,17 +123,24 @@ public class WorkspaceController {
         ));
     }
 
-    // API LAY DANH SACH THANH VIEN TRONG KHONG GIAN
+    // API LAY DANH SACH THANH VIEN TRONG KHONG GIAN (PHAN TRANG & SORT)
     @GetMapping("/{workspaceId}/members")
-    // Bảo vệ: Chỉ thành viên của không gian (isWorkspaceMember) mới được xem
-    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'workspace:view')") // Sửa: Dùng @securityService
-    public ResponseEntity<ApiResponse<List<WorkspaceMemberResponse>>> getWorkspaceMembers(
+    // Bảo vệ: Chỉ thành viên của không gian mới được xem
+    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'workspace:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<WorkspaceMemberResponse>>> getWorkspaceMembers(
             @PathVariable Integer companyId,
-            @PathVariable Integer workspaceId) {
+            @PathVariable Integer workspaceId,
+            
+            // Các tham số tùy chọn (Có giá trị mặc định an toàn)
+            @RequestParam(defaultValue = "0") int page,             // Trang 0
+            @RequestParam(defaultValue = "10") int size,            // 10 người/trang
+            @RequestParam(defaultValue = "joinedAt") String sortBy, // Sắp xếp theo ngày vào
+            @RequestParam(defaultValue = "desc") String sortDir     // Mới nhất trước
+    ) {
         
-        List<WorkspaceMemberResponse> members = workspaceService.getWorkspaceMembers(workspaceId);
+        PageResponseDTO<WorkspaceMemberResponse> members = workspaceService.getWorkspaceMembers(workspaceId, page, size, sortBy, sortDir);
         
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên của không gian làm việc thành công.", members));
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên của không gian làm việc thành công.", members)); // Đã dịch
     }
 
 
