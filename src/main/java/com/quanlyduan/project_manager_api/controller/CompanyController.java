@@ -12,9 +12,9 @@ import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.service.CompanyService;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.RequestParam; 
 
 import java.util.HashMap;
 import java.util.Map;
@@ -49,20 +49,45 @@ public class CompanyController {
                 .body(ApiResponse.success("Tạo công ty thành công.", newCompany)); 
     }
 
-    // API HIEN THI DANH SACH THANH VIEN CONG TY (PHAN TRANG)
+    // API 1: LẤY DANH SÁCH THÀNH VIEN (Mặc định)
+    // URL: GET /api/companies/{id}/members
     @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')")
     @GetMapping("/{companyId}/members")
     public ResponseEntity<ApiResponse<PageResponseDTO<CompanyMemberResponse>>> getCompanyMembers(
             @PathVariable Integer companyId,
-            @RequestParam(defaultValue = "0") int page,       // Mặc định trang 0
-            @RequestParam(defaultValue = "10") int size,      // Mặc định 10 người/trang
-            @RequestParam(defaultValue = "joinedAt") String sortBy, // Mặc định theo ngày tham gia
-            @RequestParam(defaultValue = "desc") String sortDir     // Mặc định mới nhất trước
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "joinedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
     ) {
-
         PageResponseDTO<CompanyMemberResponse> members = companyService.getCompanyMembers(companyId, page, size, sortBy, sortDir);
-        
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên công ty thành công.", members)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên công ty thành công.", members));
+    }
+
+    // API 2: TÌM KIẾM THÀNH VIÊN (Nâng cao)
+    // URL: GET /api/companies/{id}/members/search
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')")
+    @GetMapping("/{companyId}/members/search")
+    public ResponseEntity<ApiResponse<PageResponseDTO<CompanyMemberResponse>>> searchCompanyMembers(
+            @PathVariable Integer companyId,
+            
+            // Các tham số tìm kiếm
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String jobTitle,
+            @RequestParam(required = false) String roleName,
+            @RequestParam(required = false) MemberStatus status,
+
+            // Các tham số phân trang
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "joinedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
+    ) {
+        PageResponseDTO<CompanyMemberResponse> result = companyService.searchCompanyMembers(
+            companyId, name, email, jobTitle, roleName, status, page, size, sortBy, sortDir
+        );
+        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm thành viên thành công.", result));
     }
 
     // API HIEN THI THONG TIN CHI TIET CONG TY

@@ -21,15 +21,14 @@ import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.repository.*;
+import com.quanlyduan.project_manager_api.repository.specification.CompanyMemberSpecification;
 import com.quanlyduan.project_manager_api.service.EmailService;
 import com.quanlyduan.project_manager_api.service.InvitationService;
 
 import org.springframework.beans.factory.annotation.Value;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
+
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -41,7 +40,9 @@ import com.quanlyduan.project_manager_api.util.SortUtils;
 import org.springframework.data.domain.Page; 
 import org.springframework.data.domain.PageRequest; 
 import org.springframework.data.domain.Pageable; 
-import org.springframework.data.domain.Sort; 
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+
 import java.util.Map; 
 import java.util.Collections;
 
@@ -235,102 +236,79 @@ public class CompanyServiceImpl implements CompanyService {
         companyInvitationRepository.save(invitation); // Đã dịch
     }
 
-    // LOGIC XEM DANH SACH THANH VIEN (ĐÃ NÂNG CẤP: GỘP PENDING + ACTIVE)
+    // ============================================================
+    // LOGIC 1: LẤY DANH SÁCH CƠ BẢN (Listing) - ĐÃ LÀM SẠCH
+    // ============================================================
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<CompanyMemberResponse> getCompanyMembers(Integer companyId, int page, int size, String sortBy, String sortDir) {
         
-        // 1. Tạo Sort và Pageable cho danh sách Members
+        // 1. Tạo Pageable và Sort
+        Pageable pageable = createPageable(page, size, sortBy, sortDir);
+
+        // 2. Gọi Repository (Chỉ lấy từ bảng company_members)
+        // Điều này đảm bảo sorting và pagination hoạt động chính xác 100% trên DB
+        Page<CompanyMember> membersPage = companyMemberRepository.findByCompany_Id(companyId, pageable);
+
+        // 3. Chuyển đổi sang DTO chuẩn
+        // Page.map() sẽ giữ nguyên thông tin paging (totalElements, totalPages...)
+        Page<CompanyMemberResponse> dtoPage = membersPage.map(this::mapToCompanyMemberResponse);
+
+        // 4. Trả về DTO phân trang
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // ============================================================
+    // LOGIC 2: TÌM KIẾM NÂNG CAO (Searching) - ĐÃ LÀM SẠCH
+    // ============================================================
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<CompanyMemberResponse> searchCompanyMembers(
+            Integer companyId, 
+            String searchName, String searchEmail, String searchJobTitle, String searchRoleName, MemberStatus searchStatus,
+            int page, int size, String sortBy, String sortDir) {
+
+        // 1. Tạo Pageable và Sort
+        Pageable pageable = createPageable(page, size, sortBy, sortDir);
+
+        // 2. Tạo Specification (Bộ lọc)
+        Specification<CompanyMember> spec = CompanyMemberSpecification.filterMembers(
+            companyId, searchName, searchEmail, searchJobTitle, searchRoleName, searchStatus
+        );
+
+        // 3. Gọi Repository với Specification
+        // Spring Data JPA tự động xử lý câu lệnh SQL: WHERE ... ORDER BY ... LIMIT ... OFFSET ...
+        Page<CompanyMember> membersPage = companyMemberRepository.findAll(spec, pageable);
+
+        // 4. Chuyển đổi sang DTO
+        Page<CompanyMemberResponse> dtoPage = membersPage.map(this::mapToCompanyMemberResponse);
+
+        // 5. Trả về
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // ============================================================
+    // PRIVATE HELPER METHODS
+    // ============================================================
+
+    private Pageable createPageable(int page, int size, String sortBy, String sortDir) {
         Map<String, String> sortMapping = Map.of(
             "joinedAt", "joinedAt",
             "name", "user.fullName",
-            "email", "user.email",        
-            "role", "role.roleName"
+            "role", "role.roleName",
+            "email", "user.email",
+            "jobTitle", "jobTitle"
         );
         Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        // 2. Lấy danh sách Members chính thức (Active/Suspended/Removed) từ DB
-        Page<CompanyMember> membersPage = companyMemberRepository.findByCompany_Id(companyId, pageable);
-        
-        // 3. Map Members sang DTO
-        List<CompanyMemberResponse> finalContent = new ArrayList<>();
-        
-        // map() của Page trả về Page mới, ta lấy content ra list
-        List<CompanyMemberResponse> memberDtos = membersPage.stream()
-                .map(this::mapToCompanyMemberResponse)
-                .collect(Collectors.toList());
-
-        // 4. XỬ LÝ GỘP: Lấy danh sách Pending (Chỉ lấy nếu đang ở Trang 0)
-        long pendingCount = 0;
-        
-        // Nếu user đang xem trang đầu tiên hoặc không phân trang
-        if (page == 0) {
-            List<CompanyInvitation> pendingInvitations = companyInvitationRepository
-                    .findByCompany_IdAndStatus(companyId, InvitationStatus.PENDING);
-            
-            pendingCount = pendingInvitations.size();
-
-            // Map Pending Invitations sang DTO
-            List<CompanyMemberResponse> pendingDtos = pendingInvitations.stream()
-                    .map(invitation -> CompanyMemberResponse.builder()
-                            .memberId(null) // Chưa là member
-                            .userId(null)   // Chưa có user
-                            .fullName(invitation.getEmail()) // Hiển thị email vào chỗ tên
-                            .email(invitation.getEmail())
-                            .avatarUrl(null)
-                            .roleName(invitation.getRole().getRoleName() + " (Invited)") // Đánh dấu là đã mời
-                            .jobTitle(null)
-                            .joinedAt(invitation.getCreatedAt()) // Ngày mời
-                            .status(CombinedMemberStatus.PENDING) // Trạng thái PENDING
-                            .build())
-                    .collect(Collectors.toList());
-
-            // QUAN TRỌNG: Đưa Pending lên ĐẦU danh sách
-            finalContent.addAll(pendingDtos);
-        } else {
-            // Nếu ở trang 2, 3... thì vẫn phải đếm số lượng pending để tính lại Tổng số phần tử chính xác
-            // (Tùy chọn: có thể bỏ qua nếu muốn tối ưu query, nhưng count(*) thì nhanh)
-             pendingCount = companyInvitationRepository.countByCompany_IdAndStatus(companyId, InvitationStatus.PENDING);
-        }
-
-        // 5. Thêm danh sách Member vào sau
-        finalContent.addAll(memberDtos);
-
-        // 6. Tính toán lại các thông số phân trang
-        long realTotalElements = membersPage.getTotalElements() + pendingCount;
-        // Tính lại tổng số trang dựa trên tổng số phần tử mới
-        int realTotalPages = (int) Math.ceil((double) realTotalElements / size);
-        // Xác định xem đây có phải trang cuối không
-        boolean isLast = (page + 1) >= realTotalPages; 
-        boolean isFirst = (page == 0);
-
-        // 7. Trả về DTO thủ công (Không dùng constructor PageResponseDTO(Page) nữa vì dữ liệu đã bị đổi)
-        return PageResponseDTO.<CompanyMemberResponse>builder()
-                .content(finalContent)          // Danh sách đã gộp (Pending + Members)
-                .pageNumber(page)
-                .pageSize(size)
-                .totalElements(realTotalElements) // Tổng số thực tế (bao gồm cả pending)
-                .totalPages(realTotalPages)
-                .last(isLast)
-                .first(isFirst)
-                .build();
+        return PageRequest.of(page, size, sort);
     }
-    
-    // --- Private Helper Method ---
+
     private CombinedMemberStatus mapMemberStatus(MemberStatus status) {
-        // Chuyển đổi trực tiếp từ MemberStatus (ACTIVE, SUSPENDED, REMOVED)
-        // sang CombinedMemberStatus (ACTIVE, SUSPENDED, REMOVED)
         switch (status) {
-            case ACTIVE:
-                return CombinedMemberStatus.ACTIVE;
-            case SUSPENDED:
-                return CombinedMemberStatus.SUSPENDED;
-            case REMOVED:
-                return CombinedMemberStatus.REMOVED;
-            default:
-                // Xử lý dự phòng, mặc dù không bao giờ nên xảy ra
-                return CombinedMemberStatus.REMOVED; 
+            case ACTIVE: return CombinedMemberStatus.ACTIVE;
+            case SUSPENDED: return CombinedMemberStatus.SUSPENDED;
+            case REMOVED: return CombinedMemberStatus.REMOVED;
+            default: return CombinedMemberStatus.REMOVED; 
         }
     }
 

@@ -13,13 +13,14 @@ import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 
 @Repository
-public interface CompanyMemberRepository extends JpaRepository<CompanyMember, Integer> { 
+public interface CompanyMemberRepository extends JpaRepository<CompanyMember, Integer>, JpaSpecificationExecutor<CompanyMember> { 
     
     boolean existsByCompany_IdAndUser_Email(Integer companyId, String email); 
 
@@ -75,4 +76,24 @@ public interface CompanyMemberRepository extends JpaRepository<CompanyMember, In
 
     // Spring Data JPA tự động xử lý Pageable
     Page<CompanyMember> findByCompany_Id(Integer companyId, Pageable pageable);
+
+    /**
+     * Tìm kiếm thành viên trong công ty theo từ khóa.
+     * Tìm trên: Tên, Email, Chức vụ (Job Title), Tên Vai trò (Role Name).
+     * Nếu keyword null hoặc rỗng, trả về tất cả (như findAll).
+     */
+    @Query("SELECT cm FROM CompanyMember cm " +
+           "JOIN cm.user u " +
+           "JOIN cm.role r " +
+           "WHERE cm.company.id = :companyId " +
+           "AND (:keyword IS NULL OR :keyword = '' OR " +
+           "(LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           " LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           " LOWER(cm.jobTitle) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           " LOWER(r.roleName) LIKE LOWER(CONCAT('%', :keyword, '%'))))")
+    Page<CompanyMember> searchByCompany_IdAndKeyword(
+            @Param("companyId") Integer companyId, 
+            @Param("keyword") String keyword, 
+            Pageable pageable
+    );
 }
