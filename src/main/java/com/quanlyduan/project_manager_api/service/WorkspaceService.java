@@ -23,12 +23,17 @@ public interface WorkspaceService {
     WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request); 
 
     
-    /**
-     * Lấy danh sách tất cả không gian làm việc của một công ty.
-     * @param congTyId ID của công ty
-     * @return Danh sách WorkspaceResponse DTO
+   /**
+     * Lấy danh sách không gian làm việc của công ty (Phân trang & Sắp xếp).
+     * @param companyId ID công ty
+     * @param page Trang số mấy
+     * @param size Kích thước trang
+     * @param sortBy Trường sắp xếp
+     * @param sortDir Hướng sắp xếp
+     * @return PageResponseDTO
      */
-    List<WorkspaceResponse> getWorkspacesByCompany(Integer companyId); 
+    PageResponseDTO<WorkspaceResponse> getWorkspacesByCompany(Integer companyId, int page, int size, String sortBy, String sortDir);
+    
 
     /**
      * Lấy thông tin chi tiết của một không gian làm việc.

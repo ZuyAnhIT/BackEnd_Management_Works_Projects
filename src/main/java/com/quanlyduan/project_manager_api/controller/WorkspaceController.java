@@ -51,16 +51,22 @@ public class WorkspaceController {
                 .body(ApiResponse.success("Tạo không gian làm việc thành công.", newWorkspace));
     }
 
-    // API XEM DANH SACH KHONG GIAN TRONG CONG TY
+    // API XEM DANH SACH KHONG GIAN TRONG CONG TY (ĐÃ NÂNG CẤP)
     @GetMapping
     // Bảo vệ endpoint: Chỉ thành viên công ty (isCompanyMember) mới được xem
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'workspace:view')") // Sửa: Dùng @securityService
-    public ResponseEntity<ApiResponse<List<WorkspaceResponse>>> getWorkspaces(
-            @PathVariable Integer companyId) {
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'workspace:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<WorkspaceResponse>>> getWorkspaces(
+            @PathVariable Integer companyId,
+            // Các tham số tùy chọn
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
+    ) {
         
-        List<WorkspaceResponse> workspaces = workspaceService.getWorkspacesByCompany(companyId);
+        PageResponseDTO<WorkspaceResponse> workspaces = workspaceService.getWorkspacesByCompany(companyId, page, size, sortBy, sortDir);
         
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách không gian làm việc thành công.", workspaces));
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách không gian làm việc thành công.", workspaces)); // Đã dịch
     }
 
 
