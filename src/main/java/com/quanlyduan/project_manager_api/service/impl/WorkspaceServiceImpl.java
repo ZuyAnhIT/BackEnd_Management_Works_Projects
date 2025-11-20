@@ -124,15 +124,31 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     // LOGIC HIỂN THỊ DANH SÁCH KHÔNG GIAN TRONG CÔNG TY
     @Override
     @Transactional(readOnly = true)
-    public List<WorkspaceResponse> getWorkspacesByCompany(Integer companyId) { // Đã dịch
-        // 1. Lấy danh sách Entity từ CSDL
-        // (Bảo mật sẽ được xử lý ở tầng Controller bằng @PreAuthorize)
-        List<Workspace> workspaces = workspaceRepository.findByCompany_Id(companyId); // Đã dịch
+    public PageResponseDTO<WorkspaceResponse> getWorkspacesByCompany(Integer companyId, int page, int size, String sortBy, String sortDir) {
+        
+        // 1. Cấu hình Map ánh xạ cho việc sắp xếp (4 trường bạn yêu cầu)
+        Map<String, String> sortMapping = Map.of(
+            "createdAt", "createdAt",        // Ngày tạo (Mặc định)
+            "name", "name",                  // Tên phòng ban
+            "status", "status",              // Trạng thái
+            "createdBy", "createdBy.fullName" // Người tạo
+        );
 
-        // 2. Chuyển đổi (map) danh sách Entity sang danh sách DTO
-        return workspaces.stream()
-                .map(this::mapToWorkspaceResponse) // Tái sử dụng helper đã tạo
-                .collect(Collectors.toList());
+        // 2. Tạo đối tượng Sort an toàn
+        // Mặc định: createdAt DESC (Mới nhất lên trước)
+        Sort sort = SortUtils.createSort(sortBy, sortDir, "createdAt", sortMapping);
+
+        // 3. Tạo Pageable
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // 4. Gọi Repository (Trả về Page<Workspace>)
+        Page<Workspace> workspacePage = workspaceRepository.findByCompany_Id(companyId, pageable);
+
+        // 5. Map Entity sang DTO
+        Page<WorkspaceResponse> dtoPage = workspacePage.map(this::mapToWorkspaceResponse);
+
+        // 6. Trả về kết quả
+        return new PageResponseDTO<>(dtoPage);
     }
 
     // LOGIC XEM CHI TIET PHONG BAN

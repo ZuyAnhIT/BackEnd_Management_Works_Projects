@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Repository
 public interface WorkspaceRepository extends JpaRepository<Workspace, Integer> { // Đã dịch
@@ -17,13 +19,13 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, Integer> {
     // Kiểm tra tên không gian đã tồn tại trong công ty chưa
     boolean existsByCompany_IdAndName(Integer companyId, String workspaceName); // Đã dịch
 
-    // *** THÊM PHƯƠNG THỨC NÀY ***
+    
     /**
-     * Tìm tất cả các không gian làm việc theo ID của công ty.
-     * @param congTyId ID của công ty
-     * @return Danh sách các KhongGian
+     * Lấy danh sách không gian làm việc theo ID công ty (Có phân trang).
+     * Spring Data JPA tự động xử lý LIMIT/OFFSET.
      */
-    List<Workspace> findByCompany_Id(Integer companyId); // Đã dịch
+    Page<Workspace> findByCompany_Id(Integer companyId, Pageable pageable);
+
     /**
      * Tìm workspace theo Tên và ID Công ty.
      * Dùng để kiểm tra tên trùng lặp khi CẬP NHẬT.
