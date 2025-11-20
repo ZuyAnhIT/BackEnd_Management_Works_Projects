@@ -20,6 +20,7 @@ import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
 import com.quanlyduan.project_manager_api.repository.specification.ProjectMemberSpecification;
+import com.quanlyduan.project_manager_api.repository.specification.ProjectSpecification;
 import com.quanlyduan.project_manager_api.service.ProjectService;
 import com.quanlyduan.project_manager_api.util.SortUtils;
 
@@ -194,45 +195,7 @@ public class ProjectServiceImpl implements ProjectService {
         return toResponse(saved);
     }
     
-
-    // LOGIC LAY DANH SACH DU AN (PHAN TRANG & SORT)
-    @Override
-    @Transactional(readOnly = true)
-    public PageResponseDTO<ProjectResponse> listProjectsByWorkspace(Integer companyId, Integer workspaceId, int page, int size, String sortBy, String sortDir) {
-        
-        // 1. Kiểm tra Workspace và Company
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
-        
-        if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
-        }
-
-        // 2. Cấu hình Map ánh xạ cho việc sắp xếp (4 trường)
-        Map<String, String> sortMapping = Map.of(
-            "createdAt", "createdAt",    // Ngày tạo (Mặc định)
-            "name", "name",              // Tên dự án
-            "status", "status",          // Trạng thái
-            "dueDate", "dueDate"         // Ngày hết hạn
-        );
-
-        // 3. Tạo đối tượng Sort an toàn
-        // Mặc định: "createdAt" và hướng "DESC" (Mới nhất lên đầu)
-        Sort sort = SortUtils.createSort(sortBy, sortDir, "createdAt", sortMapping);
-
-        // 4. Tạo Pageable
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        // 5. Gọi Repository lấy dữ liệu phân trang (Lấy tất cả, không lọc status)
-        Page<Project> projectPage = projectRepository.findByWorkspace_Id(workspaceId, pageable);
-
-        // 6. Map Entity sang DTO
-        Page<ProjectResponse> dtoPage = projectPage.map(this::toResponse);
-
-        // 7. Đóng gói và trả về
-        return new PageResponseDTO<>(dtoPage);
-    }
-    
+ 
     /**
      * US9: Xóa dự án (soft delete) bằng cách chuyển trạng thái sang CANCELLED.
      * (Giữ nguyên comment)
@@ -479,50 +442,94 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
 
-   // 1. LOGIC LAY DANH SACH THANH VIEN DU AN (CO BAN)
+  // ========================================================================
+    // NHÓM CHỨC NĂNG QUẢN LÝ DỰ ÁN (PROJECTS)
+    // ========================================================================
+
+    // 1. LẤY DANH SÁCH DỰ ÁN (Cơ bản)
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<ProjectResponse> listProjectsByWorkspace(
+            Integer companyId, Integer workspaceId, ProjectStatus status, 
+            int page, int size, String sortBy, String sortDir) {
+        
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
+        if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
+        }
+
+        // Định nghĩa Map sắp xếp cho PROJECT
+        Map<String, String> sortMapping = Map.of(
+            "createdAt", "createdAt",
+            "name", "name",
+            "code", "projectCode",
+            "status", "status",
+            "dueDate", "dueDate",
+            "manager", "manager.fullName"
+        );
+
+        // Gọi Helper chung
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, "createdAt", sortMapping);
+
+        Page<Project> projectPage;
+        if (status != null) {
+            projectPage = projectRepository.findByWorkspace_IdAndStatus(workspaceId, status, pageable);
+        } else {
+            projectPage = projectRepository.findByWorkspace_Id(workspaceId, pageable);
+        }
+
+        Page<ProjectResponse> dtoPage = projectPage.map(this::toResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // 2. TÌM KIẾM DỰ ÁN (Nâng cao)
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<ProjectResponse> searchProjects(
+            Integer companyId, Integer workspaceId, 
+            String searchName, String searchCode, String searchManager, ProjectStatus searchStatus,
+            int page, int size, String sortBy, String sortDir) {
+        
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
+        if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
+        }
+
+        // Định nghĩa Map sắp xếp cho PROJECT
+        Map<String, String> sortMapping = Map.of(
+            "createdAt", "createdAt",
+            "name", "name",
+            "code", "projectCode",
+            "status", "status",
+            "dueDate", "dueDate",
+            "manager", "manager.fullName"
+        );
+
+        // Gọi Helper chung
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, "createdAt", sortMapping);
+
+        Specification<Project> spec = ProjectSpecification.filterProjects(
+            workspaceId, searchName, searchCode, searchManager, searchStatus
+        );
+
+        Page<Project> projectPage = projectRepository.findAll(spec, pageable);
+        Page<ProjectResponse> dtoPage = projectPage.map(this::toResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // ========================================================================
+    // NHÓM CHỨC NĂNG QUẢN LÝ THÀNH VIÊN DỰ ÁN (MEMBERS)
+    // ========================================================================
+
+    // 1. LẤY DANH SÁCH THÀNH VIEN (Cơ bản)
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<ProjectMemberResponse> getProjectMembers(
             Integer projectId, int page, int size, String sortBy, String sortDir) {
         
-        // Tạo Pageable
-        Pageable pageable = createPageable(page, size, sortBy, sortDir);
-
-        // Gọi Repository cơ bản
-        Page<ProjectMember> membersPage = projectMemberRepository.findByProject_Id(projectId, pageable);
-
-        // Map và trả về
-        Page<ProjectMemberResponse> dtoPage = membersPage.map(this::mapToProjectMemberResponse);
-        return new PageResponseDTO<>(dtoPage);
-    }
-
-    // 2. LOGIC TIM KIEM THANH VIEN (NANG CAO)
-    @Override
-    @Transactional(readOnly = true)
-    public PageResponseDTO<ProjectMemberResponse> searchProjectMembers(
-            Integer projectId, 
-            String searchName, String searchEmail, String searchRoleName, String searchPhone,
-            int page, int size, String sortBy, String sortDir) {
-        
-        // Tạo Pageable
-        Pageable pageable = createPageable(page, size, sortBy, sortDir);
-
-        // Tạo Specification
-        Specification<ProjectMember> spec = ProjectMemberSpecification.filterMembers(
-            projectId, searchName, searchEmail, searchRoleName, searchPhone
-        );
-
-        // Gọi Repository với Spec
-        Page<ProjectMember> membersPage = projectMemberRepository.findAll(spec, pageable);
-
-        // Map và trả về
-        Page<ProjectMemberResponse> dtoPage = membersPage.map(this::mapToProjectMemberResponse);
-        return new PageResponseDTO<>(dtoPage);
-    }
-    
-    // --- PRIVATE HELPERS ---
-
-    private Pageable createPageable(int page, int size, String sortBy, String sortDir) {
+        // Định nghĩa Map sắp xếp cho PROJECT MEMBER
         Map<String, String> sortMapping = Map.of(
             "joinedAt", "joinedAt",
             "name", "user.fullName",
@@ -530,11 +537,61 @@ public class ProjectServiceImpl implements ProjectService {
             "role", "role.roleName",
             "phone", "user.phoneNumber"
         );
-        Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);
+
+        // Gọi Helper chung
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, "joinedAt", sortMapping);
+
+        Page<ProjectMember> membersPage = projectMemberRepository.findByProject_Id(projectId, pageable);
+        Page<ProjectMemberResponse> dtoPage = membersPage.map(this::mapToProjectMemberResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // 2. TÌM KIẾM THÀNH VIÊN (Nâng cao)
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<ProjectMemberResponse> searchProjectMembers(
+            Integer projectId, 
+            String searchName, String searchEmail, String searchRoleName, String searchPhone,
+            int page, int size, String sortBy, String sortDir) {
+        
+        // Định nghĩa Map sắp xếp cho PROJECT MEMBER
+        Map<String, String> sortMapping = Map.of(
+            "joinedAt", "joinedAt",
+            "name", "user.fullName",
+            "email", "user.email",
+            "role", "role.roleName",
+            "phone", "user.phoneNumber"
+        );
+
+        // Gọi Helper chung
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, "joinedAt", sortMapping);
+
+        Specification<ProjectMember> spec = ProjectMemberSpecification.filterMembers(
+            projectId, searchName, searchEmail, searchRoleName, searchPhone
+        );
+
+        Page<ProjectMember> membersPage = projectMemberRepository.findAll(spec, pageable);
+        Page<ProjectMemberResponse> dtoPage = membersPage.map(this::mapToProjectMemberResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // ========================================================================
+    // PRIVATE HELPER METHODS 
+    // ========================================================================
+
+    /**
+     * Helper tạo Pageable chung cho cả Project và ProjectMember.
+     * @param defaultSortField Trường sort mặc định (ví dụ: "createdAt" cho Project, "joinedAt" cho Member)
+     * @param sortMapping Map ánh xạ tên trường
+     */
+    private Pageable createPageable(int page, int size, String sortBy, String sortDir, 
+                                    String defaultSortField, Map<String, String> sortMapping) {
+        
+        Sort sort = SortUtils.createSort(sortBy, sortDir, defaultSortField, sortMapping);
         return PageRequest.of(page, size, sort);
     }
 
-    // *** CẬP NHẬT HÀM NÀY: Thêm phoneNumber ***
+    
     private ProjectMemberResponse mapToProjectMemberResponse(ProjectMember member) {
         return ProjectMemberResponse.builder()
                 .memberId(member.getId())

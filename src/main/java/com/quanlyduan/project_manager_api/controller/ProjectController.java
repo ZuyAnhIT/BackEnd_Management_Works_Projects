@@ -9,6 +9,7 @@ import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.security.SecurityService; 
 import com.quanlyduan.project_manager_api.service.ProjectService;
 import com.quanlyduan.project_manager_api.service.TaskService;
@@ -65,25 +66,48 @@ public class ProjectController {
                 .body(ApiResponse.success("Tạo dự án thành công.", created)); // Đã dịch
     }
 
-    /**
-     * US8 – API xem danh sách Project trong một Workspace (PHÂN TRANG & SORT).
-     */
+    // API 1: LẤY DANH SÁCH (Cơ bản)
     @GetMapping
     @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'project:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<ProjectResponse>>> listProjects(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
-            
-            // Các tham số tùy chọn (Có giá trị mặc định an toàn)
-            @RequestParam(defaultValue = "0") int page,              // Trang 0
-            @RequestParam(defaultValue = "10") int size,             // 10 dự án/trang
-            @RequestParam(defaultValue = "createdAt") String sortBy, // Mặc định ngày tạo
-            @RequestParam(defaultValue = "desc") String sortDir      // Mặc định mới nhất trước
+            @RequestParam(required = false) ProjectStatus status, // Filter đơn giản
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
     ) {
-
-        PageResponseDTO<ProjectResponse> projects = projectService.listProjectsByWorkspace(companyId, workspaceId, page, size, sortBy, sortDir);
-        
+        PageResponseDTO<ProjectResponse> projects = projectService.listProjectsByWorkspace(companyId, workspaceId, status, page, size, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách dự án thành công.", projects));
+    }
+
+    // API 2: TÌM KIẾM (Nâng cao - MỚI)
+    @GetMapping("/search")
+    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'project:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<ProjectResponse>>> searchProjects(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+
+            // Các tham số tìm kiếm
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String manager,
+            @RequestParam(required = false) ProjectStatus status,
+
+            // Các tham số phân trang
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
+    ) {
+        
+        PageResponseDTO<ProjectResponse> results = projectService.searchProjects(
+            companyId, workspaceId, name, code, manager, status,
+            page, size, sortBy, sortDir
+        );
+        
+        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm dự án thành công.", results)); // Đã dịch
     }
 
     /**

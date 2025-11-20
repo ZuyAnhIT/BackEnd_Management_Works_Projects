@@ -1,9 +1,4 @@
 
-/* =============================
- * File: ProjectService.java
- * Path: service/
- * ============================= */
-
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
@@ -13,6 +8,7 @@ import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 
 import java.util.List;
 
@@ -37,17 +33,15 @@ public interface ProjectService {
      */
     ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId);
 
-   /**
-     * Lấy danh sách dự án trong workspace (Phân trang & Sắp xếp).
-     * @param companyId ID công ty
-     * @param workspaceId ID không gian
-     * @param page Trang số mấy
-     * @param size Kích thước trang
-     * @param sortBy Trường sắp xếp
-     * @param sortDir Hướng sắp xếp
-     * @return PageResponseDTO
-     */
-    PageResponseDTO<ProjectResponse> listProjectsByWorkspace(Integer companyId, Integer workspaceId, int page, int size, String sortBy, String sortDir);
+    PageResponseDTO<ProjectResponse> listProjectsByWorkspace(
+            Integer companyId, 
+            Integer workspaceId, 
+            ProjectStatus status, 
+            int page, 
+            int size, 
+            String sortBy, 
+            String sortDir
+    );
 
     /**
      * US9: Xóa dự án (soft delete) – chuyển trạng thái Project sang CANCELLED.
@@ -101,6 +95,16 @@ public interface ProjectService {
     PageResponseDTO<ProjectMemberResponse> searchProjectMembers(
             Integer projectId, 
             String searchName, String searchEmail, String searchRoleName, String searchPhone,
+            int page, int size, String sortBy, String sortDir
+    );
+
+    /**
+     * Tìm kiếm dự án trong workspace (Nâng cao).
+     */
+    PageResponseDTO<ProjectResponse> searchProjects(
+            Integer companyId, 
+            Integer workspaceId, 
+            String searchName, String searchCode, String searchManager, ProjectStatus searchStatus,
             int page, int size, String sortBy, String sortDir
     );
 }
