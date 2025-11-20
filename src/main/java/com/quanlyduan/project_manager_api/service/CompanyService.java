@@ -12,6 +12,7 @@ import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.model.Company; 
 import com.quanlyduan.project_manager_api.model.CompanyMember;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 
 public interface CompanyService {
     Company createCompany(CreateCompanyRequest request); 
@@ -30,6 +31,17 @@ public interface CompanyService {
      */
     PageResponseDTO<CompanyMemberResponse> getCompanyMembers(Integer companyId, int page, int size, String sortBy, String sortDir);
 
+    // 2. API TÌM KIẾM (Nâng cao)
+    PageResponseDTO<CompanyMemberResponse> searchCompanyMembers(
+            Integer companyId, 
+            String searchName, 
+            String searchEmail, 
+            String searchJobTitle,
+            String searchRoleName,
+            MemberStatus searchStatus,
+            int page, int size, String sortBy, String sortDir
+    );
+    
     // Xem chi tiet cong ty
     CompanyDetailsResponse getCompanyDetails(Integer companyId); // Đã dịch
 
