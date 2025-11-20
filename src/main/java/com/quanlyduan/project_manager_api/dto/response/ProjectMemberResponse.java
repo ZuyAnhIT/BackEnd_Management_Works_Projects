@@ -16,5 +16,6 @@ public class ProjectMemberResponse {
     private String avatarUrl;
     private String roleName; // Tên vai trò (vd: "Project Admin")
     private LocalDateTime joinedAt;
+    private String phoneNumber;
     private MemberStatus status;
 }

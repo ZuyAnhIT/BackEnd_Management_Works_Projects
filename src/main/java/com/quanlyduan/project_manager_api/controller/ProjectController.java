@@ -173,25 +173,51 @@ public class ProjectController {
     }
 
 
-    // API LAY DANH SACH THANH VIEN TRONG DU AN (PHAN TRANG & SORT)
+    // API 1: LAY DANH SACH THANH VIEN (Cơ bản)
     @GetMapping("/{projectId}/members")
-    // Bảo vệ: Chỉ thành viên dự án (project:view) mới được xem
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<ProjectMemberResponse>>> getProjectMembers(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-            
-            // Các tham số tùy chọn (Có giá trị mặc định an toàn)
-            @RequestParam(defaultValue = "0") int page,             // Trang 0
-            @RequestParam(defaultValue = "10") int size,            // 10 người/trang
-            @RequestParam(defaultValue = "joinedAt") String sortBy, // Sắp xếp theo ngày tham gia
-            @RequestParam(defaultValue = "desc") String sortDir     // Mới nhất trước
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "joinedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
     ) {
         
         PageResponseDTO<ProjectMemberResponse> members = projectService.getProjectMembers(projectId, page, size, sortBy, sortDir);
         
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên dự án thành công.", members)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên dự án thành công.", members));
+    }
+
+    // API 2: TIM KIEM THANH VIEN (Nâng cao)
+    @GetMapping("/{projectId}/members/search")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<ProjectMemberResponse>>> searchProjectMembers(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+
+            // Các tham số tìm kiếm
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String phone,
+
+            // Các tham số phân trang
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "joinedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
+    ) {
+        
+        PageResponseDTO<ProjectMemberResponse> members = projectService.searchProjectMembers(
+            projectId, name, email, role, phone, 
+            page, size, sortBy, sortDir
+        );
+        
+        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm thành viên dự án thành công.", members));
     }
 
 

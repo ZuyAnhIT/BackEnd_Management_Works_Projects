@@ -7,12 +7,13 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Integer> {
+public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Integer>, JpaSpecificationExecutor<ProjectMember> {
     
     
     boolean existsByProject_IdAndUser_Id(Integer projectId, Integer userId);
@@ -35,7 +36,7 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, In
     List<ProjectMember> findByUser_Id(Integer userId);
 
     /**
-     * Lấy danh sách thành viên của dự án (có phân trang).
+     * Lấy danh sách thành viên dự án (có phân trang).
      */
     Page<ProjectMember> findByProject_Id(Integer projectId, Pageable pageable);
 
