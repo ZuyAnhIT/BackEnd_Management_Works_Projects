@@ -13,6 +13,7 @@ import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
+
 import java.util.List;
 
 /**
@@ -36,23 +37,17 @@ public interface ProjectService {
      */
     ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId);
 
-    /**
-     * US8: Lấy danh sách Project trong một Workspace.
-     * Nghiệp vụ chính:
-     * - Xác thực workspace thuộc đúng companyId (nếu sai → 400) để tránh truy cập chéo công ty.
-     * - Yêu cầu quyền workspace:view ở tầng controller (@PreAuthorize).
-     * - Trả về danh sách ProjectResponse; có thể loại bỏ các project đã bị CANCELLED nếu muốn.
+   /**
+     * Lấy danh sách dự án trong workspace (Phân trang & Sắp xếp).
+     * @param companyId ID công ty
+     * @param workspaceId ID không gian
+     * @param page Trang số mấy
+     * @param size Kích thước trang
+     * @param sortBy Trường sắp xếp
+     * @param sortDir Hướng sắp xếp
+     * @return PageResponseDTO
      */
-    java.util.List<ProjectResponse> listProjectsByWorkspace(Integer companyId, Integer workspaceId);
-
-    /**
-     * US 8 (Trash view): Lấy danh sách các Project bị hủy (CANCELLED) trong một Workspace.
-     * Nghiệp vụ:
-     * - Xác thực workspace thuộc companyId (sai → 400) để tránh truy cập chéo.
-     * - Controller sẽ bảo vệ bằng quyền workspace:view.
-     * - Trả về chỉ các bản ghi có status = CANCELLED.
-     */
-    java.util.List<ProjectResponse> listCancelledProjectsByWorkspace(Integer companyId, Integer workspaceId);
+    PageResponseDTO<ProjectResponse> listProjectsByWorkspace(Integer companyId, Integer workspaceId, int page, int size, String sortBy, String sortDir);
 
     /**
      * US9: Xóa dự án (soft delete) – chuyển trạng thái Project sang CANCELLED.

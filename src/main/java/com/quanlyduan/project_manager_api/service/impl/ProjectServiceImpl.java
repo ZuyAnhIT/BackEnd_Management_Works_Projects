@@ -36,7 +36,7 @@ import java.math.BigDecimal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.util.List;
-import java.util.Objects; 
+
 import java.util.stream.Collectors;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
@@ -74,9 +74,9 @@ public class ProjectServiceImpl implements ProjectService {
                               ProjectMemberRepository projectMemberRepository,
                               TaskRepository taskRepository,
                               SecurityService securityService,
-                              SprintRepository sprintRepository, // Thêm
-                              EpicRepository epicRepository, // Thêm
-                              ProjectStatusRepository projectStatusRepository // Thêm
+                              SprintRepository sprintRepository, 
+                              EpicRepository epicRepository, 
+                              ProjectStatusRepository projectStatusRepository 
                               ) {
         this.projectRepository = projectRepository;
         this.workspaceRepository = workspaceRepository;
@@ -87,9 +87,9 @@ public class ProjectServiceImpl implements ProjectService {
         this.projectMemberRepository = projectMemberRepository;
         this.taskRepository = taskRepository;
         this.securityService = securityService;
-        this.sprintRepository = sprintRepository; // Thêm
-        this.epicRepository = epicRepository; // Thêm
-        this.projectStatusRepository = projectStatusRepository; // Thêm
+        this.sprintRepository = sprintRepository; 
+        this.epicRepository = epicRepository; 
+        this.projectStatusRepository = projectStatusRepository; 
     }
 
     private boolean isProvided(String value) {
@@ -192,51 +192,44 @@ public class ProjectServiceImpl implements ProjectService {
     }
     
 
-    /**
-     * US8: Lấy danh sách Project trong Workspace.
-     * (Giữ nguyên comment)
-     */
+    // LOGIC LAY DANH SACH DU AN (PHAN TRANG & SORT)
     @Override
     @Transactional(readOnly = true)
-    public List<ProjectResponse> listProjectsByWorkspace(Integer companyId, Integer workspaceId) {
+    public PageResponseDTO<ProjectResponse> listProjectsByWorkspace(Integer companyId, Integer workspaceId, int page, int size, String sortBy, String sortDir) {
+        
+        // 1. Kiểm tra Workspace và Company
         Workspace workspace = workspaceRepository.findById(workspaceId)
-        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
+        
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
             throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
         }
 
-        List<Project> projects = projectRepository.findByWorkspace_Id(workspaceId);
+        // 2. Cấu hình Map ánh xạ cho việc sắp xếp (4 trường)
+        Map<String, String> sortMapping = Map.of(
+            "createdAt", "createdAt",    // Ngày tạo (Mặc định)
+            "name", "name",              // Tên dự án
+            "status", "status",          // Trạng thái
+            "dueDate", "dueDate"         // Ngày hết hạn
+        );
 
-        // Yêu cầu hiển thị mới: hiển thị tất cả TRỪ CANCELLED
-        List<Project> visible = projects.stream()
-                .filter(p -> p.getStatus() == null || p.getStatus() != ProjectStatus.CANCELLED)
-                .collect(Collectors.toList());
+        // 3. Tạo đối tượng Sort an toàn
+        // Mặc định: "createdAt" và hướng "DESC" (Mới nhất lên đầu)
+        Sort sort = SortUtils.createSort(sortBy, sortDir, "createdAt", sortMapping);
 
-        return visible.stream().map(this::toResponse).collect(Collectors.toList());
+        // 4. Tạo Pageable
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // 5. Gọi Repository lấy dữ liệu phân trang (Lấy tất cả, không lọc status)
+        Page<Project> projectPage = projectRepository.findByWorkspace_Id(workspaceId, pageable);
+
+        // 6. Map Entity sang DTO
+        Page<ProjectResponse> dtoPage = projectPage.map(this::toResponse);
+
+        // 7. Đóng gói và trả về
+        return new PageResponseDTO<>(dtoPage);
     }
-
-    /**
-     * Project Trash: trả về các project có trạng thái CANCELLED trong workspace.
-     * (Giữ nguyên comment)
-     */
-    @Override
-    @Transactional(readOnly = true)
-    public List<ProjectResponse> listCancelledProjectsByWorkspace(Integer companyId, Integer workspaceId) {
-       Workspace workspace = workspaceRepository.findById(workspaceId)
-        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
-        if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
-        }
-
-
-        List<Project> projects = projectRepository.findByWorkspace_Id(workspaceId);
-        List<Project> trashed = projects.stream()
-                .filter(p -> p.getStatus() == ProjectStatus.CANCELLED)
-                .collect(Collectors.toList());
-
-        return trashed.stream().map(this::toResponse).collect(Collectors.toList());
-    }
-
+    
     /**
      * US9: Xóa dự án (soft delete) bằng cách chuyển trạng thái sang CANCELLED.
      * (Giữ nguyên comment)

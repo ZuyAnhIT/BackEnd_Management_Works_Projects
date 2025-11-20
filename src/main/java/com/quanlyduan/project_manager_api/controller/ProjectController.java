@@ -66,43 +66,24 @@ public class ProjectController {
     }
 
     /**
-     * US8 – API xem danh sách Project trong một Workspace.
-     * Quyền truy cập:
-     * @PreAuthorize("@securityService.hasWorkspacePermission(#workspaceId, 'workspace:view')")
-     * Nghiệp vụ tóm tắt:
-     * - Xác thực (ở service) rằng workspace thuộc companyId để ngăn truy cập chéo công ty.
-     * - Lấy danh sách dự án, loại bỏ dự án CANCELLED (ẩn dự án đã hủy) và trả về dạng DTO.
-     * Kết quả:
-     * - 200 OK + ApiResponse<List<ProjectResponse>>.
+     * US8 – API xem danh sách Project trong một Workspace (PHÂN TRANG & SORT).
      */
     @GetMapping
-    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'project:view')") // Đã sửa
-    public ResponseEntity<ApiResponse<List<ProjectResponse>>> listProjects(
+    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'project:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<ProjectResponse>>> listProjects(
             @PathVariable Integer companyId,
-            @PathVariable Integer workspaceId) {
+            @PathVariable Integer workspaceId,
+            
+            // Các tham số tùy chọn (Có giá trị mặc định an toàn)
+            @RequestParam(defaultValue = "0") int page,              // Trang 0
+            @RequestParam(defaultValue = "10") int size,             // 10 dự án/trang
+            @RequestParam(defaultValue = "createdAt") String sortBy, // Mặc định ngày tạo
+            @RequestParam(defaultValue = "desc") String sortDir      // Mặc định mới nhất trước
+    ) {
 
-        List<ProjectResponse> data = projectService.listProjectsByWorkspace(companyId, workspaceId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách dự án thành công.", data)); // Đã dịch
-    }
-
-    /**
-     * Project Trash – API xem danh sách dự án bị hủy (CANCELLED) trong một Workspace.
-     * Quyền truy cập:
-     * @PreAuthorize("@securityService.hasWorkspacePermission(#workspaceId, 'workspace:view')")
-     * Nghiệp vụ tóm tắt:
-     * - Xác thực workspace thuộc companyId ở tầng service.
-     * - Trả về chỉ các dự án có status = CANCELLED.
-     * Kết quả:
-     * - 200 OK + ApiResponse<List<ProjectResponse>>.
-     */
-    @GetMapping("/trash")
-    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'project:view')") // Đã sửa
-    public ResponseEntity<ApiResponse<List<ProjectResponse>>> listTrashedProjects(
-            @PathVariable Integer companyId,
-            @PathVariable Integer workspaceId) {
-
-        List<ProjectResponse> data = projectService.listCancelledProjectsByWorkspace(companyId, workspaceId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách dự án đã hủy thành công.", data)); // Đã dịch
+        PageResponseDTO<ProjectResponse> projects = projectService.listProjectsByWorkspace(companyId, workspaceId, page, size, sortBy, sortDir);
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách dự án thành công.", projects));
     }
 
     /**
