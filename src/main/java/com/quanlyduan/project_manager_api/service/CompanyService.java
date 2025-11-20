@@ -32,14 +32,15 @@ public interface CompanyService {
      */
     PageResponseDTO<CompanyMemberResponse> getCompanyMembers(Integer companyId, int page, int size, String sortBy, String sortDir);
 
-    // 2. API TÌM KIẾM (Nâng cao)
+    // API 2: TÌM KIẾM (Nâng cao - ĐÃ CẬP NHẬT)
     PageResponseDTO<CompanyMemberResponse> searchCompanyMembers(
             Integer companyId, 
             String searchName, 
             String searchEmail, 
-            String searchJobTitle,
+            String searchJobTitle, 
             String searchRoleName,
             MemberStatus searchStatus,
+            String searchPhone, // *** THÊM THAM SỐ ***
             int page, int size, String sortBy, String sortDir
     );
     

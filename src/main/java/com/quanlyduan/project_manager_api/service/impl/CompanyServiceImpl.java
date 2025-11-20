@@ -238,50 +238,29 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     // ============================================================
-    // LOGIC 1: LẤY DANH SÁCH CƠ BẢN (Listing) - ĐÃ LÀM SẠCH
+    // LOGIC 1: LẤY DANH SÁCH CƠ BẢN (Listing)
     // ============================================================
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<CompanyMemberResponse> getCompanyMembers(Integer companyId, int page, int size, String sortBy, String sortDir) {
         
-        // 1. Tạo Pageable và Sort
-        Pageable pageable = createPageable(page, size, sortBy, sortDir);
-
-        // 2. Gọi Repository (Chỉ lấy từ bảng company_members)
-        // Điều này đảm bảo sorting và pagination hoạt động chính xác 100% trên DB
-        Page<CompanyMember> membersPage = companyMemberRepository.findByCompany_Id(companyId, pageable);
-
-        // 3. Chuyển đổi sang DTO chuẩn
-        // Page.map() sẽ giữ nguyên thông tin paging (totalElements, totalPages...)
-        Page<CompanyMemberResponse> dtoPage = membersPage.map(this::mapToCompanyMemberResponse);
-
-        // 4. Trả về DTO phân trang
-        return new PageResponseDTO<>(dtoPage);
-    }
-
-    // ============================================================
-    // LOGIC 2: TÌM KIẾM NÂNG CAO (Searching) - ĐÃ LÀM SẠCH
-    // ============================================================
-    @Override
-    @Transactional(readOnly = true)
-    public PageResponseDTO<CompanyMemberResponse> searchCompanyMembers(
-            Integer companyId, 
-            String searchName, String searchEmail, String searchJobTitle, String searchRoleName, MemberStatus searchStatus,
-            int page, int size, String sortBy, String sortDir) {
-
-        // 1. Tạo Pageable và Sort
-        Pageable pageable = createPageable(page, size, sortBy, sortDir);
-
-        // 2. Tạo Specification (Bộ lọc)
-        Specification<CompanyMember> spec = CompanyMemberSpecification.filterMembers(
-            companyId, searchName, searchEmail, searchJobTitle, searchRoleName, searchStatus
+        // 1. Cấu hình Map ánh xạ cho việc sắp xếp
+        Map<String, String> sortMapping = Map.of(
+            "joinedAt", "joinedAt",          // Ngày tham gia
+            "name", "user.fullName",         // Tên người dùng
+            "email", "user.email",           // Email
+            "role", "role.roleName",         // Tên vai trò
+            "jobTitle", "jobTitle",          // Chức vụ
+            "phone", "user.phoneNumber"      // Số điện thoại
         );
 
-        // 3. Gọi Repository với Specification
-        // Spring Data JPA tự động xử lý câu lệnh SQL: WHERE ... ORDER BY ... LIMIT ... OFFSET ...
-        Page<CompanyMember> membersPage = companyMemberRepository.findAll(spec, pageable);
+        // 2. Tạo Pageable (Sử dụng hàm helper mới có tham số map)
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, "joinedAt", sortMapping);
 
-        // 4. Chuyển đổi sang DTO
+        // 3. Gọi Repository
+        Page<CompanyMember> membersPage = companyMemberRepository.findByCompany_Id(companyId, pageable);
+
+        // 4. Map sang DTO
         Page<CompanyMemberResponse> dtoPage = membersPage.map(this::mapToCompanyMemberResponse);
 
         // 5. Trả về
@@ -289,18 +268,92 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     // ============================================================
-    // PRIVATE HELPER METHODS
+    // LOGIC 2: TÌM KIẾM NÂNG CAO (Searching)
     // ============================================================
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<CompanyMemberResponse> searchCompanyMembers(
+            Integer companyId, 
+            String searchName, String searchEmail, String searchJobTitle, String searchRoleName, MemberStatus searchStatus, String searchPhone,
+            int page, int size, String sortBy, String sortDir) {
 
-    private Pageable createPageable(int page, int size, String sortBy, String sortDir) {
+        // 1. Cấu hình Map ánh xạ (Giống hàm trên)
         Map<String, String> sortMapping = Map.of(
             "joinedAt", "joinedAt",
             "name", "user.fullName",
-            "role", "role.roleName",
             "email", "user.email",
-            "jobTitle", "jobTitle"
+            "role", "role.roleName",
+            "jobTitle", "jobTitle",
+            "phone", "user.phoneNumber"
         );
-        Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);
+
+        // 2. Tạo Pageable
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, "joinedAt", sortMapping);
+
+        // 3. Tạo Specification (Bộ lọc động)
+        Specification<CompanyMember> spec = CompanyMemberSpecification.filterMembers(
+            companyId, searchName, searchEmail, searchJobTitle, searchRoleName, searchStatus, searchPhone
+        );
+
+        // 4. Gọi Repository với Specification
+        Page<CompanyMember> membersPage = companyMemberRepository.findAll(spec, pageable);
+
+        // 5. Map sang DTO
+        Page<CompanyMemberResponse> dtoPage = membersPage.map(this::mapToCompanyMemberResponse);
+
+        // 6. Trả về
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // ============================================================
+    // LOGIC 3: LẤY DANH SÁCH LỜI MỜI ĐANG CHỜ (Pending)
+    // ============================================================
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<CompanyInvitationResponse> getPendingInvitations(Integer companyId, int page, int size, String sortBy, String sortDir) {
+        
+        // 1. Cấu hình Map ánh xạ cho việc sắp xếp (Khác với Member)
+        Map<String, String> sortMapping = Map.of(
+            "createdAt", "createdAt",       // Ngày mời (Mặc định)
+            "email", "email",               // Email người được mời
+            "role", "role.roleName",        // Vai trò
+            "expiresAt", "expiresAt"        // Ngày hết hạn
+        );
+
+        // 2. Tạo Pageable
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, "createdAt", sortMapping);
+
+        // 3. Gọi Repository lấy dữ liệu phân trang
+        Page<CompanyInvitation> invitationPage = companyInvitationRepository
+                .findByCompany_IdAndStatus(companyId, InvitationStatus.PENDING, pageable);
+
+        // 4. Map sang DTO
+        Page<CompanyInvitationResponse> dtoPage = invitationPage.map(inv -> {
+            String link = frontendUrl + "/accept-invitation?token=" + inv.getToken();
+            return CompanyInvitationResponse.builder()
+                    .id(inv.getId())
+                    .email(inv.getEmail())
+                    .roleName(inv.getRole().getRoleName())
+                    .invitedByName(inv.getInvitedBy().getFullName())
+                    .status(inv.getStatus().name())
+                    .expiresAt(inv.getExpiresAt())
+                    .invitationLink(link)
+                    .build();
+        });
+
+        // 5. Trả về kết quả
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // ============================================================
+    // PRIVATE HELPER METHODS
+    // ============================================================
+
+    /**
+     * Helper tạo Pageable chung cho các hàm.
+     */
+    private Pageable createPageable(int page, int size, String sortBy, String sortDir, String defaultSortField, Map<String, String> sortMapping) {
+        Sort sort = SortUtils.createSort(sortBy, sortDir, defaultSortField, sortMapping);
         return PageRequest.of(page, size, sort);
     }
 
@@ -313,46 +366,19 @@ public class CompanyServiceImpl implements CompanyService {
         }
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public PageResponseDTO<CompanyInvitationResponse> getPendingInvitations(Integer companyId, int page, int size, String sortBy, String sortDir) {
-        
-        // 1. Cấu hình Map ánh xạ cho việc sắp xếp
-        Map<String, String> sortMapping = Map.of(
-            "createdAt", "createdAt",       // Ngày mời (Mặc định)
-            "email", "email",               // Email người được mời
-            "role", "role.roleName",        // Vai trò
-            "expiresAt", "expiresAt"        // Ngày hết hạn
-        );
-
-        // 2. Tạo đối tượng Sort an toàn
-        // Mặc định: createdAt DESC (Mới nhất lên trước)
-        Sort sort = SortUtils.createSort(sortBy, sortDir, "createdAt", sortMapping);
-
-        // 3. Tạo Pageable
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        // 4. Gọi Repository lấy dữ liệu phân trang
-        Page<CompanyInvitation> invitationPage = companyInvitationRepository
-                .findByCompany_IdAndStatus(companyId, InvitationStatus.PENDING, pageable);
-
-        // 5. Map sang DTO
-        Page<CompanyInvitationResponse> dtoPage = invitationPage.map(inv -> {
-            String link = frontendUrl + "/accept-invitation?token=" + inv.getToken();
-            
-            return CompanyInvitationResponse.builder()
-                    .id(inv.getId())
-                    .email(inv.getEmail())
-                    .roleName(inv.getRole().getRoleName())
-                    .invitedByName(inv.getInvitedBy().getFullName())
-                    .status(inv.getStatus().name())
-                    .expiresAt(inv.getExpiresAt())
-                    .invitationLink(link)
-                    .build();
-        });
-
-        // 6. Trả về kết quả
-        return new PageResponseDTO<>(dtoPage);
+    private CompanyMemberResponse mapToCompanyMemberResponse(CompanyMember member) {
+        return CompanyMemberResponse.builder()
+            .memberId(member.getId())
+            .userId(member.getUser().getId())
+            .fullName(member.getUser().getFullName())
+            .email(member.getUser().getEmail())
+            .phoneNumber(member.getUser().getPhoneNumber()) // Đã bổ sung SĐT
+            .avatarUrl(member.getUser().getAvatarUrl())
+            .roleName(member.getRole().getRoleName())
+            .jobTitle(member.getJobTitle())
+            .joinedAt(member.getJoinedAt())
+            .status(mapMemberStatus(member.getStatus()))
+            .build();
     }
     
     // LOGIC LAY THONG TIN CHI TIET CONG TY
@@ -519,23 +545,6 @@ public CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId
 
         // 3. Map và trả về
         return mapToCompanyMemberResponse(member);
-    }
-
-    /**
-     * Hàm helper (tách ra từ getCompanyMembers) để map CompanyMember sang DTO
-     */
-    private CompanyMemberResponse mapToCompanyMemberResponse(CompanyMember member) {
-        return CompanyMemberResponse.builder()
-            .memberId(member.getId()) // ID của bản ghi CompanyMember
-            .userId(member.getUser().getId())
-            .fullName(member.getUser().getFullName())
-            .email(member.getUser().getEmail())
-            .avatarUrl(member.getUser().getAvatarUrl())
-            .roleName(member.getRole().getRoleName())
-            .jobTitle(member.getJobTitle())
-            .joinedAt(member.getJoinedAt())
-            .status(mapMemberStatus(member.getStatus()))
-            .build();
     }
 
 

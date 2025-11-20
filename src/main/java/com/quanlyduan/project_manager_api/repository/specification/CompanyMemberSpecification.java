@@ -10,7 +10,6 @@ public class CompanyMemberSpecification {
 
     /**
      * Tạo bộ lọc động cho thành viên công ty.
-     * Tham số nào null sẽ bị bỏ qua.
      */
     public static Specification<CompanyMember> filterMembers(
             Integer companyId,
@@ -18,34 +17,41 @@ public class CompanyMemberSpecification {
             String searchEmail,     // Tìm theo Email
             String searchJobTitle,  // Tìm theo Chức vụ
             String searchRoleName,  // Tìm theo Tên Role
-            MemberStatus searchStatus // Tìm theo Trạng thái
+            MemberStatus searchStatus, // Tìm theo Trạng thái
+            String searchPhone      //Tìm theo SĐT
     ) {
+        // 1. Điều kiện bắt buộc: Company ID
         Specification<CompanyMember> spec = (root, query, criteriaBuilder) -> 
                 criteriaBuilder.equal(root.get("company").get("id"), companyId);
 
-        // 2. Tìm theo Tên (JOIN bảng User -> fullName)
+        // 2. Tìm theo Tên
         if (searchName != null && !searchName.isEmpty()) {
             spec = spec.and(JpaSpecificationUtil.attributeContainsJoin("user", "fullName", searchName));
         }
 
-        // 3. Tìm theo Email (JOIN bảng User -> email)
+        // 3. Tìm theo Email
         if (searchEmail != null && !searchEmail.isEmpty()) {
             spec = spec.and(JpaSpecificationUtil.attributeContainsJoin("user", "email", searchEmail));
         }
         
-        // 4. Tìm theo Chức vụ (Trường trực tiếp: jobTitle)
+        // 4. Tìm theo Chức vụ
         if (searchJobTitle != null && !searchJobTitle.isEmpty()) {
             spec = spec.and(JpaSpecificationUtil.attributeContains("jobTitle", searchJobTitle));
         }
 
-        // 5. Tìm theo Tên Role (JOIN bảng Role -> roleName)
+        // 5. Tìm theo Tên Role
         if (searchRoleName != null && !searchRoleName.isEmpty()) {
             spec = spec.and(JpaSpecificationUtil.attributeContainsJoin("role", "roleName", searchRoleName));
         }
 
-        // 6. Tìm theo Trạng thái (Enum)
+        // 6. Tìm theo Trạng thái
         if (searchStatus != null) {
             spec = spec.and(JpaSpecificationUtil.attributeEquals("status", searchStatus));
+        }
+
+        // 7.Tìm theo Số điện thoại 
+        if (searchPhone != null && !searchPhone.isEmpty()) {
+            spec = spec.and(JpaSpecificationUtil.attributeContainsJoin("user", "phoneNumber", searchPhone));
         }
 
         return spec;
