@@ -24,7 +24,7 @@ public class WorkspaceMemberResponse {
     
     // Thông tin Role
     private String roleName; // Tên vai trò (vd: "Quản trị Không gian")
-    
+    private String phoneNumber;
     // Thông tin thành viên
     private LocalDateTime joinedAt;
     private MemberStatus status; // (ACTIVE, REMOVED)

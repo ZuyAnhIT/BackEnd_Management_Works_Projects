@@ -15,6 +15,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.repository.*;
+import com.quanlyduan.project_manager_api.repository.specification.WorkspaceMemberSpecification;
 import com.quanlyduan.project_manager_api.service.EmailService;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
@@ -27,7 +28,9 @@ import com.quanlyduan.project_manager_api.util.SortUtils;
 import org.springframework.data.domain.Page; 
 import org.springframework.data.domain.PageRequest; 
 import org.springframework.data.domain.Pageable; 
-import org.springframework.data.domain.Sort; 
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+
 import java.util.Map; 
 
 import org.springframework.beans.factory.annotation.Value;
@@ -358,42 +361,61 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     }
     
 
-    // LOGIC LAY DANH SACH THANH VIEN KHONG GIAN (DA NANG CAP)
+    // 1. LOGIC LAY DANH SACH THANH VIEN (CO BAN)
     @Override
     @Transactional(readOnly = true)
-    public PageResponseDTO<WorkspaceMemberResponse> getWorkspaceMembers(Integer workspaceId, int page, int size, String sortBy, String sortDir) {
-        // Bảo mật đã được xử lý ở Controller
+    public PageResponseDTO<WorkspaceMemberResponse> getWorkspaceMembers(
+            Integer workspaceId, int page, int size, String sortBy, String sortDir) {
+        
+        // Tạo Pageable
+        Pageable pageable = createPageable(page, size, sortBy, sortDir);
 
-        // 1. Cấu hình Map ánh xạ cho việc sắp xếp (4 trường bạn yêu cầu)
-        // Key (Frontend gửi) -> Value (JPA Entity Path)
-        Map<String, String> sortMapping = Map.of(
-            "joinedAt", "joinedAt",          // Ngày tham gia (Mặc định)
-            "name", "user.fullName",         // Tên người dùng
-            "email", "user.email",           // Email
-            "role", "role.roleName"          // Tên vai trò
-        );
-
-        // 2. Tạo đối tượng Sort an toàn bằng Utils
-        // Mặc định: "joinedAt" và hướng "DESC" (Mới nhất lên đầu)
-        Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);
-
-        // 3. Tạo đối tượng Pageable
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        // 4. Gọi Repository lấy dữ liệu phân trang
+        // Gọi Repository cơ bản
         Page<WorkspaceMember> membersPage = workspaceMemberRepository.findByWorkspace_Id(workspaceId, pageable);
 
-        // 5. Map từng phần tử Entity sang DTO
-        // .map() của Page tự động giữ lại thông tin phân trang (totalElements, totalPages...)
+        // Map và trả về
         Page<WorkspaceMemberResponse> dtoPage = membersPage.map(this::mapToWorkspaceMemberResponse);
-
-        // 6. Đóng gói vào PageResponseDTO và trả về
         return new PageResponseDTO<>(dtoPage);
     }
 
-    /**
-     * Hàm helper để chuyển đổi WorkspaceMember (Entity) sang WorkspaceMemberResponse (DTO).
-     */
+    // 2. LOGIC TIM KIEM THANH VIEN (NANG CAO)
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<WorkspaceMemberResponse> searchWorkspaceMembers(
+            Integer workspaceId, 
+            String searchName, String searchEmail, String searchRoleName, String searchPhone,
+            int page, int size, String sortBy, String sortDir) {
+        
+        // Tạo Pageable
+        Pageable pageable = createPageable(page, size, sortBy, sortDir);
+
+        // Tạo Specification
+        Specification<WorkspaceMember> spec = WorkspaceMemberSpecification.filterMembers(
+            workspaceId, searchName, searchEmail, searchRoleName, searchPhone
+        );
+
+        // Gọi Repository với Spec
+        Page<WorkspaceMember> membersPage = workspaceMemberRepository.findAll(spec, pageable);
+
+        // Map và trả về
+        Page<WorkspaceMemberResponse> dtoPage = membersPage.map(this::mapToWorkspaceMemberResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // --- PRIVATE HELPERS ---
+
+    private Pageable createPageable(int page, int size, String sortBy, String sortDir) {
+        Map<String, String> sortMapping = Map.of(
+            "joinedAt", "joinedAt",
+            "name", "user.fullName",
+            "email", "user.email",
+            "role", "role.roleName",
+            "phone", "user.phoneNumber"
+        );
+        Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);
+        return PageRequest.of(page, size, sort);
+    }
+
     private WorkspaceMemberResponse mapToWorkspaceMemberResponse(WorkspaceMember member) {
         return WorkspaceMemberResponse.builder()
                 .memberId(member.getId())
@@ -401,6 +423,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 .fullName(member.getUser().getFullName())
                 .email(member.getUser().getEmail())
                 .avatarUrl(member.getUser().getAvatarUrl())
+                .phoneNumber(member.getUser().getPhoneNumber()) // *** ĐÃ BỔ SUNG ***
                 .roleName(member.getRole().getRoleName())
                 .joinedAt(member.getJoinedAt())
                 .status(member.getStatus())

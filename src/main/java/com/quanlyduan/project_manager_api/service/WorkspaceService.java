@@ -65,17 +65,6 @@ public interface WorkspaceService {
     void deleteWorkspace(Integer workspaceId);
 
     /**
-     * Lấy danh sách thành viên của một không gian làm việc (Phân trang & Sắp xếp).
-     * @param workspaceId ID của không gian
-     * @param page Trang số mấy
-     * @param size Kích thước trang
-     * @param sortBy Trường sắp xếp
-     * @param sortDir Hướng sắp xếp
-     * @return PageResponseDTO
-     */
-    PageResponseDTO<WorkspaceMemberResponse> getWorkspaceMembers(Integer workspaceId, int page, int size, String sortBy, String sortDir);
-
-    /**
      * Lấy thông tin chi tiết của một thành viên trong không gian.
      * @param workspaceId ID của không gian (để kiểm tra)
      * @param memberId ID của bản ghi WorkspaceMember
@@ -114,4 +103,20 @@ public interface WorkspaceService {
     WorkspaceMemberResponse updateWorkspaceMemberRole(Integer companyId, Integer workspaceId, Integer memberId, String newRoleCode);
 
     void removeMemberFromWorkspace(Integer companyId, Integer workspaceId, Integer memberId);
+
+    // API 1: LẤY DANH SÁCH CƠ BẢN
+    /**
+     * Lấy danh sách thành viên của một không gian làm việc (Chỉ phân trang & sắp xếp).
+     */
+    PageResponseDTO<WorkspaceMemberResponse> getWorkspaceMembers(Integer workspaceId, int page, int size, String sortBy, String sortDir);
+
+    // API 2: TÌM KIẾM NÂNG CAO 
+    /**
+     * Tìm kiếm thành viên trong phòng ban.
+     */
+    PageResponseDTO<WorkspaceMemberResponse> searchWorkspaceMembers(
+            Integer workspaceId, 
+            String searchName, String searchEmail, String searchRoleName, String searchPhone,
+            int page, int size, String sortBy, String sortDir
+    );
 }
