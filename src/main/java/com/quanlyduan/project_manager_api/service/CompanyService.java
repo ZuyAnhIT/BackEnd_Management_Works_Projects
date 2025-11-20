@@ -7,6 +7,7 @@ import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
+import com.quanlyduan.project_manager_api.dto.response.CompanyInvitationResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
@@ -87,4 +88,11 @@ public interface CompanyService {
      * @return CompanyMember Entity đã cập nhật (để Controller lấy thông tin)
      */
     CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode);
+
+    /**
+     * Lấy danh sách các lời mời đang chờ (Pending) của một công ty.
+     * (Có phân trang và sắp xếp)
+     */
+    PageResponseDTO<CompanyInvitationResponse> getPendingInvitations(Integer companyId, int page, int size, String sortBy, String sortDir);
+    
 }

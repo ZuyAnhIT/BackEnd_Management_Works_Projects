@@ -15,6 +15,7 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
+import com.quanlyduan.project_manager_api.dto.response.CompanyInvitationResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.model.*;
@@ -312,6 +313,48 @@ public class CompanyServiceImpl implements CompanyService {
         }
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<CompanyInvitationResponse> getPendingInvitations(Integer companyId, int page, int size, String sortBy, String sortDir) {
+        
+        // 1. Cấu hình Map ánh xạ cho việc sắp xếp
+        Map<String, String> sortMapping = Map.of(
+            "createdAt", "createdAt",       // Ngày mời (Mặc định)
+            "email", "email",               // Email người được mời
+            "role", "role.roleName",        // Vai trò
+            "expiresAt", "expiresAt"        // Ngày hết hạn
+        );
+
+        // 2. Tạo đối tượng Sort an toàn
+        // Mặc định: createdAt DESC (Mới nhất lên trước)
+        Sort sort = SortUtils.createSort(sortBy, sortDir, "createdAt", sortMapping);
+
+        // 3. Tạo Pageable
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // 4. Gọi Repository lấy dữ liệu phân trang
+        Page<CompanyInvitation> invitationPage = companyInvitationRepository
+                .findByCompany_IdAndStatus(companyId, InvitationStatus.PENDING, pageable);
+
+        // 5. Map sang DTO
+        Page<CompanyInvitationResponse> dtoPage = invitationPage.map(inv -> {
+            String link = frontendUrl + "/accept-invitation?token=" + inv.getToken();
+            
+            return CompanyInvitationResponse.builder()
+                    .id(inv.getId())
+                    .email(inv.getEmail())
+                    .roleName(inv.getRole().getRoleName())
+                    .invitedByName(inv.getInvitedBy().getFullName())
+                    .status(inv.getStatus().name())
+                    .expiresAt(inv.getExpiresAt())
+                    .invitationLink(link)
+                    .build();
+        });
+
+        // 6. Trả về kết quả
+        return new PageResponseDTO<>(dtoPage);
+    }
+    
     // LOGIC LAY THONG TIN CHI TIET CONG TY
     @Override
     @Transactional(readOnly = true)

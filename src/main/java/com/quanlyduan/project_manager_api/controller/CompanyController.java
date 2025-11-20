@@ -8,6 +8,7 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
+import com.quanlyduan.project_manager_api.dto.response.CompanyInvitationResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.model.Company;
@@ -88,6 +89,24 @@ public class CompanyController {
             companyId, name, email, jobTitle, roleName, status, page, size, sortBy, sortDir
         );
         return ResponseEntity.ok(ApiResponse.success("Tìm kiếm thành viên thành công.", result));
+    }
+
+    // API LẤY DANH SÁCH LỜI MỜI ĐANG CHỜ (PENDING) - CÓ PHÂN TRANG
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')")
+    @GetMapping("/{companyId}/invitations/pending")
+    public ResponseEntity<ApiResponse<PageResponseDTO<CompanyInvitationResponse>>> getPendingInvitations(
+            @PathVariable Integer companyId,
+            
+            // Các tham số phân trang (Optional)
+            @RequestParam(defaultValue = "0") int page,              // Trang 0
+            @RequestParam(defaultValue = "10") int size,             // 10 lời mời/trang
+            @RequestParam(defaultValue = "createdAt") String sortBy, // Mặc định ngày mời
+            @RequestParam(defaultValue = "desc") String sortDir      // Mới nhất trước
+    ) {
+        
+        PageResponseDTO<CompanyInvitationResponse> invitations = companyService.getPendingInvitations(companyId, page, size, sortBy, sortDir);
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách lời mời đang chờ thành công.", invitations)); // Đã dịch
     }
 
     // API HIEN THI THONG TIN CHI TIET CONG TY
