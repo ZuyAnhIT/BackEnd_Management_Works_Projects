@@ -9,6 +9,7 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
+import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
 
@@ -117,6 +118,16 @@ public interface WorkspaceService {
     PageResponseDTO<WorkspaceMemberResponse> searchWorkspaceMembers(
             Integer workspaceId, 
             String searchName, String searchEmail, String searchRoleName, String searchPhone,
+            int page, int size, String sortBy, String sortDir
+    );
+
+    // API 2: TÌM KIẾM NÂNG CAO (*** MỚI ***)
+    /**
+     * Tìm kiếm không gian làm việc trong công ty.
+     */
+    PageResponseDTO<WorkspaceResponse> searchWorkspaces(
+            Integer companyId, 
+            String searchName, String searchCode, String searchDescription, WorkspaceStatus searchStatus,
             int page, int size, String sortBy, String sortDir
     );
 }
