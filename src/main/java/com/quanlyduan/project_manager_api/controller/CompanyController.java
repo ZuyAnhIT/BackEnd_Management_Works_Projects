@@ -66,29 +66,28 @@ public class CompanyController {
     }
 
     // API 2: TÌM KIẾM THÀNH VIÊN (Nâng cao)
-    // URL: GET /api/companies/{id}/members/search
     @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')")
     @GetMapping("/{companyId}/members/search")
     public ResponseEntity<ApiResponse<PageResponseDTO<CompanyMemberResponse>>> searchCompanyMembers(
             @PathVariable Integer companyId,
             
-            // Các tham số tìm kiếm
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String email,
             @RequestParam(required = false) String jobTitle,
-            @RequestParam(required = false) String roleName,
+            @RequestParam(required = false) String roleName, // Sửa tên tham số cho khớp service
             @RequestParam(required = false) MemberStatus status,
+            @RequestParam(required = false) String phone, 
 
-            // Các tham số phân trang
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "joinedAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
         PageResponseDTO<CompanyMemberResponse> result = companyService.searchCompanyMembers(
-            companyId, name, email, jobTitle, roleName, status, page, size, sortBy, sortDir
+            companyId, name, email, jobTitle, roleName, status, phone, 
+            page, size, sortBy, sortDir
         );
-        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm thành viên thành công.", result));
+        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm thành viên thành công.", result)); // Đã dịch
     }
 
     // API LẤY DANH SÁCH LỜI MỜI ĐANG CHỜ (PENDING) - CÓ PHÂN TRANG

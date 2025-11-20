@@ -29,6 +29,7 @@ public class CompanyMemberResponse {
     // Thông tin từ CongTyThanhVien (nếu có)
     private String jobTitle; // Đã dịch
     private LocalDateTime joinedAt; // Đã dịch
+    private String phoneNumber;
     
     // Trạng thái kết hợp
     private CombinedMemberStatus status;
