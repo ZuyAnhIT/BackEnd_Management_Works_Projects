@@ -23,7 +23,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse; 
+import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
+import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus; 
 
 @RestController
 @RequestMapping("/api/companies/{companyId}/workspaces") 
@@ -51,22 +52,45 @@ public class WorkspaceController {
                 .body(ApiResponse.success("Tạo không gian làm việc thành công.", newWorkspace));
     }
 
-    // API XEM DANH SACH KHONG GIAN TRONG CONG TY (ĐÃ NÂNG CẤP)
+    // API 1: LẤY DANH SÁCH (Cơ bản)
     @GetMapping
-    // Bảo vệ endpoint: Chỉ thành viên công ty (isCompanyMember) mới được xem
     @PreAuthorize("@securityService.hasPermission('company', #companyId, 'workspace:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<WorkspaceResponse>>> getWorkspaces(
             @PathVariable Integer companyId,
-            // Các tham số tùy chọn
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
+    ) {
+        PageResponseDTO<WorkspaceResponse> workspaces = workspaceService.getWorkspacesByCompany(companyId, page, size, sortBy, sortDir);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách không gian làm việc thành công.", workspaces));
+    }
+
+    // API 2: TÌM KIẾM (Nâng cao - MỚI)
+    @GetMapping("/search")
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'workspace:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<WorkspaceResponse>>> searchWorkspaces(
+            @PathVariable Integer companyId,
+            
+            // Các tham số tìm kiếm
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) WorkspaceStatus status,
+
+            // Các tham số phân trang
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
         
-        PageResponseDTO<WorkspaceResponse> workspaces = workspaceService.getWorkspacesByCompany(companyId, page, size, sortBy, sortDir);
+        PageResponseDTO<WorkspaceResponse> results = workspaceService.searchWorkspaces(
+            companyId, name, code, description, status, 
+            page, size, sortBy, sortDir
+        );
         
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách không gian làm việc thành công.", workspaces)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm không gian làm việc thành công.", results)); // Đã dịch
     }
 
 

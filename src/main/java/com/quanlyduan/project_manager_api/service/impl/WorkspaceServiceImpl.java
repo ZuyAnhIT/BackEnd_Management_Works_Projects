@@ -16,6 +16,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.repository.*;
 import com.quanlyduan.project_manager_api.repository.specification.WorkspaceMemberSpecification;
+import com.quanlyduan.project_manager_api.repository.specification.WorkspaceSpecification;
 import com.quanlyduan.project_manager_api.service.EmailService;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
@@ -124,34 +125,52 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     }
 
 
-    // LOGIC HIỂN THỊ DANH SÁCH KHÔNG GIAN TRONG CÔNG TY
+    // LOGIC 1: LẤY DANH SÁCH CƠ BẢN (Đã làm trước đó)
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<WorkspaceResponse> getWorkspacesByCompany(Integer companyId, int page, int size, String sortBy, String sortDir) {
+        Pageable pageable = createPageable(page, size, sortBy, sortDir);
+        Page<Workspace> workspacePage = workspaceRepository.findByCompany_Id(companyId, pageable);
+        Page<WorkspaceResponse> dtoPage = workspacePage.map(this::mapToWorkspaceResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // LOGIC 2: TÌM KIẾM NÂNG CAO (*** MỚI ***)
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<WorkspaceResponse> searchWorkspaces(
+            Integer companyId, 
+            String searchName, String searchCode, String searchDescription, WorkspaceStatus searchStatus,
+            int page, int size, String sortBy, String sortDir) {
         
-        // 1. Cấu hình Map ánh xạ cho việc sắp xếp (4 trường bạn yêu cầu)
+        // 1. Tạo Pageable
+        Pageable pageable = createPageable(page, size, sortBy, sortDir);
+
+        // 2. Tạo Specification
+        Specification<Workspace> spec = WorkspaceSpecification.filterWorkspaces(
+            companyId, searchName, searchCode, searchDescription, searchStatus
+        );
+
+        // 3. Gọi Repository với Spec
+        Page<Workspace> workspacePage = workspaceRepository.findAll(spec, pageable);
+
+        // 4. Map và trả về
+        Page<WorkspaceResponse> dtoPage = workspacePage.map(this::mapToWorkspaceResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // --- PRIVATE HELPERS ---
+
+    private Pageable createPageable(int page, int size, String sortBy, String sortDir) {
         Map<String, String> sortMapping = Map.of(
-            "createdAt", "createdAt",        // Ngày tạo (Mặc định)
-            "name", "name",                  // Tên phòng ban
+            "createdAt", "createdAt",        // Mặc định
+            "name", "name",                  // Tên
+            "code", "workspaceCode",         // Mã
             "status", "status",              // Trạng thái
             "createdBy", "createdBy.fullName" // Người tạo
         );
-
-        // 2. Tạo đối tượng Sort an toàn
-        // Mặc định: createdAt DESC (Mới nhất lên trước)
         Sort sort = SortUtils.createSort(sortBy, sortDir, "createdAt", sortMapping);
-
-        // 3. Tạo Pageable
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        // 4. Gọi Repository (Trả về Page<Workspace>)
-        Page<Workspace> workspacePage = workspaceRepository.findByCompany_Id(companyId, pageable);
-
-        // 5. Map Entity sang DTO
-        Page<WorkspaceResponse> dtoPage = workspacePage.map(this::mapToWorkspaceResponse);
-
-        // 6. Trả về kết quả
-        return new PageResponseDTO<>(dtoPage);
+        return PageRequest.of(page, size, sort);
     }
 
     // LOGIC XEM CHI TIET PHONG BAN
@@ -400,20 +419,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         // Map và trả về
         Page<WorkspaceMemberResponse> dtoPage = membersPage.map(this::mapToWorkspaceMemberResponse);
         return new PageResponseDTO<>(dtoPage);
-    }
-
-    // --- PRIVATE HELPERS ---
-
-    private Pageable createPageable(int page, int size, String sortBy, String sortDir) {
-        Map<String, String> sortMapping = Map.of(
-            "joinedAt", "joinedAt",
-            "name", "user.fullName",
-            "email", "user.email",
-            "role", "role.roleName",
-            "phone", "user.phoneNumber"
-        );
-        Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);
-        return PageRequest.of(page, size, sort);
     }
 
     private WorkspaceMemberResponse mapToWorkspaceMemberResponse(WorkspaceMember member) {

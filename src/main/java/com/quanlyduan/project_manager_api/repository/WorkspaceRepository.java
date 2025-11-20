@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,7 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 @Repository
-public interface WorkspaceRepository extends JpaRepository<Workspace, Integer> { // Đã dịch
+public interface WorkspaceRepository extends JpaRepository<Workspace, Integer>, JpaSpecificationExecutor<Workspace> { // Đã dịch
     
     // Kiểm tra tên không gian đã tồn tại trong công ty chưa
     boolean existsByCompany_IdAndName(Integer companyId, String workspaceName); // Đã dịch
