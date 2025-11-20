@@ -78,17 +78,6 @@ public interface ProjectService {
      */
     List<TaskSummaryResponse> getProjectBacklog(Integer companyId, Integer workspaceId, Integer projectId);
 
-    /**
-     * Lấy danh sách thành viên của dự án (Phân trang & Sắp xếp).
-     * @param projectId ID dự án
-     * @param page Trang số mấy
-     * @param size Kích thước trang
-     * @param sortBy Trường sắp xếp
-     * @param sortDir Hướng sắp xếp
-     * @return PageResponseDTO
-     */
-    PageResponseDTO<ProjectMemberResponse> getProjectMembers(Integer projectId, int page, int size, String sortBy, String sortDir);
-
 
     /**
      * Cập nhật vai trò (Role) của một thành viên trong dự án.
@@ -98,4 +87,20 @@ public interface ProjectService {
      * @return ProjectMemberResponse DTO đã cập nhật
      */
     ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode);
+
+    // API 1: LẤY DANH SÁCH CƠ BẢN
+    /**
+     * Lấy danh sách thành viên của dự án (Chỉ phân trang & sắp xếp).
+     */
+    PageResponseDTO<ProjectMemberResponse> getProjectMembers(Integer projectId, int page, int size, String sortBy, String sortDir);
+
+    // API 2: TÌM KIẾM NÂNG CAO (*** MỚI ***)
+    /**
+     * Tìm kiếm thành viên trong dự án.
+     */
+    PageResponseDTO<ProjectMemberResponse> searchProjectMembers(
+            Integer projectId, 
+            String searchName, String searchEmail, String searchRoleName, String searchPhone,
+            int page, int size, String sortBy, String sortDir
+    );
 }

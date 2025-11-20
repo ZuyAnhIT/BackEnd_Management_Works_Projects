@@ -19,13 +19,16 @@ import com.quanlyduan.project_manager_api.repository.RoleRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
+import com.quanlyduan.project_manager_api.repository.specification.ProjectMemberSpecification;
 import com.quanlyduan.project_manager_api.service.ProjectService;
 import com.quanlyduan.project_manager_api.util.SortUtils;
 
 import org.springframework.data.domain.Page; 
 import org.springframework.data.domain.PageRequest; 
 import org.springframework.data.domain.Pageable; 
-import org.springframework.data.domain.Sort; 
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+
 import java.util.Map; 
 
 import org.springframework.stereotype.Service;
@@ -476,36 +479,74 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
 
-   // LOGIC LAY DANH SACH THANH VIEN DU AN (DA NANG CAP)
+   // 1. LOGIC LAY DANH SACH THANH VIEN DU AN (CO BAN)
     @Override
     @Transactional(readOnly = true)
-    public PageResponseDTO<ProjectMemberResponse> getProjectMembers(Integer projectId, int page, int size, String sortBy, String sortDir) {
-        // Bảo mật (ai được xem) đã được xử lý bởi @PreAuthorize ở Controller.
-
-        // 1. Cấu hình Map ánh xạ cho việc sắp xếp (4 trường bạn yêu cầu)
-        // Key (Frontend gửi) -> Value (JPA Entity Path)
-        Map<String, String> sortMapping = Map.of(
-            "joinedAt", "joinedAt",          // Ngày tham gia (Mặc định)
-            "name", "user.fullName",         // Tên người dùng
-            "email", "user.email",           // Email
-            "role", "role.roleName"          // Tên vai trò
-        );
-
-        // 2. Tạo đối tượng Sort an toàn bằng Utils
-        // Mặc định: "joinedAt" và hướng "DESC" (Mới nhất lên đầu)
-        Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);
-
-        // 3. Tạo đối tượng Pageable
-        Pageable pageable = PageRequest.of(page, size, sort);
+    public PageResponseDTO<ProjectMemberResponse> getProjectMembers(
+            Integer projectId, int page, int size, String sortBy, String sortDir) {
         
-        // 4. Gọi Repository lấy dữ liệu phân trang
+        // Tạo Pageable
+        Pageable pageable = createPageable(page, size, sortBy, sortDir);
+
+        // Gọi Repository cơ bản
         Page<ProjectMember> membersPage = projectMemberRepository.findByProject_Id(projectId, pageable);
 
-        // 5. Map từng phần tử Entity sang DTO
+        // Map và trả về
         Page<ProjectMemberResponse> dtoPage = membersPage.map(this::mapToProjectMemberResponse);
-
-        // 6. Đóng gói vào PageResponseDTO và trả về
         return new PageResponseDTO<>(dtoPage);
+    }
+
+    // 2. LOGIC TIM KIEM THANH VIEN (NANG CAO)
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<ProjectMemberResponse> searchProjectMembers(
+            Integer projectId, 
+            String searchName, String searchEmail, String searchRoleName, String searchPhone,
+            int page, int size, String sortBy, String sortDir) {
+        
+        // Tạo Pageable
+        Pageable pageable = createPageable(page, size, sortBy, sortDir);
+
+        // Tạo Specification
+        Specification<ProjectMember> spec = ProjectMemberSpecification.filterMembers(
+            projectId, searchName, searchEmail, searchRoleName, searchPhone
+        );
+
+        // Gọi Repository với Spec
+        Page<ProjectMember> membersPage = projectMemberRepository.findAll(spec, pageable);
+
+        // Map và trả về
+        Page<ProjectMemberResponse> dtoPage = membersPage.map(this::mapToProjectMemberResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+    
+    // --- PRIVATE HELPERS ---
+
+    private Pageable createPageable(int page, int size, String sortBy, String sortDir) {
+        Map<String, String> sortMapping = Map.of(
+            "joinedAt", "joinedAt",
+            "name", "user.fullName",
+            "email", "user.email",
+            "role", "role.roleName",
+            "phone", "user.phoneNumber"
+        );
+        Sort sort = SortUtils.createSort(sortBy, sortDir, "joinedAt", sortMapping);
+        return PageRequest.of(page, size, sort);
+    }
+
+    // *** CẬP NHẬT HÀM NÀY: Thêm phoneNumber ***
+    private ProjectMemberResponse mapToProjectMemberResponse(ProjectMember member) {
+        return ProjectMemberResponse.builder()
+                .memberId(member.getId())
+                .userId(member.getUser().getId())
+                .fullName(member.getUser().getFullName())
+                .email(member.getUser().getEmail())
+                .avatarUrl(member.getUser().getAvatarUrl())
+                .phoneNumber(member.getUser().getPhoneNumber())
+                .roleName(member.getRole().getRoleName())
+                .joinedAt(member.getJoinedAt())
+                .status(member.getStatus())
+                .build();
     }
 
     @Override
@@ -548,16 +589,4 @@ public class ProjectServiceImpl implements ProjectService {
         return mapToProjectMemberResponse(updatedMember);
     }
     
-    private ProjectMemberResponse mapToProjectMemberResponse(ProjectMember member) {
-        return ProjectMemberResponse.builder()
-                .memberId(member.getId())
-                .userId(member.getUser().getId())
-                .fullName(member.getUser().getFullName())
-                .email(member.getUser().getEmail())
-                .avatarUrl(member.getUser().getAvatarUrl())
-                .roleName(member.getRole().getRoleName())
-                .joinedAt(member.getJoinedAt())
-                .status(member.getStatus())
-                .build();
-    }
 }
