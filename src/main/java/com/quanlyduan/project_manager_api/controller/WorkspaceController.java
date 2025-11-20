@@ -129,24 +129,51 @@ public class WorkspaceController {
         ));
     }
 
-    // API LAY DANH SACH THANH VIEN TRONG KHONG GIAN (PHAN TRANG & SORT)
+    // API 1: LẤY DANH SÁCH THANH VIEN (Cơ bản)
+    // URL: GET .../workspaces/{workspaceId}/members
     @GetMapping("/{workspaceId}/members")
-    // Bảo vệ: Chỉ thành viên của không gian mới được xem
     @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'workspace:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<WorkspaceMemberResponse>>> getWorkspaceMembers(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
-            
-            // Các tham số tùy chọn (Có giá trị mặc định an toàn)
-            @RequestParam(defaultValue = "0") int page,             // Trang 0
-            @RequestParam(defaultValue = "10") int size,            // 10 người/trang
-            @RequestParam(defaultValue = "joinedAt") String sortBy, // Sắp xếp theo ngày vào
-            @RequestParam(defaultValue = "desc") String sortDir     // Mới nhất trước
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "joinedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
     ) {
         
         PageResponseDTO<WorkspaceMemberResponse> members = workspaceService.getWorkspaceMembers(workspaceId, page, size, sortBy, sortDir);
         
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên của không gian làm việc thành công.", members)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên không gian thành công.", members)); // Đã dịch
+    }
+
+    // API 2: TÌM KIẾM THANH VIEN (Nâng cao)
+    // URL: GET .../workspaces/{workspaceId}/members/search
+    @GetMapping("/{workspaceId}/members/search")
+    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'workspace:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<WorkspaceMemberResponse>>> searchWorkspaceMembers(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+
+            // Các tham số tìm kiếm
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String phone,
+
+            // Các tham số phân trang
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "joinedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
+    ) {
+        
+        PageResponseDTO<WorkspaceMemberResponse> members = workspaceService.searchWorkspaceMembers(
+            workspaceId, name, email, role, phone, 
+            page, size, sortBy, sortDir
+        );
+        
+        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm thành viên không gian thành công.", members)); // Đã dịch
     }
 
 
