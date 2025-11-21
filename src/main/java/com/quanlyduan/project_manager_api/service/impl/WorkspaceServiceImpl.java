@@ -82,37 +82,46 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
-    // API TAO KHONG GIAN 
+    // API TAO KHONG GIAN (TICH HOP UPLOAD)
     @Override
     @Transactional
-    public WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request) { // Đã dịch
+    public WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request, MultipartFile coverImageFile) {
         
         // 1. Lấy thông tin người dùng và công ty
-        User creator = securityService.getCurrentAuthenticatedUser(); // Đã dịch
-        Company company = companyRepository.findById(companyId) // Đã dịch
+        User creator = securityService.getCurrentAuthenticatedUser();
+        Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty")); // Đã dịch
 
         // 2. Kiểm tra nghiệp vụ (tên trùng)
-        if (workspaceRepository.existsByCompany_IdAndName(companyId, request.getWorkspaceName())) { // Đã dịch
+        if (workspaceRepository.existsByCompany_IdAndName(companyId, request.getWorkspaceName())) {
             throw new BadRequestException("Tên không gian làm việc này đã tồn tại trong công ty"); // Đã dịch
         }
 
         // 3. Tìm Role "WORKSPACE_ADMIN"
-        Role workspaceAdminRole = roleRepository.findFirstByRoleCode(RoleCode.WORKSPACE_ADMIN.name()) // Đã dịch
+        Role workspaceAdminRole = roleRepository.findFirstByRoleCode(RoleCode.WORKSPACE_ADMIN.name())
                 .orElseThrow(() -> new ResourceNotFoundException(
-                    "Không tìm thấy vai trò: " + RoleCode.WORKSPACE_ADMIN.name() + ".Vui lòng cấu hình cơ sở dữ liệu." // Đã dịch
+                    "Không tìm thấy vai trò: " + RoleCode.WORKSPACE_ADMIN.name() + ". Vui lòng cấu hình cơ sở dữ liệu." // Đã dịch
                 ));
 
         // 4. Tạo không gian mới
-        Workspace newWorkspace = Workspace.builder() // Đã dịch
-                .company(company) // Đã dịch
-                .name(request.getWorkspaceName()) // Đã dịch
-                .description(request.getDescription()) // Đã dịch
-                .coverImageUrl(request.getCoverImage()) // Đã dịch
+        Workspace newWorkspace = Workspace.builder()
+                .company(company)
+                .name(request.getWorkspaceName())
+                .description(request.getDescription())
+                // .coverImageUrl(request.getCoverImage()) // (Sẽ xử lý bên dưới)
                 .color(request.getColor() != null ? request.getColor() : "#3498db") 
-                .createdBy(creator) // Đã dịch
-                .status(WorkspaceStatus.ACTIVE) // Đã dịch
+                .createdBy(creator)
+                .status(WorkspaceStatus.ACTIVE)
                 .build();
+
+        // *** XỬ LÝ UPLOAD ẢNH BÌA (MỚI) ***
+        if (coverImageFile != null && !coverImageFile.isEmpty()) {
+            String coverPath = fileStorageService.storeFile(coverImageFile, "workspace-covers");
+            newWorkspace.setCoverImageUrl(coverPath);
+        } else if (request.getCoverImage() != null) {
+            // Nếu người dùng gửi link ảnh (URL string)
+            newWorkspace.setCoverImageUrl(request.getCoverImage());
+        }
         
         Workspace savedWorkspace = workspaceRepository.save(newWorkspace); 
 
