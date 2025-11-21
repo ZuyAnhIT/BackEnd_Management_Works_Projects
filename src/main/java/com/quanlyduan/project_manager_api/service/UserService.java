@@ -2,6 +2,8 @@
 package com.quanlyduan.project_manager_api.service;
 
 
+import org.springframework.web.multipart.MultipartFile;
+
 import com.quanlyduan.project_manager_api.dto.request.ChangePasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProfileRequest;
 import com.quanlyduan.project_manager_api.dto.response.UserProfileResponse;
@@ -13,5 +15,5 @@ public interface UserService {
     UserProfileResponse getCurrentUserProfile();
 
     // Cap nhat thong tin ca nhan
-    UserProfileResponse updateUserProfile(UpdateProfileRequest request);
+    UserProfileResponse updateUserProfile(UpdateProfileRequest request, MultipartFile avatarFile);
 }

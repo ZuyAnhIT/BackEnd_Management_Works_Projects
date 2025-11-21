@@ -8,19 +8,16 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectMembershipDTO;
 import com.quanlyduan.project_manager_api.dto.response.UserProfileResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMembershipDTO;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
-import com.quanlyduan.project_manager_api.model.User; // Đã dịch
-import com.quanlyduan.project_manager_api.model.UserRole; // Đã dịch
-import com.quanlyduan.project_manager_api.model.CompanyMember; // Đã dịch
-import com.quanlyduan.project_manager_api.model.WorkspaceMember; // Đã dịch
+import com.quanlyduan.project_manager_api.model.User; 
 import com.quanlyduan.project_manager_api.repository.AuthTokenRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; // Đã dịch
 import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository; // Đã dịch
-import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository; // Đã dịch
 import com.quanlyduan.project_manager_api.repository.UserRoleRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.service.FileStorageService;
 import com.quanlyduan.project_manager_api.service.UserService;
-import lombok.RequiredArgsConstructor;
+
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,6 +28,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -42,8 +40,9 @@ public class UserServiceImpl implements UserService {
     private final WorkspaceMemberRepository workspaceMemberRepository; 
     private final ProjectMemberRepository projectMemberRepository;
     private final AuthTokenRepository authTokenRepository;
+    private final FileStorageService fileStorageService; 
 
-    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, UserRoleRepository userRoleRepository, CompanyMemberRepository companyMemberRepository, WorkspaceMemberRepository workspaceMemberRepository, ProjectMemberRepository projectMemberRepository, AuthTokenRepository authTokenRepository) { // Đã dịch
+    public UserServiceImpl(UserRepository userRepository,PasswordEncoder passwordEncoder, UserRoleRepository userRoleRepository, CompanyMemberRepository companyMemberRepository, WorkspaceMemberRepository workspaceMemberRepository, ProjectMemberRepository projectMemberRepository, AuthTokenRepository authTokenRepository, FileStorageService fileStorageService) {
         this.userRepository = userRepository; 
         this.passwordEncoder = passwordEncoder;
         this.userRoleRepository = userRoleRepository; 
@@ -51,6 +50,8 @@ public class UserServiceImpl implements UserService {
         this.workspaceMemberRepository = workspaceMemberRepository; 
         this.projectMemberRepository = projectMemberRepository;
         this.authTokenRepository = authTokenRepository;
+        this.fileStorageService = fileStorageService;
+
     }
 
 
@@ -166,37 +167,39 @@ public class UserServiceImpl implements UserService {
     }
 
 
-    // LOGIC CAP NHAT THONG TIN CA NHAN
+    // LOGIC CAP NHAT THONG TIN CA NHAN (TICH HOP UPLOAD ANH)
     @Override
     @Transactional
-    public UserProfileResponse updateUserProfile(UpdateProfileRequest request) {
-        // 1. Lấy người dùng đang đăng nhập (đảm bảo bảo mật)
+    public UserProfileResponse updateUserProfile(UpdateProfileRequest request, MultipartFile avatarFile) {
+        // 1. Lấy người dùng hiện tại
         User currentUser = getCurrentAuthenticatedUser();
 
-        // 2. Cập nhật các trường nếu chúng được cung cấp (không null)
-        if (request.getFullName() != null) {
-            currentUser.setFullName(request.getFullName()); // Đã dịch
+        // 2. Cập nhật các trường văn bản (như cũ)
+        if (request.getFullName() != null) currentUser.setFullName(request.getFullName());
+        if (request.getPhoneNumber() != null) currentUser.setPhoneNumber(request.getPhoneNumber());
+        if (request.getDateOfBirth() != null) currentUser.setDateOfBirth(request.getDateOfBirth());
+        if (request.getGender() != null) currentUser.setGender(request.getGender());
+
+        // 3. Xử lý Upload Ảnh (MỚI)
+        if (avatarFile != null && !avatarFile.isEmpty()) {
+            // Lưu vào thư mục "avatars"
+            String avatarPath = fileStorageService.storeFile(avatarFile, "avatars");
+            
+            // Cập nhật đường dẫn vào Entity User
+            // (Lưu ý: Bạn có thể cần thêm logic xóa ảnh cũ nếu muốn tiết kiệm dung lượng)
+            currentUser.setAvatarUrl(avatarPath);
         }
-        if (request.getAvatarUrl() != null) {
-            currentUser.setAvatarUrl(request.getAvatarUrl()); // Đã dịch
-        }
-        if (request.getPhoneNumber() != null) {
-            currentUser.setPhoneNumber(request.getPhoneNumber()); // Đã dịch
-        }
-        if (request.getDateOfBirth() != null) {
-            currentUser.setDateOfBirth(request.getDateOfBirth()); // Đã dịch
-        }
-        if (request.getGender() != null) {
-            currentUser.setGender(request.getGender()); // Đã dịch
+        // Nếu request.getAvatarUrl() có giá trị string (link ngoài) và avatarFile null, 
+        // bạn cũng có thể cho phép cập nhật link ảnh từ nguồn khác.
+        else if (request.getAvatarUrl() != null && !request.getAvatarUrl().isEmpty()) {
+             currentUser.setAvatarUrl(request.getAvatarUrl());
         }
 
-        // 3. Lưu thay đổi vào CSDL
+        // 4. Lưu và trả về
         userRepository.save(currentUser);
-
-        // 4. Trả về hồ sơ đầy đủ đã được cập nhật
-        // (Gọi lại hàm này để lấy DTO đầy đủ với thông tin mới)
         return getCurrentUserProfile();
     }
+
 
     // LOGIC LAY NGUOI DUNG HIEN TAI
     private User getCurrentAuthenticatedUser() { // Đã dịch
