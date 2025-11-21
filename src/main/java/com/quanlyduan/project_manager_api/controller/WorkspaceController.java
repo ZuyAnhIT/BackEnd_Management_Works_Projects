@@ -48,19 +48,33 @@ public class WorkspaceController {
         this.objectMapper = objectMapper;
     }
 
-    // API TAO KHONG GIAN CONG TY
-    @PostMapping
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'workspace:create')") // Sửa: Dùng @securityService
+    // API TAO KHONG GIAN CONG TY (TICH HOP UPLOAD)
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // Thêm consumes
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'workspace:create')")
     public ResponseEntity<ApiResponse<WorkspaceResponse>> createWorkspace(
             @PathVariable Integer companyId,
-            @Valid @RequestBody CreateWorkspaceRequest request) {
+            
+            // Nhận JSON String
+            @Parameter(schema = @Schema(implementation = CreateWorkspaceRequest.class))
+            @RequestPart("data") String dataString,
+            
+            // Nhận file ảnh (Optional)
+            @RequestPart(value = "file", required = false) MultipartFile file) {
         
-        // Nhận về DTO thay vì Entity
-        WorkspaceResponse newWorkspace = workspaceService.createWorkspace(companyId, request);
+        // Convert String -> DTO
+        CreateWorkspaceRequest request;
+        try {
+            request = objectMapper.readValue(dataString, CreateWorkspaceRequest.class);
+        } catch (JsonProcessingException e) {
+            throw new BadRequestException("Dữ liệu JSON không hợp lệ: " + e.getMessage()); // Đã dịch
+        }
+
+        // Gọi Service
+        WorkspaceResponse newWorkspace = workspaceService.createWorkspace(companyId, request, file);
         
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Tạo không gian làm việc thành công.", newWorkspace));
+                .body(ApiResponse.success("Tạo không gian làm việc thành công.", newWorkspace)); // Đã dịch
     }
 
     // API 1: LẤY DANH SÁCH (Cơ bản)

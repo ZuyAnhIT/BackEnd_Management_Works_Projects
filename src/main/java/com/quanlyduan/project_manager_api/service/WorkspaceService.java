@@ -18,12 +18,9 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusReque
 public interface WorkspaceService {
     
     /**
-     * Tạo một không gian làm việc mới trong công ty.
-     * @param congTyId ID của công ty cha
-     * @param request DTO chứa thông tin không gian mới
-     * @return WorkspaceResponse DTO của không gian vừa tạo
+     * Tạo một không gian làm việc mới (có hỗ trợ upload ảnh bìa).
      */
-    WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request); 
+    WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request, MultipartFile coverImageFile); 
 
     
    /**
