@@ -24,6 +24,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.repository.*;
 import com.quanlyduan.project_manager_api.repository.specification.CompanyMemberSpecification;
 import com.quanlyduan.project_manager_api.service.EmailService;
+import com.quanlyduan.project_manager_api.service.FileStorageService;
 import com.quanlyduan.project_manager_api.service.InvitationService;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -36,6 +37,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO; 
 import com.quanlyduan.project_manager_api.util.SortUtils; 
 import org.springframework.data.domain.Page; 
@@ -58,6 +61,7 @@ public class CompanyServiceImpl implements CompanyService {
     private final EmailService emailService;
     private final SecurityService securityService;
     private final InvitationService invitationService;
+    private final FileStorageService fileStorageService;
     
     private final ProjectRepository projectRepository;
 
@@ -72,7 +76,8 @@ public class CompanyServiceImpl implements CompanyService {
                               EmailService emailService, 
                               SecurityService securityService, 
                               InvitationService invitationService, 
-                              ProjectRepository projectRepository) {
+                              ProjectRepository projectRepository,
+                            FileStorageService fileStorageService) {
         this.companyRepository = companyRepository;
         this.companyMemberRepository = companyMemberRepository;
         this.userRepository = userRepository;
@@ -82,6 +87,7 @@ public class CompanyServiceImpl implements CompanyService {
         this.securityService = securityService;
         this.invitationService = invitationService;
         this.projectRepository = projectRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     // LOGIC TAO CONG TY
@@ -414,48 +420,44 @@ public class CompanyServiceImpl implements CompanyService {
                 .build();
     }
 
-    // LOGIC CAP NHAT THONG TIN CONG TY
+    // LOGIC CAP NHAT THONG TIN CONG TY (TICH HOP UPLOAD LOGO)
     @Override
     @Transactional
-    public CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request) { // Đã dịch
+    public CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request, MultipartFile logoFile) {
+        
+        // 1. Tìm công ty
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty")); // Đã dịch
+        
+        // 2. Cập nhật các trường văn bản (Nếu có)
+        if (request.getCompanyName() != null && !request.getCompanyName().equals(company.getName())) {
+             if (companyRepository.existsByName(request.getCompanyName())) {
+                  throw new BadRequestException("Tên công ty này đã tồn tại"); // Đã dịch
+             }
+             company.setName(request.getCompanyName());
+        }
+        if (request.getDescription() != null) company.setDescription(request.getDescription());
+        if (request.getAddress() != null) company.setAddress(request.getAddress());
+        if (request.getPhoneNumber() != null) company.setPhoneNumber(request.getPhoneNumber());
+        if (request.getEmail() != null) company.setEmail(request.getEmail());
+        if (request.getWebsite() != null) company.setWebsite(request.getWebsite());
 
-        // 1. Lấy công ty
-        Company company = companyRepository.findById(companyId) // Đã dịch
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + companyId)); // Đã dịch
-
-        // 2. Kiểm tra nghiệp vụ (ví dụ: tên công ty mới nếu có)
-        if (request.getCompanyName() != null && !request.getCompanyName().equals(company.getName())) { // Đã dịch
-            if (companyRepository.existsByName(request.getCompanyName())) { // Đã dịch
-                throw new BadRequestException("Tên công ty này đã tồn tại"); // Đã dịch
-            }
-            company.setName(request.getCompanyName()); // Đã dịch
+        // 3. Xử lý Upload Logo (MỚI)
+        if (logoFile != null && !logoFile.isEmpty()) {
+            // Lưu vào thư mục "company-logos"
+            String logoPath = fileStorageService.storeFile(logoFile, "company-logos");
+            company.setLogoUrl(logoPath);
         }
-
-        // 3. Cập nhật các trường (nếu chúng không null)
-        if (request.getDescription() != null) { // Đã dịch
-            company.setDescription(request.getDescription()); // Đã dịch
-        }
-        if (request.getLogo() != null) {
-            company.setLogoUrl(request.getLogo()); // Đã dịch
-        }
-        if (request.getAddress() != null) { // Đã dịch
-            company.setAddress(request.getAddress()); // Đã dịch
-        }
-        if (request.getPhoneNumber() != null) { // Đã dịch
-            company.setPhoneNumber(request.getPhoneNumber()); // Đã dịch
-        }
-        if (request.getEmail() != null) {
-            company.setEmail(request.getEmail());
-        }
-        if (request.getWebsite() != null) {
-            company.setWebsite(request.getWebsite());
+        // Nếu gửi link ảnh trực tiếp (String) và không gửi file
+        else if (request.getLogo() != null) {
+            company.setLogoUrl(request.getLogo());
         }
 
         // 4. Lưu và trả về
-        Company updatedCompany = companyRepository.save(company); // Đã dịch
-        return mapCompanyToDetailsDto(updatedCompany); // Đã dịch
+        Company savedCompany = companyRepository.save(company);
+        return mapCompanyToDetailsDto(savedCompany);
     }
-
+    
     // LOGIC CAP NHAT VAI TRO THANH VIEN CAP CONG TY
   @Override
 @Transactional
