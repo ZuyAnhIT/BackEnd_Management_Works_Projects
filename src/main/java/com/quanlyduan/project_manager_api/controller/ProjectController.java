@@ -54,26 +54,31 @@ public class ProjectController {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * US7 – API tạo Project mới trong Workspace.
-     * Quyền truy cập:
-     * @PreAuthorize("@securityService.hasWorkspacePermission(#workspaceId, 'project:create')")
-     * Nghiệp vụ tóm tắt:
-     * - Nhận ProjectRequest (name, projectCode bắt buộc; các trường khác tùy chọn).
-     * - Lấy user hiện tại từ securityService để gán createdBy.
-     * - Ủy quyền cho ProjectService xử lý (validate, unique, reference mapping, save).
-     * Kết quả:
-     * - 201 Created + ApiResponse<ProjectResponse> chứa thông tin project vừa tạo.
-     */
-    @PostMapping
-    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'project:create')") // Đã sửa
+    // API TAO DU AN (TICH HOP UPLOAD)
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // Thêm consumes
+    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'project:create')")
     public ResponseEntity<ApiResponse<ProjectResponse>> createProject(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
-            @Valid @RequestBody ProjectRequest request) {
+            
+            // Nhận JSON String
+            @Parameter(schema = @Schema(implementation = ProjectRequest.class))
+            @RequestPart("data") String dataString,
+            
+            // Nhận file ảnh (Optional)
+            @RequestPart(value = "file", required = false) MultipartFile file) {
 
-        Integer creatorId = securityService.getCurrentUserId(); // Đã sửa
-        ProjectResponse created = projectService.createProject(companyId, workspaceId, request, creatorId);
+        // Convert String -> DTO
+        ProjectRequest request;
+        try {
+            request = objectMapper.readValue(dataString, ProjectRequest.class);
+        } catch (JsonProcessingException e) {
+            throw new BadRequestException("Dữ liệu JSON không hợp lệ: " + e.getMessage()); // Đã dịch
+        }
+
+        Integer creatorId = securityService.getCurrentUserId();
+        ProjectResponse created = projectService.createProject(companyId, workspaceId, request, creatorId, file);
+        
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Tạo dự án thành công.", created)); // Đã dịch
     }

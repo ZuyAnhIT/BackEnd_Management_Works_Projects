@@ -12,6 +12,7 @@ import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
 import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectTypeRepository;
@@ -106,32 +107,30 @@ public class ProjectServiceImpl implements ProjectService {
         return value != null && !value.isBlank() && !"string".equalsIgnoreCase(value.trim());
     }
     /**
-     * US7: Tạo Project mới trong Workspace.
-     * Logic & Nghiệp vụ:
-     * (Giữ nguyên comment)
+     * US7: Tạo Project mới trong Workspace (TICH HOP UPLOAD).
      */
     @Override
     @Transactional
-    public ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId) {
+    public ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId, MultipartFile coverImageFile) {
         // (1) Kiểm tra workspace tồn tại
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc")); // Đã dịch
 
-        // (1b) Xác nhận workspace thuộc đúng companyId theo path (tránh truy cập chéo công ty)
+        // (1b) Xác nhận workspace thuộc đúng companyId
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
+            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định"); // Đã dịch
         }
 
-        // (2) Kiểm tra unique projectCode trong workspace (không phân biệt hoa thường)
+        // (2) Kiểm tra unique projectCode
         if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, request.getProjectCode())) {
-            throw new BadRequestException("Mã dự án đã tồn tại trong không gian làm việc này");
+            throw new BadRequestException("Mã dự án đã tồn tại trong không gian làm việc này"); // Đã dịch
         }
 
-        // (3) Lấy reference cho createdBy (không cần load entity đầy đủ)
+        // (3) Lấy createdBy
         User createdBy = userRepository.findById(creatorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng")); // Đã dịch
 
-        // (4) Khởi tạo Project và gán các trường/quan hệ
+        // (4) Khởi tạo Project
         Project project = new Project();
         project.setWorkspace(workspace);
         project.setCreatedBy(createdBy);
@@ -141,40 +140,49 @@ public class ProjectServiceImpl implements ProjectService {
         project.setProjectCode(request.getProjectCode());
         project.setDescription(request.getDescription());
         project.setGoal(request.getGoal());
-        project.setCoverImageUrl(request.getCoverImageUrl());
-        // boardConfig: nhận JSON trực tiếp từ client, lưu dạng String JSON
+        
+        // *** XỬ LÝ UPLOAD ẢNH BÌA (MỚI) ***
+        if (coverImageFile != null && !coverImageFile.isEmpty()) {
+            // Lưu vào thư mục "project-covers"
+            String coverPath = fileStorageService.storeFile(coverImageFile, "project-covers");
+            project.setCoverImageUrl(coverPath);
+        } else if (request.getCoverImageUrl() != null) {
+            // Nếu người dùng gửi link ảnh (URL string)
+            project.setCoverImageUrl(request.getCoverImageUrl());
+        }
+
+        // boardConfig
         if (request.getBoardConfig() != null) {
             try {
                 project.setBoardConfig(objectMapper.writeValueAsString(request.getBoardConfig()));
             } catch (JsonProcessingException e) {
-                throw new BadRequestException("JSON boardConfig không hợp lệ");
+                throw new BadRequestException("JSON boardConfig không hợp lệ"); // Đã dịch
             }
         }
         project.setStartDate(request.getStartDate());
         project.setDueDate(request.getDueDate());
 
-        // Priority (nếu client gửi), nếu null giữ mặc định của entity
-        // Nếu priority invalid hoặc null -> dùng MEDIUM (thân thiện hơn)
+        // Priority
         if (request.getPriority() != null) {
-             // DTO đã dùng Enum ProjectPriority
-            project.setPriority(request.getPriority());
+            project.setPriority(request.getPriority()); 
+        } else {
+            project.setPriority(ProjectPriority.MEDIUM); 
         }
 
-        // Manager (optional)
+        // Manager
         if (request.getManagerId() != null && request.getManagerId() > 0) {
             User manager = userRepository.findById(request.getManagerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng quản lý"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng quản lý")); // Đã dịch
             project.setManager(manager);
         }
 
-        // Project Type (optional)
+        // Project Type
         if (request.getProjectTypeId() != null && request.getProjectTypeId() > 0) {
             ProjectType type = projectTypeRepository.findById(request.getProjectTypeId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại dự án"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại dự án")); // Đã dịch
             project.setProjectType(type);
         }
 
-        // Đảm bảo progress không null nếu entity không có default
         if (project.getProgress() == null) {
             project.setProgress(BigDecimal.ZERO);
         }
@@ -185,7 +193,7 @@ public class ProjectServiceImpl implements ProjectService {
         // (6) Gán người tạo làm Project Admin
         Role projectAdminRole = roleRepository.findFirstByRoleCode(RoleCode.PROJECT_ADMIN.name())
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Không tìm thấy vai trò: " + RoleCode.PROJECT_ADMIN.name() + ". Vui lòng cấu hình trong cơ sở dữ liệu."
+                        "Không tìm thấy vai trò: " + RoleCode.PROJECT_ADMIN.name() + ". Vui lòng cấu hình trong cơ sở dữ liệu." // Đã dịch
                 ));
 
         ProjectMember projectMember = ProjectMember.builder()
