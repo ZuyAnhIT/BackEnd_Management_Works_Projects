@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/controller/ProjectController.java
 package com.quanlyduan.project_manager_api.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
@@ -13,12 +14,21 @@ import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.security.SecurityService; 
 import com.quanlyduan.project_manager_api.service.ProjectService;
 import com.quanlyduan.project_manager_api.service.TaskService;
+import com.fasterxml.jackson.core.JsonProcessingException; 
+import com.fasterxml.jackson.databind.ObjectMapper; 
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile; 
+import io.swagger.v3.oas.annotations.Parameter; 
+import io.swagger.v3.oas.annotations.media.Schema; 
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,11 +45,13 @@ public class ProjectController {
     private final ProjectService projectService;
     private final SecurityService securityService; 
     private final TaskService taskService;
-    
-    public ProjectController(ProjectService projectService, SecurityService securityService, TaskService taskService) {
+    private final ObjectMapper objectMapper;
+
+    public ProjectController(ProjectService projectService, SecurityService securityService, TaskService taskService, ObjectMapper objectMapper) {
         this.projectService = projectService;
         this.securityService = securityService;
         this.taskService = taskService;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -153,15 +165,31 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái dự án thành công.", updated)); // Đã dịch
     }
 
-    @PutMapping("/{projectId}")
-    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')") // Đã sửa
+    // API CAP NHAT DU AN (TICH HOP UPLOAD)
+    @PutMapping(value = "/{projectId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
     public ResponseEntity<ApiResponse<ProjectResponse>> updateProject(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-            @Valid @RequestBody UpdateProjectRequest request) {
+            
+            // Nhận JSON String
+            @Parameter(schema = @Schema(implementation = UpdateProjectRequest.class))
+            @RequestPart("data") String dataString,
+            
+            // Nhận file ảnh
+            @RequestPart(value = "file", required = false) MultipartFile file) {
 
-        ProjectResponse updated = projectService.updateProject(companyId, workspaceId, projectId, request);
+        // Convert String -> DTO
+        UpdateProjectRequest request;
+        try {
+            request = objectMapper.readValue(dataString, UpdateProjectRequest.class);
+        } catch (JsonProcessingException e) {
+            throw new BadRequestException("Dữ liệu JSON không hợp lệ: " + e.getMessage()); // Đã dịch
+        }
+
+        ProjectResponse updated = projectService.updateProject(companyId, workspaceId, projectId, request, file);
+        
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin dự án thành công.", updated)); // Đã dịch
     }
 

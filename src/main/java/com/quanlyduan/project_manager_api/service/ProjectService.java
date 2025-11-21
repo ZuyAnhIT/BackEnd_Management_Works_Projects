@@ -12,6 +12,8 @@ import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 
 import java.util.List;
 
+import org.springframework.web.multipart.MultipartFile;
+
 /**
  * Service cho Project – US7 chỉ yêu cầu tạo mới Project.
  */
@@ -59,9 +61,9 @@ public interface ProjectService {
     ProjectResponse updateProjectStatus(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectStatusRequest request);
 
     /**
-     * Update project general information (excluding auto fields and status).
+     * Cập nhật thông tin dự án và ảnh bìa.
      */
-    ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request);
+    ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request, MultipartFile coverImageFile);
 
     /**
      * Lấy danh sách Backlog (tất cả task) của một dự án.
