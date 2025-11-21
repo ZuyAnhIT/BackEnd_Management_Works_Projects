@@ -3,6 +3,8 @@ package com.quanlyduan.project_manager_api.service;
 
 import java.util.List;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
@@ -51,13 +53,10 @@ public interface WorkspaceService {
      */
     void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request); // Đã dịch
 
-    /**
-     * US 16: Cập nhật thông tin chi tiết của một không gian làm việc.
-     * @param workspaceId ID của không gian cần cập nhật
-     * @param request DTO chứa các thông tin (tùy chọn) cần cập nhật
-     * @return WorkspaceResponse DTO của không gian sau khi đã cập nhật
+   /**
+     * Cập nhật thông tin không gian làm việc và ảnh bìa.
      */
-    WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request);
+    WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request, MultipartFile coverImageFile);
 
     /**
      * Xóa mềm (Soft Delete) một không gian làm việc.

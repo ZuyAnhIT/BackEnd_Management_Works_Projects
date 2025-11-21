@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/controller/WorkspaceController.java
 package com.quanlyduan.project_manager_api.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
@@ -9,6 +10,9 @@ import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
 
@@ -22,6 +26,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import com.fasterxml.jackson.databind.ObjectMapper; 
+import com.quanlyduan.project_manager_api.exception.BadRequestException; 
+import org.springframework.http.MediaType; 
+import io.swagger.v3.oas.annotations.Parameter; 
 
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus; 
@@ -32,9 +41,11 @@ import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 public class WorkspaceController {
 
     private final WorkspaceService workspaceService;
+    private final ObjectMapper objectMapper;
 
-    public WorkspaceController(WorkspaceService workspaceService) {
+    public WorkspaceController(WorkspaceService workspaceService, ObjectMapper objectMapper) {
         this.workspaceService = workspaceService;
+        this.objectMapper = objectMapper;
     }
 
     // API TAO KHONG GIAN CONG TY
@@ -122,18 +133,32 @@ public class WorkspaceController {
         return ResponseEntity.ok(ApiResponse.success("Thêm thành viên vào không gian làm việc thành công.", null));
     }
 
-    // API CAP NHAT KHONG GIAN
-    @PutMapping("/{workspaceId}")
-    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'workspace:edit')") // Sửa: Dùng @securityService
+    // API CAP NHAT KHONG GIAN (TICH HOP UPLOAD)
+    @PutMapping(value = "/{workspaceId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'workspace:edit')")
     public ResponseEntity<ApiResponse<WorkspaceResponse>> updateWorkspace(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
-            @Valid @RequestBody UpdateWorkspaceRequest request) {
+            
+            // Nhận JSON String
+            @Parameter(schema = @Schema(implementation = UpdateWorkspaceRequest.class))
+            @RequestPart("data") String dataString,
+            
+            // Nhận file ảnh
+            @RequestPart(value = "file", required = false) MultipartFile file) {
 
-        WorkspaceResponse updatedWorkspace = workspaceService.updateWorkspace(workspaceId, request);
+        // Convert String -> DTO
+        UpdateWorkspaceRequest request;
+        try {
+            request = objectMapper.readValue(dataString, UpdateWorkspaceRequest.class);
+        } catch (JsonProcessingException e) {
+            throw new BadRequestException("Dữ liệu JSON không hợp lệ: " + e.getMessage()); // Đã dịch
+        }
+
+        WorkspaceResponse updatedWorkspace = workspaceService.updateWorkspace(workspaceId, request, file);
 
         return ResponseEntity.ok(ApiResponse.success(
-                "Cập nhật không gian làm việc thành công.",
+                "Cập nhật không gian làm việc thành công.", // Đã dịch
                 updatedWorkspace
         ));
     }
