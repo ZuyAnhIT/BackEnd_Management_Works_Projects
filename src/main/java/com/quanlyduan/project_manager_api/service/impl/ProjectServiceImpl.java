@@ -21,6 +21,7 @@ import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
 import com.quanlyduan.project_manager_api.repository.specification.ProjectMemberSpecification;
 import com.quanlyduan.project_manager_api.repository.specification.ProjectSpecification;
+import com.quanlyduan.project_manager_api.service.FileStorageService;
 import com.quanlyduan.project_manager_api.service.ProjectService;
 import com.quanlyduan.project_manager_api.util.SortUtils;
 
@@ -34,6 +35,8 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.quanlyduan.project_manager_api.security.SecurityService; 
 
 import java.math.BigDecimal;
@@ -63,7 +66,8 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
     private final SecurityService securityService;
-    
+    private final FileStorageService fileStorageService;
+
     private final SprintRepository sprintRepository;
     private final EpicRepository epicRepository;
     private final ProjectStatusRepository projectStatusRepository;
@@ -80,7 +84,8 @@ public class ProjectServiceImpl implements ProjectService {
                               SecurityService securityService,
                               SprintRepository sprintRepository, 
                               EpicRepository epicRepository, 
-                              ProjectStatusRepository projectStatusRepository 
+                              ProjectStatusRepository projectStatusRepository,
+                              FileStorageService fileStorageService
                               ) {
         this.projectRepository = projectRepository;
         this.workspaceRepository = workspaceRepository;
@@ -94,6 +99,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.sprintRepository = sprintRepository; 
         this.epicRepository = epicRepository; 
         this.projectStatusRepository = projectStatusRepository; 
+        this.fileStorageService = fileStorageService;
     }
 
     private boolean isProvided(String value) {
@@ -250,33 +256,36 @@ public class ProjectServiceImpl implements ProjectService {
         return toResponse(saved);
     }
 
+    // LOGIC CAP NHAT DU AN (TICH HOP UPLOAD ANH)
     @Override
     @Transactional
-    public ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request) {
+    public ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request, MultipartFile coverImageFile) {
+        
+        // 1. Tìm và Kiểm tra Workspace
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc")); // Đã dịch
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định");
+            throw new BadRequestException("Không gian làm việc không thuộc về công ty được chỉ định"); // Đã dịch
         }
 
+        // 2. Tìm Project
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án")); // Đã dịch
         if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
-            throw new BadRequestException("Dự án không thuộc về không gian làm việc được chỉ định");
+            throw new BadRequestException("Dự án không thuộc về không gian làm việc được chỉ định"); // Đã dịch
         }
 
-        // name
+        // 3. Cập nhật các trường thông tin (Scalar)
         if (isProvided(request.getName())) {
             project.setName(request.getName());
         }
 
-        // projectCode: ensure unique within workspace if changed
         if (isProvided(request.getProjectCode())) {
             String newCode = request.getProjectCode();
             String currentCode = project.getProjectCode();
             if (!newCode.equalsIgnoreCase(currentCode)) {
                 if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, newCode)) {
-                    throw new BadRequestException("Mã dự án đã tồn tại trong không gian làm việc này");
+                    throw new BadRequestException("Mã dự án đã tồn tại trong không gian làm việc này"); // Đã dịch
                 }
                 project.setProjectCode(newCode);
             }
@@ -288,9 +297,7 @@ public class ProjectServiceImpl implements ProjectService {
         if (isProvided(request.getGoal())) {
             project.setGoal(request.getGoal());
         }
-        if (isProvided(request.getCoverImageUrl())) {
-            project.setCoverImageUrl(request.getCoverImageUrl());
-        }
+        
         if (request.getPriority() != null) {
             project.setPriority(request.getPriority());
         }
@@ -304,38 +311,47 @@ public class ProjectServiceImpl implements ProjectService {
             project.setCompletedAt(request.getCompletedAt());
         }
 
-        // managerId: null -> giữ nguyên; 0 -> giữ nguyên; >0 -> cập nhật
         if (request.getManagerId() != null) {
             Integer managerId = request.getManagerId();
             if (managerId != 0) {
                 User manager = userRepository.findById(managerId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quản lý"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quản lý")); // Đã dịch
                 project.setManager(manager);
             }
         }
 
-        // projectTypeId
         if (request.getProjectTypeId() != null) {
             Integer projectTypeId = request.getProjectTypeId();
             if (projectTypeId == 0) {
                 project.setProjectType(null);
             } else {
                 ProjectType type = projectTypeRepository.findById(projectTypeId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại dự án"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại dự án")); // Đã dịch
                 project.setProjectType(type);
             }
         }
 
         if (isProvided(request.getBoardConfig())) {
-            // Optional: validate JSON format only when provided and not placeholder
             try {
                 objectMapper.readTree(request.getBoardConfig());
             } catch (Exception e) {
-                throw new BadRequestException("boardConfig không phải là JSON hợp lệ");
+                throw new BadRequestException("boardConfig không phải là JSON hợp lệ"); // Đã dịch
             }
             project.setBoardConfig(request.getBoardConfig());
         }
 
+        // 4. XỬ LÝ UPLOAD ẢNH BÌA (MỚI)
+        if (coverImageFile != null && !coverImageFile.isEmpty()) {
+            // Lưu vào thư mục "project-covers"
+            String coverPath = fileStorageService.storeFile(coverImageFile, "project-covers");
+            project.setCoverImageUrl(coverPath);
+        }
+        // Nếu gửi link ảnh trực tiếp (String) và không gửi file
+        else if (isProvided(request.getCoverImageUrl())) {
+            project.setCoverImageUrl(request.getCoverImageUrl());
+        }
+
+        // 5. Lưu và trả về
         Project saved = projectRepository.save(project);
         return toResponse(saved);
     }
