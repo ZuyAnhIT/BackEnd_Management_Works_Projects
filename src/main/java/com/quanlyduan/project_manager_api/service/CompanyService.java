@@ -1,6 +1,8 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/CompanyService.java
 package com.quanlyduan.project_manager_api.service;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
@@ -47,8 +49,10 @@ public interface CompanyService {
     // Xem chi tiet cong ty
     CompanyDetailsResponse getCompanyDetails(Integer companyId); // Đã dịch
 
-    // Update thong tin công ty
-    CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request); // Đã dịch
+    /**
+     * Cập nhật thông tin công ty và logo.
+     */
+    CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request, MultipartFile logoFile);
     
     /**
      * Xóa mềm một thành viên khỏi công ty (chuyển status thành REMOVED).

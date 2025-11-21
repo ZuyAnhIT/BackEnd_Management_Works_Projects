@@ -1,6 +1,8 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/controller/CompanyController.java
 package com.quanlyduan.project_manager_api.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
@@ -15,6 +17,13 @@ import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.service.CompanyService;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import org.springframework.http.MediaType; 
+import org.springframework.web.bind.annotation.RequestPart; 
+import org.springframework.web.multipart.MultipartFile; 
+import io.swagger.v3.oas.annotations.Parameter; 
+import io.swagger.v3.oas.annotations.media.Schema; 
+
 import jakarta.validation.Valid;
 
 import java.util.HashMap;
@@ -32,9 +41,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 public class CompanyController {
 
     private final CompanyService companyService;
+    private final ObjectMapper objectMapper;
 
-    public CompanyController(CompanyService companyService) {
+    public CompanyController(CompanyService companyService, ObjectMapper objectMapper) {
         this.companyService = companyService;
+        this.objectMapper = objectMapper;
     }
 
     // API TAO CONG TY
@@ -118,14 +129,30 @@ public class CompanyController {
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết công ty thành công.", companyDetails)); // Đã dịch
     }
 
-    // API CAP NHAT THONG TIN CONG TY
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:edit')") // Đã sửa
-    @PutMapping("/{companyId}")
+    // API CAP NHAT THONG TIN CONG TY (TICH HOP UPLOAD)
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:edit')")
+    @PutMapping(value = "/{companyId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<CompanyDetailsResponse>> updateCompany(
             @PathVariable Integer companyId,
-            @Valid @RequestBody UpdateCompanyRequest request) {
+            
+            // Nhận JSON String và convert thủ công
+            @Parameter(schema = @Schema(implementation = UpdateCompanyRequest.class)) // Gợi ý cho Swagger
+            @RequestPart("data") String dataString, 
+            
+            // Nhận file ảnh (Optional)
+            @RequestPart(value = "file", required = false) MultipartFile file) {
 
-        CompanyDetailsResponse updatedCompany = companyService.updateCompany(companyId, request);
+        // Convert String -> DTO
+        UpdateCompanyRequest request;
+        try {
+            request = objectMapper.readValue(dataString, UpdateCompanyRequest.class);
+        } catch (JsonProcessingException e) {
+            throw new BadRequestException("Dữ liệu JSON không hợp lệ: " + e.getMessage()); // Đã dịch
+        }
+
+        // Gọi Service
+        CompanyDetailsResponse updatedCompany = companyService.updateCompany(companyId, request, file);
+        
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin công ty thành công.", updatedCompany)); // Đã dịch
     }
 
