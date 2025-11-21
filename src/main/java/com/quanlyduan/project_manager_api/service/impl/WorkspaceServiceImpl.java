@@ -18,6 +18,7 @@ import com.quanlyduan.project_manager_api.repository.*;
 import com.quanlyduan.project_manager_api.repository.specification.WorkspaceMemberSpecification;
 import com.quanlyduan.project_manager_api.repository.specification.WorkspaceSpecification;
 import com.quanlyduan.project_manager_api.service.EmailService;
+import com.quanlyduan.project_manager_api.service.FileStorageService;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.WorkspaceService;
 import com.quanlyduan.project_manager_api.util.SortUtils;
@@ -38,6 +39,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
@@ -53,6 +55,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     private final SecurityService securityService; 
     private final UserRepository userRepository; 
     private final CompanyMemberRepository companyMemberRepository; 
+    private final FileStorageService fileStorageService;
+
     public WorkspaceServiceImpl(WorkspaceRepository workspaceRepository,
                                 WorkspaceMemberRepository workspaceMemberRepository,
                                 CompanyRepository companyRepository,
@@ -60,7 +64,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                                 SecurityService securityService,
                                 UserRepository userRepository,
                                 CompanyMemberRepository companyMemberRepository,
-                                EmailService emailService) {
+                                EmailService emailService,
+                                FileStorageService fileStorageService) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.companyRepository = companyRepository;
@@ -69,6 +74,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         this.userRepository = userRepository;
         this.companyMemberRepository = companyMemberRepository;
         this.emailService = emailService;
+        this.fileStorageService = fileStorageService;
     }
 
     private final EmailService emailService;
@@ -309,51 +315,55 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 .build();
     }
 
+    // LOGIC CAP NHAT KHONG GIAN (TICH HOP UPLOAD ANH)
     @Override
     @Transactional
-    public WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request) {
+    public WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request, MultipartFile coverImageFile) {
 
         // 1. Tìm Workspace
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc với ID: " + workspaceId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc với ID: " + workspaceId)); // Đã dịch
 
         // 2. Xử lý logic cập nhật tên (Nếu có)
         if (request.getName() != null && !request.getName().isEmpty()
                 && !Objects.equals(request.getName(), workspace.getName())) {
 
             // Kiểm tra tên mới có bị trùng trong CÙNG CÔNG TY không
-            Optional<Workspace> existing = workspaceRepository.findByCompany_IdAndName(
-                    workspace.getCompany().getId(), // Lấy ID công ty từ workspace
+            boolean exists = workspaceRepository.existsByCompany_IdAndName(
+                    workspace.getCompany().getId(), 
                     request.getName()
             );
 
-            // Chỉ ném lỗi nếu tìm thấy một workspace KHÁC có CÙNG TÊN
-            if (existing.isPresent() && !existing.get().getId().equals(workspace.getId())) {
-                throw new BadRequestException("Tên không gian làm việc đã tồn tại trong công ty này");
+            if (exists) {
+                throw new BadRequestException("Tên không gian làm việc đã tồn tại trong công ty này"); // Đã dịch
             }
-
-            // Nếu không trùng, cập nhật tên mới
             workspace.setName(request.getName());
         }
 
-        // 3. Cập nhật các trường khác (nếu chúng được cung cấp)
+        // 3. Cập nhật các trường khác
         if (request.getDescription() != null) {
             workspace.setDescription(request.getDescription());
-        }
-        if (request.getCoverImage() != null) {
-            // Khớp tên trường 'coverImage' từ DTO với 'coverImageUrl' trong Entity
-            workspace.setCoverImageUrl(request.getCoverImage());
         }
         if (request.getColor() != null) {
             workspace.setColor(request.getColor());
         }
 
-        // 4. Lưu vào CSDL
-        Workspace updatedWorkspace = workspaceRepository.save(workspace);
+        // 4. Xử lý Upload Ảnh Bìa (MỚI)
+        if (coverImageFile != null && !coverImageFile.isEmpty()) {
+            // Lưu vào thư mục "workspace-covers"
+            String coverPath = fileStorageService.storeFile(coverImageFile, "workspace-covers");
+            workspace.setCoverImageUrl(coverPath);
+        }
+        // Nếu gửi link ảnh trực tiếp (String)
+        else if (request.getCoverImage() != null) {
+            workspace.setCoverImageUrl(request.getCoverImage());
+        }
 
-        // 5. Map sang DTO và trả về (sử dụng helper có sẵn của bạn)
+        // 5. Lưu vào CSDL
+        Workspace updatedWorkspace = workspaceRepository.save(workspace);
         return mapToWorkspaceResponse(updatedWorkspace);
     }
+    
 
     /**
      * LOGIC XÓA MỀM WORKSPACE
