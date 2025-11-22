@@ -3,7 +3,7 @@ package com.quanlyduan.project_manager_api.config;
 
 import com.quanlyduan.project_manager_api.security.UserDetailsServiceImpl;
 import com.quanlyduan.project_manager_api.security.jwt.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
+// import lombok.RequiredArgsConstructor; // Đã xóa
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,21 +26,22 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-// @RequiredArgsConstructor đã được bao gồm ngầm trong constructor bạn cung cấp
 public class SecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final PasswordEncoder passwordEncoder;
 
+    // *** DANH SÁCH CÁC URL CÔNG KHAI (KHÔNG CẦN LOGIN) ***
     private static final String[] PUBLIC_URLS = {
             "/api/auth/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",
-            "/swagger-ui.html"
+            "/swagger-ui.html",
+            "/uploads/**" // Cho phép truy cập ảnh đã upload
     };
 
-    // Constructor này là cần thiết nếu bạn không dùng @RequiredArgsConstructor
+    // Constructor thủ công
     public SecurityConfig(UserDetailsServiceImpl userDetailsService, JwtAuthenticationFilter jwtAuthenticationFilter, PasswordEncoder passwordEncoder) {
         this.userDetailsService = userDetailsService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
@@ -50,10 +51,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors().and() // ✅ Cho phép CORS
+                // ✅ Cho phép CORS (Sử dụng cấu hình corsConfigurationSource bên dưới)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**",  "/v3/api-docs/**",  "/swagger-ui/**",  "/swagger-ui.html").permitAll()
+                        // *** SỬA LỖI: Sử dụng biến PUBLIC_URLS thay vì viết cứng ***
+                        .requestMatchers(PUBLIC_URLS).permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -192,51 +192,49 @@ public class WorkspaceController {
         ));
     }
 
-    // API 1: LẤY DANH SÁCH THANH VIEN (Cơ bản)
-    // URL: GET .../workspaces/{workspaceId}/members
+   // API 1: LẤY DANH SÁCH (Sửa defaultValue)
     @GetMapping("/{workspaceId}/members")
     @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'workspace:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<WorkspaceMemberResponse>>> getWorkspaceMembers(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
+
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "joinedAt") String sortBy,
+            
+            // *** SỬA LỖI Ở ĐÂY: Đổi "createdAt" thành "joinedAt" ***
+            @RequestParam(defaultValue = "joinedAt") String sortBy, 
+            
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
-        
         PageResponseDTO<WorkspaceMemberResponse> members = workspaceService.getWorkspaceMembers(workspaceId, page, size, sortBy, sortDir);
-        
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên không gian thành công.", members)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên không gian thành công.", members));
     }
 
-    // API 2: TÌM KIẾM THANH VIEN (Nâng cao)
-    // URL: GET .../workspaces/{workspaceId}/members/search
+    // API 2: TÌM KIẾM (Sửa defaultValue)
     @GetMapping("/{workspaceId}/members/search")
     @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'workspace:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<WorkspaceMemberResponse>>> searchWorkspaceMembers(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
 
-            // Các tham số tìm kiếm
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String email,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String phone,
 
-            // Các tham số phân trang
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
+            
+            // *** SỬA LỖI Ở ĐÂY: Đổi "createdAt" thành "joinedAt" ***
             @RequestParam(defaultValue = "joinedAt") String sortBy,
+            
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
-        
         PageResponseDTO<WorkspaceMemberResponse> members = workspaceService.searchWorkspaceMembers(
-            workspaceId, name, email, role, phone, 
-            page, size, sortBy, sortDir
+            workspaceId, name, email, role, phone, page, size, sortBy, sortDir
         );
-        
-        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm thành viên không gian thành công.", members)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm thành viên không gian thành công.", members));
     }
 
 
