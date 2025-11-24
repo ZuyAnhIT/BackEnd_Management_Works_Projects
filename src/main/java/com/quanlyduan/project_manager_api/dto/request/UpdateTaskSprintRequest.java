@@ -9,4 +9,7 @@ public class UpdateTaskSprintRequest {
     // Dùng để kéo thả task vào sprint
     // Nếu sprintId = null, nghĩa là "Move to Backlog"
     private Integer sprintId;
+
+    // Vị trí mới mong muốn (0, 1, 2...). Nếu null -> Mặc định xuống cuối.
+    private Integer newSortOrder;
 }

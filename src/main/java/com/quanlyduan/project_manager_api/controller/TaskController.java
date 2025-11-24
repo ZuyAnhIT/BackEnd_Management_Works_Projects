@@ -121,13 +121,15 @@ public class TaskController {
      * US-S3-7: Kéo thả Task vào Sprint (hoặc về Backlog)
      */
     @PutMapping("/{taskId}/sprint")
-    @PreAuthorize("@securityService.hasPermission('task', #taskId, 'backlog:manage')") // Đã sửa
+    @PreAuthorize("@securityService.hasPermission('task', #taskId, 'backlog:manage')") 
     public ResponseEntity<ApiResponse<Object>> updateTaskSprint(
             @PathVariable Integer taskId,
             @Valid @RequestBody UpdateTaskSprintRequest request) {
         
-        taskService.updateTaskSprint(taskId, request.getSprintId());
-        String message = (request.getSprintId() == null) ? "Chuyển công việc về Backlog thành công" : "Cập nhật Sprint cho công việc thành công"; // Đã dịch
+        
+        taskService.updateTaskSprint(taskId, request.getSprintId(), request.getNewSortOrder());
+        
+        String message = (request.getSprintId() == null) ? "Chuyển công việc về Backlog thành công" : "Cập nhật Sprint cho công việc thành công";
         return ResponseEntity.ok(ApiResponse.success(message, null));
     }
 

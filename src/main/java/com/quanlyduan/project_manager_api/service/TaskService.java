@@ -23,7 +23,7 @@ public interface TaskService {
      * @param taskId ID của task
      * @param sprintId ID của Sprint mới (hoặc null nếu về Backlog)
      */
-    void updateTaskSprint(Integer taskId, Integer sprintId);
+    void updateTaskSprint(Integer taskId, Integer sprintId, Integer newSortOrder);
     
     /**
      * Hàm helper để map Task (Entity) sang TaskResponse (DTO chi tiết).
