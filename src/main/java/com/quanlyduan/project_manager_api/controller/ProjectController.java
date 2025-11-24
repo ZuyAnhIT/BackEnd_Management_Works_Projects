@@ -230,9 +230,9 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu backlog dự án thành công.", backlogData));
     }
 
-    // API TAO TASK MOI
+    // API TAO TASK (DÙNG CHUNG CHO CẢ BACKLOG VÀ SPRINT)
+    // URL: POST .../projects/{projectId}/tasks
     @PostMapping("/{projectId}/tasks") 
-    // Bảo vệ: Yêu cầu quyền 'task:create' trong dự án
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:create')")
     public ResponseEntity<ApiResponse<TaskSummaryResponse>> createTask(
             @PathVariable Integer companyId,
@@ -240,11 +240,12 @@ public class ProjectController {
             @PathVariable Integer projectId,
             @Valid @RequestBody CreateTaskRequest request) {
                 
-        // Chúng ta không cần companyId và workspaceId ở đây
-        // vì projectService.createTask sẽ tự tìm
+        // Service sẽ tự lo việc task này thuộc Sprint nào hay thuộc Backlog
+        // dựa trên request.sprintId
         TaskSummaryResponse newTask = taskService.createTask(projectId, request);
+        
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Tạo công việc mới thành công.", newTask));
+                .body(ApiResponse.success("Tạo công việc mới thành công.", newTask)); 
     }
 
 
