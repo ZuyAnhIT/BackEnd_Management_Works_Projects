@@ -340,7 +340,7 @@ public class ProjectController {
             @RequestParam(required = false) Integer assigneeId, // Filter Assignee
             @RequestParam(required = false) String priority) {  // Filter Priority
         
-        List<BoardColumnResponse> board = projectService.getProjectBoard(projectId, sprintId, search, assigneeId, priority);
+        List<BoardColumnResponse> board = projectService.getProjectBoard(companyId, workspaceId,projectId, sprintId, search, assigneeId, priority);
         return ResponseEntity.ok(ApiResponse.success("Fetched project board", board));
     }
 

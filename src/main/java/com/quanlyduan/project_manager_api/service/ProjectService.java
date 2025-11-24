@@ -115,6 +115,6 @@ public interface ProjectService {
     );
 
       // US-S4-2 & S4-4: Lấy Board (kèm filter)
-    List<BoardColumnResponse> getProjectBoard(Integer projectId, Integer sprintId, String search, Integer assigneeId, String priority);
+    List<BoardColumnResponse> getProjectBoard(Integer companyId,Integer workspaceId,Integer projectId, Integer sprintId, String search, Integer assigneeId, String priority);
 
 }
