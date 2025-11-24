@@ -8,6 +8,8 @@ import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.*;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.TaskService;
@@ -112,66 +114,85 @@ public class TaskServiceImpl implements TaskService {
                 .build();
     }
 
-    // LOGIC TAO TASK MOI
+    // LOGIC TAO TASK MOI (HO TRO QUICK CREATE)
     @Override
     @Transactional
     public TaskSummaryResponse createTask(Integer projectId, CreateTaskRequest request) {
         
+        // 1. Lấy thông tin người tạo
         User creator = securityService.getCurrentAuthenticatedUser();
         
+        // 2. Lấy dự án
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án")); // Đã dịch
 
-        // *** LOGIC MỚI: TÌM TRẠNG THÁI (CỘT) MẶC ĐỊNH ***
+        // 3. TỰ ĐỘNG TÌM TRẠNG THÁI (CỘT) MẶC ĐỊNH (Vị trí đầu tiên)
         ProjectStatus defaultStatus = projectStatusRepository.findFirstByProject_IdOrderBySortOrderAsc(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Dự án này chưa có cột trạng thái (status). Vui lòng cấu hình."));
+                .orElseThrow(() -> new ResourceNotFoundException("Dự án này chưa cấu hình bảng trạng thái (Board Columns).")); // Đã dịch
         
-        // (Logic tìm Sprint, Epic, Assignee giữ nguyên)
+        // 4. XỬ LÝ SPRINT (Quan trọng cho 2 trường hợp)
         Sprint sprint = null;
         if (request.getSprintId() != null) {
             sprint = sprintRepository.findById(request.getSprintId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint với ID: " + request.getSprintId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint với ID: " + request.getSprintId())); // Đã dịch
+            
+            // Validate: Sprint phải thuộc Project này
+            if (!sprint.getProject().getId().equals(projectId)) {
+                throw new BadRequestException("Sprint không thuộc về dự án này."); // Đã dịch
+            }
         }
+        // Nếu request.getSprintId() == null thì sprint = null (nghĩa là nằm ở Backlog)
+
+        // 5. Xử lý các trường tùy chọn (Epic, Assignee)
         Epic epic = null;
         if (request.getEpicId() != null) {
             epic = epicRepository.findById(request.getEpicId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Epic với ID: " + request.getEpicId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Epic"));
         }
         User assignee = null;
         if (request.getAssigneeId() != null) {
             assignee = userRepository.findById(request.getAssigneeId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng (assignee) với ID: " + request.getAssigneeId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người được giao việc"));
         }
 
-        // (Logic tạo Task Code giữ nguyên)
-        String newCode = project.getProjectCode() + "-" + (taskRepository.countByProjectId(projectId) + 1);
+        // 6. SINH MÃ TASK TỰ ĐỘNG (Ví dụ: WEB-1, WEB-2)
+        long taskCount = taskRepository.countByProjectId(projectId);
+        String newCode = project.getProjectCode() + "-" + (taskCount + 1);
 
-        // 6. Tạo Task Entity
+        // 7. Tạo Task Entity (Gán mặc định nếu thiếu)
         Task newTask = Task.builder()
                 .project(project)
                 .title(request.getTitle())
-                .description(request.getDescription())
+                .description(request.getDescription()) // Có thể null
                 .taskCode(newCode)
-                .taskType(request.getTaskType())
-                .status(defaultStatus) // *** ĐÃ SỬA: Gán đối tượng ProjectStatus ***
-                .priority(request.getPriority())
-                .sprint(sprint)
+                
+                // Mặc định là TASK nếu không chọn
+                .taskType(request.getTaskType() != null ? request.getTaskType() : TaskType.TASK)
+                
+                // Mặc định vào cột đầu tiên (To Do / Backlog Column)
+                .status(defaultStatus) 
+                
+                // Mặc định là MEDIUM nếu không chọn
+                .priority(request.getPriority() != null ? request.getPriority() : TaskPriority.MEDIUM)
+                
+                .sprint(sprint) // Null (Backlog) hoặc Object (Sprint)
                 .epic(epic)
                 .assignee(assignee)
                 .assigner(creator) 
                 .createdBy(creator) 
                 .storyPoints(request.getStoryPoints())
                 .dueDate(request.getDueDate())
-                .sortOrder(0) 
+                .sortOrder((int) taskCount) // Mặc định xếp cuối cùng
                 .build();
         
         Task savedTask = taskRepository.save(newTask);
         
-        // 7. Map sang DTO và trả về
+        // 8. Map sang DTO và trả về
         return mapToTaskSummaryResponse(savedTask);
     }
 
-    // === HÀM HELPER (ĐÃ CẬP NHẬT) ===
+
+    // === HÀM HELPER 
     private TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
         User assignee = task.getAssignee();
         Epic epic = task.getEpic();
