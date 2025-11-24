@@ -151,27 +151,46 @@ public class SprintServiceImpl implements SprintService {
                 .collect(Collectors.toList());
     }
 
+    // LOGIC HOÀN THÀNH SPRINT (NÂNG CẤP)
     @Override
     @Transactional
     public SprintResponse completeSprint(Integer projectId, Integer sprintId) {
+        // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint"));
 
+        // 2. Validate
         if (!sprint.getProject().getId().equals(projectId)) {
-            throw new BadRequestException("Sprint không thuộc về dự án này."); // Đã dịch
+            throw new BadRequestException("Sprint không thuộc về dự án này.");
         }
-
         if (sprint.getStatus() != SprintStatus.IN_PROGRESS) {
-            throw new BadRequestException("Chỉ có thể hoàn thành các Sprint đang diễn ra."); // Đã dịch
+            throw new BadRequestException("Chỉ có thể hoàn thành các Sprint đang diễn ra.");
         }
 
+        // 3. LOGIC DỌN DẸP TASK CHƯA XONG 
+        // Tìm tất cả task chưa hoàn thành trong Sprint này
+        List<Task> incompleteTasks = taskRepository.findIncompleteTasksBySprintId(sprintId);
+        
+        if (!incompleteTasks.isEmpty()) {
+            // Đẩy hết về Backlog (sprint = null)
+            for (Task task : incompleteTasks) {
+                task.setSprint(null);
+            }
+            taskRepository.saveAll(incompleteTasks);
+            
+            // (Optional) Bạn có thể log lại: "Đã di chuyển 5 task về backlog"
+        }
+
+        // 4. Cập nhật trạng thái Sprint
         sprint.setStatus(SprintStatus.COMPLETED);
-        sprint.setEndDate(java.time.LocalDateTime.now()); 
+        sprint.setEndDate(java.time.LocalDateTime.now()); // Chốt thời gian thực tế
         
         Sprint savedSprint = sprintRepository.save(sprint);
         
-        List<Task> tasks = taskRepository.findBySprintIdWithDetails(savedSprint.getId());
-        return mapToSprintResponse(savedSprint, tasks);
+        // 5. Trả về kết quả
+        // Lúc này list task trả về sẽ CHỈ CÒN các task đã Done (vì task chưa done đã bị đá ra rồi)
+        List<Task> completedTasksOnly = taskRepository.findBySprintIdWithDetails(savedSprint.getId());
+        return mapToSprintResponse(savedSprint, completedTasksOnly);
     }
 
     @Override

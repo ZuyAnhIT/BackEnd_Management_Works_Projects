@@ -126,4 +126,12 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
     @Modifying
     @Query("UPDATE Task t SET t.sprint = NULL WHERE t.sprint.id = :sprintId")
     void moveTasksToBacklogBySprintId(@Param("sprintId") Integer sprintId);
+
+    /**
+     * Tìm các Task trong Sprint mà chưa hoàn thành (isCompletedStatus = false hoặc null).
+     */
+    @Query("SELECT t FROM Task t " +
+           "WHERE t.sprint.id = :sprintId " +
+           "AND (t.status IS NULL OR t.status.isCompletedStatus = false)")
+    List<Task> findIncompleteTasksBySprintId(@Param("sprintId") Integer sprintId);
 }
