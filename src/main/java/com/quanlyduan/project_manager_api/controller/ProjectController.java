@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
+import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
@@ -328,4 +329,21 @@ public class ProjectController {
 
 
     }
+//feature/US-S4-kanban-board
+@GetMapping("/{projectId}/board")
+@PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+public ResponseEntity<ApiResponse<List<BoardColumnResponse>>> getProjectBoard(
+        @PathVariable Integer companyId,
+        @PathVariable Integer workspaceId,
+        @PathVariable Integer projectId,
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) Integer assigneeId,
+        @RequestParam(required = false) String priority,
+        @RequestParam(required = false) List<String> statusNames
+) {
+    List<BoardColumnResponse> board = projectService.getProjectBoard(
+            companyId, workspaceId, projectId, search, assigneeId, priority, statusNames);
+    return ResponseEntity.ok(ApiResponse.success("Lấy board thành công.", board));
+}
+
 }

@@ -2,10 +2,12 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
+import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse; 
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
@@ -36,7 +38,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.Map; 
-
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -750,5 +752,55 @@ public class ProjectServiceImpl implements ProjectService {
         // 8. Trả về DTO đã cập nhật
         return mapToProjectMemberResponse(updatedMember);
     }
-    
+@Override
+@Transactional(readOnly = true)
+public List<BoardColumnResponse> getProjectBoard(Integer companyId, Integer workspaceId, Integer projectId,String search, Integer assigneeId, String priority,
+List<String> statusNames) {
+    Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
+    if (!project.getWorkspace().getId().equals(workspaceId)
+            || !project.getWorkspace().getCompany().getId().equals(companyId)) {
+        throw new BadRequestException("Dự án không thuộc workspace/công ty đã chỉ định");
+    }
+
+    Sprint runningSprint = sprintRepository.findByProject_IdAndStatusOrderByStartDateDesc(
+            projectId, SprintStatus.IN_PROGRESS).stream().findFirst().orElse(null);
+    List<com.quanlyduan.project_manager_api.model.ProjectStatus> statuses =
+            projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId);
+
+    if (runningSprint == null) {
+        return statuses.stream()
+                .map(status -> BoardColumnResponse.builder()
+                        .statusId(status.getId())
+                        .statusName(status.getName())
+                        .statusColor(status.getColor())
+                        .sortOrder(status.getSortOrder())
+                        .isCompletedStatus(status.getIsCompletedStatus())
+                        .tasks(List.of())
+                        .build())
+                .toList();
+    }
+
+    Specification<Task> spec = TaskSpecification.filterTasks(
+            projectId, runningSprint.getId(), search, assigneeId, priority, statusNames);
+
+    List<TaskSummaryResponse> taskDtos = taskRepository.findAll(spec, Sort.by("sortOrder").ascending())
+            .stream()
+            .map(this::mapToTaskSummaryResponse)
+            .toList();
+
+    Map<Integer, List<TaskSummaryResponse>> tasksByStatus = taskDtos.stream()
+            .collect(Collectors.groupingBy(TaskSummaryResponse::getStatusId));
+
+    return statuses.stream()
+            .map(status -> BoardColumnResponse.builder()
+                    .statusId(status.getId())
+                    .statusName(status.getName())
+                    .statusColor(status.getColor())
+                    .sortOrder(status.getSortOrder())
+                    .isCompletedStatus(status.getIsCompletedStatus())
+                    .tasks(tasksByStatus.getOrDefault(status.getId(), List.of()))
+                    .build())
+            .toList();
+}
 }
