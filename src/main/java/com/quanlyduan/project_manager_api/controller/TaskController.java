@@ -3,10 +3,12 @@ package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CommentRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskSprintRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskAttachmentResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskCommentResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.service.TaskAttachmentService;
 import com.quanlyduan.project_manager_api.service.TaskCommentService;
 import com.quanlyduan.project_manager_api.service.TaskService;
@@ -143,5 +145,29 @@ public class TaskController {
         taskService.moveTaskToStatus(taskId, request);
         
         return ResponseEntity.ok(ApiResponse.success("Di chuyển công việc thành công.", null)); // Đã dịch
+    }
+
+    // API XEM CHI TIET TASK
+    @GetMapping("/{taskId}")
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:view')")
+    public ResponseEntity<ApiResponse<TaskResponse>> getTaskDetails(
+            @PathVariable Integer taskId) {
+        
+        TaskResponse task = taskService.getTaskDetails(taskId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết công việc thành công.", task)); // Đã dịch
+    }
+
+    
+    // API CAP NHAT THONG TIN TASK (PUT)
+    @PutMapping("/{taskId}")
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:edit')")
+    public ResponseEntity<ApiResponse<TaskResponse>> updateTask(
+            @PathVariable Integer taskId,
+            @Valid @RequestBody UpdateTaskRequest request) {
+        
+        TaskResponse updatedTask = taskService.updateTask(taskId, request);
+        
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật công việc thành công.", updatedTask)); // Đã dịch
     }
 }

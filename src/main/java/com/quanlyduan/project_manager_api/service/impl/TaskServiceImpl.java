@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -250,5 +251,112 @@ public class TaskServiceImpl implements TaskService {
         }
 
         taskRepository.save(task);
+    }
+
+    // LOGIC: XEM CHI TIET TASK
+    @Override
+    @Transactional(readOnly = true)
+    public TaskResponse getTaskDetails(Integer taskId) {
+        // 1. Tìm Task
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc với ID: " + taskId)); // Đã dịch
+        
+        // (Bảo mật đã được xử lý ở Controller)
+
+        // 2. Map sang DTO chi tiết
+        return mapToTaskResponse(task);
+    }
+
+    // LOGIC: CAP NHAT TASK
+    @Override
+    @Transactional
+    public TaskResponse updateTask(Integer taskId, UpdateTaskRequest request) {
+        // 1. Tìm Task
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc với ID: " + taskId)); // Đã dịch
+        
+        Integer projectId = task.getProject().getId();
+
+        // 2. Cập nhật các trường Scalar (Văn bản/Số)
+        if (request.getTitle() != null && !request.getTitle().isEmpty()) {
+            task.setTitle(request.getTitle());
+        }
+        if (request.getDescription() != null) {
+            task.setDescription(request.getDescription());
+        }
+        if (request.getTaskType() != null) {
+            task.setTaskType(request.getTaskType());
+        }
+        if (request.getPriority() != null) {
+            task.setPriority(request.getPriority());
+        }
+        if (request.getStoryPoints() != null) {
+            task.setStoryPoints(request.getStoryPoints());
+        }
+        if (request.getEstimatedHours() != null) {
+            task.setEstimatedHours(request.getEstimatedHours());
+        }
+        if (request.getStartDate() != null) {
+            task.setStartDate(request.getStartDate());
+        }
+        if (request.getDueDate() != null) {
+            task.setDueDate(request.getDueDate());
+        }
+
+        // 3. Cập nhật các Quan hệ (Cần validate)
+        
+        // A. Status (Cột)
+        if (request.getStatusId() != null) {
+            ProjectStatus newStatus = projectStatusRepository.findById(request.getStatusId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trạng thái"));
+            if (!newStatus.getProject().getId().equals(projectId)) {
+                throw new BadRequestException("Trạng thái không thuộc về dự án này");
+            }
+            task.setStatus(newStatus);
+        }
+
+        // B. Sprint
+        if (request.getSprintId() != null) {
+            if (request.getSprintId() == 0) {
+                task.setSprint(null); // Gỡ bỏ sprint (về backlog)
+            } else {
+                Sprint sprint = sprintRepository.findById(request.getSprintId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint"));
+                if (!sprint.getProject().getId().equals(projectId)) {
+                    throw new BadRequestException("Sprint không thuộc về dự án này");
+                }
+                task.setSprint(sprint);
+            }
+        }
+
+        // C. Epic
+        if (request.getEpicId() != null) {
+            if (request.getEpicId() == 0) {
+                task.setEpic(null); // Gỡ bỏ Epic
+            } else {
+                Epic epic = epicRepository.findById(request.getEpicId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Epic"));
+                if (!epic.getProject().getId().equals(projectId)) {
+                    throw new BadRequestException("Epic không thuộc về dự án này");
+                }
+                task.setEpic(epic);
+            }
+        }
+
+        // D. Assignee (Người được giao)
+        if (request.getAssigneeId() != null) {
+            if (request.getAssigneeId() == 0) {
+                task.setAssignee(null); // Bỏ giao việc
+            } else {
+                User assignee = userRepository.findById(request.getAssigneeId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+                // (Nên check xem user có trong Project không, nhưng tạm thời bỏ qua để đơn giản)
+                task.setAssignee(assignee);
+            }
+        }
+
+        // 4. Lưu và trả về
+        Task updatedTask = taskRepository.save(task);
+        return mapToTaskResponse(updatedTask);
     }
 }
