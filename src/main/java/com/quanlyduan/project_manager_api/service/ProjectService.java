@@ -10,6 +10,8 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 
 import java.util.List;
 
@@ -65,12 +67,14 @@ public interface ProjectService {
             Integer companyId, 
             Integer workspaceId, 
             Integer projectId,
-            String keyword,     // Tìm kiếm chung
-            Integer assigneeId, // Lọc người làm
-            int page,           // Page cho Backlog
-            int size,           // Size cho Backlog
-            String sortBy,      // Sort cho Backlog
-            String sortDir      // Dir cho Backlog
+            String keyword,     
+            Integer assigneeId, 
+            TaskPriority priority, 
+            TaskType taskType,     
+            int page,           
+            int size,           
+            String sortBy,      
+            String sortDir      
     );
 
 
