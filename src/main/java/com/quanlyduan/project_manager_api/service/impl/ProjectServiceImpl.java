@@ -7,6 +7,7 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse; 
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
@@ -60,6 +61,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
+import com.quanlyduan.project_manager_api.service.TaskService;
 
 @Service
 public class ProjectServiceImpl implements ProjectService {
@@ -72,6 +74,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final RoleRepository roleRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
+    private final TaskService taskService;
     private final SecurityService securityService;
     private final FileStorageService fileStorageService;
 
@@ -88,6 +91,7 @@ public class ProjectServiceImpl implements ProjectService {
                               RoleRepository roleRepository,
                               ProjectMemberRepository projectMemberRepository,
                               TaskRepository taskRepository,
+                              TaskService taskService,
                               SecurityService securityService,
                               SprintRepository sprintRepository, 
                               EpicRepository epicRepository, 
@@ -102,6 +106,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.roleRepository = roleRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.taskRepository = taskRepository;
+        this.taskService = taskService;
         this.securityService = securityService;
         this.sprintRepository = sprintRepository; 
         this.epicRepository = epicRepository; 
@@ -750,5 +755,63 @@ public class ProjectServiceImpl implements ProjectService {
         // 8. Trả về DTO đã cập nhật
         return mapToProjectMemberResponse(updatedMember);
     }
-    
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, List<TaskResponse>> getTasksGroupedBy(
+            Integer companyId, Integer workspaceId, Integer projectId, 
+            String groupBy, Integer sprintId, String search) {
+
+        // 1. VALIDATE HỆ THỐNG PHÂN CẤP (Hierarchy Check)
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+        if (!project.getWorkspace().getId().equals(workspaceId)) {
+            throw new BadRequestException("Dự án không thuộc về Workspace được chỉ định.");
+        }
+        if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Workspace không thuộc về Công ty được chỉ định.");
+        }
+
+        // 2. QUERY DATA (Sử dụng Specification để hỗ trợ filter nếu cần)
+        // Ta dùng lại TaskSpecification đã viết cho Board/List
+        Specification<Task> spec = TaskSpecification.filterTasks(
+                projectId, 
+                sprintId,   // Hỗ trợ lọc theo Sprint
+                search,     // Hỗ trợ tìm kiếm
+                null,       // assigneeId (null vì ta đang muốn lấy hết để nhóm)
+                null,       // priority (null)
+                null        // statusNames (null)
+        );
+
+        List<Task> tasks = taskRepository.findAll(spec);
+
+        // 3. GROUPING LOGIC (Java Streams)
+        if ("assignee".equalsIgnoreCase(groupBy)) {
+            // Nhóm theo Tên người được giao
+            return tasks.stream().collect(Collectors.groupingBy(
+                t -> t.getAssignee() != null ? t.getAssignee().getFullName() : "Unassigned",
+                Collectors.mapping(taskService::mapToTaskResponse, Collectors.toList())
+            ));
+
+        } else if ("priority".equalsIgnoreCase(groupBy)) {
+             // Nhóm theo Độ ưu tiên
+             return tasks.stream()
+                .filter(t -> t.getPriority() != null) // Bỏ qua lỗi data nếu có
+                .collect(Collectors.groupingBy(
+                    t -> t.getPriority().name(),
+                    Collectors.mapping(taskService::mapToTaskResponse, Collectors.toList())
+                ));
+
+        } else if ("status".equalsIgnoreCase(groupBy)) {
+             // Nhóm theo Trạng thái
+             return tasks.stream()
+                .filter(t -> t.getStatus() != null)
+                .collect(Collectors.groupingBy(
+                    t -> t.getStatus().getName(),
+                    Collectors.mapping(taskService::mapToTaskResponse, Collectors.toList())
+                ));
+        }
+        
+        throw new BadRequestException("Tham số groupBy không hợp lệ. Hãy dùng: 'assignee', 'priority' hoặc 'status'.");
+    }
 }

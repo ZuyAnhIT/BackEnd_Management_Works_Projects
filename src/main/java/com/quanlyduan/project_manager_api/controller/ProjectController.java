@@ -10,6 +10,7 @@ import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
@@ -325,7 +326,26 @@ public class ProjectController {
         responseData.put("newRoleName", updatedMember.getRoleName());
 
         return ResponseEntity.ok(ApiResponse.success(message, responseData));
+    }
 
-
+    // --- US-S4-10: Nhóm Task (Grouping View) ---
+    @GetMapping("/{projectId}/tasks/grouped")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<Map<String, List<TaskResponse>>>> getTasksGrouped(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @RequestParam String groupBy, // "assignee", "priority", "status"
+            
+            // (Optional) Thêm các filter này để View Grouping mạnh mẽ hơn
+            @RequestParam(required = false) Integer sprintId,
+            @RequestParam(required = false) String search
+    ) {
+        // Gọi service với đầy đủ tham số validation và filter
+        Map<String, List<TaskResponse>> data = projectService.getTasksGroupedBy(
+            companyId, workspaceId, projectId, groupBy, sprintId, search
+        );
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu nhóm công việc thành công.", data));
     }
 }

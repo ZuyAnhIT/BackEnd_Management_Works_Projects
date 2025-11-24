@@ -60,13 +60,15 @@ public class TaskSpecification {
 
         return spec;
     }
-        public static Specification<Task> filterTasks(
+    // File: src/main/java/com/quanlyduan/project_manager_api/repository/specification/TaskSpecification.java
+
+    public static Specification<Task> filterTasks(
             Integer projectId,
             Integer sprintId, // null=all, 0=backlog, >0=specific sprint
-            String searchTitle,
+            String keyword,   // ĐỔI TÊN: searchTitle -> keyword (để thể hiện tìm chung)
             Integer assigneeId,
             String priority,
-            List<String> statusNames // (US 11 - Lọc theo nhiều trạng thái)
+            List<String> statusNames 
     ) {
         // 1. Bắt buộc: Task phải thuộc Project này
         Specification<Task> spec = (root, query, cb) -> cb.equal(root.get("project").get("id"), projectId);
@@ -74,7 +76,7 @@ public class TaskSpecification {
         // 2. Lọc theo Sprint
         if (sprintId != null) {
             if (sprintId == 0) { 
-                // Sprint ID = 0 nghĩa là Backlog (chưa vào sprint nào)
+                // Sprint ID = 0 nghĩa là Backlog
                 spec = spec.and((root, query, cb) -> cb.isNull(root.get("sprint")));
             } else {
                 // Tìm trong Sprint cụ thể
@@ -82,28 +84,31 @@ public class TaskSpecification {
             }
         }
 
-        // 3. Tìm kiếm theo Tiêu đề (Title) - US 8
-        if (searchTitle != null && !searchTitle.isEmpty()) {
-            spec = spec.and(JpaSpecificationUtil.attributeContains("title", searchTitle));
+        // 3. TÌM KIẾM (ĐÃ SỬA: Title HOẶC TaskCode)
+        if (keyword != null && !keyword.isEmpty()) {
+            Specification<Task> titleSpec = JpaSpecificationUtil.attributeContains("title", keyword);
+            Specification<Task> codeSpec = JpaSpecificationUtil.attributeContains("taskCode", keyword);
+            
+            // Kết hợp bằng OR
+            spec = spec.and(titleSpec.or(codeSpec));
         }
 
-        // 4. Lọc theo Người được giao (Assignee) - US 4, 8
+        // 4. Lọc theo Người được giao (Assignee)
         if (assigneeId != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("assignee").get("id"), assigneeId));
         }
 
-        // 5. Lọc theo Độ ưu tiên (Priority) - US 4, 8
+        // 5. Lọc theo Độ ưu tiên (Priority)
         if (priority != null && !priority.isEmpty()) {
             try {
                 TaskPriority priorityEnum = TaskPriority.valueOf(priority.toUpperCase());
-                spec = spec.and((root, query, cb) -> cb.equal(root.get("priority"), priorityEnum));
+                spec = spec.and(JpaSpecificationUtil.attributeEquals("priority", priorityEnum));
             } catch (IllegalArgumentException e) {
                 // Bỏ qua nếu priority string không hợp lệ
             }
         }
         
-        // 6. Lọc theo Danh sách Trạng thái (Status Names) - US 11
-        // (Ví dụ: Lọc lấy các task đang "TO_DO" hoặc "IN_PROGRESS")
+        // 6. Lọc theo Danh sách Trạng thái
         if (statusNames != null && !statusNames.isEmpty()) {
              spec = spec.and((root, query, cb) -> root.get("status").get("name").in(statusNames));
         }

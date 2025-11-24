@@ -8,12 +8,14 @@ import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.web.multipart.MultipartFile;
 
@@ -111,5 +113,13 @@ public interface ProjectService {
             Integer workspaceId, 
             String searchName, String searchCode, String searchManager, ProjectStatus searchStatus,
             int page, int size, String sortBy, String sortDir
+    );
+    Map<String, List<TaskResponse>> getTasksGroupedBy(
+        Integer companyId, 
+        Integer workspaceId, 
+        Integer projectId, 
+        String groupBy,
+        Integer sprintId, 
+        String search
     );
 }
