@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/TaskService.java
 package com.quanlyduan.project_manager_api.service;
 
+import com.quanlyduan.project_manager_api.dto.request.AssignTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
@@ -47,4 +48,11 @@ public interface TaskService {
      * Cập nhật thông tin Task.
      */
     TaskResponse updateTask(Integer taskId, UpdateTaskRequest request);
+
+    /**
+     * Gán Task cho thành viên trong Project.
+     * @param taskId ID của task cần gán
+     * @param request Chứa ID của người được gán
+     */
+    void assignTask(Integer taskId, AssignTaskRequest request);
 }

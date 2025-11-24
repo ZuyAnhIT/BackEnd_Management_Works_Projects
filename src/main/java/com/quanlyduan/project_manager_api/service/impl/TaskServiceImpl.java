@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
+import com.quanlyduan.project_manager_api.dto.request.AssignTaskRequest;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -11,9 +12,11 @@ import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.repository.*;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.TaskService;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +31,7 @@ public class TaskServiceImpl implements TaskService {
     private final SecurityService securityService;
     private final EpicRepository epicRepository;
     private final ProjectStatusRepository projectStatusRepository;
+    private final ProjectMemberRepository projectMemberRepository;
 
     public TaskServiceImpl(TaskRepository taskRepository,
                            ProjectRepository projectRepository,
@@ -35,7 +39,8 @@ public class TaskServiceImpl implements TaskService {
                            UserRepository userRepository,
                            EpicRepository epicRepository,
                            SecurityService securityService,
-                           ProjectStatusRepository projectStatusRepository) {
+                           ProjectStatusRepository projectStatusRepository,
+                           ProjectMemberRepository projectMemberRepository) {
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
         this.sprintRepository = sprintRepository;
@@ -43,6 +48,7 @@ public class TaskServiceImpl implements TaskService {
         this.securityService = securityService;
         this.epicRepository = epicRepository;
         this.projectStatusRepository = projectStatusRepository;
+        this.projectMemberRepository = projectMemberRepository;
     }
     
     // LOGIC KEO THA TASK (SPRINT + VI TRI)
@@ -379,4 +385,41 @@ public class TaskServiceImpl implements TaskService {
         Task updatedTask = taskRepository.save(task);
         return mapToTaskResponse(updatedTask);
     }
+
+    // SP4-US1: Là một người dùng, tôi muốn gán Task cho các thành viên trong Project ngay trên board.
+    // GÁN TASK CHO THÀNH VIÊN
+    @Override
+    @Transactional
+    public void assignTask(Integer taskId, AssignTaskRequest request) {
+        // 1. Lấy người thực hiện hành động (người giao)
+        User assigner = securityService.getCurrentAuthenticatedUser();
+
+        // 2. Tìm Task
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc với ID: " + taskId));
+
+        // 3. Tìm người được giao (Assignee)
+        User assignee = userRepository.findById(request.getAssigneeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + request.getAssigneeId()));
+
+        // 4. KIỂM TRA NGHIỆP VỤ QUAN TRỌNG:
+        // Người được giao PHẢI là thành viên của Project chứa Task đó.
+        boolean isProjectMember = projectMemberRepository.existsByProject_IdAndUser_IdAndStatus(
+                task.getProject().getId(),
+                assignee.getId(),
+                MemberStatus.ACTIVE
+        );
+
+        if (!isProjectMember) {
+            throw new BadRequestException("Người được giao không phải là thành viên của dự án này.");
+        }
+
+        // 5. Cập nhật Task
+        task.setAssignee(assignee); // Người được giao
+        task.setAssigner(assigner); // Người giao (là người đang đăng nhập)
+
+        // 6. Lưu lại
+        taskRepository.save(task);
+    }
+
 }

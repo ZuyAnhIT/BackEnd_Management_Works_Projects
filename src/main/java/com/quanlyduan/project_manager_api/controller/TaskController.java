@@ -5,6 +5,7 @@ import com.quanlyduan.project_manager_api.dto.request.CommentRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskSprintRequest;
+import com.quanlyduan.project_manager_api.dto.request.AssignTaskRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskAttachmentResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskCommentResponse;
@@ -171,5 +172,23 @@ public class TaskController {
         TaskResponse updatedTask = taskService.updateTask(taskId, request);
         
         return ResponseEntity.ok(ApiResponse.success("Cập nhật công việc thành công.", updatedTask)); // Đã dịch
+    }
+    // SP4-US1: Là một người dùng, tôi muốn gán Task cho các thành viên trong Project ngay trên board.
+    /**
+     * Gán Task cho thành viên.
+     * Bảo vệ: Yêu cầu quyền 'task:assign' trên Task cụ thể đó.
+     */
+    @PutMapping("/{taskId}/assign")
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:assign')")
+    public ResponseEntity<ApiResponse<Object>> assignTask(
+            @PathVariable Integer taskId,
+            @Valid @RequestBody AssignTaskRequest request) {
+
+        taskService.assignTask(taskId, request);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Task assigned successfully",
+                null
+        ));
     }
 }

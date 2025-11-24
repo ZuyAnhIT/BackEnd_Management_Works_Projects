@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.model.ProjectMember;
 import java.util.List;
 import java.util.Optional;
 
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -42,5 +43,12 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, In
 
     // Dùng cho các chức năng sau (cập nhật, xóa)
     Optional<ProjectMember> findByProject_IdAndUser_Id(Integer projectId, Integer userId);
+
+    // SP4-US1: Là một người dùng, tôi muốn gán Task cho các thành viên trong Project ngay trên board.
+    /**
+     * Kiểm tra xem user có phải là thành viên ACTIVE của project không.
+     * Dùng để validate trước khi gán task.
+     */
+    boolean existsByProject_IdAndUser_IdAndStatus(Integer projectId, Integer userId, MemberStatus status);
     
 }
