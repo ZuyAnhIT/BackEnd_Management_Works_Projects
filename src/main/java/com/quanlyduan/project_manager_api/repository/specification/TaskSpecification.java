@@ -2,22 +2,24 @@
 package com.quanlyduan.project_manager_api.repository.specification;
 
 import com.quanlyduan.project_manager_api.model.Task;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority; 
+import com.quanlyduan.project_manager_api.model.common.enums.TaskType; 
 import com.quanlyduan.project_manager_api.util.JpaSpecificationUtil;
 import org.springframework.data.jpa.domain.Specification;
 
 public class TaskSpecification {
 
     /**
-     * Bộ lọc cho màn hình Backlog.
-     * @param projectId Bắt buộc.
-     * @param isBacklog Nếu true -> Tìm task chưa có Sprint. Nếu false -> Tìm task trong sprintId cụ thể.
+     * Bộ lọc nâng cấp cho Backlog (Hỗ trợ tìm kiếm theo trường tùy chọn).
      */
     public static Specification<Task> filterBacklog(
             Integer projectId,
-            Integer sprintId, // Nếu isBacklog=true thì cái này bị bỏ qua
+            Integer sprintId,
             boolean isBacklog,
-            String keyword,
-            Integer assigneeId
+            String keyword,      // Tìm chung (Title hoặc Code)
+            Integer assigneeId,  // Tìm theo người làm
+            TaskPriority priority, // Tìm theo độ ưu tiên 
+            TaskType taskType      // Tìm theo loại task 
     ) {
         // 1. Bắt buộc thuộc Project
         Specification<Task> spec = (root, query, cb) -> 
@@ -25,14 +27,12 @@ public class TaskSpecification {
 
         // 2. Lọc theo Sprint hoặc Backlog
         if (isBacklog) {
-            // Lấy task nằm trong Backlog (sprint_id IS NULL)
             spec = spec.and((root, query, cb) -> cb.isNull(root.get("sprint")));
         } else if (sprintId != null) {
-            // Lấy task trong một Sprint cụ thể
             spec = spec.and((root, query, cb) -> cb.equal(root.get("sprint").get("id"), sprintId));
         }
 
-        // 3. Tìm kiếm từ khóa (Tên, Code)
+        // 3. Tìm kiếm từ khóa chung (Vẫn giữ để UX tiện lợi)
         if (keyword != null && !keyword.isEmpty()) {
              Specification<Task> titleSpec = JpaSpecificationUtil.attributeContains("title", keyword);
              Specification<Task> codeSpec = JpaSpecificationUtil.attributeContains("taskCode", keyword);
@@ -42,6 +42,16 @@ public class TaskSpecification {
         // 4. Lọc theo người làm
         if (assigneeId != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("assignee").get("id"), assigneeId));
+        }
+
+        // 5. Lọc theo Priority ***
+        if (priority != null) {
+            spec = spec.and(JpaSpecificationUtil.attributeEquals("priority", priority));
+        }
+
+        // 6. Lọc theo TaskType ***
+        if (taskType != null) {
+            spec = spec.and(JpaSpecificationUtil.attributeEquals("taskType", taskType));
         }
 
         return spec;

@@ -55,6 +55,8 @@ import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
@@ -417,9 +419,10 @@ public class ProjectServiceImpl implements ProjectService {
     public ProjectBacklogResponse getProjectBacklog(
             Integer companyId, Integer workspaceId, Integer projectId,
             String keyword, Integer assigneeId, 
+            TaskPriority priority, TaskType taskType, // *** THAM SỐ MỚI ***
             int page, int size, String sortBy, String sortDir) {
         
-        // 1. Validate Project/Workspace/Company
+        // 1. Validate Project (Giữ nguyên)
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
         if (!project.getWorkspace().getId().equals(workspaceId) || 
@@ -427,27 +430,18 @@ public class ProjectServiceImpl implements ProjectService {
             throw new BadRequestException("Dự án không thuộc về không gian hoặc công ty này");
         }
 
-        // ==========================================
-        // PHẦN A: LẤY ACTIVE SPRINTS (Không phân trang task bên trong)
-        // ==========================================
-        // Lấy các Sprint đang chạy hoặc sắp chạy
+        // 2. PHẦN A: ACTIVE SPRINTS
         List<Sprint> activeSprints = sprintRepository.findActiveSprintsByProjectId(
             projectId, Arrays.asList(SprintStatus.NOT_STARTED, SprintStatus.IN_PROGRESS)
         );
 
         List<SprintDetailsResponse> sprintDtos = activeSprints.stream().map(sprint -> {
-            // Lọc Task trong Sprint này (theo keyword/assignee nếu có)
+            // *** CẬP NHẬT: Truyền priority và taskType vào bộ lọc Sprint ***
             Specification<Task> sprintTaskSpec = TaskSpecification.filterBacklog(
-                projectId, sprint.getId(), false, keyword, assigneeId
+                projectId, sprint.getId(), false, keyword, assigneeId, priority, taskType
             );
             
-            // Task trong Sprint luôn sắp xếp theo thứ tự ưu tiên (sortOrder) để hiển thị đúng trên bảng
             List<Task> tasks = taskRepository.findAll(sprintTaskSpec, Sort.by("sortOrder").ascending());
-            
-            // Map sang DTO
-            List<TaskSummaryResponse> taskDtos = tasks.stream()
-                    .map(this::mapToTaskSummaryResponse)
-                    .collect(Collectors.toList());
             
             return SprintDetailsResponse.builder()
                     .id(sprint.getId())
@@ -457,53 +451,44 @@ public class ProjectServiceImpl implements ProjectService {
                     .startDate(sprint.getStartDate())
                     .endDate(sprint.getEndDate())
                     .projectId(projectId)
-                    .tasks(taskDtos)
+                    .tasks(tasks.stream().map(this::mapToTaskSummaryResponse).collect(Collectors.toList()))
                     .build();
         }).collect(Collectors.toList());
 
 
-        // ==========================================
-        // PHẦN B: LẤY PRODUCT BACKLOG (CÓ PHÂN TRANG & SẮP XẾP)
-        // ==========================================
-        
-        // 1. Tạo Specification cho Backlog (isBacklog = true)
+        // 3. PHẦN B: PRODUCT BACKLOG
+        // *** CẬP NHẬT: Truyền priority và taskType vào bộ lọc Backlog ***
         Specification<Task> backlogSpec = TaskSpecification.filterBacklog(
-            projectId, null, true, keyword, assigneeId
+            projectId, null, true, keyword, assigneeId, priority, taskType
         );
         
-        // 2. Cấu hình Sắp xếp cho Backlog
+        // Map sắp xếp
         Map<String, String> sortMapping = Map.of(
-            "sortOrder", "sortOrder",     // Thứ tự ưu tiên (Mặc định)
-            "title", "title",             // Tên task
-            "priority", "priority",       // Mức độ ưu tiên
-            "storyPoints", "storyPoints", // Điểm
-            "dueDate", "dueDate"          // Hạn chót
+            "sortOrder", "sortOrder",
+            "title", "title",
+            "priority", "priority",
+            "storyPoints", "storyPoints",
+            "dueDate", "dueDate"
         );
-        // Mặc định sắp xếp theo sortOrder ASC (việc quan trọng lên đầu)
         Sort sort = SortUtils.createSort(sortBy, sortDir, "sortOrder", sortMapping);
         
-        // Nếu người dùng sắp xếp theo sortOrder, ta ép kiểu ASC (tăng dần) để đúng logic ưu tiên
+        // Logic giữ nguyên thứ tự ưu tiên nếu sort mặc định
         if ("sortOrder".equals(sortBy) && (sortDir == null || sortDir.isEmpty())) {
             sort = Sort.by(Sort.Direction.ASC, "sortOrder");
         }
 
         Pageable pageable = PageRequest.of(page, size, sort);
         
-        // 3. Gọi Repository
         Page<Task> backlogPage = taskRepository.findAll(backlogSpec, pageable);
 
-        // 4. Map sang DTO
         List<TaskSummaryResponse> backlogTaskDtos = backlogPage.stream()
                 .map(this::mapToTaskSummaryResponse)
                 .collect(Collectors.toList());
 
-        // ==========================================
-        // PHẦN C: ĐÓNG GÓI KẾT QUẢ
-        // ==========================================
+        // 4. Đóng gói kết quả
         return ProjectBacklogResponse.builder()
                 .activeSprints(sprintDtos)
                 .backlogTasks(backlogTaskDtos)
-                // Metadata phân trang cho Backlog
                 .backlogPageNumber(backlogPage.getNumber())
                 .backlogPageSize(backlogPage.getSize())
                 .backlogTotalElements(backlogPage.getTotalElements())
