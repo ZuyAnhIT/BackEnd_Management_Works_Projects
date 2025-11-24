@@ -97,4 +97,22 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
     List<Task> findBacklogTasksByProjectId(Integer projectId);
 
 
+    // CÁC HÀM HỖ TRỢ KÉO THẢ (SORT ORDER)
+    // 1. Tìm vị trí lớn nhất trong Sprint (để thêm vào cuối)
+    @Query("SELECT COALESCE(MAX(t.sortOrder), 0) FROM Task t WHERE t.sprint.id = :sprintId")
+    Integer findMaxSortOrderBySprintId(@Param("sprintId") Integer sprintId);
+
+    // 2. Tìm vị trí lớn nhất trong Backlog (project nhưng sprint null)
+    @Query("SELECT COALESCE(MAX(t.sortOrder), 0) FROM Task t WHERE t.project.id = :projectId AND t.sprint IS NULL")
+    Integer findMaxSortOrderByProjectIdAndSprintIsNull(@Param("projectId") Integer projectId);
+
+    // 3. Đẩy các task phía sau xuống 1 bậc (Trong Sprint)
+    @Modifying
+    @Query("UPDATE Task t SET t.sortOrder = t.sortOrder + 1 WHERE t.sprint.id = :sprintId AND t.sortOrder >= :newSortOrder")
+    void shiftSortOrderInSprint(@Param("sprintId") Integer sprintId, @Param("newSortOrder") Integer newSortOrder);
+
+    // 4. Đẩy các task phía sau xuống 1 bậc (Trong Backlog)
+    @Modifying
+    @Query("UPDATE Task t SET t.sortOrder = t.sortOrder + 1 WHERE t.project.id = :projectId AND t.sprint IS NULL AND t.sortOrder >= :newSortOrder")
+    void shiftSortOrderInBacklog(@Param("projectId") Integer projectId, @Param("newSortOrder") Integer newSortOrder);
 }

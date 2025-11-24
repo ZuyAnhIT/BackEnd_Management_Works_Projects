@@ -44,27 +44,47 @@ public class TaskServiceImpl implements TaskService {
         this.epicRepository = epicRepository;
         this.projectStatusRepository = projectStatusRepository;
     }
-     // US-S3-7: Kéo/thả Task vào Sprint
+    
+    // LOGIC KEO THA TASK (SPRINT + VI TRI)
     @Override
     @Transactional
-    public void updateTaskSprint(Integer taskId, Integer newSprintId) {
+    public void updateTaskSprint(Integer taskId, Integer newSprintId, Integer newSortOrder) {
+        // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc"));
 
-        if (newSprintId == null) {
-            // Kéo về Backlog
-            task.setSprint(null);
-        } else {
-            // Kéo vào 1 Sprint
-            Sprint sprint = sprintRepository.findById(newSprintId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint")); // Đã dịch
-            
-            // Validate: Task và Sprint phải cùng Project
-            if (!task.getProject().getId().equals(sprint.getProject().getId())) {
-                throw new BadRequestException("Công việc và Sprint không thuộc cùng một dự án"); // Đã dịch
+        Integer projectId = task.getProject().getId();
+
+        // 2. Xác định Sprint đích (hoặc Backlog)
+        Sprint targetSprint = null;
+        if (newSprintId != null) {
+            targetSprint = sprintRepository.findById(newSprintId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint"));
+            if (!targetSprint.getProject().getId().equals(projectId)) {
+                throw new BadRequestException("Task và Sprint không cùng dự án");
             }
-            task.setSprint(sprint);
         }
+
+        // 3. Xác định vị trí (SortOrder)
+        // Nếu người dùng không gửi vị trí -> Mặc định xuống cuối cùng
+        if (newSortOrder == null) {
+            if (targetSprint != null) {
+                newSortOrder = taskRepository.findMaxSortOrderBySprintId(newSprintId) + 1;
+            } else {
+                newSortOrder = taskRepository.findMaxSortOrderByProjectIdAndSprintIsNull(projectId) + 1;
+            }
+        } else {
+            // Nếu có vị trí cụ thể -> Phải đẩy các task đang đứng đó lùi xuống
+            if (targetSprint != null) {
+                taskRepository.shiftSortOrderInSprint(newSprintId, newSortOrder);
+            } else {
+                taskRepository.shiftSortOrderInBacklog(projectId, newSortOrder);
+            }
+        }
+
+        // 4. Cập nhật Task
+        task.setSprint(targetSprint);
+        task.setSortOrder(newSortOrder);
         
         taskRepository.save(task);
     }
