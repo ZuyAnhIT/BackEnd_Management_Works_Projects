@@ -175,29 +175,6 @@ public class SprintServiceImpl implements SprintService {
     }
 
     @Override
-    @Transactional
-    public SprintResponse cancelSprint(Integer projectId, Integer sprintId) {
-        Sprint sprint = sprintRepository.findById(sprintId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint")); // Đã dịch
-
-        if (!sprint.getProject().getId().equals(projectId)) {
-            throw new BadRequestException("Sprint không thuộc về dự án này."); // Đã dịch
-        }
-
-        if (sprint.getStatus() == SprintStatus.COMPLETED) {
-            throw new BadRequestException("Không thể hủy Sprint đã hoàn thành."); // Đã dịch
-        }
-
-        sprint.setStatus(SprintStatus.CANCELLED);
-        
-        Sprint savedSprint = sprintRepository.save(sprint);
-        
-        List<Task> tasks = taskRepository.findBySprintIdWithDetails(savedSprint.getId());
-        return mapToSprintResponse(savedSprint, tasks);
-    }
-
-    // *** ĐÃ SỬA: BỔ SUNG PHƯƠNG THỨC THIẾU ***
-    @Override
     @Transactional(readOnly = true)
     public Integer getProjectIdBySprint(Integer sprintId) {
         Sprint sprint = sprintRepository.findById(sprintId)

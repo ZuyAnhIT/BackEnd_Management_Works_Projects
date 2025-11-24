@@ -83,20 +83,6 @@ public class SprintController {
     }
 
     /**
-     * US-S3-XX: Hủy một Sprint
-     * Endpoint: POST /api/projects/{projectId}/sprints/{sprintId}/cancel
-     */
-    @PostMapping("/{sprintId}/cancel")
-    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:delete')")
-    public ResponseEntity<ApiResponse<SprintResponse>> cancelSprint(
-            @PathVariable Integer projectId,
-            @PathVariable Integer sprintId) {
-                
-        SprintResponse sprint = sprintService.cancelSprint(projectId, sprintId);
-        return ResponseEntity.ok(ApiResponse.success("Sprint đã bị hủy.", sprint)); // Đã dịch
-    }
-
-    /**
      * API XEM CHI TIẾT SPRINT
      * (Bao gồm danh sách task trong Sprint đó)
      * Endpoint: GET /api/projects/{projectId}/sprints/{sprintId}
