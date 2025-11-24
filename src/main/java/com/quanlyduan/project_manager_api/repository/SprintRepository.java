@@ -29,4 +29,9 @@ public interface SprintRepository extends JpaRepository<Sprint, Integer> {
         @Param("projectId") Integer projectId, 
         @Param("statuses") List<SprintStatus> statuses
     );
+
+    /**
+     * Đếm số lượng Sprint trong dự án để tự sinh tên (Ví dụ: Sprint 1, Sprint 2...)
+     */
+    long countByProject_Id(Integer projectId);
 }

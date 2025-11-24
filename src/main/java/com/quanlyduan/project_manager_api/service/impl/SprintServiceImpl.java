@@ -45,31 +45,39 @@ public class SprintServiceImpl implements SprintService {
         this.taskService = taskService;
     }
 
-    // US-S3-6: Tạo Sprint
+
+    // US-S3-6: Tạo Sprint (HỖ TRỢ QUICK CREATE)
     @Override
     @Transactional
     public SprintResponse createSprint(Integer projectId, CreateSprintRequest request) {
         Integer currentUserId = securityService.getCurrentUserId();
         
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
         
         User creator = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng tạo")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("User creator not found"));
+
+        // LOGIC SINH TÊN TỰ ĐỘNG
+        String sprintName = request.getName();
+        if (sprintName == null || sprintName.trim().isEmpty()) {
+            long count = sprintRepository.countByProject_Id(projectId);
+            sprintName = "Sprint " + (count + 1);
+        }
 
         Sprint sprint = Sprint.builder()
                 .project(project)
-                .name(request.getName())
-                .goal(request.getGoal())
-                .startDate(request.getStartDate())
-                .endDate(request.getEndDate())
+                .name(sprintName) // Sử dụng tên (tự sinh hoặc do user nhập)
+                .goal(request.getGoal()) // Có thể null
+                .startDate(request.getStartDate()) // Có thể null
+                .endDate(request.getEndDate()) // Có thể null
                 .status(SprintStatus.NOT_STARTED)
                 .createdBy(creator)
                 .build();
         
         Sprint savedSprint = sprintRepository.save(sprint);
 
-        // US-S3-6: Chuyển task từ backlog vào sprint mới
+        // (Logic chuyển task từ backlog giữ nguyên)
         if (request.getTaskIds() != null && !request.getTaskIds().isEmpty()) {
             List<Task> tasksToUpdate = taskRepository.findAllById(request.getTaskIds());
             for (Task task : tasksToUpdate) {
