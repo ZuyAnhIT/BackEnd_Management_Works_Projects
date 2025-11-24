@@ -7,6 +7,7 @@ import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
@@ -198,18 +199,30 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin dự án thành công.", updated)); // Đã dịch
     }
 
-    // API LAY DANH SACH BACKLOG CUA DU AN
+    // API XEM MAN HINH BACKLOG (PHAN TRANG + SORT + FILTER)
     @GetMapping("/{projectId}/backlog")
-    // Bảo vệ: Chỉ thành viên dự án (project:view) mới được xem
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
-    public ResponseEntity<ApiResponse<List<TaskSummaryResponse>>> getProjectBacklog(
+    public ResponseEntity<ApiResponse<ProjectBacklogResponse>> getProjectBacklog(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
-            @PathVariable Integer projectId) {
+            @PathVariable Integer projectId,
+            
+            // Các tham số tìm kiếm/lọc (Optional)
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer assigneeId,
+
+            // Các tham số phân trang cho phần Backlog
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,             // Backlog load 20 items/lần
+            @RequestParam(defaultValue = "sortOrder") String sortBy, // Mặc định theo thứ tự ưu tiên
+            @RequestParam(defaultValue = "asc") String sortDir       // 0 -> n
+    ) {
         
-        List<TaskSummaryResponse> backlog = projectService.getProjectBacklog(companyId, workspaceId, projectId);
+        ProjectBacklogResponse backlogData = projectService.getProjectBacklog(
+            companyId, workspaceId, projectId, keyword, assigneeId, page, size, sortBy, sortDir
+        );
         
-        return ResponseEntity.ok(ApiResponse.success("Lấy backlog dự án thành công.", backlog)); 
+        return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu backlog dự án thành công.", backlogData));
     }
 
     // API TAO TASK MOI

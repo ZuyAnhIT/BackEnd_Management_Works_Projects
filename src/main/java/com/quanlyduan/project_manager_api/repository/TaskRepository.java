@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.repository;
 import com.quanlyduan.project_manager_api.model.Sprint;
 import com.quanlyduan.project_manager_api.model.Task;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,7 +13,7 @@ import java.util.List;
 import java.util.Collection;
 
 @Repository
-public interface TaskRepository extends JpaRepository<Task, Integer> {
+public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecificationExecutor<Task> {
 
     // Spring Data JPA tự động cung cấp 'findById(Integer taskId)'.
     // Hàm này là đủ để SecurityService tìm Task và lấy 'projectId' từ nó.
@@ -82,4 +83,18 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
      * Dùng để chặn việc xóa Status đang có dữ liệu.
      */
     boolean existsByStatus_Id(Integer statusId);
+
+    /**
+     * Lấy danh sách Task thuộc Backlog (sprint_id IS NULL) của dự án.
+     * Sắp xếp theo sortOrder.
+     */
+    @Query("SELECT t FROM Task t " +
+           "LEFT JOIN FETCH t.assignee " + 
+           "LEFT JOIN FETCH t.epic " +
+           "LEFT JOIN FETCH t.status " +
+           "WHERE t.project.id = :projectId AND t.sprint IS NULL " +
+           "ORDER BY t.sortOrder ASC")
+    List<Task> findBacklogTasksByProjectId(Integer projectId);
+
+
 }
