@@ -95,7 +95,7 @@ public class TaskSpecification {
         // 5. Lọc theo Độ ưu tiên (Priority) - US 4, 8
         if (priority != null && !priority.isEmpty()) {
             try {
-                ProjectPriority priorityEnum = ProjectPriority.valueOf(priority.toUpperCase());
+                TaskPriority priorityEnum = TaskPriority.valueOf(priority.toUpperCase());
                 spec = spec.and((root, query, cb) -> cb.equal(root.get("priority"), priorityEnum));
             } catch (IllegalArgumentException e) {
                 // Bỏ qua nếu priority string không hợp lệ
