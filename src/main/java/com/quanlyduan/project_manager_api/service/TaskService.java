@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.Task;
@@ -36,4 +37,14 @@ public interface TaskService {
      * @param request DTO chứa ID trạng thái mới
      */
     void moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request);
+
+    /**
+     * Lấy chi tiết đầy đủ của một Task.
+     */
+    TaskResponse getTaskDetails(Integer taskId);
+
+    /**
+     * Cập nhật thông tin Task.
+     */
+    TaskResponse updateTask(Integer taskId, UpdateTaskRequest request);
 }
