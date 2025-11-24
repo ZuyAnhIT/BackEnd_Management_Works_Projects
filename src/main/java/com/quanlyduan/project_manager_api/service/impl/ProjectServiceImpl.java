@@ -3,8 +3,10 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse; 
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
@@ -22,6 +24,7 @@ import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
 import com.quanlyduan.project_manager_api.repository.specification.ProjectMemberSpecification;
 import com.quanlyduan.project_manager_api.repository.specification.ProjectSpecification;
+import com.quanlyduan.project_manager_api.repository.specification.TaskSpecification;
 import com.quanlyduan.project_manager_api.service.FileStorageService;
 import com.quanlyduan.project_manager_api.service.ProjectService;
 import com.quanlyduan.project_manager_api.util.SortUtils;
@@ -43,14 +46,15 @@ import com.quanlyduan.project_manager_api.security.SecurityService;
 import java.math.BigDecimal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
+
+import java.util.Arrays;
 import java.util.List;
 
 import java.util.stream.Collectors;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
-
-
+import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
@@ -407,29 +411,107 @@ public class ProjectServiceImpl implements ProjectService {
         return toResponse(project);
     }
 
-    // LOGIC LAY BACKLOG CUA DU AN
+    // LOGIC LAY DU LIEU MAN HINH BACKLOG (ACTIVE SPRINTS + PAGINATED BACKLOG)
     @Override
     @Transactional(readOnly = true)
-    public List<TaskSummaryResponse> getProjectBacklog(Integer companyId, Integer workspaceId, Integer projectId) {
-        // 1. Kiểm tra (IDOR): Đảm bảo Project thuộc Workspace và Company
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+    public ProjectBacklogResponse getProjectBacklog(
+            Integer companyId, Integer workspaceId, Integer projectId,
+            String keyword, Integer assigneeId, 
+            int page, int size, String sortBy, String sortDir) {
         
+        // 1. Validate Project/Workspace/Company
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
         if (!project.getWorkspace().getId().equals(workspaceId) || 
             !project.getWorkspace().getCompany().getId().equals(companyId)) {
-            throw new ResourceNotFoundException("Không tìm thấy dự án trong không gian hoặc công ty này");
+            throw new BadRequestException("Dự án không thuộc về không gian hoặc công ty này");
         }
 
-        // 2. Lấy danh sách Task từ CSDL
-        List<Task> tasks = taskRepository.findByProjectIdWithDetails(projectId);
+        // ==========================================
+        // PHẦN A: LẤY ACTIVE SPRINTS (Không phân trang task bên trong)
+        // ==========================================
+        // Lấy các Sprint đang chạy hoặc sắp chạy
+        List<Sprint> activeSprints = sprintRepository.findActiveSprintsByProjectId(
+            projectId, Arrays.asList(SprintStatus.NOT_STARTED, SprintStatus.IN_PROGRESS)
+        );
 
-        // 3. Map sang DTO
-        return tasks.stream()
+        List<SprintDetailsResponse> sprintDtos = activeSprints.stream().map(sprint -> {
+            // Lọc Task trong Sprint này (theo keyword/assignee nếu có)
+            Specification<Task> sprintTaskSpec = TaskSpecification.filterBacklog(
+                projectId, sprint.getId(), false, keyword, assigneeId
+            );
+            
+            // Task trong Sprint luôn sắp xếp theo thứ tự ưu tiên (sortOrder) để hiển thị đúng trên bảng
+            List<Task> tasks = taskRepository.findAll(sprintTaskSpec, Sort.by("sortOrder").ascending());
+            
+            // Map sang DTO
+            List<TaskSummaryResponse> taskDtos = tasks.stream()
+                    .map(this::mapToTaskSummaryResponse)
+                    .collect(Collectors.toList());
+            
+            return SprintDetailsResponse.builder()
+                    .id(sprint.getId())
+                    .name(sprint.getName())
+                    .goal(sprint.getGoal())
+                    .status(sprint.getStatus())
+                    .startDate(sprint.getStartDate())
+                    .endDate(sprint.getEndDate())
+                    .projectId(projectId)
+                    .tasks(taskDtos)
+                    .build();
+        }).collect(Collectors.toList());
+
+
+        // ==========================================
+        // PHẦN B: LẤY PRODUCT BACKLOG (CÓ PHÂN TRANG & SẮP XẾP)
+        // ==========================================
+        
+        // 1. Tạo Specification cho Backlog (isBacklog = true)
+        Specification<Task> backlogSpec = TaskSpecification.filterBacklog(
+            projectId, null, true, keyword, assigneeId
+        );
+        
+        // 2. Cấu hình Sắp xếp cho Backlog
+        Map<String, String> sortMapping = Map.of(
+            "sortOrder", "sortOrder",     // Thứ tự ưu tiên (Mặc định)
+            "title", "title",             // Tên task
+            "priority", "priority",       // Mức độ ưu tiên
+            "storyPoints", "storyPoints", // Điểm
+            "dueDate", "dueDate"          // Hạn chót
+        );
+        // Mặc định sắp xếp theo sortOrder ASC (việc quan trọng lên đầu)
+        Sort sort = SortUtils.createSort(sortBy, sortDir, "sortOrder", sortMapping);
+        
+        // Nếu người dùng sắp xếp theo sortOrder, ta ép kiểu ASC (tăng dần) để đúng logic ưu tiên
+        if ("sortOrder".equals(sortBy) && (sortDir == null || sortDir.isEmpty())) {
+            sort = Sort.by(Sort.Direction.ASC, "sortOrder");
+        }
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        // 3. Gọi Repository
+        Page<Task> backlogPage = taskRepository.findAll(backlogSpec, pageable);
+
+        // 4. Map sang DTO
+        List<TaskSummaryResponse> backlogTaskDtos = backlogPage.stream()
                 .map(this::mapToTaskSummaryResponse)
                 .collect(Collectors.toList());
+
+        // ==========================================
+        // PHẦN C: ĐÓNG GÓI KẾT QUẢ
+        // ==========================================
+        return ProjectBacklogResponse.builder()
+                .activeSprints(sprintDtos)
+                .backlogTasks(backlogTaskDtos)
+                // Metadata phân trang cho Backlog
+                .backlogPageNumber(backlogPage.getNumber())
+                .backlogPageSize(backlogPage.getSize())
+                .backlogTotalElements(backlogPage.getTotalElements())
+                .backlogTotalPages(backlogPage.getTotalPages())
+                .build();
     }
 
-    // *** HÀM HELPER MAPPING (ĐÃ SỬA LỖI LOGIC) ***
+    
     /**
      * Hàm helper để map Task (Entity) sang TaskSummaryResponse (DTO)
      */

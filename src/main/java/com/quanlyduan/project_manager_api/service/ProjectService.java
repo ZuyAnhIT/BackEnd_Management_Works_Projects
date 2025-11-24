@@ -5,6 +5,7 @@ import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
@@ -55,14 +56,22 @@ public interface ProjectService {
      */
     ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request, MultipartFile coverImageFile);
 
-    /**
-     * Lấy danh sách Backlog (tất cả task) của một dự án.
-     * @param companyId ID công ty (để kiểm tra)
-     * @param workspaceId ID không gian (để kiểm tra)
-     * @param projectId ID dự án
-     * @return Danh sách TaskSummaryResponse DTO
+   /**
+     * Lấy dữ liệu màn hình Backlog.
+     * - Active Sprints: Lấy hết (có lọc keyword).
+     * - Backlog Tasks: Lấy phân trang + lọc keyword + sắp xếp.
      */
-    List<TaskSummaryResponse> getProjectBacklog(Integer companyId, Integer workspaceId, Integer projectId);
+    ProjectBacklogResponse getProjectBacklog(
+            Integer companyId, 
+            Integer workspaceId, 
+            Integer projectId,
+            String keyword,     // Tìm kiếm chung
+            Integer assigneeId, // Lọc người làm
+            int page,           // Page cho Backlog
+            int size,           // Size cho Backlog
+            String sortBy,      // Sort cho Backlog
+            String sortDir      // Dir cho Backlog
+    );
 
 
     /**
