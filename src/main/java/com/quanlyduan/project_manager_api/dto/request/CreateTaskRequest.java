@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 public class CreateTaskRequest {
@@ -25,5 +26,5 @@ public class CreateTaskRequest {
     private Integer epicId;
     private Integer assigneeId;
     private Integer storyPoints;
-    private LocalDate dueDate;
+    private LocalDateTime dueDate;
 }
