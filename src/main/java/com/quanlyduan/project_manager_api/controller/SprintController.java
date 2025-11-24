@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateSprintRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateSprintRequest;
 import com.quanlyduan.project_manager_api.dto.response.*;
 import com.quanlyduan.project_manager_api.service.SprintService;
 // import lombok.RequiredArgsConstructor; // Đã xóa
@@ -100,9 +101,7 @@ public class SprintController {
      * (Bao gồm danh sách task trong Sprint đó)
      * Endpoint: GET /api/projects/{projectId}/sprints/{sprintId}
      */
-    // *** SỬA: Chuyển API này vào chung luồng ***
     @GetMapping("/{sprintId}")
-    // *** SỬA: Đơn giản hóa PreAuthorize vì đã có projectId ***
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<SprintDetailsResponse>> getSprintDetails(
             @PathVariable Integer projectId, // Giữ lại để kiểm tra quyền
@@ -112,5 +111,18 @@ public class SprintController {
         // và kiểm tra xem sprint có thuộc project đó không, để chống lỗi IDOR)
         SprintDetailsResponse details = sprintService.getSprintDetails(projectId, sprintId);
         return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết sprint thành công.", details));
+    }
+
+    // API CAP NHAT THONG TIN SPRINT (SAU KHI TAO NHANH)
+    @PutMapping("/{sprintId}")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:edit')")
+    public ResponseEntity<ApiResponse<SprintResponse>> updateSprint(
+            @PathVariable Integer projectId,
+            @PathVariable Integer sprintId,
+            @Valid @RequestBody UpdateSprintRequest request) {
+        
+        SprintResponse sprint = sprintService.updateSprint(projectId, sprintId, request);
+        
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin Sprint thành công.", sprint)); // Đã dịch
     }
 }
