@@ -220,23 +220,35 @@ public class SprintServiceImpl implements SprintService {
                 .build();
     }
 
+    // LOGIC XEM CHI TIET SPRINT (TÍNH TOÁN)
     @Override
     @Transactional(readOnly = true)
     public SprintDetailsResponse getSprintDetails(Integer projectId, Integer sprintId) { 
+        // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint với ID: " + sprintId)); // Đã dịch
 
-        // KIỂM TRA BẢO MẬT (IDOR)
+        // 2. Kiểm tra bảo mật
         if (!sprint.getProject().getId().equals(projectId)) {
             throw new ResourceNotFoundException("Không tìm thấy Sprint này trong dự án được chỉ định"); // Đã dịch
         }
 
+        // 3. Tìm tất cả Task
         List<Task> tasks = taskRepository.findBySprintIdWithDetails(sprintId);
 
+        // 4. Map sang DTO
         List<TaskSummaryResponse> taskDTOs = tasks.stream()
-                .map(this::mapToTaskSummaryResponse) 
+                .map(this::mapToTaskSummaryResponse)
                 .collect(Collectors.toList());
 
+        // 5. TÍNH TOÁN THỐNG KÊ
+        long totalPoints = tasks.stream()
+                .mapToLong(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
+                .sum();
+        
+        int count = tasks.size();
+
+        // 6. Đóng gói
         return SprintDetailsResponse.builder()
                 .id(sprint.getId())
                 .name(sprint.getName())
@@ -245,7 +257,12 @@ public class SprintServiceImpl implements SprintService {
                 .startDate(sprint.getStartDate())
                 .endDate(sprint.getEndDate())
                 .projectId(sprint.getProject().getId())
-                .tasks(taskDTOs) 
+                .tasks(taskDTOs)
+                
+                // *** GÁN GIÁ TRỊ ***
+                .totalStoryPoints(totalPoints)
+                .taskCount(count)
+                
                 .build();
     }
     

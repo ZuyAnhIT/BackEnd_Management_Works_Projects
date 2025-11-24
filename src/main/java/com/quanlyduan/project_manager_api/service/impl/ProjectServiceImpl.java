@@ -79,7 +79,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final EpicRepository epicRepository;
     private final ProjectStatusRepository projectStatusRepository;
 
-    // *** CONSTRUCTOR THỦ CÔNG ĐÃ CẬP NHẬT (12 tham số) ***
+    // CONSTRUCTOR THỦ CÔNG 
     public ProjectServiceImpl(ProjectRepository projectRepository,
                               WorkspaceRepository workspaceRepository,
                               UserRepository userRepository,
@@ -419,7 +419,7 @@ public class ProjectServiceImpl implements ProjectService {
     public ProjectBacklogResponse getProjectBacklog(
             Integer companyId, Integer workspaceId, Integer projectId,
             String keyword, Integer assigneeId, 
-            TaskPriority priority, TaskType taskType, // *** THAM SỐ MỚI ***
+            TaskPriority priority, TaskType taskType, 
             int page, int size, String sortBy, String sortDir) {
         
         // 1. Validate Project (Giữ nguyên)
@@ -436,12 +436,24 @@ public class ProjectServiceImpl implements ProjectService {
         );
 
         List<SprintDetailsResponse> sprintDtos = activeSprints.stream().map(sprint -> {
-            // *** CẬP NHẬT: Truyền priority và taskType vào bộ lọc Sprint ***
+            // Lọc Task trong Sprint
             Specification<Task> sprintTaskSpec = TaskSpecification.filterBacklog(
-                projectId, sprint.getId(), false, keyword, assigneeId, priority, taskType
+                projectId, sprint.getId(), false, keyword, assigneeId, null, null
             );
             
             List<Task> tasks = taskRepository.findAll(sprintTaskSpec, Sort.by("sortOrder").ascending());
+            
+            // TÍNH TOÁN THỐNG KÊ 
+            long totalPoints = tasks.stream()
+                    .mapToLong(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
+                    .sum();
+            
+            int count = tasks.size();
+            
+            // Map task
+            List<TaskSummaryResponse> taskDtos = tasks.stream()
+                    .map(this::mapToTaskSummaryResponse)
+                    .collect(Collectors.toList());
             
             return SprintDetailsResponse.builder()
                     .id(sprint.getId())
@@ -451,13 +463,15 @@ public class ProjectServiceImpl implements ProjectService {
                     .startDate(sprint.getStartDate())
                     .endDate(sprint.getEndDate())
                     .projectId(projectId)
-                    .tasks(tasks.stream().map(this::mapToTaskSummaryResponse).collect(Collectors.toList()))
+                    .tasks(taskDtos)
+                    .totalStoryPoints(totalPoints)
+                    .taskCount(count)
+                    
                     .build();
         }).collect(Collectors.toList());
 
 
         // 3. PHẦN B: PRODUCT BACKLOG
-        // *** CẬP NHẬT: Truyền priority và taskType vào bộ lọc Backlog ***
         Specification<Task> backlogSpec = TaskSpecification.filterBacklog(
             projectId, null, true, keyword, assigneeId, priority, taskType
         );
@@ -472,7 +486,7 @@ public class ProjectServiceImpl implements ProjectService {
         );
         Sort sort = SortUtils.createSort(sortBy, sortDir, "sortOrder", sortMapping);
         
-        // Logic giữ nguyên thứ tự ưu tiên nếu sort mặc định
+        // Logic giữ nguyên thứ tự ưu tiên nếu sort 
         if ("sortOrder".equals(sortBy) && (sortDir == null || sortDir.isEmpty())) {
             sort = Sort.by(Sort.Direction.ASC, "sortOrder");
         }

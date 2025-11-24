@@ -18,6 +18,7 @@ public class SprintDetailsResponse {
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private Integer projectId;
-
+    private Long totalStoryPoints; // Tổng điểm câu chuyện
+    private Integer taskCount;     // Tổng số lượng task
     private List<TaskSummaryResponse> tasks; 
 }
