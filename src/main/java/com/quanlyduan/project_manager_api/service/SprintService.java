@@ -34,4 +34,9 @@ public interface SprintService {
      * Cập nhật thông tin Sprint (Tên, Mục tiêu, Ngày tháng).
      */
     SprintResponse updateSprint(Integer projectId, Integer sprintId, UpdateSprintRequest request);
+
+    /**
+     * Xử lý xóa Sprint thông minh (Hard Delete hoặc Cancel).
+     */
+    void deleteSprint(Integer projectId, Integer sprintId);
 }

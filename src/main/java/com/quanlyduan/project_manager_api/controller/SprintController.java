@@ -125,4 +125,17 @@ public class SprintController {
         
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin Sprint thành công.", sprint)); // Đã dịch
     }
+
+    // API XOA SPRINT (SMART DELETE)
+    @DeleteMapping("/{sprintId}")
+    // Bảo vệ: Cần quyền 'sprint:delete' (hoặc 'project:edit')
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:delete')")
+    public ResponseEntity<ApiResponse<Object>> deleteSprint(
+            @PathVariable Integer projectId,
+            @PathVariable Integer sprintId) {
+        
+        sprintService.deleteSprint(projectId, sprintId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Xóa Sprint thành công.", null)); 
+    }
 }

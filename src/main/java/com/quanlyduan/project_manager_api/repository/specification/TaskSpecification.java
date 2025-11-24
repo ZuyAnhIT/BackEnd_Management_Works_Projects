@@ -48,12 +48,12 @@ public class TaskSpecification {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("assignee").get("id"), assigneeId));
         }
 
-        // 5. Lọc theo Priority ***
+        // 5. Lọc theo Priority 
         if (priority != null) {
             spec = spec.and(JpaSpecificationUtil.attributeEquals("priority", priority));
         }
 
-        // 6. Lọc theo TaskType ***
+        // 6. Lọc theo TaskType 
         if (taskType != null) {
             spec = spec.and(JpaSpecificationUtil.attributeEquals("taskType", taskType));
         }

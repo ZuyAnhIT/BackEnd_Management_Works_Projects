@@ -115,4 +115,15 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
     @Modifying
     @Query("UPDATE Task t SET t.sortOrder = t.sortOrder + 1 WHERE t.project.id = :projectId AND t.sprint IS NULL AND t.sortOrder >= :newSortOrder")
     void shiftSortOrderInBacklog(@Param("projectId") Integer projectId, @Param("newSortOrder") Integer newSortOrder);
+
+    
+    /**
+     * Đếm số task trong một sprint.
+     */
+    long countBySprint_Id(Integer sprintId);
+
+    // Để di chuyển nhanh task về Backlog
+    @Modifying
+    @Query("UPDATE Task t SET t.sprint = NULL WHERE t.sprint.id = :sprintId")
+    void moveTasksToBacklogBySprintId(@Param("sprintId") Integer sprintId);
 }

@@ -299,6 +299,49 @@ public class SprintServiceImpl implements SprintService {
         return mapToSprintResponse(savedSprint, Collections.emptyList());
     }
 
+    // LOGIC XOA SPRINT (SMART DELETE)
+    @Override
+    @Transactional
+    public void deleteSprint(Integer projectId, Integer sprintId) {
+        // 1. Tìm Sprint
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint")); // Đã dịch
+
+        // 2. Validate: Sprint thuộc Project
+        if (!sprint.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("Sprint không thuộc về dự án này."); // Đã dịch
+        }
+
+        // 3. Validate: Không được xóa Sprint đã hoàn thành
+        if (sprint.getStatus() == SprintStatus.COMPLETED) {
+            throw new BadRequestException("Không thể xóa Sprint đã hoàn thành."); // Đã dịch
+        }
+
+        // 4. Kiểm tra số lượng task
+        long taskCount = taskRepository.countBySprint_Id(sprintId);
+
+        // === CASE 1: XÓA HẲN (HARD DELETE) ===
+        // Nếu chưa bắt đầu VÀ không có task nào -> Xóa bay màu
+        if (sprint.getStatus() == SprintStatus.NOT_STARTED && taskCount == 0) {
+            sprintRepository.delete(sprint);
+            return;
+        }
+
+        // === CASE 2: HỦY (SOFT DELETE / CANCEL) ===
+        // Nếu đang chạy HOẶC đã có task -> Chuyển về trạng thái CANCELLED
+        
+        // B2.1: Đẩy hết task về Backlog (sprint_id = null)
+        if (taskCount > 0) {
+            taskRepository.moveTasksToBacklogBySprintId(sprintId);
+        }
+
+        // B2.2: Cập nhật trạng thái Sprint thành CANCELLED
+        sprint.setStatus(SprintStatus.CANCELLED);
+        sprint.setEndDate(java.time.LocalDateTime.now()); // Ghi nhận thời điểm hủy
+        
+        sprintRepository.save(sprint);
+    }
+
     // --- HÀM HELPER (TÁI SỬ DỤNG & SỬA LOGIC STATUS) ---
     private TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
         User assignee = task.getAssignee();
