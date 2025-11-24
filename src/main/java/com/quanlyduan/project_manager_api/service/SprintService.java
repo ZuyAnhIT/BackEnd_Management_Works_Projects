@@ -3,6 +3,7 @@
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateSprintRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateSprintRequest;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintResponse;
 import java.util.List;
@@ -28,4 +29,9 @@ public interface SprintService {
      * @return Chi tiết Sprint
      */
     SprintDetailsResponse getSprintDetails(Integer projectId, Integer sprintId);
+
+    /**
+     * Cập nhật thông tin Sprint (Tên, Mục tiêu, Ngày tháng).
+     */
+    SprintResponse updateSprint(Integer projectId, Integer sprintId, UpdateSprintRequest request);
 }

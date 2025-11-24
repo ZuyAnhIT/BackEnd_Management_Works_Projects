@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateSprintRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateSprintRequest;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
@@ -16,6 +17,8 @@ import com.quanlyduan.project_manager_api.service.TaskService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -107,7 +110,7 @@ public class SprintServiceImpl implements SprintService {
         sprint.setStatus(SprintStatus.IN_PROGRESS);
         // Tự động gán ngày bắt đầu nếu chưa có
         if (sprint.getStartDate() == null) {
-            sprint.setStartDate(java.time.LocalDate.now());
+            sprint.setStartDate(java.time.LocalDateTime.now());
         }
         
         Sprint savedSprint = sprintRepository.save(sprint);
@@ -163,7 +166,7 @@ public class SprintServiceImpl implements SprintService {
         }
 
         sprint.setStatus(SprintStatus.COMPLETED);
-        sprint.setEndDate(java.time.LocalDate.now()); 
+        sprint.setEndDate(java.time.LocalDateTime.now()); 
         
         Sprint savedSprint = sprintRepository.save(sprint);
         
@@ -249,6 +252,52 @@ public class SprintServiceImpl implements SprintService {
                 .tasks(taskDTOs) 
                 .build();
     }
+    
+    // LOGIC CAP NHAT THONG TIN SPRINT
+    @Override
+    @Transactional
+    public SprintResponse updateSprint(Integer projectId, Integer sprintId, UpdateSprintRequest request) {
+        // 1. Tìm Sprint
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint"));
+
+        // 2. Validate: Sprint thuộc đúng Project
+        if (!sprint.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("Sprint không thuộc về dự án này.");
+        }
+
+        // 3. Cập nhật thông tin (nếu có)
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            sprint.setName(request.getName());
+        }
+        
+        if (request.getGoal() != null) {
+            sprint.setGoal(request.getGoal());
+        }
+
+        // Cập nhật ngày tháng
+        LocalDateTime newStartDate = (request.getStartDate() != null) ? request.getStartDate() : sprint.getStartDate();
+        LocalDateTime newEndDate = (request.getEndDate() != null) ? request.getEndDate() : sprint.getEndDate();
+
+        // Validate ngày: Ngày bắt đầu không được sau ngày kết thúc
+        if (newStartDate != null && newEndDate != null && newStartDate.isAfter(newEndDate)) {
+            throw new BadRequestException("Ngày bắt đầu không thể sau ngày kết thúc.");
+        }
+
+        if (request.getStartDate() != null) {
+            sprint.setStartDate(request.getStartDate());
+        }
+        if (request.getEndDate() != null) {
+            sprint.setEndDate(request.getEndDate());
+        }
+
+        // 4. Lưu và trả về
+        Sprint savedSprint = sprintRepository.save(sprint);
+        
+        // Lấy task để trả về (hoặc danh sách rỗng cho nhẹ)
+        // Ở đây ta lấy danh sách rỗng cho nhẹ, vì update thông tin không ảnh hưởng list task
+        return mapToSprintResponse(savedSprint, Collections.emptyList());
+    }
 
     // --- HÀM HELPER (TÁI SỬ DỤNG & SỬA LOGIC STATUS) ---
     private TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
@@ -282,4 +331,5 @@ public class SprintServiceImpl implements SprintService {
                 .sortOrder(task.getSortOrder())
                 .build();
     }
+    
 }
