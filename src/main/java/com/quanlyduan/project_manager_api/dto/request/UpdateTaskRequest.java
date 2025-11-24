@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 public class UpdateTaskRequest {
@@ -27,6 +28,6 @@ public class UpdateTaskRequest {
     private Integer storyPoints;
     private BigDecimal estimatedHours;
     
-    private LocalDate startDate;
-    private LocalDate dueDate;
+    private LocalDateTime startDate;
+    private LocalDateTime dueDate;
 }

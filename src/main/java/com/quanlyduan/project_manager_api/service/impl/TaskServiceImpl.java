@@ -265,7 +265,7 @@ public class TaskServiceImpl implements TaskService {
         
         // (Tùy chọn: Nếu cột mới là "DONE", có thể tự động cập nhật completedAt)
         if (newStatus.getIsCompletedStatus()) {
-            task.setCompletedAt(java.time.LocalDate.now());
+            task.setCompletedAt(java.time.LocalDateTime.now());
         } else {
             task.setCompletedAt(null); // Nếu kéo ngược lại, xóa ngày hoàn thành
         }

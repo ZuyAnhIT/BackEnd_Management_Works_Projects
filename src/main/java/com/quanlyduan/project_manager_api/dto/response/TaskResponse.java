@@ -26,9 +26,9 @@ public class TaskResponse {
     private BigDecimal estimatedHours; 
     private BigDecimal loggedHours; 
 
-    private LocalDate startDate; 
-    private LocalDate dueDate;
-    private LocalDate completedAt; 
+    private LocalDateTime startDate; 
+    private LocalDateTime dueDate;
+    private LocalDateTime completedAt; 
 
     private Integer projectId;
     private Integer sprintId;

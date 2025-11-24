@@ -91,13 +91,13 @@ public class Task {
     private BigDecimal loggedHours;
 
     @Column(name = "start_date")
-    private LocalDate startDate; 
+    private LocalDateTime startDate; 
 
     @Column(name = "due_date")
-    private LocalDate dueDate; 
+    private LocalDateTime dueDate; 
 
     @Column(name = "completed_at")
-    private LocalDate completedAt; 
+    private LocalDateTime completedAt; 
 
     @Column(name = "sort_order")
     private Integer sortOrder;
