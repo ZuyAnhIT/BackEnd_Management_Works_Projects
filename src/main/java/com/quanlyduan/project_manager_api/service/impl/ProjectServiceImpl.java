@@ -2,11 +2,13 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
+import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse; 
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
@@ -27,6 +29,7 @@ import com.quanlyduan.project_manager_api.repository.specification.ProjectSpecif
 import com.quanlyduan.project_manager_api.repository.specification.TaskSpecification;
 import com.quanlyduan.project_manager_api.service.FileStorageService;
 import com.quanlyduan.project_manager_api.service.ProjectService;
+import com.quanlyduan.project_manager_api.service.TaskService;
 import com.quanlyduan.project_manager_api.util.SortUtils;
 
 import org.springframework.data.domain.Page; 
@@ -47,7 +50,9 @@ import java.math.BigDecimal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import java.util.stream.Collectors;
@@ -72,9 +77,10 @@ public class ProjectServiceImpl implements ProjectService {
     private final RoleRepository roleRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
+     private final TaskService taskService; 
     private final SecurityService securityService;
     private final FileStorageService fileStorageService;
-
+    
     private final SprintRepository sprintRepository;
     private final EpicRepository epicRepository;
     private final ProjectStatusRepository projectStatusRepository;
@@ -88,6 +94,7 @@ public class ProjectServiceImpl implements ProjectService {
                               RoleRepository roleRepository,
                               ProjectMemberRepository projectMemberRepository,
                               TaskRepository taskRepository,
+                              TaskService taskService,
                               SecurityService securityService,
                               SprintRepository sprintRepository, 
                               EpicRepository epicRepository, 
@@ -102,6 +109,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.roleRepository = roleRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.taskRepository = taskRepository;
+        this.taskService = taskService;
         this.securityService = securityService;
         this.sprintRepository = sprintRepository; 
         this.epicRepository = epicRepository; 
@@ -736,5 +744,49 @@ public class ProjectServiceImpl implements ProjectService {
         // 8. Trả về DTO đã cập nhật
         return mapToProjectMemberResponse(updatedMember);
     }
-    
+      // --- US-S4-2 (Xem Board) & US-S4-4 (Lọc Board) ---
+    @Override
+    @Transactional(readOnly = true)
+    public List<BoardColumnResponse> getProjectBoard(Integer projectId, Integer sprintId, String search, Integer assigneeId, String priority) {
+        
+        // 1. Lấy danh sách Cột (Status) của dự án
+        List<com.quanlyduan.project_manager_api.model.ProjectStatus> statuses = projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId);
+
+        // 2. Tạo Specification để lọc Task (US 4)
+        // Lưu ý: Board thường hiện tất cả Status nên statusNames = null
+        Specification<Task> spec = TaskSpecification.filterTasks(projectId, sprintId, search, assigneeId, priority, null);
+        
+        // 3. Lấy danh sách Task đã lọc
+        List<Task> tasks = taskRepository.findAll(spec);
+
+        // 4. Nhóm Task theo Status ID (Grouping in Memory)
+        // Map<StatusID, List<Task>>
+        Map<Integer, List<Task>> tasksByStatus = tasks.stream()
+                .filter(t -> t.getStatus() != null) // Bỏ qua task lỗi không có status
+                .collect(Collectors.groupingBy(t -> t.getStatus().getId()));
+
+        // 5. Build Response (Ghép Cột + Task)
+        List<BoardColumnResponse> board = new ArrayList<>();
+        
+        for (com.quanlyduan.project_manager_api.model.ProjectStatus status : statuses) {
+            // Lấy task thuộc cột này (hoặc List rỗng nếu không có task nào)
+            List<Task> tasksInColumn = tasksByStatus.getOrDefault(status.getId(), Collections.emptyList());
+            
+            // Convert sang DTO
+            List<TaskResponse> taskResponses = tasksInColumn.stream()
+                    .map(taskService::mapToTaskResponse)
+                    .collect(Collectors.toList());
+
+            board.add(BoardColumnResponse.builder()
+                    .statusId(status.getId())
+                    .statusName(status.getName())
+                    .color(status.getColor())
+                    .order(status.getSortOrder())
+                    .tasks(taskResponses)
+                    .build());
+        }
+        
+        return board;
+    }
+
 }
