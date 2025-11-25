@@ -9,6 +9,7 @@ import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
@@ -125,4 +126,14 @@ public interface ProjectService {
             TaskPriority priority, // Dùng Enum
             TaskType taskType      // Dùng Enum
     );
+    PageResponseDTO<TaskResponse> getProjectTaskList(
+        Integer companyId,    // Thêm mới
+        Integer workspaceId,  // Thêm mới
+        Integer projectId, 
+        Integer sprintId, 
+        String search, 
+        Integer assigneeId, 
+        String priority,
+        int page, int size, String sortBy, String sortDir
+);
 }
