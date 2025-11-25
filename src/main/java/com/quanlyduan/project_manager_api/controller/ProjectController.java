@@ -328,20 +328,30 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success(message, responseData));
     }
 
-        // --- US-S4-2 & US-S4-4: Xem Board (kèm filter) ---
+    // --- US-S4-2 & US-S4-4: XEM BOARD (KÈM FILTER NÂNG CAO) ---
     @GetMapping("/{projectId}/board")
-    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')") // Đã sửa
     public ResponseEntity<ApiResponse<List<BoardColumnResponse>>> getProjectBoard(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-            @RequestParam(required = false) Integer sprintId, // null = all, 0 = backlog
-            @RequestParam(required = false) String search,    // Filter Title
-            @RequestParam(required = false) Integer assigneeId, // Filter Assignee
-            @RequestParam(required = false) String priority) {  // Filter Priority
+            
+            // Filter Sprint
+            @RequestParam(required = false) Integer sprintId, // null = auto active, 0 = backlog
+            
+            // Filter Tìm kiếm nâng cao
+            @RequestParam(required = false) String keyword,    // Thay cho 'search'
+            @RequestParam(required = false) Integer assigneeId,
+            @RequestParam(required = false) TaskPriority priority, // Dùng Enum
+            @RequestParam(required = false) TaskType taskType      // *** ĐÃ THÊM THAM SỐ THIẾU ***
+    ) {
         
-        List<BoardColumnResponse> board = projectService.getProjectBoard(companyId, workspaceId,projectId, sprintId, search, assigneeId, priority);
-        return ResponseEntity.ok(ApiResponse.success("Fetched project board", board));
+        List<BoardColumnResponse> board = projectService.getProjectBoard(
+            companyId, workspaceId, projectId, 
+            sprintId, keyword, assigneeId, priority, taskType
+        );
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu bảng công việc thành công.", board)); // Đã dịch
     }
 
 }

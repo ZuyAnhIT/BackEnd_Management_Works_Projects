@@ -114,7 +114,15 @@ public interface ProjectService {
             int page, int size, String sortBy, String sortDir
     );
 
-      // US-S4-2 & S4-4: Lấy Board (kèm filter)
-    List<BoardColumnResponse> getProjectBoard(Integer companyId,Integer workspaceId,Integer projectId, Integer sprintId, String search, Integer assigneeId, String priority);
-
+    // US-S4-2 & S4-4: Lấy Board (kèm filter)
+    List<BoardColumnResponse> getProjectBoard(
+            Integer companyId, 
+            Integer workspaceId, 
+            Integer projectId, 
+            Integer sprintId, 
+            String keyword, 
+            Integer assigneeId, 
+            TaskPriority priority, // Dùng Enum
+            TaskType taskType      // Dùng Enum
+    );
 }
