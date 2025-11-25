@@ -126,14 +126,17 @@ public interface ProjectService {
             TaskPriority priority, // Dùng Enum
             TaskType taskType      // Dùng Enum
     );
-    PageResponseDTO<TaskResponse> getProjectTaskList(
-        Integer companyId,    // Thêm mới
-        Integer workspaceId,  // Thêm mới
-        Integer projectId, 
-        Integer sprintId, 
-        String search, 
-        Integer assigneeId, 
-        String priority,
-        int page, int size, String sortBy, String sortDir
-);
+   PageResponseDTO<TaskResponse> getProjectTaskList(
+            Integer companyId, 
+            Integer workspaceId, 
+            Integer projectId, 
+            Integer sprintId, 
+            String search, 
+            Integer assigneeId, 
+            TaskPriority priority, // Đổi từ String -> Enum
+            int page, 
+            int size, 
+            String sortBy, 
+            String sortDir
+    );
 }
