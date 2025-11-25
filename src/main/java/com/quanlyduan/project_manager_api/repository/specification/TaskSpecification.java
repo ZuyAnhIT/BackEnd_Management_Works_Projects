@@ -2,7 +2,6 @@
 package com.quanlyduan.project_manager_api.repository.specification;
 
 import com.quanlyduan.project_manager_api.model.Task;
-import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority; 
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType; 
 import com.quanlyduan.project_manager_api.util.JpaSpecificationUtil;
