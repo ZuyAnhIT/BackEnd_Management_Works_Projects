@@ -859,9 +859,26 @@ public class ProjectServiceImpl implements ProjectService {
      
     @Override
     @Transactional(readOnly = true)
-    public PageResponseDTO<TaskResponse> getProjectTaskList(Integer projectId, Integer sprintId, String search, Integer assigneeId, String priority,int page, int size, String sortBy, String sortDir) {
-        
-        // 1. Xử lý Sort (US 9)
+    public PageResponseDTO<TaskResponse> getProjectTaskList(
+            Integer companyId, Integer workspaceId, Integer projectId, // Updated params
+            Integer sprintId, String search, Integer assigneeId, String priority,
+            int page, int size, String sortBy, String sortDir) {
+
+        // 1. VALIDATE HỆ THỐNG PHÂN CẤP (Hierarchy Check) - MỚI THÊM
+        // Logic này đảm bảo projectId thuộc workspaceId, và workspaceId thuộc companyId
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+        // Kiểm tra Project thuộc Workspace
+        if (!project.getWorkspace().getId().equals(workspaceId)) {
+            throw new BadRequestException("Dự án không thuộc về Workspace được chỉ định.");
+        }
+        // Kiểm tra Workspace thuộc Company
+        if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Workspace không thuộc về Công ty được chỉ định.");
+        }
+
+        // 2. Xử lý Sort (US 9)
         // Map tên trường Frontend -> Backend để sort an toàn
         Map<String, String> sortMap = Map.of(
             "title", "title", 
@@ -872,13 +889,13 @@ public class ProjectServiceImpl implements ProjectService {
         Sort sort = SortUtils.createSort(sortBy, sortDir, "id", sortMap);
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        // 2. Xử lý Filter (US 8 & 11)
+        // 3. Xử lý Filter (US 8 & 11)
         Specification<Task> spec = TaskSpecification.filterTasks(projectId, sprintId, search, assigneeId, priority, null);
 
-        // 3. Query DB
+        // 4. Query DB
         Page<Task> taskPage = taskRepository.findAll(spec, pageable);
 
-        // 4. Map Response
+        // 5. Map Response
         Page<TaskResponse> responsePage = taskPage.map(taskService::mapToTaskResponse);
         
         return new PageResponseDTO<>(responsePage);

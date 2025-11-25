@@ -345,9 +345,12 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success("Fetched project board", board));
     }
       // --- US-S4-8, 9, 11: Xem List Task (Advanced) ---
+    // --- US-S4-8, 9, 11: Xem List Task (Advanced) ---
     @GetMapping("/{projectId}/tasks")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<TaskResponse>>> getProjectTasks(
+            @PathVariable Integer companyId,   // Thêm mới
+            @PathVariable Integer workspaceId, // Thêm mới
             @PathVariable Integer projectId,
             @RequestParam(required = false) Integer sprintId,
             @RequestParam(required = false) String search,
@@ -359,7 +362,13 @@ public class ProjectController {
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
         
-        PageResponseDTO<TaskResponse> tasks = projectService.getProjectTaskList(projectId,  sprintId, search, assigneeId, priority, page, size, sortBy, sortDir);
+        // Truyền thêm companyId, workspaceId vào service
+        PageResponseDTO<TaskResponse> tasks = projectService.getProjectTaskList(
+                companyId, workspaceId, projectId, 
+                sprintId, search, assigneeId, priority, 
+                page, size, sortBy, sortDir
+        );
+        
         return ResponseEntity.ok(ApiResponse.success("Fetched project tasks", tasks));
     }
 }

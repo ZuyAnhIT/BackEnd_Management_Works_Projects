@@ -118,9 +118,16 @@ public interface ProjectService {
       // US-S4-2 & S4-4: Lấy Board (kèm filter)
     List<BoardColumnResponse> getProjectBoard(Integer companyId,Integer workspaceId,Integer projectId, Integer sprintId, String search, Integer assigneeId, String priority);
   // US-S4-8, 9, 11: Lấy List Task (kèm filter, sort, paging)
-    PageResponseDTO<TaskResponse> getProjectTaskList(Integer projectId, Integer sprintId, 
-                                                     String search, Integer assigneeId, String priority,
-                                                     int page, int size, String sortBy, String sortDir);
+    PageResponseDTO<TaskResponse> getProjectTaskList(
+        Integer companyId,    // Thêm mới
+        Integer workspaceId,  // Thêm mới
+        Integer projectId, 
+        Integer sprintId, 
+        String search, 
+        Integer assigneeId, 
+        String priority,
+        int page, int size, String sortBy, String sortDir
+);
 
 
 }
