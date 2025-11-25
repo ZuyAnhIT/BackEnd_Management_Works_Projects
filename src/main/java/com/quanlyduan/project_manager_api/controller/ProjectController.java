@@ -354,24 +354,26 @@ public class ProjectController {
         
         return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu bảng công việc thành công.", board)); // Đã dịch
     }
-    // --- US-S4-8, 9, 11: Xem List Task (Advanced) ---
+   // --- US-S4-8, 9, 11: Xem List Task (Advanced) ---
     @GetMapping("/{projectId}/tasks")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<TaskResponse>>> getProjectTasks(
-            @PathVariable Integer companyId,   // Thêm mới
-            @PathVariable Integer workspaceId, // Thêm mới
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-            @RequestParam(required = false) Integer sprintId,
+            
+            // Filter Params
+            @RequestParam(required = false) Integer sprintId, // 0 = backlog
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Integer assigneeId,
-            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) TaskPriority priority, // Đổi từ String -> Enum
             
+            // Pagination & Sorting
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
         
-        // Truyền thêm companyId, workspaceId vào service
         PageResponseDTO<TaskResponse> tasks = projectService.getProjectTaskList(
                 companyId, workspaceId, projectId, 
                 sprintId, search, assigneeId, priority, 
