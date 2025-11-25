@@ -16,7 +16,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 
 import java.util.List;
-
+import java.util.Map;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -134,9 +134,19 @@ public interface ProjectService {
             String search, 
             Integer assigneeId, 
             TaskPriority priority, // Đổi từ String -> Enum
+            List<Integer> statusIds,
             int page, 
             int size, 
             String sortBy, 
             String sortDir
+    );
+    // --- US-S4-10: Nhóm Task (Grouping View) ---
+    Map<String, List<TaskResponse>> getTasksGroupedBy(
+        Integer companyId, 
+        Integer workspaceId, 
+        Integer projectId, 
+        String groupBy,
+        Integer sprintId, 
+        String search
     );
 }

@@ -354,7 +354,7 @@ public class ProjectController {
         
         return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu bảng công việc thành công.", board)); // Đã dịch
     }
-   // --- US-S4-8, 9, 11: Xem List Task (Advanced) ---
+   // --- US-S4-8-9-11: Lọc và Phân trang Task (List View) ---
     @GetMapping("/{projectId}/tasks")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<TaskResponse>>> getProjectTasks(
@@ -363,10 +363,11 @@ public class ProjectController {
             @PathVariable Integer projectId,
             
             // Filter Params
-            @RequestParam(required = false) Integer sprintId, // 0 = backlog
+            @RequestParam(required = false) Integer sprintId,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Integer assigneeId,
-            @RequestParam(required = false) TaskPriority priority, // Đổi từ String -> Enum
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) List<Integer> statusIds, // <--- THÊM MỚI
             
             // Pagination & Sorting
             @RequestParam(defaultValue = "0") int page,
@@ -376,10 +377,29 @@ public class ProjectController {
         
         PageResponseDTO<TaskResponse> tasks = projectService.getProjectTaskList(
                 companyId, workspaceId, projectId, 
-                sprintId, search, assigneeId, priority, 
+                sprintId, search, assigneeId, priority, statusIds, // <--- Truyền thêm vào service
                 page, size, sortBy, sortDir
         );
         
         return ResponseEntity.ok(ApiResponse.success("Fetched project tasks", tasks));
+    }
+    // --- US-S4-10: Nhóm Task (Grouping View) ---
+    @GetMapping("/{projectId}/tasks/grouped")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<Map<String, List<TaskResponse>>>> getTasksGrouped(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @RequestParam String groupBy, // "assignee", "priority", "status", "sprint" <-- Đã thêm sprint
+            
+            // Filter Params
+            @RequestParam(required = false) Integer sprintId,
+            @RequestParam(required = false) String search
+    ) {
+        Map<String, List<TaskResponse>> data = projectService.getTasksGroupedBy(
+            companyId, workspaceId, projectId, groupBy, sprintId, search
+        );
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu nhóm công việc thành công.", data));
     }
 }
