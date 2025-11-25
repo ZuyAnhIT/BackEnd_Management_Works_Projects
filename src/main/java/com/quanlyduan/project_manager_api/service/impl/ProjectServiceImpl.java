@@ -834,54 +834,13 @@ public class ProjectServiceImpl implements ProjectService {
 
         return board;
     }
-    private TaskResponse mapTaskToResponse(Task task) {
-        com.quanlyduan.project_manager_api.model.ProjectStatus status = task.getStatus();
-        User assigner = task.getAssigner();
-        User assignee = task.getAssignee();
-        User createdBy = task.getCreatedBy();
-
-        return TaskResponse.builder()
-                .id(task.getId())
-                .taskCode(task.getTaskCode())
-                .title(task.getTitle())
-                .description(task.getDescription())
-                
-                // Status info
-                .statusId(status != null ? status.getId() : null)
-                .statusName(status != null ? status.getName() : "N/A")
-                .statusColor(status != null ? status.getColor() : "#FFFFFF")
-
-                .taskType(task.getTaskType() != null ? task.getTaskType().name() : null)
-                .priority(task.getPriority() != null ? task.getPriority().name() : null)
-                
-                .storyPoints(task.getStoryPoints())
-                .estimatedHours(task.getEstimatedHours())
-                .loggedHours(task.getLoggedHours())
-                .startDate(task.getStartDate())
-                .dueDate(task.getDueDate())
-                .completedAt(task.getCompletedAt())
-
-                .projectId(task.getProject().getId())
-                .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
-                .epicId(task.getEpic() != null ? task.getEpic().getId() : null)
-                
-                .assignerId(assigner != null ? assigner.getId() : null)
-                .assignerName(assigner != null ? assigner.getFullName() : null)
-                
-                .assigneeId(assignee != null ? assignee.getId() : null)
-                .assigneeName(assignee != null ? assignee.getFullName() : null)
-                .assigneeAvatar(assignee != null ? assignee.getAvatarUrl() : null)
-                
-                .createdById(createdBy.getId())
-                .createdByName(createdBy.getFullName())
-                .createdAt(task.getCreatedAt())
-                .build();
-    }
+    // --- US-S4-8-9-11: Lọc và Phân trang Task (List View) --- 
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<TaskResponse> getProjectTaskList(
             Integer companyId, Integer workspaceId, Integer projectId,
             Integer sprintId, String search, Integer assigneeId, TaskPriority priority,
+            List<Integer> statusIds, // <--- THÊM MỚI (List trạng thái)
             int page, int size, String sortBy, String sortDir) {
 
         // 1. VALIDATE HỆ THỐNG PHÂN CẤP
@@ -900,23 +859,24 @@ public class ProjectServiceImpl implements ProjectService {
         boolean isBacklog = (sprintId != null && sprintId == 0);
 
         // 3. GỌI FILTER SPECIFICATION
-        // Truyền đúng thứ tự tham số của hàm filterTasks mới
+        // Truyền statusIds vào tham số cuối cùng (số 8)
         Specification<Task> spec = TaskSpecification.filterTasks(
             projectId,      // 1. projectId
             sprintId,       // 2. sprintId
-            isBacklog,      // 3. isBacklog (boolean)
+            isBacklog,      // 3. isBacklog
             search,         // 4. keyword
             assigneeId,     // 5. assigneeId
-            priority,       // 6. priority (Đã là Enum, truyền trực tiếp)
-            null,           // 7. taskType (Truyền null nếu list view chưa cần lọc type)
-            null            // 8. statusIds (List view lấy tất cả status -> null)
+            priority,       // 6. priority
+            null,           // 7. taskType (null)
+            statusIds       // 8. statusIds (ĐÃ TRUYỀN LIST VÀO ĐÂY)
         );
 
         // 4. XỬ LÝ SORT
         Map<String, String> sortMap = Map.of(
             "title", "title", 
             "dueDate", "dueDate", 
-            "priority", "priority"
+            "priority", "priority",
+            "status", "status.name" // Thêm sort theo tên status nếu cần
         );
         Sort sort = SortUtils.createSort(sortBy, sortDir, "id", sortMap);
         Pageable pageable = PageRequest.of(page, size, sort);
@@ -926,5 +886,78 @@ public class ProjectServiceImpl implements ProjectService {
         Page<TaskResponse> responsePage = taskPage.map(taskService::mapToTaskResponse);
         
         return new PageResponseDTO<>(responsePage);
+    }
+    // --- US-S4-10: Nhóm Task (Grouping View) ---
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, List<TaskResponse>> getTasksGroupedBy(
+            Integer companyId, Integer workspaceId, Integer projectId,
+            String groupBy, Integer sprintId, String search) {
+            
+        // 1. VALIDATE HỆ THỐNG PHÂN CẤP (Hierarchy Check)
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+        if (!project.getWorkspace().getId().equals(workspaceId)) {
+            throw new BadRequestException("Dự án không thuộc về Workspace được chỉ định.");
+        }
+        if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Workspace không thuộc về Công ty được chỉ định.");
+        }
+
+        // 2. QUERY DATA 
+        // Xử lý logic Backlog (0 -> Backlog)
+        boolean isBacklog = (sprintId != null && sprintId == 0);
+
+        // Gọi Specification theo chuẩn mới (8 tham số)
+        Specification<Task> spec = TaskSpecification.filterTasks(
+                projectId,
+                sprintId,       // Filter theo sprintId
+                isBacklog,      // Filter boolean isBacklog
+                search,         // Search keyword
+                null,           // assigneeId (null để lấy hết -> phục vụ Grouping)
+                null,           // priority (null để lấy hết -> phục vụ Grouping)
+                null,           // taskType (null)
+                null            // statusIds (null)
+        );
+
+        List<Task> tasks = taskRepository.findAll(spec);
+
+        // 3. GROUPING LOGIC (Java Streams)
+        if ("assignee".equalsIgnoreCase(groupBy)) {
+            // Nhóm theo Tên người được giao
+            return tasks.stream().collect(Collectors.groupingBy(
+                t -> t.getAssignee() != null ? t.getAssignee().getFullName() : "Unassigned",
+                Collectors.mapping(taskService::mapToTaskResponse, Collectors.toList())
+            ));
+
+        } else if ("priority".equalsIgnoreCase(groupBy)) {
+             // Nhóm theo Độ ưu tiên
+             return tasks.stream()
+                .filter(t -> t.getPriority() != null) // Bỏ qua lỗi data nếu có
+                .collect(Collectors.groupingBy(
+                    t -> t.getPriority().name(), // Group theo tên Enum (HIGH, LOW...)
+                    Collectors.mapping(taskService::mapToTaskResponse, Collectors.toList())
+                ));
+
+        } else if ("status".equalsIgnoreCase(groupBy)) {
+             // Nhóm theo Trạng thái
+             return tasks.stream()
+                .filter(t -> t.getStatus() != null)
+                .collect(Collectors.groupingBy(
+                    t -> t.getStatus().getName(),
+                    Collectors.mapping(taskService::mapToTaskResponse, Collectors.toList())
+                ));
+        }else if ("sprint".equalsIgnoreCase(groupBy)) { 
+             // --- MỚI THÊM: Nhóm theo Sprint ---
+             return tasks.stream()
+                .collect(Collectors.groupingBy(
+                    // Nếu có sprint -> lấy tên, nếu null -> gom vào "Backlog"
+                    t -> t.getSprint() != null ? t.getSprint().getName() : "Backlog",
+                    Collectors.mapping(taskService::mapToTaskResponse, Collectors.toList())
+                ));
+        }
+       
+        throw new BadRequestException("Tham số groupBy không hợp lệ. Hãy dùng: 'assignee', 'priority' hoặc 'status'.");
     }
 }
