@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
@@ -325,7 +326,22 @@ public class ProjectController {
         responseData.put("newRoleName", updatedMember.getRoleName());
 
         return ResponseEntity.ok(ApiResponse.success(message, responseData));
-
-
     }
+
+        // --- US-S4-2 & US-S4-4: Xem Board (kèm filter) ---
+    @GetMapping("/{projectId}/board")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<BoardColumnResponse>>> getProjectBoard(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @RequestParam(required = false) Integer sprintId, // null = all, 0 = backlog
+            @RequestParam(required = false) String search,    // Filter Title
+            @RequestParam(required = false) Integer assigneeId, // Filter Assignee
+            @RequestParam(required = false) String priority) {  // Filter Priority
+        
+        List<BoardColumnResponse> board = projectService.getProjectBoard(companyId, workspaceId,projectId, sprintId, search, assigneeId, priority);
+        return ResponseEntity.ok(ApiResponse.success("Fetched project board", board));
+    }
+
 }

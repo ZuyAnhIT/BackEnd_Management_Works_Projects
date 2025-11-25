@@ -2,11 +2,13 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
+import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse; 
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
@@ -27,6 +29,7 @@ import com.quanlyduan.project_manager_api.repository.specification.ProjectSpecif
 import com.quanlyduan.project_manager_api.repository.specification.TaskSpecification;
 import com.quanlyduan.project_manager_api.service.FileStorageService;
 import com.quanlyduan.project_manager_api.service.ProjectService;
+import com.quanlyduan.project_manager_api.service.TaskService;
 import com.quanlyduan.project_manager_api.util.SortUtils;
 
 import org.springframework.data.domain.Page; 
@@ -47,7 +50,9 @@ import java.math.BigDecimal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import java.util.stream.Collectors;
@@ -72,9 +77,10 @@ public class ProjectServiceImpl implements ProjectService {
     private final RoleRepository roleRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
+     private final TaskService taskService; 
     private final SecurityService securityService;
     private final FileStorageService fileStorageService;
-
+    
     private final SprintRepository sprintRepository;
     private final EpicRepository epicRepository;
     private final ProjectStatusRepository projectStatusRepository;
@@ -88,6 +94,7 @@ public class ProjectServiceImpl implements ProjectService {
                               RoleRepository roleRepository,
                               ProjectMemberRepository projectMemberRepository,
                               TaskRepository taskRepository,
+                              TaskService taskService,
                               SecurityService securityService,
                               SprintRepository sprintRepository, 
                               EpicRepository epicRepository, 
@@ -102,6 +109,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.roleRepository = roleRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.taskRepository = taskRepository;
+        this.taskService = taskService;
         this.securityService = securityService;
         this.sprintRepository = sprintRepository; 
         this.epicRepository = epicRepository; 
@@ -745,5 +753,116 @@ public class ProjectServiceImpl implements ProjectService {
         // 8. Trả về DTO đã cập nhật
         return mapToProjectMemberResponse(updatedMember);
     }
-    
+      // --- US-S4-2 (Xem Board) & US-S4-4 (Lọc Board) ---
+@Override
+    @Transactional(readOnly = true)
+    public List<BoardColumnResponse> getProjectBoard(
+            Integer companyId, Integer workspaceId, Integer projectId,
+            Integer sprintId, String search, Integer assigneeId, String priority) {
+
+        // 1. VALIDATE HỆ THỐNG PHÂN CẤP (Hierarchy Check)
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+        // Kiểm tra Project thuộc Workspace
+        if (!project.getWorkspace().getId().equals(workspaceId)) {
+            throw new BadRequestException("Dự án không thuộc về Workspace được chỉ định.");
+        }
+        // Kiểm tra Workspace thuộc Company
+        if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Workspace không thuộc về Công ty được chỉ định.");
+        }
+
+        // 2. LẤY DANH SÁCH CỘT (STATUS) CỦA DỰ ÁN
+        // Để vẽ khung Board, ta cần tất cả các cột, kể cả cột không có task nào.
+        List<com.quanlyduan.project_manager_api.model.ProjectStatus> statuses = 
+                projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId);
+
+        // 3. TẠO SPECIFICATION ĐỂ LỌC TASK
+        // Lưu ý: Truyền null vào tham số cuối cùng (statusNames) vì Board cần lấy task ở mọi trạng thái
+        Specification<Task> spec = TaskSpecification.filterTasks(
+                projectId, 
+                sprintId, 
+                search, 
+                assigneeId, 
+                priority, 
+                null // statusNames = null để lấy tất cả status
+        );
+
+        // 4. LẤY TASK TỪ DB
+        List<Task> tasks = taskRepository.findAll(spec);
+
+        // 5. NHÓM TASK THEO STATUS ID (Grouping in Memory)
+        // Map<StatusID, List<Task>>
+        Map<Integer, List<Task>> tasksByStatus = tasks.stream()
+                .filter(t -> t.getStatus() != null) // Bỏ qua task lỗi dữ liệu (không có status)
+                .collect(Collectors.groupingBy(t -> t.getStatus().getId()));
+
+        // 6. BUILD RESPONSE (Ghép Cột + Task đã map sang DTO)
+        List<BoardColumnResponse> board = new ArrayList<>();
+
+        for (com.quanlyduan.project_manager_api.model.ProjectStatus status : statuses) {
+            // Lấy list task thuộc cột này (trả về list rỗng nếu không có task nào)
+            List<Task> tasksInColumn = tasksByStatus.getOrDefault(status.getId(), Collections.emptyList());
+
+            // Map Entity -> DTO (Sử dụng taskService để map)
+            List<TaskResponse> taskResponses = tasksInColumn.stream()
+                    .map(taskService::mapToTaskResponse) // Gọi hàm map từ TaskService
+                    .collect(Collectors.toList());
+
+            // Tạo đối tượng cột
+            board.add(BoardColumnResponse.builder()
+                    .statusId(status.getId())
+                    .statusName(status.getName())
+                    .color(status.getColor())
+                    .order(status.getSortOrder())
+                    .tasks(taskResponses) // List task trong cột
+                    .build());
+        }
+
+        return board;
+    }
+    private TaskResponse mapTaskToResponse(Task task) {
+        com.quanlyduan.project_manager_api.model.ProjectStatus status = task.getStatus();
+        User assigner = task.getAssigner();
+        User assignee = task.getAssignee();
+        User createdBy = task.getCreatedBy();
+
+        return TaskResponse.builder()
+                .id(task.getId())
+                .taskCode(task.getTaskCode())
+                .title(task.getTitle())
+                .description(task.getDescription())
+                
+                // Status info
+                .statusId(status != null ? status.getId() : null)
+                .statusName(status != null ? status.getName() : "N/A")
+                .statusColor(status != null ? status.getColor() : "#FFFFFF")
+
+                .taskType(task.getTaskType() != null ? task.getTaskType().name() : null)
+                .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                
+                .storyPoints(task.getStoryPoints())
+                .estimatedHours(task.getEstimatedHours())
+                .loggedHours(task.getLoggedHours())
+                .startDate(task.getStartDate())
+                .dueDate(task.getDueDate())
+                .completedAt(task.getCompletedAt())
+
+                .projectId(task.getProject().getId())
+                .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
+                .epicId(task.getEpic() != null ? task.getEpic().getId() : null)
+                
+                .assignerId(assigner != null ? assigner.getId() : null)
+                .assignerName(assigner != null ? assigner.getFullName() : null)
+                
+                .assigneeId(assignee != null ? assignee.getId() : null)
+                .assigneeName(assignee != null ? assignee.getFullName() : null)
+                .assigneeAvatar(assignee != null ? assignee.getAvatarUrl() : null)
+                
+                .createdById(createdBy.getId())
+                .createdByName(createdBy.getFullName())
+                .createdAt(task.getCreatedAt())
+                .build();
+    }
 }

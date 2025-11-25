@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.service;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
+import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
@@ -112,4 +113,8 @@ public interface ProjectService {
             String searchName, String searchCode, String searchManager, ProjectStatus searchStatus,
             int page, int size, String sortBy, String sortDir
     );
+
+      // US-S4-2 & S4-4: Lấy Board (kèm filter)
+    List<BoardColumnResponse> getProjectBoard(Integer companyId,Integer workspaceId,Integer projectId, Integer sprintId, String search, Integer assigneeId, String priority);
+
 }
