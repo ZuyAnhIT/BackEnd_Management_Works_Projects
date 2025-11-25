@@ -369,9 +369,6 @@ public class ProjectServiceImpl implements ProjectService {
         Project saved = projectRepository.save(project);
         return toResponse(saved);
     }
-    /**
-     * Helper map Entity -> DTO (tối thiểu, không viết mapping phức tạp; chỉ rút gọn trường cần thiết).
-     */
     private ProjectResponse toResponse(Project p) {
         return ProjectResponse.builder()
                 .id(p.getId())
@@ -436,14 +433,15 @@ public class ProjectServiceImpl implements ProjectService {
         );
 
         List<SprintDetailsResponse> sprintDtos = activeSprints.stream().map(sprint -> {
-            // Lọc Task trong Sprint
             Specification<Task> sprintTaskSpec = TaskSpecification.filterBacklog(
-                projectId, sprint.getId(), false, keyword, assigneeId, null, null
+                projectId, sprint.getId(), false, keyword, assigneeId, priority, taskType
             );
             
+            // Task trong Sprint luôn sắp xếp theo thứ tự ưu tiên (sortOrder) để hiển thị đúng trên bảng
+            // (Hoặc nếu bạn muốn Sprint cũng sort theo yêu cầu người dùng thì thay Sort.by(...) bằng biến 'sort' giống phần Backlog)
             List<Task> tasks = taskRepository.findAll(sprintTaskSpec, Sort.by("sortOrder").ascending());
             
-            // TÍNH TOÁN THỐNG KÊ 
+            // TÍNH TOÁN THỐNG KÊ (trên danh sách đã lọc)
             long totalPoints = tasks.stream()
                     .mapToLong(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
                     .sum();
@@ -466,7 +464,6 @@ public class ProjectServiceImpl implements ProjectService {
                     .tasks(taskDtos)
                     .totalStoryPoints(totalPoints)
                     .taskCount(count)
-                    
                     .build();
         }).collect(Collectors.toList());
 
@@ -476,7 +473,6 @@ public class ProjectServiceImpl implements ProjectService {
             projectId, null, true, keyword, assigneeId, priority, taskType
         );
         
-        // Map sắp xếp
         Map<String, String> sortMapping = Map.of(
             "sortOrder", "sortOrder",
             "title", "title",
@@ -486,7 +482,6 @@ public class ProjectServiceImpl implements ProjectService {
         );
         Sort sort = SortUtils.createSort(sortBy, sortDir, "sortOrder", sortMapping);
         
-        // Logic giữ nguyên thứ tự ưu tiên nếu sort 
         if ("sortOrder".equals(sortBy) && (sortDir == null || sortDir.isEmpty())) {
             sort = Sort.by(Sort.Direction.ASC, "sortOrder");
         }
