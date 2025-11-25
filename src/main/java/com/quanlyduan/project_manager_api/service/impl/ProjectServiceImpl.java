@@ -856,4 +856,33 @@ public class ProjectServiceImpl implements ProjectService {
                 .createdAt(task.getCreatedAt())
                 .build();
     }
+     
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<TaskResponse> getProjectTaskList(Integer projectId, Integer sprintId, String search, Integer assigneeId, String priority,int page, int size, String sortBy, String sortDir) {
+        
+        // 1. Xử lý Sort (US 9)
+        // Map tên trường Frontend -> Backend để sort an toàn
+        Map<String, String> sortMap = Map.of(
+            "title", "title", 
+            "dueDate", "dueDate", 
+            "priority", "priority"
+        );
+        // Mặc định sort theo ID nếu client không gửi gì
+        Sort sort = SortUtils.createSort(sortBy, sortDir, "id", sortMap);
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // 2. Xử lý Filter (US 8 & 11)
+        Specification<Task> spec = TaskSpecification.filterTasks(projectId, sprintId, search, assigneeId, priority, null);
+
+        // 3. Query DB
+        Page<Task> taskPage = taskRepository.findAll(spec, pageable);
+
+        // 4. Map Response
+        Page<TaskResponse> responsePage = taskPage.map(taskService::mapToTaskResponse);
+        
+        return new PageResponseDTO<>(responsePage);
+    }
+
+
 }

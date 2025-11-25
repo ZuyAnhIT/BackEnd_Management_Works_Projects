@@ -11,6 +11,7 @@ import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
@@ -343,5 +344,22 @@ public class ProjectController {
         List<BoardColumnResponse> board = projectService.getProjectBoard(companyId, workspaceId,projectId, sprintId, search, assigneeId, priority);
         return ResponseEntity.ok(ApiResponse.success("Fetched project board", board));
     }
-
+      // --- US-S4-8, 9, 11: Xem List Task (Advanced) ---
+    @GetMapping("/{projectId}/tasks")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<TaskResponse>>> getProjectTasks(
+            @PathVariable Integer projectId,
+            @RequestParam(required = false) Integer sprintId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer assigneeId,
+            @RequestParam(required = false) String priority,
+            
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        
+        PageResponseDTO<TaskResponse> tasks = projectService.getProjectTaskList(projectId,  sprintId, search, assigneeId, priority, page, size, sortBy, sortDir);
+        return ResponseEntity.ok(ApiResponse.success("Fetched project tasks", tasks));
+    }
 }
