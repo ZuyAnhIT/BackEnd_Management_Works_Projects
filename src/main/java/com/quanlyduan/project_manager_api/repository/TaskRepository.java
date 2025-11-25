@@ -134,4 +134,13 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
            "WHERE t.sprint.id = :sprintId " +
            "AND (t.status IS NULL OR t.status.isCompletedStatus = false)")
     List<Task> findIncompleteTasksBySprintId(@Param("sprintId") Integer sprintId);
+
+    // 1. Tìm vị trí lớn nhất trong một Status của một Project (để thêm vào cuối)
+    @Query("SELECT COALESCE(MAX(t.sortOrder), 0) FROM Task t WHERE t.project.id = :projectId AND t.status.id = :statusId")
+    Integer findMaxSortOrderByStatusId(@Param("projectId") Integer projectId, @Param("statusId") Integer statusId);
+
+    // 2. Đẩy các task phía sau xuống 1 bậc (Khi chèn vào giữa) trong cùng 1 cột
+    @Modifying
+    @Query("UPDATE Task t SET t.sortOrder = t.sortOrder + 1 WHERE t.project.id = :projectId AND t.status.id = :statusId AND t.sortOrder >= :newSortOrder")
+    void shiftSortOrderInStatus(@Param("projectId") Integer projectId, @Param("statusId") Integer statusId, @Param("newSortOrder") Integer newSortOrder);
 }

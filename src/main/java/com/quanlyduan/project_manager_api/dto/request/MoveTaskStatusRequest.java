@@ -6,6 +6,12 @@ import lombok.Data;
 
 @Data
 public class MoveTaskStatusRequest {
+    
     @NotNull(message = "ID trạng thái mới không được để trống") // Đã dịch
     private Integer newStatusId;
+
+    // *** BỔ SUNG TRƯỜNG NÀY ĐỂ SỬA LỖI ***
+    // Vị trí mong muốn trong cột mới (0, 1, 2...). 
+    // Nếu null -> Mặc định thêm vào cuối cột.
+    private Integer newSortOrder;
 }
