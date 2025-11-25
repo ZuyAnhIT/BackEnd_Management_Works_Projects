@@ -151,52 +151,48 @@ public class SprintServiceImpl implements SprintService {
                 .collect(Collectors.toList());
     }
 
+    // LOGIC HOÀN THÀNH SPRINT (NÂNG CẤP)
     @Override
     @Transactional
     public SprintResponse completeSprint(Integer projectId, Integer sprintId) {
+        // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint")); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint"));
 
+        // 2. Validate
         if (!sprint.getProject().getId().equals(projectId)) {
-            throw new BadRequestException("Sprint không thuộc về dự án này."); // Đã dịch
+            throw new BadRequestException("Sprint không thuộc về dự án này.");
         }
-
         if (sprint.getStatus() != SprintStatus.IN_PROGRESS) {
-            throw new BadRequestException("Chỉ có thể hoàn thành các Sprint đang diễn ra."); // Đã dịch
+            throw new BadRequestException("Chỉ có thể hoàn thành các Sprint đang diễn ra.");
         }
 
+        // 3. LOGIC DỌN DẸP TASK CHƯA XONG 
+        // Tìm tất cả task chưa hoàn thành trong Sprint này
+        List<Task> incompleteTasks = taskRepository.findIncompleteTasksBySprintId(sprintId);
+        
+        if (!incompleteTasks.isEmpty()) {
+            // Đẩy hết về Backlog (sprint = null)
+            for (Task task : incompleteTasks) {
+                task.setSprint(null);
+            }
+            taskRepository.saveAll(incompleteTasks);
+            
+            // (Optional) Bạn có thể log lại: "Đã di chuyển 5 task về backlog"
+        }
+
+        // 4. Cập nhật trạng thái Sprint
         sprint.setStatus(SprintStatus.COMPLETED);
-        sprint.setEndDate(java.time.LocalDateTime.now()); 
+        sprint.setEndDate(java.time.LocalDateTime.now()); // Chốt thời gian thực tế
         
         Sprint savedSprint = sprintRepository.save(sprint);
         
-        List<Task> tasks = taskRepository.findBySprintIdWithDetails(savedSprint.getId());
-        return mapToSprintResponse(savedSprint, tasks);
+        // 5. Trả về kết quả
+        // Lúc này list task trả về sẽ CHỈ CÒN các task đã Done (vì task chưa done đã bị đá ra rồi)
+        List<Task> completedTasksOnly = taskRepository.findBySprintIdWithDetails(savedSprint.getId());
+        return mapToSprintResponse(savedSprint, completedTasksOnly);
     }
 
-    @Override
-    @Transactional
-    public SprintResponse cancelSprint(Integer projectId, Integer sprintId) {
-        Sprint sprint = sprintRepository.findById(sprintId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint")); // Đã dịch
-
-        if (!sprint.getProject().getId().equals(projectId)) {
-            throw new BadRequestException("Sprint không thuộc về dự án này."); // Đã dịch
-        }
-
-        if (sprint.getStatus() == SprintStatus.COMPLETED) {
-            throw new BadRequestException("Không thể hủy Sprint đã hoàn thành."); // Đã dịch
-        }
-
-        sprint.setStatus(SprintStatus.CANCELLED);
-        
-        Sprint savedSprint = sprintRepository.save(sprint);
-        
-        List<Task> tasks = taskRepository.findBySprintIdWithDetails(savedSprint.getId());
-        return mapToSprintResponse(savedSprint, tasks);
-    }
-
-    // *** ĐÃ SỬA: BỔ SUNG PHƯƠNG THỨC THIẾU ***
     @Override
     @Transactional(readOnly = true)
     public Integer getProjectIdBySprint(Integer sprintId) {
@@ -224,23 +220,35 @@ public class SprintServiceImpl implements SprintService {
                 .build();
     }
 
+    // LOGIC XEM CHI TIET SPRINT (TÍNH TOÁN)
     @Override
     @Transactional(readOnly = true)
     public SprintDetailsResponse getSprintDetails(Integer projectId, Integer sprintId) { 
+        // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint với ID: " + sprintId)); // Đã dịch
 
-        // KIỂM TRA BẢO MẬT (IDOR)
+        // 2. Kiểm tra bảo mật
         if (!sprint.getProject().getId().equals(projectId)) {
             throw new ResourceNotFoundException("Không tìm thấy Sprint này trong dự án được chỉ định"); // Đã dịch
         }
 
+        // 3. Tìm tất cả Task
         List<Task> tasks = taskRepository.findBySprintIdWithDetails(sprintId);
 
+        // 4. Map sang DTO
         List<TaskSummaryResponse> taskDTOs = tasks.stream()
-                .map(this::mapToTaskSummaryResponse) 
+                .map(this::mapToTaskSummaryResponse)
                 .collect(Collectors.toList());
 
+        // 5. TÍNH TOÁN THỐNG KÊ
+        long totalPoints = tasks.stream()
+                .mapToLong(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
+                .sum();
+        
+        int count = tasks.size();
+
+        // 6. Đóng gói
         return SprintDetailsResponse.builder()
                 .id(sprint.getId())
                 .name(sprint.getName())
@@ -249,7 +257,12 @@ public class SprintServiceImpl implements SprintService {
                 .startDate(sprint.getStartDate())
                 .endDate(sprint.getEndDate())
                 .projectId(sprint.getProject().getId())
-                .tasks(taskDTOs) 
+                .tasks(taskDTOs)
+                
+                // *** GÁN GIÁ TRỊ ***
+                .totalStoryPoints(totalPoints)
+                .taskCount(count)
+                
                 .build();
     }
     
@@ -297,6 +310,49 @@ public class SprintServiceImpl implements SprintService {
         // Lấy task để trả về (hoặc danh sách rỗng cho nhẹ)
         // Ở đây ta lấy danh sách rỗng cho nhẹ, vì update thông tin không ảnh hưởng list task
         return mapToSprintResponse(savedSprint, Collections.emptyList());
+    }
+
+    // LOGIC XOA SPRINT (SMART DELETE)
+    @Override
+    @Transactional
+    public void deleteSprint(Integer projectId, Integer sprintId) {
+        // 1. Tìm Sprint
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Sprint")); // Đã dịch
+
+        // 2. Validate: Sprint thuộc Project
+        if (!sprint.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("Sprint không thuộc về dự án này."); // Đã dịch
+        }
+
+        // 3. Validate: Không được xóa Sprint đã hoàn thành
+        if (sprint.getStatus() == SprintStatus.COMPLETED) {
+            throw new BadRequestException("Không thể xóa Sprint đã hoàn thành."); // Đã dịch
+        }
+
+        // 4. Kiểm tra số lượng task
+        long taskCount = taskRepository.countBySprint_Id(sprintId);
+
+        // === CASE 1: XÓA HẲN (HARD DELETE) ===
+        // Nếu chưa bắt đầu VÀ không có task nào -> Xóa bay màu
+        if (sprint.getStatus() == SprintStatus.NOT_STARTED && taskCount == 0) {
+            sprintRepository.delete(sprint);
+            return;
+        }
+
+        // === CASE 2: HỦY (SOFT DELETE / CANCEL) ===
+        // Nếu đang chạy HOẶC đã có task -> Chuyển về trạng thái CANCELLED
+        
+        // B2.1: Đẩy hết task về Backlog (sprint_id = null)
+        if (taskCount > 0) {
+            taskRepository.moveTasksToBacklogBySprintId(sprintId);
+        }
+
+        // B2.2: Cập nhật trạng thái Sprint thành CANCELLED
+        sprint.setStatus(SprintStatus.CANCELLED);
+        sprint.setEndDate(java.time.LocalDateTime.now()); // Ghi nhận thời điểm hủy
+        
+        sprintRepository.save(sprint);
     }
 
     // --- HÀM HELPER (TÁI SỬ DỤNG & SỬA LOGIC STATUS) ---

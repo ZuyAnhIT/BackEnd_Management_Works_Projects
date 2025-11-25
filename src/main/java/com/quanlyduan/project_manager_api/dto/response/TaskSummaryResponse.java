@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -33,6 +34,6 @@ public class TaskSummaryResponse {
     private String epicColor;
 
     private Integer storyPoints;
-    private LocalDate dueDate;
+    private LocalDateTime dueDate;
     private Integer sortOrder;
 }

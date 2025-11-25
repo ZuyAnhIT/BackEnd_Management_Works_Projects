@@ -83,20 +83,6 @@ public class SprintController {
     }
 
     /**
-     * US-S3-XX: Hủy một Sprint
-     * Endpoint: POST /api/projects/{projectId}/sprints/{sprintId}/cancel
-     */
-    @PostMapping("/{sprintId}/cancel")
-    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:delete')")
-    public ResponseEntity<ApiResponse<SprintResponse>> cancelSprint(
-            @PathVariable Integer projectId,
-            @PathVariable Integer sprintId) {
-                
-        SprintResponse sprint = sprintService.cancelSprint(projectId, sprintId);
-        return ResponseEntity.ok(ApiResponse.success("Sprint đã bị hủy.", sprint)); // Đã dịch
-    }
-
-    /**
      * API XEM CHI TIẾT SPRINT
      * (Bao gồm danh sách task trong Sprint đó)
      * Endpoint: GET /api/projects/{projectId}/sprints/{sprintId}
@@ -124,5 +110,18 @@ public class SprintController {
         SprintResponse sprint = sprintService.updateSprint(projectId, sprintId, request);
         
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin Sprint thành công.", sprint)); // Đã dịch
+    }
+
+    // API XOA SPRINT (SMART DELETE)
+    @DeleteMapping("/{sprintId}")
+    // Bảo vệ: Cần quyền 'sprint:delete' (hoặc 'project:edit')
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:delete')")
+    public ResponseEntity<ApiResponse<Object>> deleteSprint(
+            @PathVariable Integer projectId,
+            @PathVariable Integer sprintId) {
+        
+        sprintService.deleteSprint(projectId, sprintId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Xóa Sprint thành công.", null)); 
     }
 }

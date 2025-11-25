@@ -242,32 +242,49 @@ public class TaskServiceImpl implements TaskService {
                 .build();
     }
 
-    // LOGIC DI CHUYEN TASK (KEO THA)
+    // LOGIC DI CHUYEN TASK (KEO THA TREN BOARD - NANG CAP)
     @Override
     @Transactional
     public void moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request) {
         // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc với ID: " + taskId)); // Đã dịch
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc với ID: " + taskId));
+
+        Integer projectId = task.getProject().getId();
+        // Integer oldStatusId = (task.getStatus() != null) ? task.getStatus().getId() : null;
+        Integer newStatusId = request.getNewStatusId();
 
         // 2. Tìm Status mới
-        ProjectStatus newStatus = projectStatusRepository.findById(request.getNewStatusId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trạng thái với ID: " + request.getNewStatusId())); // Đã dịch
+        ProjectStatus newStatus = projectStatusRepository.findById(newStatusId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trạng thái với ID: " + newStatusId));
 
-        // 3. Validate: Status mới phải thuộc cùng Project với Task
-        // (Tránh trường hợp kéo task của Dự án A vào cột của Dự án B)
-        if (!newStatus.getProject().getId().equals(task.getProject().getId())) {
-            throw new BadRequestException("Trạng thái mới không thuộc về dự án của công việc này"); // Đã dịch
+        // 3. Validate Project
+        if (!newStatus.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("Trạng thái mới không thuộc về dự án của công việc này");
         }
 
-        // 4. Cập nhật
-        task.setStatus(newStatus);
-        
-        // (Tùy chọn: Nếu cột mới là "DONE", có thể tự động cập nhật completedAt)
-        if (newStatus.getIsCompletedStatus()) {
-            task.setCompletedAt(java.time.LocalDate.now());
+        // 4. Xử lý Vị Trí (Sort Order)
+        Integer newSortOrder = request.getNewSortOrder();
+
+        // Nếu không gửi vị trí HOẶC (giữ nguyên cột cũ và không gửi vị trí) -> Giữ nguyên hoặc xuống cuối
+        if (newSortOrder == null) {
+             // Mặc định xuống cuối cột mới
+             newSortOrder = taskRepository.findMaxSortOrderByStatusId(projectId, newStatusId) + 1;
         } else {
-            task.setCompletedAt(null); // Nếu kéo ngược lại, xóa ngày hoàn thành
+            // Nếu có vị trí cụ thể -> Phải đẩy các task đang đứng đó lùi xuống
+            // Lưu ý: Chỉ cần shift nếu chuyển sang cột MỚI hoặc thay đổi vị trí trong cột CŨ
+            taskRepository.shiftSortOrderInStatus(projectId, newStatusId, newSortOrder);
+        }
+
+        // 5. Cập nhật Task
+        task.setStatus(newStatus);
+        task.setSortOrder(newSortOrder);
+        
+        // (Logic cập nhật completedAt giữ nguyên)
+        if (newStatus.getIsCompletedStatus()) {
+            task.setCompletedAt(java.time.LocalDateTime.now());
+        } else {
+            task.setCompletedAt(null);
         }
 
         taskRepository.save(task);

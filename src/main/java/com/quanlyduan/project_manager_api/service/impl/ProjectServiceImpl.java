@@ -85,7 +85,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final EpicRepository epicRepository;
     private final ProjectStatusRepository projectStatusRepository;
 
-    // *** CONSTRUCTOR THỦ CÔNG ĐÃ CẬP NHẬT (12 tham số) ***
+    // CONSTRUCTOR THỦ CÔNG 
     public ProjectServiceImpl(ProjectRepository projectRepository,
                               WorkspaceRepository workspaceRepository,
                               UserRepository userRepository,
@@ -377,9 +377,6 @@ public class ProjectServiceImpl implements ProjectService {
         Project saved = projectRepository.save(project);
         return toResponse(saved);
     }
-    /**
-     * Helper map Entity -> DTO (tối thiểu, không viết mapping phức tạp; chỉ rút gọn trường cần thiết).
-     */
     private ProjectResponse toResponse(Project p) {
         return ProjectResponse.builder()
                 .id(p.getId())
@@ -427,7 +424,7 @@ public class ProjectServiceImpl implements ProjectService {
     public ProjectBacklogResponse getProjectBacklog(
             Integer companyId, Integer workspaceId, Integer projectId,
             String keyword, Integer assigneeId, 
-            TaskPriority priority, TaskType taskType, // *** THAM SỐ MỚI ***
+            TaskPriority priority, TaskType taskType, 
             int page, int size, String sortBy, String sortDir) {
         
         // 1. Validate Project (Giữ nguyên)
@@ -444,12 +441,25 @@ public class ProjectServiceImpl implements ProjectService {
         );
 
         List<SprintDetailsResponse> sprintDtos = activeSprints.stream().map(sprint -> {
-            // *** CẬP NHẬT: Truyền priority và taskType vào bộ lọc Sprint ***
             Specification<Task> sprintTaskSpec = TaskSpecification.filterBacklog(
                 projectId, sprint.getId(), false, keyword, assigneeId, priority, taskType
             );
             
+            // Task trong Sprint luôn sắp xếp theo thứ tự ưu tiên (sortOrder) để hiển thị đúng trên bảng
+            // (Hoặc nếu bạn muốn Sprint cũng sort theo yêu cầu người dùng thì thay Sort.by(...) bằng biến 'sort' giống phần Backlog)
             List<Task> tasks = taskRepository.findAll(sprintTaskSpec, Sort.by("sortOrder").ascending());
+            
+            // TÍNH TOÁN THỐNG KÊ (trên danh sách đã lọc)
+            long totalPoints = tasks.stream()
+                    .mapToLong(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
+                    .sum();
+            
+            int count = tasks.size();
+            
+            // Map task
+            List<TaskSummaryResponse> taskDtos = tasks.stream()
+                    .map(this::mapToTaskSummaryResponse)
+                    .collect(Collectors.toList());
             
             return SprintDetailsResponse.builder()
                     .id(sprint.getId())
@@ -459,18 +469,18 @@ public class ProjectServiceImpl implements ProjectService {
                     .startDate(sprint.getStartDate())
                     .endDate(sprint.getEndDate())
                     .projectId(projectId)
-                    .tasks(tasks.stream().map(this::mapToTaskSummaryResponse).collect(Collectors.toList()))
+                    .tasks(taskDtos)
+                    .totalStoryPoints(totalPoints)
+                    .taskCount(count)
                     .build();
         }).collect(Collectors.toList());
 
 
         // 3. PHẦN B: PRODUCT BACKLOG
-        // *** CẬP NHẬT: Truyền priority và taskType vào bộ lọc Backlog ***
         Specification<Task> backlogSpec = TaskSpecification.filterBacklog(
             projectId, null, true, keyword, assigneeId, priority, taskType
         );
         
-        // Map sắp xếp
         Map<String, String> sortMapping = Map.of(
             "sortOrder", "sortOrder",
             "title", "title",
@@ -480,7 +490,6 @@ public class ProjectServiceImpl implements ProjectService {
         );
         Sort sort = SortUtils.createSort(sortBy, sortDir, "sortOrder", sortMapping);
         
-        // Logic giữ nguyên thứ tự ưu tiên nếu sort mặc định
         if ("sortOrder".equals(sortBy) && (sortDir == null || sortDir.isEmpty())) {
             sort = Sort.by(Sort.Direction.ASC, "sortOrder");
         }
@@ -744,61 +753,72 @@ public class ProjectServiceImpl implements ProjectService {
         // 8. Trả về DTO đã cập nhật
         return mapToProjectMemberResponse(updatedMember);
     }
-      // --- US-S4-2 (Xem Board) & US-S4-4 (Lọc Board) ---
-@Override
+    // LOGIC XEM BOARD (TỰ ĐỘNG TÌM ACTIVE SPRINT)
+    @Override
     @Transactional(readOnly = true)
     public List<BoardColumnResponse> getProjectBoard(
             Integer companyId, Integer workspaceId, Integer projectId,
-            Integer sprintId, String search, Integer assigneeId, String priority) {
-
-        // 1. VALIDATE HỆ THỐNG PHÂN CẤP (Hierarchy Check)
+            Integer sprintId, String keyword, Integer assigneeId, 
+            TaskPriority priority, TaskType taskType) { // *** ĐÃ SỬA SIGNATURE ***
+        
+        // 1. VALIDATE HỆ THỐNG PHÂN CẤP
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
-
-        // Kiểm tra Project thuộc Workspace
-        if (!project.getWorkspace().getId().equals(workspaceId)) {
-            throw new BadRequestException("Dự án không thuộc về Workspace được chỉ định.");
-        }
-        // Kiểm tra Workspace thuộc Company
-        if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Workspace không thuộc về Công ty được chỉ định.");
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
+        
+        if (!project.getWorkspace().getId().equals(workspaceId) || 
+            !project.getWorkspace().getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Dự án không thuộc về không gian hoặc công ty này");
         }
 
-        // 2. LẤY DANH SÁCH CỘT (STATUS) CỦA DỰ ÁN
-        // Để vẽ khung Board, ta cần tất cả các cột, kể cả cột không có task nào.
+        // 2. TỰ ĐỘNG GIẢI QUYẾT SPRINT ID
+        Integer targetSprintId = sprintId;
+        boolean isBacklog = false; 
+
+        if (targetSprintId == null) {
+            // Nếu client không gửi ID nào, tự tìm Sprint đang chạy (IN_PROGRESS)
+            List<Sprint> activeSprints = sprintRepository.findActiveSprintsByProjectId(
+                projectId, Collections.singletonList(SprintStatus.IN_PROGRESS)
+            );
+            targetSprintId = activeSprints.isEmpty() ? -1 : activeSprints.get(0).getId();
+        } else if (targetSprintId == 0) {
+            // Client gửi 0 -> Backlog
+            isBacklog = true;
+            targetSprintId = null; 
+        }
+
+        // 3. LẤY DANH SÁCH CỘT (STATUS) CỦA DỰ ÁN
         List<com.quanlyduan.project_manager_api.model.ProjectStatus> statuses = 
                 projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId);
 
-        // 3. TẠO SPECIFICATION ĐỂ LỌC TASK
-        // Lưu ý: Truyền null vào tham số cuối cùng (statusNames) vì Board cần lấy task ở mọi trạng thái
+        // 4. TẠO SPECIFICATION ĐỂ LỌC TASK
+        // *** ĐÃ SỬA: Gọi đúng hàm filterTasks với đủ 8 tham số ***
         Specification<Task> spec = TaskSpecification.filterTasks(
                 projectId, 
-                sprintId, 
-                search, 
+                targetSprintId, 
+                isBacklog, 
+                keyword,
                 assigneeId, 
                 priority, 
-                null // statusNames = null để lấy tất cả status
+                taskType, 
+                null // statusIds = null để lấy tất cả task (Board)
         );
 
-        // 4. LẤY TASK TỪ DB
-        List<Task> tasks = taskRepository.findAll(spec);
+        // 5. LẤY TASK TỪ DB (1 Query duy nhất)
+        List<Task> tasks = taskRepository.findAll(spec, Sort.by("sortOrder").ascending());
 
-        // 5. NHÓM TASK THEO STATUS ID (Grouping in Memory)
-        // Map<StatusID, List<Task>>
+        // 6. NHÓM TASK THEO STATUS ID (Grouping in Memory)
         Map<Integer, List<Task>> tasksByStatus = tasks.stream()
-                .filter(t -> t.getStatus() != null) // Bỏ qua task lỗi dữ liệu (không có status)
+                .filter(t -> t.getStatus() != null)
                 .collect(Collectors.groupingBy(t -> t.getStatus().getId()));
 
-        // 6. BUILD RESPONSE (Ghép Cột + Task đã map sang DTO)
+        // 7. BUILD RESPONSE
         List<BoardColumnResponse> board = new ArrayList<>();
 
         for (com.quanlyduan.project_manager_api.model.ProjectStatus status : statuses) {
-            // Lấy list task thuộc cột này (trả về list rỗng nếu không có task nào)
             List<Task> tasksInColumn = tasksByStatus.getOrDefault(status.getId(), Collections.emptyList());
 
-            // Map Entity -> DTO (Sử dụng taskService để map)
             List<TaskResponse> taskResponses = tasksInColumn.stream()
-                    .map(taskService::mapToTaskResponse) // Gọi hàm map từ TaskService
+                    .map(taskService::mapToTaskResponse)
                     .collect(Collectors.toList());
 
             // Tạo đối tượng cột
@@ -807,7 +827,8 @@ public class ProjectServiceImpl implements ProjectService {
                     .statusName(status.getName())
                     .color(status.getColor())
                     .order(status.getSortOrder())
-                    .tasks(taskResponses) // List task trong cột
+                    .isCompleted(status.getIsCompletedStatus() != null && status.getIsCompletedStatus()) 
+                    .tasks(taskResponses)
                     .build());
         }
 

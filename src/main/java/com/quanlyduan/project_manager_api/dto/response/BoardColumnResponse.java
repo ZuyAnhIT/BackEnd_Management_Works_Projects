@@ -16,8 +16,8 @@ public class BoardColumnResponse {
     private Integer statusId;
     private String statusName;
     private String color;
-    private Integer order; // Để sắp xếp cột trên FE
+    private Integer order; 
     
-    // Danh sách task nằm trong cột này (đã lọc)
+    private Boolean isCompleted;
     private List<TaskResponse> tasks; 
 }

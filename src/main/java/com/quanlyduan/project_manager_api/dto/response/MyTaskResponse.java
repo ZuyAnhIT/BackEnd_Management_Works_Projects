@@ -5,6 +5,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -18,7 +19,7 @@ public class MyTaskResponse {
     private String taskStatusColor; 
 
     private TaskPriority taskPriority;
-    private LocalDate taskDueDate;
+    private LocalDateTime taskDueDate;
     
     private Integer projectId;
     private String projectName;
