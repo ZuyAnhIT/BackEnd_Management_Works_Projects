@@ -11,6 +11,7 @@ import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
@@ -353,5 +354,30 @@ public class ProjectController {
         
         return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu bảng công việc thành công.", board)); // Đã dịch
     }
-
+    // --- US-S4-8, 9, 11: Xem List Task (Advanced) ---
+    @GetMapping("/{projectId}/tasks")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<TaskResponse>>> getProjectTasks(
+            @PathVariable Integer companyId,   // Thêm mới
+            @PathVariable Integer workspaceId, // Thêm mới
+            @PathVariable Integer projectId,
+            @RequestParam(required = false) Integer sprintId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer assigneeId,
+            @RequestParam(required = false) String priority,
+            
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        
+        // Truyền thêm companyId, workspaceId vào service
+        PageResponseDTO<TaskResponse> tasks = projectService.getProjectTaskList(
+                companyId, workspaceId, projectId, 
+                sprintId, search, assigneeId, priority, 
+                page, size, sortBy, sortDir
+        );
+        
+        return ResponseEntity.ok(ApiResponse.success("Fetched project tasks", tasks));
+    }
 }

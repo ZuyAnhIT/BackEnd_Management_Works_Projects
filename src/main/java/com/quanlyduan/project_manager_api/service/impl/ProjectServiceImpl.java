@@ -877,4 +877,66 @@ public class ProjectServiceImpl implements ProjectService {
                 .createdAt(task.getCreatedAt())
                 .build();
     }
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<TaskResponse> getProjectTaskList(
+            Integer companyId, Integer workspaceId, Integer projectId,
+            Integer sprintId, String search, Integer assigneeId, String priority,
+            int page, int size, String sortBy, String sortDir) {
+
+        // 1. VALIDATE HỆ THỐNG PHÂN CẤP (Giữ nguyên như cũ)
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+        if (!project.getWorkspace().getId().equals(workspaceId)) {
+            throw new BadRequestException("Dự án không thuộc về Workspace được chỉ định.");
+        }
+        if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Workspace không thuộc về Công ty được chỉ định.");
+        }
+
+        // 2. CHUẨN BỊ DỮ LIỆU ĐỂ GỌI SPECIFICATION (Phần cần sửa)
+
+        // a. Xử lý Logic Backlog (Quy ước: sprintId = 0 là Backlog)
+        boolean isBacklog = (sprintId != null && sprintId == 0);
+        
+        // b. Convert String Priority -> Enum (Frontend gửi "High", "Medium"...)
+        TaskPriority priorityEnum = null;
+        if (priority != null && !priority.isEmpty()) {
+            try {
+                // Chuyển về chữ hoa để khớp với Enum (HIGH, MEDIUM, LOW...)
+                priorityEnum = TaskPriority.valueOf(priority.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Nếu client gửi sai giá trị enum, có thể log hoặc bỏ qua filter này
+                // priorityEnum vẫn là null
+            }
+        }
+
+        // 3. GỌI FILTER TASKS VỚI SIGNATURE MỚI
+        Specification<Task> spec = TaskSpecification.filterTasks(
+            projectId,      // 1. projectId
+            sprintId,       // 2. sprintId (Nếu là 0 thì bên trong spec đã có if(isBacklog) chặn rồi, hoặc bạn truyền null vào đây cũng được)
+            isBacklog,      // 3. isBacklog (boolean)
+            search,         // 4. keyword
+            assigneeId,     // 5. assigneeId
+            priorityEnum,   // 6. priority (Enum)
+            null,           // 7. taskType (Tạm thời null nếu chưa filter theo type)
+            null            // 8. statusIds (Xem dạng List thì lấy tất cả status -> null)
+        );
+
+        // 4. Xử lý Sort (Giữ nguyên)
+        Map<String, String> sortMap = Map.of(
+            "title", "title", 
+            "dueDate", "dueDate", 
+            "priority", "priority"
+        );
+        Sort sort = SortUtils.createSort(sortBy, sortDir, "id", sortMap);
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // 5. Query DB & Map Response (Giữ nguyên)
+        Page<Task> taskPage = taskRepository.findAll(spec, pageable);
+        Page<TaskResponse> responsePage = taskPage.map(taskService::mapToTaskResponse);
+        
+        return new PageResponseDTO<>(responsePage);
+    }
 }
