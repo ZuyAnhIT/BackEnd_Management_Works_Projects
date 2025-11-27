@@ -1,6 +1,7 @@
 
 package com.quanlyduan.project_manager_api.service;
 
+import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
@@ -149,4 +150,8 @@ public interface ProjectService {
         Integer sprintId, 
         String search
     );
+
+    /* Mời thành viên nội bộ công ty vào Project.
+     */
+    void inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request);
 }

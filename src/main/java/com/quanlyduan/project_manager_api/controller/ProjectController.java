@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
+import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
@@ -401,5 +402,23 @@ public class ProjectController {
         );
         
         return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu nhóm công việc thành công.", data));
+    }
+
+    // API MỜI THÀNH VIÊN VÀO DỰ ÁN
+    @PostMapping("/{projectId}/members")
+    // Quyền: Chỉ người có quyền mời thành viên dự án (project:invite_member)
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:invite_member')")
+    public ResponseEntity<ApiResponse<Object>> inviteMemberToProject(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @Valid @RequestBody InviteProjectMemberRequest request) {
+
+        // Validate: Kiểm tra tính hợp lệ của project ID và company ID
+        // (Logic này đã được xử lý trong service và @PreAuthorize)
+        
+        projectService.inviteMemberToProject(projectId, request);
+        
+        return ResponseEntity.ok(ApiResponse.success("Mời thành viên vào dự án thành công.", null)); // Đã dịch
     }
 }

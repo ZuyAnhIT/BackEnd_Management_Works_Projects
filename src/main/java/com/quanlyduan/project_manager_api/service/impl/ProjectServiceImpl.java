@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/ProjectServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
@@ -27,6 +28,7 @@ import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
 import com.quanlyduan.project_manager_api.repository.specification.ProjectMemberSpecification;
 import com.quanlyduan.project_manager_api.repository.specification.ProjectSpecification;
 import com.quanlyduan.project_manager_api.repository.specification.TaskSpecification;
+import com.quanlyduan.project_manager_api.service.EmailService;
 import com.quanlyduan.project_manager_api.service.FileStorageService;
 import com.quanlyduan.project_manager_api.service.ProjectService;
 import com.quanlyduan.project_manager_api.service.TaskService;
@@ -50,6 +52,7 @@ import java.math.BigDecimal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
+import org.springframework.beans.factory.annotation.Value;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -63,6 +66,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
 
@@ -84,7 +88,12 @@ public class ProjectServiceImpl implements ProjectService {
     private final SprintRepository sprintRepository;
     private final EpicRepository epicRepository;
     private final ProjectStatusRepository projectStatusRepository;
+    private final CompanyMemberRepository companyMemberRepository;
 
+    private final EmailService emailService;
+    
+    @Value("${app.frontend.url}")
+    private String frontendUrl; 
     // CONSTRUCTOR THỦ CÔNG 
     public ProjectServiceImpl(ProjectRepository projectRepository,
                               WorkspaceRepository workspaceRepository,
@@ -99,7 +108,9 @@ public class ProjectServiceImpl implements ProjectService {
                               SprintRepository sprintRepository, 
                               EpicRepository epicRepository, 
                               ProjectStatusRepository projectStatusRepository,
-                              FileStorageService fileStorageService
+                              FileStorageService fileStorageService,
+                              EmailService emailService,
+                               CompanyMemberRepository companyMemberRepository
                               ) {
         this.projectRepository = projectRepository;
         this.workspaceRepository = workspaceRepository;
@@ -115,6 +126,8 @@ public class ProjectServiceImpl implements ProjectService {
         this.epicRepository = epicRepository; 
         this.projectStatusRepository = projectStatusRepository; 
         this.fileStorageService = fileStorageService;
+        this.emailService = emailService;
+        this.companyMemberRepository = companyMemberRepository;
     }
 
     private boolean isProvided(String value) {
@@ -959,5 +972,76 @@ public class ProjectServiceImpl implements ProjectService {
         }
        
         throw new BadRequestException("Tham số groupBy không hợp lệ. Hãy dùng: 'assignee', 'priority' hoặc 'status'.");
+    }
+
+    // *** LOGIC MỜI THÀNH VIÊN VÀO DỰ ÁN (ĐÃ BỔ SUNG GỬI MAIL) ***
+    @Override
+    @Transactional
+    public void inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request) {
+        
+        // 1. Tìm Project, Admin, User, Role
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Dự án với ID: " + projectId));
+
+        User invitedUser = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với Email: " + request.getEmail()));
+        
+        Role projectRole = roleRepository.findFirstByRoleCode(request.getRoleCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với mã: " + request.getRoleCode()));
+        
+        User admin = securityService.getCurrentAuthenticatedUser();
+        Integer companyId = project.getWorkspace().getCompany().getId();
+
+
+        // 2. VALIDATE LOGIC NỘI BỘ (Kiểm tra thành viên công ty)
+        boolean isCompanyMember = companyMemberRepository
+                .existsByCompany_IdAndUser_IdAndStatus(companyId, invitedUser.getId(), MemberStatus.ACTIVE);
+        
+        if (!isCompanyMember) {
+            throw new BadRequestException("Người dùng này không phải là thành viên hoạt động của công ty.");
+        }
+        
+        // ... (Kiểm tra Role, Kiểm tra trùng lặp ProjectMember)
+        if (projectRole.getLevel() != RoleLevel.PROJECT) {
+            throw new BadRequestException("Vai trò không hợp lệ. Vui lòng chọn vai trò cấp DỰ ÁN.");
+        }
+        if (projectMemberRepository.findByProject_IdAndUser_Id(projectId, invitedUser.getId()).isPresent()) {
+            throw new BadRequestException("Người dùng này đã là thành viên của dự án.");
+        }
+
+        // 3. THỰC HIỆN MỜI (Tạo ProjectMember)
+        ProjectMember newMember = ProjectMember.builder()
+                .project(project)
+                .user(invitedUser)
+                .role(projectRole)
+                .status(MemberStatus.ACTIVE)
+                .build();
+        
+        projectMemberRepository.save(newMember);
+        
+        // 4.GỬI THÔNG BÁO QUA EMAIL
+        try {
+            // Link trực tiếp đến Board của dự án
+            String projectUrl = frontendUrl + "/companies/" + companyId + "/workspaces/" + project.getWorkspace().getId() + "/projects/" + projectId + "/board";
+
+            String emailBody = String.format(
+                "Xin chào %s,<br><br>Quản trị viên %s đã mời bạn tham gia dự án <strong>%s</strong> với vai trò <strong>%s</strong>.<br>" +
+                "Vui lòng nhấp vào <a href=\"%s\">đây</a> để xem Bảng Công việc của dự án.<br><br>" +
+                "Chúc bạn có trải nghiệm tốt!",
+                invitedUser.getFullName(), // [Người nhận]
+                admin.getFullName(),       // [Người mời]
+                project.getName(),         // [Tên Dự án]
+                projectRole.getRoleName(), // [Vai trò]
+                projectUrl                 // [Link truy cập]
+            );
+
+            emailService.sendEmail(
+                invitedUser.getEmail(), 
+                "Lời mời tham gia Dự án: " + project.getName(), 
+                emailBody
+            );
+        } catch (Exception e) {
+            System.err.println("Lỗi khi gửi email thông báo mời thành viên dự án: " + e.getMessage());
+        }
     }
 }
