@@ -47,10 +47,10 @@ public class Epic {
     private EpicStatus status;
 
     @Column(name = "start_date")
-    private LocalDate startDate; // CSDL là DATE
+    private LocalDate startDate; 
 
     @Column(name = "due_date")
-    private LocalDate dueDate; // CSDL là DATE
+    private LocalDate dueDate; 
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
@@ -58,14 +58,15 @@ public class Epic {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; // CSDL là TIMESTAMP
+    private LocalDateTime createdAt; 
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // CSDL là TIMESTAMP
+    private LocalDateTime updatedAt; 
     
     // Quan hệ nghịch đảo: Một Epic có nhiều Task
     // Bảng 'tasks' có cột 'epic_id'
     @OneToMany(mappedBy = "epic")
     private List<Task> tasks;
+
 }

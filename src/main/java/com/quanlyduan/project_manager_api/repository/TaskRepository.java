@@ -143,4 +143,10 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
     @Modifying
     @Query("UPDATE Task t SET t.sortOrder = t.sortOrder + 1 WHERE t.project.id = :projectId AND t.status.id = :statusId AND t.sortOrder >= :newSortOrder")
     void shiftSortOrderInStatus(@Param("projectId") Integer projectId, @Param("statusId") Integer statusId, @Param("newSortOrder") Integer newSortOrder);
+
+    /**
+     * Lấy danh sách Task thuộc Epic cụ thể.
+     */
+    List<Task> findByEpicId(Integer epicId);
+
 }
