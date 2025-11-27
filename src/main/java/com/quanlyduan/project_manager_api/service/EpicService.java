@@ -13,6 +13,8 @@ public interface EpicService {
     EpicResponse createEpic(Integer projectId, CreateEpicRequest request);
 
     EpicResponse updateEpic(Integer projectId, Integer epicId, UpdateEpicRequest request);
+
+    void deleteEpic(Integer projectId, Integer epicId);
     // ... (Các hàm CRUD khác sẽ được thêm sau)
     
 }
