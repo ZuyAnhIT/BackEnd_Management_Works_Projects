@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repository cho Project – phục vụ kiểm tra unique và truy vấn theo workspace.
@@ -32,4 +33,6 @@ public interface ProjectRepository extends JpaRepository<Project, Integer>, JpaS
      * Tìm dự án theo Workspace và Trạng thái (Enum).
      */
     Page<Project> findByWorkspace_IdAndStatus(Integer workspaceId, ProjectStatus status, Pageable pageable);
+
+    Optional<Project> findById(Integer id);
 }
