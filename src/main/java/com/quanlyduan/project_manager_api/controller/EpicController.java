@@ -1,7 +1,8 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/controller/EpicController.java
 package com.quanlyduan.project_manager_api.controller;
 
-import com.quanlyduan.project_manager_api.dto.request.CreateEpicRequest; 
+import com.quanlyduan.project_manager_api.dto.request.CreateEpicRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateEpicRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.EpicResponse;
 import com.quanlyduan.project_manager_api.service.EpicService;
@@ -45,6 +46,19 @@ public class EpicController {
 
         EpicResponse epic = epicService.createEpic(projectId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Tạo Epic thành công.", epic));
+    }
+
+    // API CAP NHAT EPIC
+    @PutMapping("/{epicId}")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<EpicResponse>> updateEpic(
+            @PathVariable Integer projectId,
+            @PathVariable Integer epicId,
+            @Valid @RequestBody UpdateEpicRequest request) {
+            
+        EpicResponse epic = epicService.updateEpic(projectId, epicId, request);
+        
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật Epic thành công.", epic)); // Đã dịch
     }
 
 }
