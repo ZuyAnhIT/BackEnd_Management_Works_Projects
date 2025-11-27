@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateTaskEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
@@ -47,4 +48,12 @@ public interface TaskService {
      * Cập nhật thông tin Task.
      */
     TaskResponse updateTask(Integer taskId, UpdateTaskRequest request);
+
+    /**
+     * Gán hoặc gỡ Epic khỏi Task.
+     * @param taskId ID của Task cần cập nhật.
+     * @param request Chứa epicId (hoặc null để gỡ).
+     * @return TaskResponse sau khi cập nhật.
+     */
+    TaskResponse updateTaskEpic(Integer taskId, UpdateTaskEpicRequest request);
 }
