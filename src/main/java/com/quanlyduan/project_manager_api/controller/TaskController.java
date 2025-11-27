@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CommentRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateTaskEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskSprintRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
@@ -171,5 +172,18 @@ public class TaskController {
         TaskResponse updatedTask = taskService.updateTask(taskId, request);
         
         return ResponseEntity.ok(ApiResponse.success("Cập nhật công việc thành công.", updatedTask)); // Đã dịch
+    }
+
+    // API GÁN/GỠ EPIC CHO TASK 
+    @PatchMapping("/{taskId}/epic")
+    // Bảo vệ: Task phải thuộc về Project mà User có quyền sửa (project:edit)
+    @PreAuthorize("@securityService.hasPermission('task', #taskId, 'project:edit')")
+    public ResponseEntity<ApiResponse<TaskResponse>> updateTaskEpic(
+            @PathVariable Integer taskId,
+            @Valid @RequestBody UpdateTaskEpicRequest request) {
+            
+        TaskResponse task = taskService.updateTaskEpic(taskId, request);
+        
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật Epic cho Task thành công.", task)); // Đã dịch
     }
 }

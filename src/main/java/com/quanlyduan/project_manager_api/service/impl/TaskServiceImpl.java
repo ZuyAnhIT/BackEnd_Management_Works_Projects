@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateTaskEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
@@ -396,4 +397,43 @@ public class TaskServiceImpl implements TaskService {
         Task updatedTask = taskRepository.save(task);
         return mapToTaskResponse(updatedTask);
     }
+
+    // LOGIC GÁN/GỠ EPIC VÀO TASK 
+    @Override
+    @Transactional
+    public TaskResponse updateTaskEpic(Integer taskId, UpdateTaskEpicRequest request) {
+        // 1. Tìm Task
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Task với ID: " + taskId)); // Đã dịch
+
+        Integer newEpicId = request.getEpicId();
+        
+        if (newEpicId == null) {
+            // Trường hợp 1: GỠ EPIC KHỎI TASK
+            task.setEpic(null);
+            
+        } else {
+            // Trường hợp 2: GÁN EPIC VÀO TASK
+            Epic epic = epicRepository.findById(newEpicId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Epic với ID: " + newEpicId)); // Đã dịch
+
+            // *** KIỂM TRA TÍNH TOÀN VẸN DỮ LIỆU ***
+            // Task và Epic phải thuộc cùng một Project
+            if (!task.getProject().getId().equals(epic.getProject().getId())) {
+                throw new BadRequestException(
+                    "Không thể gán Epic này. Epic và Task phải thuộc cùng một Dự án." // Đã dịch
+                );
+            }
+            
+            // Gán Epic mới
+            task.setEpic(epic);
+        }
+
+        // 3. Lưu và trả về
+        Task updatedTask = taskRepository.save(task);
+        
+        // Giả định bạn có hàm mapToTaskResponse
+        return mapToTaskResponse(updatedTask); 
+    }
+    
 }
