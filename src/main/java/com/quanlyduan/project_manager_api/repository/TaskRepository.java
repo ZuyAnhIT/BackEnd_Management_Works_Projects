@@ -148,5 +148,9 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
      * Lấy danh sách Task thuộc Epic cụ thể.
      */
     List<Task> findByEpicId(Integer epicId);
-
+    
+    /**
+     * Kiểm tra xem có task nào thuộc Epic này không.
+     */
+    boolean existsByEpic_Id(Integer epicId);
 }

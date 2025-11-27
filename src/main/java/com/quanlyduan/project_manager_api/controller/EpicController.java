@@ -61,4 +61,16 @@ public class EpicController {
         return ResponseEntity.ok(ApiResponse.success("Cập nhật Epic thành công.", epic)); // Đã dịch
     }
 
+
+    // XÓA EPIC
+    @DeleteMapping("/{epicId}")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:delete')")
+    public ResponseEntity<ApiResponse<Object>> deleteEpic(
+            @PathVariable Integer projectId,
+            @PathVariable Integer epicId) {
+            
+        epicService.deleteEpic(projectId, epicId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Xóa Epic thành công.", null)); // Đã dịch
+    }
 }

@@ -157,6 +157,32 @@ public class EpicServiceImpl implements EpicService {
         return mapToEpicResponse(savedEpic);
     }
 
+    // CẬP NHẬT LOGIC XÓA EPIC 
+    @Override
+    @Transactional
+    public void deleteEpic(Integer projectId, Integer epicId) {
+        // 1. Tìm Epic
+        Epic epic = epicRepository.findById(epicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Epic")); // Đã dịch
+
+        // 2. Validate: Epic thuộc Project
+        if (!epic.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("Epic không thuộc về dự án này"); // Đã dịch
+        }
+
+        // 3.  KIỂM TRA RÀNG BUỘC 
+        // Nếu Epic đang chứa Task -> Chặn xóa
+        if (taskRepository.existsByEpic_Id(epicId)) {
+            throw new BadRequestException(
+                "Không thể xóa Epic này vì đang có công việc (Task) bên trong. " +
+                "Vui lòng di chuyển hoặc gỡ bỏ các công việc trước khi xóa."
+            );
+        }
+
+        // 4. Nếu rỗng -> Xóa
+        epicRepository.delete(epic);
+    }
+
     // --- PRIVATE UTILITY: MAPPER VÀ LOGIC TÍNH TOÁN METRICS ---
     private EpicResponse mapToEpicResponse(Epic epic) {
         
