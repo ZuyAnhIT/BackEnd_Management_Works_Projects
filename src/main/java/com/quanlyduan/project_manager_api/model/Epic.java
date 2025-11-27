@@ -44,7 +44,8 @@ public class Epic {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    private EpicStatus status;
+    @Builder.Default 
+    private EpicStatus status = EpicStatus.OPEN;
 
     @Column(name = "start_date")
     private LocalDate startDate; 
