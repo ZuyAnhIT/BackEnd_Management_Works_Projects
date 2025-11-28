@@ -12,4 +12,5 @@ public interface TagService {
     List<TagResponse> assignTagToTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer tagId);
     List<TagResponse> removeTagFromTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer tagId);
     TagResponse updateTag(Integer companyId, Integer workspaceId, Integer projectId, Integer tagId, UpdateTagRequest request);
+    void deleteTag(Integer companyId, Integer workspaceId, Integer projectId, Integer tagId);
 }

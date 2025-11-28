@@ -165,4 +165,26 @@ public class TagServiceImpl implements TagService {
         Tag updatedTag = tagRepository.save(tag);
         return mapToResponse(updatedTag);
     }
+
+    @Override
+    @Transactional
+    public void deleteTag(Integer companyId, Integer workspaceId, Integer projectId, Integer tagId) {
+
+        // 1. Validate Hierarchy (Đảm bảo URL đúng cấp bậc)
+        validator.validateProject(companyId, workspaceId, projectId);
+
+        // 2. Tìm Tag trong Database
+        Tag tag = tagRepository.findById(tagId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tag not found with ID: " + tagId));
+
+        // 3. Bảo mật: Đảm bảo Tag này thực sự thuộc về Project này
+        // (Tránh trường hợp user lấy ID tag của dự án khác để xóa)
+        if (!tag.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("This tag does not belong to the current project.");
+        }
+
+        // 4. Xóa
+        // Lưu ý: Nếu Tag đang được gán cho Task, JPA sẽ tự động xóa liên kết
+        tagRepository.delete(tag);
+    }
 }

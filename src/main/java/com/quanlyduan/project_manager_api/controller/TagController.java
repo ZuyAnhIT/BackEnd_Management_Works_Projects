@@ -118,5 +118,19 @@ public class TagController {
 
         return ResponseEntity.ok(ApiResponse.success("Tag updated successfully.", updatedTag));
     }
-    
+
+    @Operation(summary = "Delete a tag")
+    @DeleteMapping("/tags/{tagId}")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<Void>> deleteTag(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @PathVariable Integer tagId) {
+
+        tagService.deleteTag(companyId, workspaceId, projectId, tagId);
+
+        return ResponseEntity.ok(ApiResponse.success("Tag deleted successfully.", null));
+    }
+
 }
