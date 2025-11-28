@@ -75,8 +75,9 @@ public class TagController {
     public ResponseEntity<ApiResponse<Object>> assignTag(
             @PathVariable Integer companyId, @PathVariable Integer workspaceId, @PathVariable Integer projectId,
             @PathVariable Integer taskId, @PathVariable Integer tagId) {
-        tagService.assignTagToTask(companyId, workspaceId, projectId, taskId, tagId);
-        return ResponseEntity.ok(ApiResponse.success("Tag assigned successfully", null));
+        // 2. Hứng giá trị trả về từ Service
+        List<TagResponse> updatedTags = tagService.assignTagToTask(companyId, workspaceId, projectId, taskId, tagId);
+        return ResponseEntity.ok(ApiResponse.success("Tag assigned successfully", updatedTags));
     }
 
     @DeleteMapping("/tasks/{taskId}/tags/{tagId}")
@@ -84,8 +85,9 @@ public class TagController {
     public ResponseEntity<ApiResponse<Object>> removeTag(
             @PathVariable Integer companyId, @PathVariable Integer workspaceId, @PathVariable Integer projectId,
             @PathVariable Integer taskId, @PathVariable Integer tagId) {
-        tagService.removeTagFromTask(companyId, workspaceId, projectId, taskId, tagId);
-        return ResponseEntity.ok(ApiResponse.success("Card removed successfully", null));
+
+        List<TagResponse> updatedTags = tagService.removeTagFromTask(companyId, workspaceId, projectId, taskId, tagId);
+        return ResponseEntity.ok(ApiResponse.success("Card removed successfully", updatedTags));
     }
 
 }
