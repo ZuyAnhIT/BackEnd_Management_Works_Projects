@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 import java.util.stream.Collectors;
 import com.quanlyduan.project_manager_api.model.Tag;
 
+import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.repository.TagRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.specification.TagSpecification;
@@ -21,10 +22,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class TagServiceImpl implements TagService {
     private final TagRepository tagRepository;
+    private final TaskRepository taskRepository;
     private final ProjectHierarchyValidator validator;
 
-    public TagServiceImpl(TagRepository tagRepository, ProjectHierarchyValidator validator) {
+    public TagServiceImpl(TagRepository tagRepository,TaskRepository taskRepository, ProjectHierarchyValidator validator) {
         this.tagRepository = tagRepository;
+        this.taskRepository = taskRepository;
         this.validator = validator;
     }
 
@@ -38,6 +41,25 @@ public class TagServiceImpl implements TagService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
+
+       @Override
+    @Transactional
+    public void assignTagToTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer tagId) {
+        Task task = validator.validateTask(companyId, workspaceId, projectId, taskId);
+        Tag tag = validator.validateTag(companyId, workspaceId, projectId, tagId);
+        task.getTags().add(tag);
+        taskRepository.save(task);
+    }
+
+    @Override
+    @Transactional
+    public void removeTagFromTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer tagId) {
+        Task task = validator.validateTask(companyId, workspaceId, projectId, taskId);
+        Tag tag = validator.validateTag(companyId, workspaceId, projectId, tagId);
+        task.getTags().remove(tag);
+        taskRepository.save(task);
+    }
+
     // --- Helper Mapping (Đã cập nhật thêm thông tin người tạo) ---
     private TagResponse mapToResponse(Tag tag) {
         return TagResponse.builder()
