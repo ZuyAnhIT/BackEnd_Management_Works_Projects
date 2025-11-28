@@ -43,7 +43,7 @@ public class SubTaskController {
      * DELETE /api/tasks/{taskId}/subtasks/{subTaskId}
      */
     @DeleteMapping("/{subTaskId}")
-    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:edit')")
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:delete')")
     public ResponseEntity<ApiResponse<Void>> deleteSubTask(
             @PathVariable Integer taskId,
             @PathVariable Integer subTaskId) {
