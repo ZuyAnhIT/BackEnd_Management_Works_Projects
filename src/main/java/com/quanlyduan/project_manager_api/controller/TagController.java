@@ -79,7 +79,8 @@ public class TagController {
             @Valid @RequestBody CreateTagRequest request) {
         TagResponse tag = tagService.createTag(companyId, workspaceId, projectId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Created tag successfully", tag));
-      
+    }
+    
     @PostMapping("/tasks/{taskId}/tags/{tagId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:edit')")
     public ResponseEntity<ApiResponse<Object>> assignTag(
@@ -100,4 +101,5 @@ public class TagController {
         return ResponseEntity.ok(ApiResponse.success("Card removed successfully", updatedTags));
     }
 
+    
 }
