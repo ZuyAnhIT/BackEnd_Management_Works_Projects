@@ -8,4 +8,6 @@ public interface TagService {
     List<TagResponse> getProjectTags(Integer companyId, Integer workspaceId, Integer projectId, TagFilterRequest filter);
 
     TagResponse createTag(Integer companyId, Integer workspaceId, Integer projectId, CreateTagRequest request);
+    List<TagResponse> assignTagToTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer tagId);
+    List<TagResponse> removeTagFromTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer tagId);
 }
