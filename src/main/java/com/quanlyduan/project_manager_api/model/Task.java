@@ -1,23 +1,20 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/model/Task.java
 package com.quanlyduan.project_manager_api.model;
 
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet; // Nhớ import HashSet
 import java.util.List;
 import java.util.Set;
 
-@Data
+@Getter // 1. Thay @Data
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,16 +22,21 @@ import java.util.Set;
 @Table(name = "tasks", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"task_code", "project_id"})
 })
+// 2. QUAN TRỌNG: Chỉ tính hashCode/equals dựa trên ID
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Task {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include // 3. Include ID
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
+    @ToString.Exclude // Ngắt vòng lặp log
     private Project project;
 
+    // ... Các trường khác giữ nguyên ...
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "epic_id")
     private Epic epic;
@@ -43,7 +45,6 @@ public class Task {
     @JoinColumn(name = "sprint_id")
     private Sprint sprint;
 
-    // Quan hệ tự tham chiếu (Subtask của một Task khác)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_task_id")
     private Task parentTask;
@@ -62,8 +63,8 @@ public class Task {
     private TaskType taskType;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "status_id") 
-    private ProjectStatus status; 
+    @JoinColumn(name = "status_id")
+    private ProjectStatus status;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "priority")
@@ -91,63 +92,56 @@ public class Task {
     private BigDecimal loggedHours;
 
     @Column(name = "start_date")
-    private LocalDateTime startDate; 
+    private LocalDateTime startDate;
 
     @Column(name = "due_date")
-    private LocalDateTime dueDate; 
+    private LocalDateTime dueDate;
 
     @Column(name = "completed_at")
-    private LocalDateTime completedAt; 
+    private LocalDateTime completedAt;
 
     @Column(name = "sort_order")
     private Integer sortOrder;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
+    @ToString.Exclude
     private User createdBy;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; 
+    private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt; 
+    private LocalDateTime updatedAt;
 
-    // --- CÁC QUAN HỆ NGHỊCH ĐẢO (One-to-Many) ---
-
-    // Các Task con (liên kết với 'parentTask' ở trên)
+    // --- Quan hệ List ---
+    // Nên thêm @ToString.Exclude cho các List để tránh log quá dài hoặc lỗi Lazy
     @OneToMany(mappedBy = "parentTask")
-    @OrderBy("sortOrder ASC")
+    @ToString.Exclude 
     private List<Task> childTasks;
 
-    // Các SubTask (liên kết từ Bảng 20: sub_tasks)
     @OneToMany(mappedBy = "parentTask", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("sortOrder ASC")
+    @ToString.Exclude
     private List<SubTask> subTasks;
 
-    // Các Comment (liên kết từ Bảng 22: task_comments)
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("createdAt ASC")
+    @ToString.Exclude
     private List<TaskComment> comments;
 
-    // Các Attachment (liên kết từ Bảng 23: task_attachments)
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("uploadedAt ASC")
+    @ToString.Exclude
     private List<TaskAttachment> attachments;
 
-    // ========================================================================
-    // PHẦN THIẾU GÂY RA LỖI CỦA BẠN LÀ Ở ĐÂY (TAGS & SUBTASKS MỚI)
-    // ========================================================================
-
-    // 4. Tags (Sửa lỗi mappedBy="tags" bên entity Tag)
-    @ManyToMany
+    // 4. Tags - QUAN TRỌNG NHẤT
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-        name = "task_tags", // Tên bảng trung gian trong DB
+        name = "task_tags", 
         joinColumns = @JoinColumn(name = "task_id"), 
         inverseJoinColumns = @JoinColumn(name = "tag_id")
     )
-    private Set<Tag> tags;
-
-    
+    @ToString.Exclude // Ngắt vòng lặp log
+    @Builder.Default // Khởi tạo HashSet để tránh NullPointerException khi add tag
+    private Set<Tag> tags = new HashSet<>();
 }

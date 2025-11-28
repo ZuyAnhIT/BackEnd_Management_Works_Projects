@@ -4,9 +4,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import com.quanlyduan.project_manager_api.dto.request.TagFilterRequest;
@@ -65,6 +67,27 @@ public class TagController {
         filterRequest.setCreatedTo(createdTo);
 
         List<TagResponse> tags = tagService.getProjectTags(companyId, workspaceId, projectId, filterRequest);
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thẻ thành công", tags));
+        return ResponseEntity.ok(ApiResponse.success("Successfully retrieved the card list", tags));
     }
+
+    @PostMapping("/tasks/{taskId}/tags/{tagId}")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:edit')")
+    public ResponseEntity<ApiResponse<Object>> assignTag(
+            @PathVariable Integer companyId, @PathVariable Integer workspaceId, @PathVariable Integer projectId,
+            @PathVariable Integer taskId, @PathVariable Integer tagId) {
+        // 2. Hứng giá trị trả về từ Service
+        List<TagResponse> updatedTags = tagService.assignTagToTask(companyId, workspaceId, projectId, taskId, tagId);
+        return ResponseEntity.ok(ApiResponse.success("Tag assigned successfully", updatedTags));
+    }
+
+    @DeleteMapping("/tasks/{taskId}/tags/{tagId}")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:edit')")
+    public ResponseEntity<ApiResponse<Object>> removeTag(
+            @PathVariable Integer companyId, @PathVariable Integer workspaceId, @PathVariable Integer projectId,
+            @PathVariable Integer taskId, @PathVariable Integer tagId) {
+
+        List<TagResponse> updatedTags = tagService.removeTagFromTask(companyId, workspaceId, projectId, taskId, tagId);
+        return ResponseEntity.ok(ApiResponse.success("Card removed successfully", updatedTags));
+    }
+
 }
