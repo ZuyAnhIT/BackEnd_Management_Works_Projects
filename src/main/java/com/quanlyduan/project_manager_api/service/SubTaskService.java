@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateSubTaskRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateSubTaskRequest;
 import com.quanlyduan.project_manager_api.dto.response.SubTaskResponse;
 
 public interface SubTaskService {
@@ -10,4 +11,8 @@ public interface SubTaskService {
      * Tạo SubTask mới cho một Task
      */
     SubTaskResponse createSubTask(Integer taskId, CreateSubTaskRequest request);
+    /**
+     * Cập nhật thông tin SubTask
+     */
+    SubTaskResponse updateSubTask(Integer subTaskId, UpdateSubTaskRequest request);
 }
