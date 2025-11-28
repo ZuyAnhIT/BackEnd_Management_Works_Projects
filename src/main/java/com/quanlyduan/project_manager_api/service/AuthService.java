@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.dto.request.GoogleLoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
+import com.quanlyduan.project_manager_api.dto.request.RegisterFromProjectInviteRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
 import com.quanlyduan.project_manager_api.dto.request.ResetPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
@@ -29,4 +30,6 @@ public interface AuthService {
     void resetPassword(ResetPasswordRequest request);
 
     LoginResponse loginWithGoogle(GoogleLoginRequest request);
+
+    LoginResponse registerFromProjectInvite(RegisterFromProjectInviteRequest request);
 }

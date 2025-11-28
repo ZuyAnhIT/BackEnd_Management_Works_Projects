@@ -8,6 +8,7 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
@@ -151,7 +152,20 @@ public interface ProjectService {
         String search
     );
 
-    /* Mời thành viên nội bộ công ty vào Project.
+   /**
+     * Gửi lời mời tham gia dự án (Xử lý cả nội bộ và bên ngoài).
      */
     void inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request);
+
+    /**
+     * Lấy thông tin chi tiết của lời mời (Public API).
+     */
+    ProjectInvitationDetailsResponse getProjectInvitationDetails(String token);
+
+    /**
+     * Chấp nhận lời mời (Dành cho user đã login).
+     */
+    void acceptProjectInvitation(String token);
+    
+    
 }

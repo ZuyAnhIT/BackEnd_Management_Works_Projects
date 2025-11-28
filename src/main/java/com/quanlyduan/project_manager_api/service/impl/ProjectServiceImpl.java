@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse; 
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
@@ -16,6 +17,7 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
+import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
 import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
@@ -40,7 +42,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.util.Map; 
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +53,8 @@ import org.springframework.web.multipart.MultipartFile;
 import com.quanlyduan.project_manager_api.security.SecurityService; 
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
@@ -68,6 +74,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectInvitationRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
 
 @Service
@@ -89,6 +96,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final EpicRepository epicRepository;
     private final ProjectStatusRepository projectStatusRepository;
     private final CompanyMemberRepository companyMemberRepository;
+    private final ProjectInvitationRepository projectInvitationRepository;
 
     private final EmailService emailService;
     
@@ -110,7 +118,8 @@ public class ProjectServiceImpl implements ProjectService {
                               ProjectStatusRepository projectStatusRepository,
                               FileStorageService fileStorageService,
                               EmailService emailService,
-                               CompanyMemberRepository companyMemberRepository
+                               CompanyMemberRepository companyMemberRepository,
+                               ProjectInvitationRepository projectInvitationRepository
                               ) {
         this.projectRepository = projectRepository;
         this.workspaceRepository = workspaceRepository;
@@ -128,6 +137,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.fileStorageService = fileStorageService;
         this.emailService = emailService;
         this.companyMemberRepository = companyMemberRepository;
+        this.projectInvitationRepository = projectInvitationRepository;
     }
 
     private boolean isProvided(String value) {
@@ -974,74 +984,183 @@ public class ProjectServiceImpl implements ProjectService {
         throw new BadRequestException("Tham số groupBy không hợp lệ. Hãy dùng: 'assignee', 'priority' hoặc 'status'.");
     }
 
-    // *** LOGIC MỜI THÀNH VIÊN VÀO DỰ ÁN (ĐÃ BỔ SUNG GỬI MAIL) ***
+    // ============================================================
+    // CHỨC NĂNG: MỜI THÀNH VIÊN VÀO DỰ ÁN (QUAN TRỌNG)
+    // ============================================================
     @Override
     @Transactional
     public void inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request) {
-        
-        // 1. Tìm Project, Admin, User, Role
+        // 1. Tìm Project
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Dự án với ID: " + projectId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án"));
 
-        User invitedUser = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với Email: " + request.getEmail()));
-        
-        Role projectRole = roleRepository.findFirstByRoleCode(request.getRoleCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với mã: " + request.getRoleCode()));
-        
-        User admin = securityService.getCurrentAuthenticatedUser();
+        User inviter = securityService.getCurrentAuthenticatedUser();
         Integer companyId = project.getWorkspace().getCompany().getId();
 
-
-        // 2. VALIDATE LOGIC NỘI BỘ (Kiểm tra thành viên công ty)
-        boolean isCompanyMember = companyMemberRepository
-                .existsByCompany_IdAndUser_IdAndStatus(companyId, invitedUser.getId(), MemberStatus.ACTIVE);
+        // 2. Tìm Role
+        Role role = roleRepository.findFirstByRoleCode(request.getRoleCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò: " + request.getRoleCode()));
         
-        if (!isCompanyMember) {
-            throw new BadRequestException("Người dùng này không phải là thành viên hoạt động của công ty.");
-        }
-        
-        // ... (Kiểm tra Role, Kiểm tra trùng lặp ProjectMember)
-        if (projectRole.getLevel() != RoleLevel.PROJECT) {
-            throw new BadRequestException("Vai trò không hợp lệ. Vui lòng chọn vai trò cấp DỰ ÁN.");
-        }
-        if (projectMemberRepository.findByProject_IdAndUser_Id(projectId, invitedUser.getId()).isPresent()) {
-            throw new BadRequestException("Người dùng này đã là thành viên của dự án.");
+        if (role.getLevel() != RoleLevel.PROJECT) {
+            throw new BadRequestException("Vai trò không hợp lệ. Phải là vai trò cấp DỰ ÁN.");
         }
 
-        // 3. THỰC HIỆN MỜI (Tạo ProjectMember)
-        ProjectMember newMember = ProjectMember.builder()
+        String email = request.getEmail();
+        Optional<User> existingUserOpt = userRepository.findByEmail(email);
+
+        // 3. XỬ LÝ LOGIC
+        if (existingUserOpt.isPresent()) {
+            User existingUser = existingUserOpt.get();
+
+            // 3.1. Nếu đã ở trong dự án -> Báo lỗi
+            if (projectMemberRepository.findByProject_IdAndUser_Id(projectId, existingUser.getId()).isPresent()) {
+                throw new BadRequestException("Người dùng này đã là thành viên của dự án.");
+            }
+
+            // 3.2. Kiểm tra có phải thành viên công ty không
+            boolean isCompanyMember = companyMemberRepository.existsByCompany_IdAndUser_IdAndStatus(
+                    companyId, existingUser.getId(), MemberStatus.ACTIVE
+            );
+
+            if (isCompanyMember) {
+                // ==> TRƯỜNG HỢP NỘI BỘ: THÊM THẲNG
+                ProjectMember newMember = ProjectMember.builder()
+                        .project(project)
+                        .user(existingUser)
+                        .role(role)
+                        .status(MemberStatus.ACTIVE)
+                        .build();
+                projectMemberRepository.save(newMember);
+
+                // Gửi mail thông báo
+                sendProjectNotificationEmail(inviter, existingUser, project, role);
+                return; // Xong
+            }
+        }
+
+        // ==> TRƯỜNG HỢP BÊN NGOÀI (Chưa có TK hoặc Không phải nhân viên Cty)
+        // Gửi lời mời qua Email
+        
+        // 4. Kiểm tra lời mời trùng
+        if (projectInvitationRepository.existsByProject_IdAndEmailAndStatus(projectId, email, InvitationStatus.PENDING)) {
+            throw new BadRequestException("Đã có một lời mời đang chờ xử lý cho email này.");
+        }
+
+        // 5. Tạo Token & Lưu DB
+        String token = UUID.randomUUID().toString();
+        LocalDateTime expiresAt = LocalDateTime.now().plusDays(7); 
+
+        ProjectInvitation invitation = ProjectInvitation.builder()
                 .project(project)
-                .user(invitedUser)
-                .role(projectRole)
-                .status(MemberStatus.ACTIVE)
+                .email(email)
+                .role(role)
+                .invitedBy(inviter)
+                .token(token)
+                .status(InvitationStatus.PENDING)
+                .expiresAt(expiresAt)
                 .build();
         
-        projectMemberRepository.save(newMember);
-        
-        // 4.GỬI THÔNG BÁO QUA EMAIL
+        projectInvitationRepository.save(invitation);
+
+        // 6. Gửi Email Mời
+        sendProjectInvitationEmail(inviter, email, project, role, token);
+    }
+
+    // --- Helper: Gửi mail thông báo (Nội bộ) ---
+    private void sendProjectNotificationEmail(User inviter, User user, Project project, Role role) {
         try {
-            // Link trực tiếp đến Board của dự án
-            String projectUrl = frontendUrl + "/companies/" + companyId + "/workspaces/" + project.getWorkspace().getId() + "/projects/" + projectId + "/board";
-
-            String emailBody = String.format(
-                "Xin chào %s,<br><br>Quản trị viên %s đã mời bạn tham gia dự án <strong>%s</strong> với vai trò <strong>%s</strong>.<br>" +
-                "Vui lòng nhấp vào <a href=\"%s\">đây</a> để xem Bảng Công việc của dự án.<br><br>" +
-                "Chúc bạn có trải nghiệm tốt!",
-                invitedUser.getFullName(), // [Người nhận]
-                admin.getFullName(),       // [Người mời]
-                project.getName(),         // [Tên Dự án]
-                projectRole.getRoleName(), // [Vai trò]
-                projectUrl                 // [Link truy cập]
+            String projectUrl = frontendUrl + "/companies/" + project.getWorkspace().getCompany().getId() + 
+                                "/workspaces/" + project.getWorkspace().getId() + 
+                                "/projects/" + project.getId() + "/board";
+            
+            String subject = "Bạn đã được thêm vào dự án: " + project.getName();
+            String body = String.format(
+                "Xin chào %s,<br><br>" +
+                "%s đã thêm bạn vào dự án <strong>%s</strong> với vai trò <strong>%s</strong>.<br>" +
+                "Truy cập dự án tại đây: <a href=\"%s\">Xem Dự Án</a>",
+                user.getFullName(), inviter.getFullName(), project.getName(), role.getRoleName(), projectUrl
             );
-
-            emailService.sendEmail(
-                invitedUser.getEmail(), 
-                "Lời mời tham gia Dự án: " + project.getName(), 
-                emailBody
-            );
+            emailService.sendEmail(user.getEmail(), subject, body);
         } catch (Exception e) {
-            System.err.println("Lỗi khi gửi email thông báo mời thành viên dự án: " + e.getMessage());
+            System.err.println("Lỗi gửi mail: " + e.getMessage());
         }
+    }
+
+    // --- Helper: Gửi mail mời (Bên ngoài) ---
+    private void sendProjectInvitationEmail(User inviter, String email, Project project, Role role, String token) {
+        try {
+            String acceptUrl = frontendUrl + "/accept-project-invitation?token=" + token;
+            String subject = "Lời mời tham gia dự án: " + project.getName();
+            String body = String.format(
+                "Xin chào,<br><br>" +
+                "%s đã mời bạn tham gia dự án <strong>%s</strong> với vai trò <strong>%s</strong>.<br>" +
+                "Vui lòng nhấp vào liên kết dưới đây để chấp nhận lời mời:<br>" +
+                "<a href=\"%s\">Chấp nhận lời mời</a><br><br>" +
+                "Liên kết này sẽ hết hạn sau 7 ngày.",
+                inviter.getFullName(), project.getName(), role.getRoleName(), acceptUrl
+            );
+            emailService.sendEmail(email, subject, body);
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi mail: " + e.getMessage());
+        }
+    }
+
+    // ============================================================
+    // CHỨC NĂNG: XỬ LÝ CHẤP NHẬN LỜI MỜI
+    // ============================================================
+    
+    // 1. Xem chi tiết lời mời (Public)
+    @Override
+    @Transactional(readOnly = true)
+    public ProjectInvitationDetailsResponse getProjectInvitationDetails(String token) {
+        ProjectInvitation invitation = projectInvitationRepository.findByToken(token)
+                .orElseThrow(() -> new ResourceNotFoundException("Lời mời không tồn tại hoặc mã không hợp lệ"));
+
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new BadRequestException("Lời mời này không còn hiệu lực.");
+        }
+        if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Lời mời đã hết hạn.");
+        }
+
+        boolean accountExists = userRepository.existsByEmail(invitation.getEmail());
+
+        return ProjectInvitationDetailsResponse.builder()
+                .email(invitation.getEmail())
+                .projectName(invitation.getProject().getName())
+                .roleName(invitation.getRole().getRoleName())
+                .accountExists(accountExists)
+                .expiresAt(invitation.getExpiresAt())
+                .build();
+    }
+
+    // 2. Chấp nhận lời mời (User đã login)
+    @Override
+    @Transactional
+    public void acceptProjectInvitation(String token) {
+        User currentUser = securityService.getCurrentAuthenticatedUser();
+        
+        ProjectInvitation invitation = projectInvitationRepository.findByToken(token)
+                .orElseThrow(() -> new ResourceNotFoundException("Lời mời không hợp lệ"));
+
+        if (!invitation.getEmail().equalsIgnoreCase(currentUser.getEmail())) {
+            throw new BadRequestException("Email tài khoản không khớp với lời mời.");
+        }
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new BadRequestException("Lời mời không còn hiệu lực.");
+        }
+
+        // Tạo Project Member
+        ProjectMember newMember = ProjectMember.builder()
+                .project(invitation.getProject())
+                .user(currentUser)
+                .role(invitation.getRole())
+                .status(MemberStatus.ACTIVE)
+                .build();
+        projectMemberRepository.save(newMember);
+
+        // Cập nhật trạng thái lời mời
+        invitation.setStatus(InvitationStatus.ACCEPTED);
+        projectInvitationRepository.save(invitation);
     }
 }
