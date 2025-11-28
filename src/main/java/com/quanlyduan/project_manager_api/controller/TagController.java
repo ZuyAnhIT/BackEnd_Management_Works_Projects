@@ -1,6 +1,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateTagRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateTagRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -39,7 +40,7 @@ public class TagController {
     public TagController(TagService tagService) {
         this.tagService = tagService;
     }
-
+    @Operation(summary = "Get list of tags with advanced filtering")
     @GetMapping("/tags")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<List<TagResponse>>> getTags(
@@ -72,6 +73,7 @@ public class TagController {
         return ResponseEntity.ok(ApiResponse.success("Successfully retrieved the card list", tags));
     }
 
+    @Operation(summary = "Create tag")
     @PostMapping("/tags")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
     public ResponseEntity<ApiResponse<TagResponse>> createTag(
@@ -80,7 +82,7 @@ public class TagController {
         TagResponse tag = tagService.createTag(companyId, workspaceId, projectId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Created tag successfully", tag));
     }
-    
+    @Operation(summary = "Assign tag to a task")
     @PostMapping("/tasks/{taskId}/tags/{tagId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:edit')")
     public ResponseEntity<ApiResponse<Object>> assignTag(
@@ -91,6 +93,7 @@ public class TagController {
         return ResponseEntity.ok(ApiResponse.success("Tag assigned successfully", updatedTags));
     }
 
+    @Operation(summary = "Remove tag from a task")
     @DeleteMapping("/tasks/{taskId}/tags/{tagId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:edit')")
     public ResponseEntity<ApiResponse<Object>> removeTag(
@@ -101,5 +104,19 @@ public class TagController {
         return ResponseEntity.ok(ApiResponse.success("Card removed successfully", updatedTags));
     }
 
+    @Operation(summary = "Update tag details")
+    @PutMapping("/tags/{tagId}")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<TagResponse>> updateTag(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @PathVariable Integer tagId,
+            @Valid @RequestBody UpdateTagRequest request) {
+
+        TagResponse updatedTag = tagService.updateTag(companyId, workspaceId, projectId, tagId, request);
+
+        return ResponseEntity.ok(ApiResponse.success("Tag updated successfully.", updatedTag));
+    }
     
 }

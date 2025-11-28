@@ -1,10 +1,13 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateTagRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateTagRequest;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 
+import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Tag;
 
 import com.quanlyduan.project_manager_api.model.User;
@@ -121,5 +124,45 @@ public class TagServiceImpl implements TagService {
                 .createdByAvatar(tag.getCreatedBy().getAvatarUrl())
                 .createdAt(tag.getCreatedAt())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public TagResponse updateTag(Integer companyId, Integer workspaceId, Integer projectId, Integer tagId, UpdateTagRequest request) {
+
+        // 1. Validate Hierarchy
+        validator.validateProject(companyId, workspaceId, projectId);
+
+        // 2. Tìm Tag
+        Tag tag = tagRepository.findById(tagId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tag not found with ID: " + tagId));
+
+        // 3. Bảo mật: Tag phải thuộc Project này
+        if (!tag.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("This tag does not belong to the current project.");
+        }
+
+        // 4. Validate tên trùng (nếu có đổi tên)
+        if (request.getName() != null && !request.getName().isEmpty()
+                && !Objects.equals(request.getName(), tag.getName())) {
+
+            // Kiểm tra trùng lặp với tag KHÁC
+            if (tagRepository.existsByNameAndProject_IdAndIdNot(request.getName(), projectId, tagId)) {
+                throw new BadRequestException("Tag name '" + request.getName() + "' is already in use by another tag in this project.");
+            }
+            tag.setName(request.getName());
+        }
+
+        // 5. Cập nhật các trường khác
+        if (request.getColor() != null) {
+            tag.setColor(request.getColor());
+        }
+        if (request.getDescription() != null) {
+            tag.setDescription(request.getDescription());
+        }
+
+        // 6. Lưu và trả về
+        Tag updatedTag = tagRepository.save(tag);
+        return mapToResponse(updatedTag);
     }
 }
