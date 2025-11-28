@@ -1,18 +1,10 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/SubTaskService.java
 package com.quanlyduan.project_manager_api.service;
 
-import com.quanlyduan.project_manager_api.dto.request.CreateSubTaskRequest;
-import com.quanlyduan.project_manager_api.dto.request.UpdateSubTaskRequest;
+import com.quanlyduan.project_manager_api.dto.request.*;
 import com.quanlyduan.project_manager_api.dto.response.SubTaskResponse;
+import java.util.List;
 
 public interface SubTaskService {
-    
-    /**
-     * Tạo SubTask mới cho một Task
-     */
-    SubTaskResponse createSubTask(Integer taskId, CreateSubTaskRequest request);
-    /**
-     * Cập nhật thông tin SubTask
-     */
-    SubTaskResponse updateSubTask(Integer subTaskId, UpdateSubTaskRequest request);
+    SubTaskResponse createSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, CreateSubTaskRequest request);
+    SubTaskResponse updateSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId, UpdateSubTaskRequest request);
 }

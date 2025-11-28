@@ -71,13 +71,18 @@ public class ProjectHierarchyValidator {
     /**
      * Validate SubTask: SubTask -> Task
      */
-    public SubTask validateSubTask(Integer taskId, Integer subTaskId) {
+    public SubTask validateSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId){
+        Task task = validateTask(companyId, workspaceId, projectId, taskId);
+
+        
+    // Validate SubTask
         SubTask subTask = subTaskRepository.findById(subTaskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc con với ID: " + subTaskId));
 
-        if (!subTask.getParentTask().getId().equals(taskId)) {
+        if (!subTask.getParentTask().getId().equals(task.getId())) {
             throw new BadRequestException("SubTask ID " + subTaskId + " không thuộc về Task ID " + taskId);
         }
         return subTask;
     }
+
 }
