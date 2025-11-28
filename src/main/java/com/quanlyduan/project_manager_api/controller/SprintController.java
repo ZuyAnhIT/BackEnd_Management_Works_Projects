@@ -16,6 +16,7 @@ import java.util.List;
 @RestController
 // *** SỬA: Đổi RequestMapping về /api/projects/{projectId}/sprints ***
 @RequestMapping("/api/projects/{projectId}/sprints")
+@CrossOrigin("*")
 // @RequiredArgsConstructor // Đã xóa
 public class SprintController {
 

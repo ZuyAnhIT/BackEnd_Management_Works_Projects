@@ -9,41 +9,54 @@ import java.util.List;
 
 public class TagSpecification {
 
+    /**
+     * Tạo Specification lọc Tag động (Dynamic Query).
+     * @param projectId (Bắt buộc) ID của dự án.
+     * @param filter (Tùy chọn) Object chứa các điều kiện lọc (keyword, dates, creators...).
+     */
     public static Specification<Tag> getFilterSpec(Integer projectId, TagFilterRequest filter) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             // 1. BẮT BUỘC: Lọc theo Project ID
+            // Đảm bảo Tag thuộc về đúng dự án đang truy cập
             predicates.add(cb.equal(root.get("project").get("id"), projectId));
 
+            // 2. Xử lý các điều kiện lọc TÙY CHỌN (nếu filter != null)
             if (filter != null) {
-                // 2. Lọc theo Keyword (Tìm kiếm gần đúng trong Name hoặc Description)
-                if (filter.getKeyword() != null && !filter.getKeyword().trim().isEmpty()) {
-                    String pattern = "%" + filter.getKeyword().trim().toLowerCase() + "%";
+                
+                // --- A. Lọc theo Keyword (Name OR Description) ---
+                // Logic giống filterTasks: check null và empty trước khi query
+                String keyword = filter.getKeyword();
+                if (keyword != null && !keyword.trim().isEmpty()) {
+                    String pattern = "%" + keyword.trim().toLowerCase() + "%";
+                    
+                    // Tìm trong Name
                     Predicate hasName = cb.like(cb.lower(root.get("name")), pattern);
+                    // Tìm trong Description
                     Predicate hasDesc = cb.like(cb.lower(root.get("description")), pattern);
+                    
+                    // Kết hợp bằng OR: (name LIKE %key% OR description LIKE %key%)
                     predicates.add(cb.or(hasName, hasDesc));
                 }
 
-                // 3. Lọc theo danh sách tên (Multi terms - VD: user check chọn "Bug" và "Urgent")
+                // --- B. Lọc theo danh sách tên (Multi-select) ---
                 if (filter.getNames() != null && !filter.getNames().isEmpty()) {
                     predicates.add(root.get("name").in(filter.getNames()));
                 }
 
-                // 4. Lọc theo người tạo (Created By)
+                // --- C. Lọc theo người tạo ---
                 if (filter.getCreatedById() != null) {
                     predicates.add(cb.equal(root.get("createdBy").get("id"), filter.getCreatedById()));
                 }
 
-                // 5. Lọc theo ngày tạo (From - To)
+                // --- D. Lọc theo ngày tạo (From - To) ---
                 if (filter.getCreatedFrom() != null) {
                     predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), filter.getCreatedFrom()));
                 }
                 if (filter.getCreatedTo() != null) {
                     predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), filter.getCreatedTo()));
                 }
-                
-                // (Chờ DB update): Nếu có cột status/updatedAt thì thêm logic vào đây
             }
 
             // Kết hợp tất cả điều kiện bằng AND
