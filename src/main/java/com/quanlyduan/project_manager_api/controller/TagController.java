@@ -1,6 +1,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateTagRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateTagRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -101,5 +102,19 @@ public class TagController {
         return ResponseEntity.ok(ApiResponse.success("Card removed successfully", updatedTags));
     }
 
+    @Operation(summary = "Update tag details")
+    @PutMapping("/tags/{tagId}")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<TagResponse>> updateTag(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @PathVariable Integer tagId,
+            @Valid @RequestBody UpdateTagRequest request) {
+
+        TagResponse updatedTag = tagService.updateTag(companyId, workspaceId, projectId, tagId, request);
+
+        return ResponseEntity.ok(ApiResponse.success("Tag updated successfully.", updatedTag));
+    }
     
 }
