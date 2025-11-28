@@ -1,12 +1,11 @@
 package com.quanlyduan.project_manager_api.controller;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.ModelAttribute;
+import com.quanlyduan.project_manager_api.dto.request.CreateTagRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
 
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import com.quanlyduan.project_manager_api.dto.request.TagFilterRequest;
@@ -14,7 +13,6 @@ import com.quanlyduan.project_manager_api.dto.response.TagResponse;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
 
 import com.quanlyduan.project_manager_api.service.TagService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -67,4 +65,15 @@ public class TagController {
         List<TagResponse> tags = tagService.getProjectTags(companyId, workspaceId, projectId, filterRequest);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thẻ thành công", tags));
     }
+
+    @Operation(summary = "Tạo thẻ mới")
+    @PostMapping("/tags")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<TagResponse>> createTag(
+            @PathVariable Integer companyId, @PathVariable Integer workspaceId, @PathVariable Integer projectId,
+            @Valid @RequestBody CreateTagRequest request) {
+        TagResponse tag = tagService.createTag(companyId, workspaceId, projectId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Tạo thành công", tag));
+    }
+
 }
