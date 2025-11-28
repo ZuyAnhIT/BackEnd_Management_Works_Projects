@@ -2,12 +2,18 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import java.util.stream.Collectors;
 
+import com.quanlyduan.project_manager_api.dto.request.CreateTagRequest;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+
 import com.quanlyduan.project_manager_api.model.Tag;
+
+import com.quanlyduan.project_manager_api.model.User;
 
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.repository.TagRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.specification.TagSpecification;
+import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.TagService;
 import com.quanlyduan.project_manager_api.dto.request.TagFilterRequest;
 import com.quanlyduan.project_manager_api.dto.response.TagResponse;
@@ -27,11 +33,13 @@ public class TagServiceImpl implements TagService {
     private final TagRepository tagRepository;
     private final TaskRepository taskRepository;
     private final ProjectHierarchyValidator validator;
+    private final SecurityService securityService;
 
-    public TagServiceImpl(TagRepository tagRepository,TaskRepository taskRepository, ProjectHierarchyValidator validator) {
+    public TagServiceImpl(TagRepository tagRepository,TaskRepository taskRepository, ProjectHierarchyValidator validator,SecurityService securityService) {
         this.tagRepository = tagRepository;
         this.taskRepository = taskRepository;
         this.validator = validator;
+        this.securityService = securityService;
     }
 
     @Override
@@ -44,7 +52,21 @@ public class TagServiceImpl implements TagService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
-
+    
+    @Override
+    @Transactional
+    public TagResponse createTag(Integer companyId, Integer workspaceId, Integer projectId, CreateTagRequest request) {
+        Project project = validator.validateProject(companyId, workspaceId, projectId);
+        if (tagRepository.existsByNameAndProject_Id(request.getName(), projectId)) {
+            throw new BadRequestException("Tag already exists.");
+        }
+        User creator = securityService.getCurrentAuthenticatedUser();
+        Tag tag = Tag.builder().project(project).name(request.getName())
+                .color(request.getColor() != null ? request.getColor() : "#95a5a6")
+                .description(request.getDescription()).createdBy(creator).build();
+        return mapToResponse(tagRepository.save(tag));
+    }
+  
      @Override
     @Transactional
     public List<TagResponse> assignTagToTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer tagId) {
@@ -83,6 +105,7 @@ public class TagServiceImpl implements TagService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
+  
     // --- Helper Mapping (Đã cập nhật thêm thông tin người tạo) ---
     private TagResponse mapToResponse(Tag tag) {
         return TagResponse.builder()

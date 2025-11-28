@@ -1,5 +1,11 @@
 package com.quanlyduan.project_manager_api.controller;
 
+import com.quanlyduan.project_manager_api.dto.request.CreateTagRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,13 +22,13 @@ import com.quanlyduan.project_manager_api.dto.response.TagResponse;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
 
 import com.quanlyduan.project_manager_api.service.TagService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.time.LocalDateTime;
 import java.util.List;
+
 @RestController
 @RequestMapping("/api/companies/{companyId}/workspaces/{workspaceId}/projects/{projectId}")
 @CrossOrigin("*")
@@ -40,20 +46,16 @@ public class TagController {
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-
+      
             // 1. Filter Keyword (Tìm theo tên hoặc mô tả)
             @RequestParam(required = false) String keyword,
-
             // 2. Filter theo danh sách tên chính xác (Cho checkbox multi-select)
             @RequestParam(required = false) List<String> names,
-
             // 3. Filter theo người tạo
             @RequestParam(required = false) Integer createdById,
-
             // 4. Filter ngày tạo (From)
             @RequestParam(required = false) 
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdFrom,
-
             // 5. Filter ngày tạo (To)
             @RequestParam(required = false) 
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdTo
@@ -70,6 +72,14 @@ public class TagController {
         return ResponseEntity.ok(ApiResponse.success("Successfully retrieved the card list", tags));
     }
 
+    @PostMapping("/tags")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<TagResponse>> createTag(
+            @PathVariable Integer companyId, @PathVariable Integer workspaceId, @PathVariable Integer projectId,
+            @Valid @RequestBody CreateTagRequest request) {
+        TagResponse tag = tagService.createTag(companyId, workspaceId, projectId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Created tag successfully", tag));
+      
     @PostMapping("/tasks/{taskId}/tags/{tagId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:edit')")
     public ResponseEntity<ApiResponse<Object>> assignTag(
