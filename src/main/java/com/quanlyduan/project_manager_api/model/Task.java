@@ -135,5 +135,19 @@ public class Task {
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("uploadedAt ASC")
     private List<TaskAttachment> attachments;
+
+    // ========================================================================
+    // PHẦN THIẾU GÂY RA LỖI CỦA BẠN LÀ Ở ĐÂY (TAGS & SUBTASKS MỚI)
+    // ========================================================================
+
+    // 4. Tags (Sửa lỗi mappedBy="tags" bên entity Tag)
+    @ManyToMany
+    @JoinTable(
+        name = "task_tags", // Tên bảng trung gian trong DB
+        joinColumns = @JoinColumn(name = "task_id"), 
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private Set<Tag> tags;
+
     
 }
