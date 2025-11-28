@@ -404,21 +404,17 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu nhóm công việc thành công.", data));
     }
 
-    // API MỜI THÀNH VIÊN VÀO DỰ ÁN
+    // API MỜI THÀNH VIÊN (NỘI BỘ + NGOÀI)
     @PostMapping("/{projectId}/members")
-    // Quyền: Chỉ người có quyền mời thành viên dự án (project:invite_member)
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:invite_member')")
-    public ResponseEntity<ApiResponse<Object>> inviteMemberToProject(
+    public ResponseEntity<ApiResponse<Object>> inviteMember(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
             @Valid @RequestBody InviteProjectMemberRequest request) {
-
-        // Validate: Kiểm tra tính hợp lệ của project ID và company ID
-        // (Logic này đã được xử lý trong service và @PreAuthorize)
         
         projectService.inviteMemberToProject(projectId, request);
         
-        return ResponseEntity.ok(ApiResponse.success("Mời thành viên vào dự án thành công.", null)); // Đã dịch
+        return ResponseEntity.ok(ApiResponse.success("Thao tác thành công.", null));
     }
 }

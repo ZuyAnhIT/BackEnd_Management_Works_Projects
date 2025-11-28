@@ -7,6 +7,7 @@ import com.quanlyduan.project_manager_api.dto.request.GoogleLoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
+import com.quanlyduan.project_manager_api.dto.request.RegisterFromProjectInviteRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
 import com.quanlyduan.project_manager_api.dto.request.ResetPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
@@ -14,6 +15,8 @@ import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
 import com.quanlyduan.project_manager_api.service.AuthService;
 import jakarta.validation.Valid;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -88,6 +91,19 @@ public class AuthController {
         LoginResponse loginResponse = authService.registerFromInvite(request);
         return ResponseEntity.ok(ApiResponse.success(
             "Đăng ký và tham gia công ty thành công.", loginResponse
+        ));
+    }
+
+    // API ĐĂNG KÝ TỪ LỜI MỜI DỰ ÁN (Khách/User mới)
+    @PostMapping("/register-from-project-invite")
+    public ResponseEntity<ApiResponse<LoginResponse>> registerFromProjectInvite(
+            @Valid @RequestBody RegisterFromProjectInviteRequest request) {
+        
+        // Gọi logic trong AuthService mà chúng ta đã viết ở bước trước
+        LoginResponse loginResponse = authService.registerFromProjectInvite(request);
+        
+        return ResponseEntity.ok(ApiResponse.success(
+            "Đăng ký và tham gia dự án thành công.", loginResponse
         ));
     }
 

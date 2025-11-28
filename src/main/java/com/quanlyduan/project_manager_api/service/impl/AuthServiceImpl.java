@@ -10,6 +10,8 @@ import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 // import com.quanlyduan.project_manager_api.model.CongTy; // Not used
 import com.quanlyduan.project_manager_api.model.CompanyInvitation; // Đã dịch
+import com.quanlyduan.project_manager_api.model.ProjectInvitation;
+import com.quanlyduan.project_manager_api.model.ProjectMember;
 import com.quanlyduan.project_manager_api.model.Role;
 // import com.quanlyduan.project_manager_api.model.CongTyThanhVien; // Not used
 import com.quanlyduan.project_manager_api.model.User; // Đã dịch
@@ -18,6 +20,8 @@ import com.quanlyduan.project_manager_api.model.AuthToken; // Đã dịch
 import com.quanlyduan.project_manager_api.model.common.enums.TokenType;
 import com.quanlyduan.project_manager_api.model.common.enums.UserStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyInvitationRepository; // Đã dịch
+import com.quanlyduan.project_manager_api.repository.ProjectInvitationRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.RoleRepository;
 // import com.quanlyduan.project_manager_api.repository.CongTyThanhVienRepository; // Not used
 import com.quanlyduan.project_manager_api.repository.UserRepository; // Đã dịch
@@ -41,9 +45,10 @@ import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
 import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.service.InvitationService;
 import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
+import com.quanlyduan.project_manager_api.dto.request.RegisterFromProjectInviteRequest;
 import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
-
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TokenStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -76,16 +81,17 @@ public class AuthServiceImpl implements AuthService {
 
     // TIÊM SERVICE MỚI
     private final InvitationService invitationService;
-    private final CompanyInvitationRepository companyInvitationRepository; // Đã dịch
+    private final CompanyInvitationRepository companyInvitationRepository; 
 
-    // *** THÊM VALUE NÀY ***
+    private final ProjectInvitationRepository projectInvitationRepository;
+    private final ProjectMemberRepository projectMemberRepository;
+    
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
     private static final long OTP_EXPIRATION_MINUTES = 10;
     private static final long RESET_TOKEN_EXPIRATION_MINUTES = 60;
     
-    // *** THÊM CONSTRUCTOR THỦ CÔNG (Theo yêu cầu) ***
     public AuthServiceImpl(UserRepository userRepository, 
                            UserRoleRepository userRoleRepository, 
                            AuthTokenRepository authTokenRepository, 
@@ -96,7 +102,9 @@ public class AuthServiceImpl implements AuthService {
                            AuthenticationManager authenticationManager, 
                            JwtTokenProvider jwtTokenProvider, 
                            InvitationService invitationService, 
-                           CompanyInvitationRepository companyInvitationRepository) {
+                           CompanyInvitationRepository companyInvitationRepository,
+                           ProjectInvitationRepository projectInvitationRepository,
+                           ProjectMemberRepository projectMemberRepository) {
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
         this.authTokenRepository = authTokenRepository;
@@ -108,6 +116,8 @@ public class AuthServiceImpl implements AuthService {
         this.jwtTokenProvider = jwtTokenProvider;
         this.invitationService = invitationService;
         this.companyInvitationRepository = companyInvitationRepository;
+        this.projectInvitationRepository = projectInvitationRepository;
+        this.projectMemberRepository = projectMemberRepository;
     }
 
     // LOIGIC DANG KY
@@ -335,6 +345,81 @@ public class AuthServiceImpl implements AuthService {
         // 6. Cập nhật lời mời
         invitation.setStatus(InvitationStatus.ACCEPTED);
         companyInvitationRepository.save(invitation);
+
+        // 7. Tự động đăng nhập và trả về token (Logic giữ nguyên)
+        UserPrincipal userPrincipal = UserPrincipal.create(savedUser);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+            userPrincipal, null, userPrincipal.getAuthorities()
+        );
+        
+        String accessToken = jwtTokenProvider.generateAccessToken(authentication);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(authentication);
+        
+        saveRefreshTokenToDB(savedUser, refreshToken);
+        
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
+    // *** LOGIC MỚI: ĐĂNG KÝ TỪ LỜI MỜI DỰ ÁN (PROJECT) ***
+    @Override
+    @Transactional
+    public LoginResponse registerFromProjectInvite(RegisterFromProjectInviteRequest request) {
+        // 1. Xác thực token lời mời (Tương tự validateInvitationToken nhưng cho Project)
+        ProjectInvitation invitation = projectInvitationRepository.findByToken(request.getInvitationToken())
+                .orElseThrow(() -> new ResourceNotFoundException("Mã lời mời không hợp lệ"));
+
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new BadRequestException("Lời mời này đã được xử lý hoặc đã bị hủy");
+        }
+        if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
+            invitation.setStatus(InvitationStatus.EXPIRED);
+            projectInvitationRepository.save(invitation);
+            throw new BadRequestException("Lời mời này đã hết hạn");
+        }
+
+        String invitedEmail = invitation.getEmail();
+
+        // 2. Kiểm tra email
+        if (userRepository.existsByEmail(invitedEmail)) {
+            throw new BadRequestException("Email này đã tồn tại. Vui lòng đăng nhập để chấp nhận lời mời.");
+        }
+
+        // 3. Tạo NguoiDung mới (Giống hệt logic trên)
+        User newUser = User.builder()
+                .fullName(request.getFullName())
+                .email(invitedEmail)
+                .password(passwordEncoder.encode(request.getPassword()))
+                .status(UserStatus.ACTIVE)
+                .isEmailVerified(true)
+                .build();
+        
+        User savedUser = userRepository.save(newUser);
+
+        // 4. Gán quyền 'USER' hệ thống
+        Role userRole = roleRepository.findFirstByRoleCode("USER")
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò USER."));
+        
+        UserRole userRoleEntity = UserRole.builder()
+            .user(savedUser)
+            .role(userRole)
+            .build();
+        userRoleRepository.save(userRoleEntity);
+
+        // 5. *** KHÁC BIỆT: Thêm vào DỰ ÁN thay vì CÔNG TY ***
+        ProjectMember projectMember = ProjectMember.builder()
+                .project(invitation.getProject())
+                .user(savedUser)
+                .role(invitation.getRole())
+                .status(MemberStatus.ACTIVE)
+                .build();
+        projectMemberRepository.save(projectMember);
+
+        // 6. Cập nhật lời mời
+        invitation.setStatus(InvitationStatus.ACCEPTED);
+        projectInvitationRepository.save(invitation);
 
         // 7. Tự động đăng nhập và trả về token (Logic giữ nguyên)
         UserPrincipal userPrincipal = UserPrincipal.create(savedUser);
