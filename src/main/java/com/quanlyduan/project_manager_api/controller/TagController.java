@@ -33,7 +33,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/companies/{companyId}/workspaces/{workspaceId}/projects/{projectId}")
 @CrossOrigin("*")
-@Tag(name = "Tag Management", description = "APIs for managing tags within projects")
 public class TagController {
     private final TagService tagService;
     
