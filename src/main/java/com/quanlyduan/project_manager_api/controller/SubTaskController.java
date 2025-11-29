@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/companies/{companyId}/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/subtasks")
 @RequiredArgsConstructor
@@ -21,20 +23,67 @@ public class SubTaskController {
 
     private final SubTaskService subTaskService;
 
+    // =================================================================
+    // 1. API: Xem chi tiết từng SubTask (Mới thêm)
+    // =================================================================
+    @GetMapping("/{subTaskId}")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:view')")
+    public ResponseEntity<ApiResponse<SubTaskResponse>> getSubTaskById(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @PathVariable Integer taskId,
+            @PathVariable Integer subTaskId) {
+
+        SubTaskResponse response = subTaskService.getSubTaskById(companyId, workspaceId, projectId, taskId, subTaskId);
+        return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết công việc con thành công", response));
+    }
+
+    // =================================================================
+    // 2. API: Xem toàn bộ SubTask của Task cha (Kèm chi tiết) (Mới thêm)
+    // =================================================================
+    @GetMapping
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:view')")
+    public ResponseEntity<ApiResponse<List<SubTaskResponse>>> getAllSubTasks(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @PathVariable Integer taskId) {
+
+        List<SubTaskResponse> response = subTaskService.getAllSubTasksByTaskId(companyId, workspaceId, projectId, taskId);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách công việc con thành công", response));
+    }
+
+    // =================================================================
+    // 3. API: Tạo SubTask (Code của bạn)
+    // =================================================================
     @PostMapping
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:edit')")
     public ResponseEntity<ApiResponse<SubTaskResponse>> createSubTask(
-            @PathVariable Integer companyId, @PathVariable Integer workspaceId, @PathVariable Integer projectId, @PathVariable Integer taskId, @Valid @RequestBody CreateSubTaskRequest request) {
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @PathVariable Integer taskId,
+            @Valid @RequestBody CreateSubTaskRequest request) {
+
         SubTaskResponse subTask = subTaskService.createSubTask(companyId, workspaceId, projectId, taskId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Tạo thành công", subTask));
     }
 
+    // =================================================================
+    // 4. API: Cập nhật SubTask (Code của bạn)
+    // =================================================================
     @PutMapping("/{subTaskId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:edit')")
     public ResponseEntity<ApiResponse<SubTaskResponse>> updateSubTask(
-            @PathVariable Integer companyId, @PathVariable Integer workspaceId, @PathVariable Integer projectId, @PathVariable Integer taskId, @PathVariable Integer subTaskId, @Valid @RequestBody UpdateSubTaskRequest request) {
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @PathVariable Integer taskId,
+            @PathVariable Integer subTaskId,
+            @Valid @RequestBody UpdateSubTaskRequest request) {
+
         SubTaskResponse subTask = subTaskService.updateSubTask(companyId, workspaceId, projectId, taskId, subTaskId, request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thành công", subTask));
     }
-
 }
