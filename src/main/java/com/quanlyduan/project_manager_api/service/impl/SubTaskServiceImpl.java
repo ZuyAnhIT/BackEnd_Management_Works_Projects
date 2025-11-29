@@ -1,9 +1,8 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/SubTaskServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateSubTaskRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateSubTaskRequest;
 import com.quanlyduan.project_manager_api.dto.response.SubTaskResponse;
-import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.SubTask;
 import com.quanlyduan.project_manager_api.model.Task;
@@ -14,114 +13,132 @@ import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.SubTaskService;
+import com.quanlyduan.project_manager_api.util.ProjectHierarchyValidator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class SubTaskServiceImpl implements SubTaskService {
 
     private final SubTaskRepository subTaskRepository;
-    private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final TaskRepository taskRepository; 
+    private final ProjectHierarchyValidator validator;
     private final SecurityService securityService;
 
-    public SubTaskServiceImpl(SubTaskRepository subTaskRepository,
-                              TaskRepository taskRepository,
-                              UserRepository userRepository,
-                              SecurityService securityService) {
+    public SubTaskServiceImpl(SubTaskRepository subTaskRepository, UserRepository userRepository, TaskRepository taskRepository, ProjectHierarchyValidator validator, SecurityService securityService) {
         this.subTaskRepository = subTaskRepository;
-        this.taskRepository = taskRepository;
         this.userRepository = userRepository;
+        this.taskRepository = taskRepository;
+        this.validator = validator;
         this.securityService = securityService;
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<SubTaskResponse> getSubTasks(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId) {
+        validator.validateTask(companyId, workspaceId, projectId, taskId);
+        return subTaskRepository.findByParentTask_IdOrderBySortOrderAsc(taskId).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SubTaskResponse getSubTaskDetail(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId) {
+        SubTask subTask = validator.validateSubTask(companyId, workspaceId, projectId, taskId, subTaskId);
+        return mapToResponse(subTask);
+    }
+
+    @Override
     @Transactional
-    public SubTaskResponse createSubTask(Integer taskId, CreateSubTaskRequest request) {
-        
-        // 1. Lấy thông tin người tạo
+    public SubTaskResponse createSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, CreateSubTaskRequest request) {
+        Task parentTask = validator.validateTask(companyId, workspaceId, projectId, taskId);
+        validator.validateProjectMember(projectId, request.getAssigneeId());
         User creator = securityService.getCurrentAuthenticatedUser();
         
-        // 2. Tìm Task cha
-        Task parentTask = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                    "Không tìm thấy công việc với ID: " + taskId
-                ));
-        
-        // 3. Xử lý Assignee (Nếu có)
         User assignee = null;
         if (request.getAssigneeId() != null) {
             assignee = userRepository.findById(request.getAssigneeId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                        "Không tìm thấy người dùng với ID: " + request.getAssigneeId()
-                    ));
+                    .orElseThrow(() -> new ResourceNotFoundException("Assignee not found"));
         }
         
-        // 4. Tính toán Sort Order (xếp xuống cuối cùng)
-        Integer currentCount = subTaskRepository.countByParentTask_Id(taskId);
-        Integer newSortOrder = (currentCount != null ? currentCount : 0) + 1;
+        Integer nextSortOrder = subTaskRepository.countByParentTask_Id(taskId);
         
-        // 5. Tạo SubTask Entity
-        SubTask newSubTask = SubTask.builder()
+        SubTask subTask = SubTask.builder()
                 .parentTask(parentTask)
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .status(SubTaskStatus.TO_DO)
                 .assignee(assignee)
                 .estimatedHours(request.getEstimatedHours())
-                .sortOrder(newSortOrder)
+                .sortOrder(nextSortOrder)
                 .createdBy(creator)
                 .build();
         
-        // 6. Lưu vào database
-        SubTask savedSubTask = subTaskRepository.save(newSubTask);
+        // Khi save(), @CreationTimestamp trong Entity sẽ tự động điền createdAt
+        SubTask saved = subTaskRepository.save(subTask);
         
-        // 7. Map sang Response DTO và trả về
-        return mapToSubTaskResponse(savedSubTask);
+        return mapToResponse(saved);
     }
-    
+
     @Override
     @Transactional
-    public void deleteSubTask(Integer taskId, Integer subTaskId) {
+    public SubTaskResponse updateSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId, UpdateSubTaskRequest request) {
+        SubTask subTask = validator.validateSubTask(companyId, workspaceId, projectId, taskId, subTaskId);
         
-        // 1. Tìm SubTask
-        SubTask subTask = subTaskRepository.findById(subTaskId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                    "Không tìm thấy công việc con với ID: " + subTaskId
-                ));
+        if (request.getTitle() != null) subTask.setTitle(request.getTitle());
+        if (request.getDescription() != null) subTask.setDescription(request.getDescription());
+        if (request.getStatus() != null) subTask.setStatus(request.getStatus());
+        if (request.getEstimatedHours() != null) subTask.setEstimatedHours(request.getEstimatedHours());
         
-        // 2. Validate SubTask thuộc về Task đúng không
-        if (!subTask.getParentTask().getId().equals(taskId)) {
-            throw new BadRequestException(
-                "SubTask ID " + subTaskId + " không thuộc về Task ID " + taskId
-            );
+        if (request.getAssigneeId() != null) {
+            // 2. Validate Assignee (MỚI THÊM)
+            // Nếu người dùng gửi assigneeId mới lên, phải kiểm tra xem user đó có thuộc project không
+            validator.validateProjectMember(projectId, request.getAssigneeId());
+
+            User assignee = userRepository.findById(request.getAssigneeId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Assignee not found"));
+            subTask.setAssignee(assignee);
+        }else {
+            // Logic tùy chọn: Nếu gửi assigneeId là null thì có gỡ người làm không? 
+            // Nếu muốn gỡ thì: subTask.setAssignee(null);
         }
         
-        // 3. Lưu sortOrder của SubTask bị xóa
-        Integer deletedSortOrder = subTask.getSortOrder();
-        
-        // 4. Xóa SubTask
-        subTaskRepository.delete(subTask);
-        
-      
+        // Khi save(), @UpdateTimestamp sẽ tự động cập nhật updatedAt
+        SubTask saved = subTaskRepository.save(subTask);
+        return mapToResponse(saved);
     }
-    
-    private SubTaskResponse mapToSubTaskResponse(SubTask subTask) {
-        User assignee = subTask.getAssignee();
-        
+
+    @Override
+    @Transactional
+    public void deleteSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId) {
+        SubTask subTask = validator.validateSubTask(companyId, workspaceId, projectId, taskId, subTaskId);
+        subTaskRepository.delete(subTask);
+    }
+
+    // --- Helper Mapping ---
+    private SubTaskResponse mapToResponse(SubTask subTask) {
         return SubTaskResponse.builder()
                 .id(subTask.getId())
                 .parentTaskId(subTask.getParentTask().getId())
                 .title(subTask.getTitle())
                 .description(subTask.getDescription())
                 .status(subTask.getStatus())
-                .assigneeId(assignee != null ? assignee.getId() : null)
-                .assigneeName(assignee != null ? assignee.getFullName() : null)
-                .assigneeAvatar(assignee != null ? assignee.getAvatarUrl() : null)
+                .assigneeId(subTask.getAssignee() != null ? subTask.getAssignee().getId() : null)
+                .assigneeName(subTask.getAssignee() != null ? subTask.getAssignee().getFullName() : null)
+                .assigneeAvatar(subTask.getAssignee() != null ? subTask.getAssignee().getAvatarUrl() : null)
                 .estimatedHours(subTask.getEstimatedHours())
                 .sortOrder(subTask.getSortOrder())
+                
+                // Mapping Audit Fields
+                .createdById(subTask.getCreatedBy() != null ? subTask.getCreatedBy().getId() : null)
+                .createdByName(subTask.getCreatedBy() != null ? subTask.getCreatedBy().getFullName() : null)
+                .createdAt(subTask.getCreatedAt())
+                .updatedAt(subTask.getUpdatedAt())
                 .build();
     }
 }

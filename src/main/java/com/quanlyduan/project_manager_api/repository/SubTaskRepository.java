@@ -23,4 +23,6 @@ public interface SubTaskRepository extends JpaRepository<SubTask, Integer> {
         Integer taskId, 
         Integer sortOrder
     );
+    List<SubTask> findByParentTask_IdOrderBySortOrderAsc(Integer taskId);
+
 }
