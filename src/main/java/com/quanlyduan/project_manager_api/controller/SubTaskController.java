@@ -38,7 +38,7 @@ public class SubTaskController {
             @PathVariable Integer taskId) {
 
         List<SubTaskResponse> subTasks = subTaskService.getSubTasks(companyId, workspaceId, projectId, taskId);
-        return ResponseEntity.ok(ApiResponse.success("Success", subTasks));
+        return ResponseEntity.ok(ApiResponse.success("Successfully retrieved subtask list.", subTasks));
     }
 
     @Operation(summary = "Get subtask detail")
@@ -52,7 +52,7 @@ public class SubTaskController {
             @PathVariable Integer subTaskId) {
 
         SubTaskResponse subTask = subTaskService.getSubTaskDetail(companyId, workspaceId, projectId, taskId, subTaskId);
-        return ResponseEntity.ok(ApiResponse.success("Success", subTask));
+        return ResponseEntity.ok(ApiResponse.success("Successfully retrieved subtask.", subTask));
     }
 
     @Operation(summary = "Create new subtask")
@@ -66,7 +66,7 @@ public class SubTaskController {
             @Valid @RequestBody CreateSubTaskRequest request) {
 
         SubTaskResponse subTask = subTaskService.createSubTask(companyId, workspaceId, projectId, taskId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Created successfully", subTask));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Subtask Created successfully", subTask));
     }
 
     @Operation(summary = "Update subtask")
@@ -81,7 +81,7 @@ public class SubTaskController {
             @Valid @RequestBody UpdateSubTaskRequest request) {
 
         SubTaskResponse subTask = subTaskService.updateSubTask(companyId, workspaceId, projectId, taskId, subTaskId, request);
-        return ResponseEntity.ok(ApiResponse.success("Updated successfully", subTask));
+        return ResponseEntity.ok(ApiResponse.success("Subtask Updated successfully", subTask));
     }
 
     @Operation(summary = "Delete subtask")
@@ -95,6 +95,6 @@ public class SubTaskController {
             @PathVariable Integer subTaskId) {
 
         subTaskService.deleteSubTask(companyId, workspaceId, projectId, taskId, subTaskId);
-        return ResponseEntity.ok(ApiResponse.success("Deleted successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("Subtask Deleted successfully", null));
     }
 }
