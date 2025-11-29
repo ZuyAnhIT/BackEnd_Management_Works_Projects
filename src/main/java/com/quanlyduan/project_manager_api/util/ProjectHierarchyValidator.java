@@ -77,11 +77,11 @@ public class ProjectHierarchyValidator {
 
         // 2. Validate Tag
         Tag tag = tagRepository.findById(tagId)
-                .orElseThrow(() -> new ResourceNotFoundException("No card found with ID:" + tagId));
+                .orElseThrow(() -> new ResourceNotFoundException("No Tag found with ID:" + tagId));
         
         // 3. Kiểm tra Tag có thuộc Project không
         if (!tag.getProject().getId().equals(projectId)) {
-            throw new BadRequestException("The ID card " + tagId + " does not belong to the Project ID " + projectId);
+            throw new BadRequestException("The ID Tag " + tagId + " does not belong to the Project ID " + projectId);
         }
         return tag;
     }

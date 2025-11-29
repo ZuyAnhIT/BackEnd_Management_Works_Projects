@@ -94,7 +94,7 @@ public class TagController {
     }
 
     @Operation(summary = "Remove tag from a task")
-    @DeleteMapping("/tasks/{taskId}/tags/{tagId}")
+    @PatchMapping("/tasks/{taskId}/tags/{tagId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:edit')")
     public ResponseEntity<ApiResponse<Object>> removeTag(
             @PathVariable Integer companyId, @PathVariable Integer workspaceId, @PathVariable Integer projectId,

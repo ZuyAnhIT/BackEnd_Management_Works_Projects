@@ -1,4 +1,5 @@
 package com.quanlyduan.project_manager_api.dto.response;
+
 import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -14,7 +15,8 @@ public class TagResponse {
 
     // --- Bổ sung thông tin Audit ---
     private Integer createdById;   // ID người tạo
-    private String createdByName;  // Tên người tạo (để hiển thị luôn khỏi cần query user)
-    private String createdByAvatar; // Avatar (để hiển thị ảnh nhỏ nếu cần)
+    private String createdByName;  // Tên người tạo
+    private String createdByAvatar; // Avatar
     private LocalDateTime createdAt; // Ngày tạo
+    private LocalDateTime updatedAt; // Ngày cập nhật (MỚI THÊM)
 }
