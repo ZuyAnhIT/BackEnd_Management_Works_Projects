@@ -1,4 +1,3 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/model/SubTask.java
 package com.quanlyduan.project_manager_api.model;
 
 import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
@@ -9,8 +8,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import lombok.*;
+
 import java.math.BigDecimal;
+import java.time.LocalDate; // QUAN TRỌNG: Import LocalDate
 import java.time.LocalDateTime;
 
 @Data
@@ -25,15 +25,12 @@ public class SubTask {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    // ******** ĐÂY LÀ PHẦN SỬA LỖI ********
     /**
      * Liên kết ngược lại Task cha.
-     * Khớp với "mappedBy = "parentTask"" trong Task.java.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_task_id", nullable = false)
     private Task parentTask;
-    // *************************************
 
     @Column(name = "title", nullable = false, length = 500)
     private String title;
@@ -54,6 +51,14 @@ public class SubTask {
 
     @Column(name = "sort_order")
     private Integer sortOrder;
+
+    // ******** [BỔ SUNG MỚI] ĐỂ KHỚP VỚI DTO ********
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+    // **********************************************
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
