@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.model.Project;
 import com.quanlyduan.project_manager_api.model.SubTask;
 import com.quanlyduan.project_manager_api.model.Tag;
 import com.quanlyduan.project_manager_api.model.Task;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.SubTaskRepository;
 import com.quanlyduan.project_manager_api.repository.TagRepository;
@@ -21,15 +22,18 @@ public class ProjectHierarchyValidator {
     private final TaskRepository taskRepository;
     private final TagRepository tagRepository;
     private final SubTaskRepository subTaskRepository;
+    private final ProjectMemberRepository projectMemberRepository;
     
     public ProjectHierarchyValidator(ProjectRepository projectRepository,
                                      TaskRepository taskRepository,
                                      TagRepository tagRepository,
-                                     SubTaskRepository subTaskRepository) {
+                                     SubTaskRepository subTaskRepository,
+                                     ProjectMemberRepository projectMemberRepository) {
         this.projectRepository = projectRepository;
         this.taskRepository = taskRepository;
         this.tagRepository = tagRepository;
         this.subTaskRepository = subTaskRepository;
+        this.projectMemberRepository = projectMemberRepository;
     }
     /**
      * Validate Level 1: Project -> Workspace -> Company
@@ -98,5 +102,19 @@ public class ProjectHierarchyValidator {
         }
         return subTask; 
     }
+    /**
+     * 2. Validate Assignee: Kiểm tra người được giao có thuộc Project không
+     * Hàm này trả về void, nếu sai thì ném lỗi.
+     */
+    public void validateProjectMember(Integer projectId, Integer userId) {
+        // Nếu userId là null (trường hợp không giao cho ai hoặc gỡ người làm), thì bỏ qua
+        if (userId == null) {
+            return;
+        }
 
+        boolean isMember = projectMemberRepository.existsByProject_IdAndUser_Id(projectId, userId);
+        if (!isMember) {
+            throw new BadRequestException("User ID " + userId + " is not a member of Project ID " + projectId);
+        }
+    }
 }
