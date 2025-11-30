@@ -10,11 +10,16 @@ import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
+import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.*;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.TaskService;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -404,29 +409,103 @@ public class TaskServiceImpl implements TaskService {
     // ======================================================
 
     /**
-     * Helper: Map Task Entity sang TaskResponse DTO (Chi tiết).
+     * Helper: Map Task Entity sang TaskResponse DTO (Chi tiết - Nâng cao).
      */
     @Override
     public TaskResponse mapToTaskResponse(Task task) {
         ProjectStatus status = task.getStatus();
         User assigner = task.getAssigner();
         User assignee = task.getAssignee();
+        User reviewer = task.getReviewer();
         User createdBy = task.getCreatedBy();
+        Project project = task.getProject();
+        Sprint sprint = task.getSprint();
+        Epic epic = task.getEpic();
+        Task parent = task.getParentTask();
 
+        // 1. Xử lý Subtask Summary
+        int totalSubtasks = (task.getSubTasks() != null) ? task.getSubTasks().size() : 0;
+        int completedSubtasks = (task.getSubTasks() != null) ?
+                (int) task.getSubTasks().stream().filter(st -> st.getStatus() == SubTaskStatus.DONE).count() : 0;
+
+        // 2. Xử lý Tags (Chuyển Set<Tag> sang List<TagInfo>)
+        List<TaskResponse.TagInfo> tagInfos = new ArrayList<>();
+        if (task.getTags() != null) {
+            tagInfos = task.getTags().stream()
+                    .map(tag -> TaskResponse.TagInfo.builder()
+                            .id(tag.getId())
+                            .name(tag.getName())
+                            .color(tag.getColor())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        // 3. Build DTO
         return TaskResponse.builder()
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
                 .description(task.getDescription())
+                .taskType(task.getTaskType())
+                .priority(task.getPriority())
 
-                // Gán các trường status mới
-                .statusId(status != null ? status.getId() : null)
-                .statusName(status != null ? status.getName() : "N/A")
-                .statusColor(status != null ? status.getColor() : "#FFFFFF")
+                // --- Nested Objects ---
+                .status(status != null ? TaskResponse.StatusInfo.builder()
+                        .id(status.getId())
+                        .name(status.getName())
+                        .color(status.getColor())
+                        .isCompleted(status.getIsCompletedStatus())
+                        .build() : null)
 
-                .taskType(task.getTaskType() != null ? task.getTaskType().name() : null)
-                .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                .project(project != null ? TaskResponse.ProjectInfo.builder()
+                        .id(project.getId())
+                        .name(project.getName())
+                        .build() : null)
 
+                .sprint(sprint != null ? TaskResponse.SprintInfo.builder()
+                        .id(sprint.getId())
+                        .name(sprint.getName())
+                        .build() : null)
+
+                .epic(epic != null ? TaskResponse.EpicInfo.builder()
+                        .id(epic.getId())
+                        .name(epic.getName())
+                        .color(epic.getColor())
+                        .build() : null)
+                
+                .parentTask(parent != null ? TaskResponse.TaskInfo.builder()
+                        .id(parent.getId())
+                        .taskCode(parent.getTaskCode())
+                        .title(parent.getTitle())
+                        .build() : null)
+
+                // --- Users ---
+                .assignee(assignee != null ? TaskResponse.UserInfo.builder()
+                        .id(assignee.getId())
+                        .name(assignee.getFullName())
+                        .avatarUrl(assignee.getAvatarUrl())
+                        .build() : null)
+
+                .assigner(assigner != null ? TaskResponse.UserInfo.builder()
+                        .id(assigner.getId())
+                        .name(assigner.getFullName())
+                        .avatarUrl(assigner.getAvatarUrl())
+                        .build() : null)
+                
+                .reviewer(reviewer != null ? TaskResponse.UserInfo.builder()
+                        .id(reviewer.getId())
+                        .name(reviewer.getFullName())
+                        .avatarUrl(reviewer.getAvatarUrl())
+                        .build() : null)
+
+                // --- Extra Info ---
+                .tags(tagInfos)
+                .subtaskSummary(TaskResponse.SubtaskSummary.builder()
+                        .total(totalSubtasks)
+                        .completed(completedSubtasks)
+                        .build())
+
+                // --- Metrics ---
                 .storyPoints(task.getStoryPoints())
                 .estimatedHours(task.getEstimatedHours())
                 .loggedHours(task.getLoggedHours())
@@ -434,51 +513,85 @@ public class TaskServiceImpl implements TaskService {
                 .dueDate(task.getDueDate())
                 .completedAt(task.getCompletedAt())
 
-                .projectId(task.getProject().getId())
-                .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
-                .epicId(task.getEpic() != null ? task.getEpic().getId() : null)
-
-                .assignerId(assigner != null ? assigner.getId() : null)
-                .assignerName(assigner != null ? assigner.getFullName() : null)
-
-                .assigneeId(assignee != null ? assignee.getId() : null)
-                .assigneeName(assignee != null ? assignee.getFullName() : null)
-                .assigneeAvatar(assignee != null ? assignee.getAvatarUrl() : null)
-
-                .createdById(createdBy.getId()) // Giả định createdBy không bao giờ null
-                .createdByName(createdBy.getFullName())
+                // --- Audit ---
+                .createdById(createdBy != null ? createdBy.getId() : null)
+                .createdByName(createdBy != null ? createdBy.getFullName() : null)
                 .createdAt(task.getCreatedAt())
+                .updatedAt(task.getUpdatedAt())
                 .build();
     }
 
     /**
-     * Helper: Map Task Entity sang TaskSummaryResponse DTO (Tóm tắt).
+     * Helper: Map Task Entity sang TaskSummaryResponse DTO (Cấu trúc Nested).
      */
     private TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
         User assignee = task.getAssignee();
         Epic epic = task.getEpic();
-        ProjectStatus status = task.getStatus();
+        com.quanlyduan.project_manager_api.model.ProjectStatus status = task.getStatus();
 
+        // 1. Xử lý Subtask Summary
+        int totalSubtasks = 0;
+        int completedSubtasks = 0;
+        if (task.getSubTasks() != null) {
+            totalSubtasks = task.getSubTasks().size();
+            completedSubtasks = (int) task.getSubTasks().stream()
+                    .filter(st -> st.getStatus() == SubTaskStatus.DONE) // Giả sử trạng thái hoàn thành là DONE
+                    .count();
+        }
+
+        // 2. Xử lý Tags
+        List<TaskSummaryResponse.TagInfo> tagInfos = new ArrayList<>();
+        if (task.getTags() != null) {
+            tagInfos = task.getTags().stream()
+                    .map(tag -> TaskSummaryResponse.TagInfo.builder()
+                            .id(tag.getId())
+                            .name(tag.getName())
+                            .color(tag.getColor())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        // 3. Build DTO
         return TaskSummaryResponse.builder()
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
                 .taskType(task.getTaskType())
-                .statusId(status != null ? status.getId() : null)
-                .statusName(status != null ? status.getName() : "N/A")
-                .statusColor(status != null ? status.getColor() : "#FFFFFF")
-
                 .priority(task.getPriority())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
-                .assigneeId(assignee != null ? assignee.getId() : null)
-                .assigneeName(assignee != null ? assignee.getFullName() : null)
-                .assigneeAvatarUrl(assignee != null ? assignee.getAvatarUrl() : null)
-                .epicId(epic != null ? epic.getId() : null)
-                .epicName(epic != null ? epic.getName() : null)
-                .epicColor(epic != null ? epic.getColor() : null)
                 .storyPoints(task.getStoryPoints())
                 .dueDate(task.getDueDate())
                 .sortOrder(task.getSortOrder())
+
+                // Mapping Status Object
+                .status(status != null ? TaskSummaryResponse.StatusInfo.builder()
+                        .id(status.getId())
+                        .name(status.getName())
+                        .color(status.getColor())
+                        .build() : null)
+
+                // Mapping Epic Object
+                .epic(epic != null ? TaskSummaryResponse.EpicInfo.builder()
+                        .id(epic.getId())
+                        .name(epic.getName())
+                        .color(epic.getColor())
+                        .build() : null)
+
+                // Mapping Assignee Object
+                .assignee(assignee != null ? TaskSummaryResponse.UserInfo.builder()
+                        .id(assignee.getId())
+                        .name(assignee.getFullName())
+                        .avatarUrl(assignee.getAvatarUrl())
+                        .build() : null)
+
+                // Mapping Tags List
+                .tags(tagInfos)
+
+                // Mapping Subtask Summary
+                .subtaskSummary(TaskSummaryResponse.SubtaskSummary.builder()
+                        .total(totalSubtasks)
+                        .completed(completedSubtasks)
+                        .build())
                 .build();
     }
 }

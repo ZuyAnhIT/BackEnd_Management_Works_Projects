@@ -285,14 +285,16 @@ public class ProjectController {
             sprintId, keyword, assigneeId, priority, taskType
         );
 
-        // Sửa thông báo trả về sang tiếng Anh
+        
         return ResponseEntity.ok(ApiResponse.success("Task board data retrieved successfully.", board));
     }
 
-    // --- Lọc và Phân trang Task (List View) ---
+    // ======================================================
+    // API LẤY DANH SÁCH TASK (LIST VIEW) - ĐÃ NÂNG CẤP
+    // ======================================================
     @GetMapping("/{projectId}/tasks")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
-    public ResponseEntity<ApiResponse<PageResponseDTO<TaskResponse>>> getProjectTasks(
+    public ResponseEntity<ApiResponse<PageResponseDTO<TaskSummaryResponse>>> getProjectTasks(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
@@ -302,7 +304,7 @@ public class ProjectController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Integer assigneeId,
             @RequestParam(required = false) TaskPriority priority,
-            @RequestParam(required = false) List<Integer> statusIds, // Lọc theo danh sách ID trạng thái
+            @RequestParam(required = false) List<Integer> statusIds,
 
             // Pagination & Sorting
             @RequestParam(defaultValue = "0") int page,
@@ -310,20 +312,23 @@ public class ProjectController {
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
 
-        PageResponseDTO<TaskResponse> tasks = projectService.getProjectTaskList(
+        // Gọi Service trả về Page<TaskSummaryResponse>
+        PageResponseDTO<TaskSummaryResponse> tasks = projectService.getProjectTaskList(
                 companyId, workspaceId, projectId,
                 sprintId, search, assigneeId, priority, statusIds,
                 page, size, sortBy, sortDir
         );
 
-        // Sửa thông báo trả về sang tiếng Anh
+        // Sửa thông báo sang tiếng Anh
         return ResponseEntity.ok(ApiResponse.success("Project tasks fetched successfully.", tasks));
     }
 
-    // --- Nhóm Task (Grouping View) ---
+    // ======================================================
+    // API NHÓM TASK (GROUPING VIEW) 
+    // ======================================================
     @GetMapping("/{projectId}/tasks/grouped")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
-    public ResponseEntity<ApiResponse<Map<String, List<TaskResponse>>>> getTasksGrouped(
+    public ResponseEntity<ApiResponse<Map<String, List<TaskSummaryResponse>>>> getTasksGrouped(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
@@ -333,11 +338,12 @@ public class ProjectController {
             @RequestParam(required = false) Integer sprintId,
             @RequestParam(required = false) String search
     ) {
-        Map<String, List<TaskResponse>> data = projectService.getTasksGroupedBy(
+        // Gọi Service trả về Map<String, List<TaskSummaryResponse>>
+        Map<String, List<TaskSummaryResponse>> data = projectService.getTasksGroupedBy(
             companyId, workspaceId, projectId, groupBy, sprintId, search
         );
 
-        // Sửa thông báo trả về sang tiếng Anh
+        // Sửa thông báo sang tiếng Anh
         return ResponseEntity.ok(ApiResponse.success("Grouped task data retrieved successfully.", data));
     }
 

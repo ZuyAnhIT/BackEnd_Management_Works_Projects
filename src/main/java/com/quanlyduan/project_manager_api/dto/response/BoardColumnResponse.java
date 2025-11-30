@@ -28,13 +28,14 @@ public class BoardColumnResponse {
     private String color;
 
     // Thứ tự hiển thị của cột trên giao diện (từ trái qua phải)
-    private Integer order; 
-    
+    private Integer order;
+
     // Cờ đánh dấu: Đây có phải là cột "Hoàn thành" (Done) không?
     // Nếu true: Các task nằm ở đây được coi là đã xong.
     private Boolean isCompleted;
 
-    // Danh sách chi tiết các công việc (Task) thuộc cột này
-    // (Đã được lọc theo các tiêu chí tìm kiếm nếu có)
-    private List<TaskResponse> tasks; 
+    // Sử dụng TaskSummaryResponse 
+    // TaskSummaryResponse chứa cấu trúc JSON lồng nhau (nested objects cho status, assignee, epic...)
+    // và các thông tin bổ sung như tags, subtaskSummary phù hợp để hiển thị dạng Thẻ (Card) trên Board.
+    private List<TaskSummaryResponse> tasks;
 }
