@@ -12,6 +12,7 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationDetailsR
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
@@ -145,36 +146,18 @@ public interface ProjectService {
             TaskType taskType
     );
 
-    /**
-     * API Xem danh sách Task dạng List View (Table).
-     * Hỗ trợ lọc theo nhiều trạng thái (statusIds) và phân trang.
-     */
-    PageResponseDTO<TaskResponse> getProjectTaskList(
-            Integer companyId, 
-            Integer workspaceId, 
-            Integer projectId, 
-            Integer sprintId, 
-            String search, 
-            Integer assigneeId, 
-            TaskPriority priority, 
+    // Hàm lấy danh sách Task (List View)
+    PageResponseDTO<TaskSummaryResponse> getProjectTaskList(
+            Integer companyId, Integer workspaceId, Integer projectId,
+            Integer sprintId, String search, Integer assigneeId, TaskPriority priority,
             List<Integer> statusIds,
-            int page, 
-            int size, 
-            String sortBy, 
-            String sortDir
+            int page, int size, String sortBy, String sortDir
     );
-    
-    /**
-     * API Xem Task theo Nhóm (Grouping View).
-     * Ví dụ: Nhóm theo Assignee, Priority...
-     */
-    Map<String, List<TaskResponse>> getTasksGroupedBy(
-        Integer companyId, 
-        Integer workspaceId, 
-        Integer projectId, 
-        String groupBy,
-        Integer sprintId, 
-        String search
+
+    // Hàm nhóm Task (Grouping View)
+    Map<String, List<TaskSummaryResponse>> getTasksGroupedBy(
+            Integer companyId, Integer workspaceId, Integer projectId,
+            String groupBy, Integer sprintId, String search
     );
 
     // ========================================================================

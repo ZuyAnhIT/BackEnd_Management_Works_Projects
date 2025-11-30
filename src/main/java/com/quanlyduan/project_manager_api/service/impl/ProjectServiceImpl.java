@@ -69,6 +69,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
@@ -674,9 +675,9 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
 
-    /**
-     * LOGIC XEM BOARD (TỰ ĐỘNG TÌM ACTIVE SPRINT).
-     */
+    // ======================================================
+    // LOGIC XEM BOARD (TỰ ĐỘNG TÌM ACTIVE SPRINT)
+    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public List<BoardColumnResponse> getProjectBoard(
@@ -695,40 +696,33 @@ public class ProjectServiceImpl implements ProjectService {
             throw new BadRequestException("Project does not belong to this workspace or company.");
         }
 
-        // 2. TỰ ĐỘNG GIẢI QUYẾT SPRINT ID (Xác định targetSprintId hoặc Backlog)
+        // 2. TỰ ĐỘNG GIẢI QUYẾT SPRINT ID
         Integer targetSprintId = sprintId;
         boolean isBacklog = false;
 
         if (targetSprintId == null) {
-            // Nếu client không gửi ID nào, tự tìm Sprint đang chạy (IN_PROGRESS)
+            // Nếu client không gửi ID -> Tìm Sprint đang chạy (IN_PROGRESS)
             List<Sprint> activeSprints = sprintRepository.findActiveSprintsByProjectId(
                 projectId, Collections.singletonList(SprintStatus.IN_PROGRESS)
             );
-            // Gán ID của sprint đầu tiên tìm được, hoặc -1 nếu không có sprint nào đang chạy
             targetSprintId = activeSprints.isEmpty() ? -1 : activeSprints.get(0).getId();
         } else if (targetSprintId == 0) {
             // Client gửi 0 -> Backlog
             isBacklog = true;
-            targetSprintId = null; // Set null để Specification query đúng
+            targetSprintId = null;
         }
 
-        // 3. LẤY DANH SÁCH CỘT (STATUS) CỦA DỰ ÁN
+        // 3. LẤY DANH SÁCH CỘT (STATUS)
         List<com.quanlyduan.project_manager_api.model.ProjectStatus> statuses =
                 projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId);
 
         // 4. TẠO SPECIFICATION ĐỂ LỌC TASK
         Specification<Task> spec = TaskSpecification.filterTasks(
-                projectId,
-                targetSprintId,
-                isBacklog,
-                keyword,
-                assigneeId,
-                priority,
-                taskType,
-                null // statusIds = null để lấy tất cả task (Board)
+                projectId, targetSprintId, isBacklog, keyword,
+                assigneeId, priority, taskType, null
         );
 
-        // 5. LẤY TASK TỪ DB (Lấy tất cả task của sprint/backlog đang xét)
+        // 5. LẤY TASK TỪ DB (1 Query duy nhất, sort theo thứ tự trong cột)
         List<Task> tasks = taskRepository.findAll(spec, Sort.by("sortOrder").ascending());
 
         // 6. NHÓM TASK THEO STATUS ID (Grouping in Memory)
@@ -736,14 +730,15 @@ public class ProjectServiceImpl implements ProjectService {
                 .filter(t -> t.getStatus() != null)
                 .collect(Collectors.groupingBy(t -> t.getStatus().getId()));
 
-        // 7. BUILD RESPONSE: Lặp qua từng cột status để điền tasks vào
+        // 7. BUILD RESPONSE
         List<BoardColumnResponse> board = new ArrayList<>();
 
         for (com.quanlyduan.project_manager_api.model.ProjectStatus status : statuses) {
             List<Task> tasksInColumn = tasksByStatus.getOrDefault(status.getId(), Collections.emptyList());
 
-            List<TaskResponse> taskResponses = tasksInColumn.stream()
-                    .map(taskService::mapToTaskResponse)
+            // Sử dụng this.mapToTaskSummaryResponse để có cấu trúc JSON đầy đủ (Tags, Nested Objects)
+            List<TaskSummaryResponse> taskResponses = tasksInColumn.stream()
+                    .map(this::mapToTaskSummaryResponse)
                     .collect(Collectors.toList());
 
             // Tạo đối tượng cột
@@ -753,19 +748,19 @@ public class ProjectServiceImpl implements ProjectService {
                     .color(status.getColor())
                     .order(status.getSortOrder())
                     .isCompleted(status.getIsCompletedStatus() != null && status.getIsCompletedStatus())
-                    .tasks(taskResponses)
+                    .tasks(taskResponses) 
                     .build());
         }
 
         return board;
     }
 
-    /**
-     * US-S4-8-9-11: Lọc và Phân trang Task (List View).
-     */
+    // ======================================================
+    // US-S4-8-9-11: Lọc và Phân trang Task (List View) 
+    // ======================================================
     @Override
     @Transactional(readOnly = true)
-    public PageResponseDTO<TaskResponse> getProjectTaskList(
+    public PageResponseDTO<TaskSummaryResponse> getProjectTaskList(
             Integer companyId, Integer workspaceId, Integer projectId,
             Integer sprintId, String search, Integer assigneeId, TaskPriority priority,
             List<Integer> statusIds,
@@ -813,17 +808,19 @@ public class ProjectServiceImpl implements ProjectService {
 
         // 5. QUERY DB & MAP RESPONSE
         Page<Task> taskPage = taskRepository.findAll(spec, pageable);
-        Page<TaskResponse> responsePage = taskPage.map(taskService::mapToTaskResponse);
+        
+        // *** CẬP NHẬT: Sử dụng mapToTaskSummaryResponse để lấy cấu trúc JSON mới ***
+        Page<TaskSummaryResponse> responsePage = taskPage.map(this::mapToTaskSummaryResponse);
 
         return new PageResponseDTO<>(responsePage);
     }
 
-    /**
-     * US-S4-10: Nhóm Task (Grouping View).
-     */
+    // ======================================================
+    // US-S4-10: Nhóm Task (Grouping View) - 
+    // ======================================================
     @Override
     @Transactional(readOnly = true)
-    public Map<String, List<TaskResponse>> getTasksGroupedBy(
+    public Map<String, List<TaskSummaryResponse>> getTasksGroupedBy(
             Integer companyId, Integer workspaceId, Integer projectId,
             String groupBy, Integer sprintId, String search) {
 
@@ -860,11 +857,15 @@ public class ProjectServiceImpl implements ProjectService {
         List<Task> tasks = taskRepository.findAll(spec);
 
         // 3. GROUPING LOGIC (Java Streams)
+        
+        // Helper mapper để tái sử dụng
+        java.util.function.Function<Task, TaskSummaryResponse> mapper = this::mapToTaskSummaryResponse;
+
         if ("assignee".equalsIgnoreCase(groupBy)) {
             // Nhóm theo Tên người được giao
             return tasks.stream().collect(Collectors.groupingBy(
                 t -> t.getAssignee() != null ? t.getAssignee().getFullName() : "Unassigned",
-                Collectors.mapping(taskService::mapToTaskResponse, Collectors.toList())
+                Collectors.mapping(mapper, Collectors.toList()) // Dùng mapper mới
             ));
 
         } else if ("priority".equalsIgnoreCase(groupBy)) {
@@ -873,7 +874,7 @@ public class ProjectServiceImpl implements ProjectService {
                  .filter(t -> t.getPriority() != null) // Lọc bỏ nếu priority null
                  .collect(Collectors.groupingBy(
                      t -> t.getPriority().name(), // Group theo tên Enum (HIGH, LOW...)
-                     Collectors.mapping(taskService::mapToTaskResponse, Collectors.toList())
+                     Collectors.mapping(mapper, Collectors.toList()) // Dùng mapper mới
                  ));
 
         } else if ("status".equalsIgnoreCase(groupBy)) {
@@ -882,15 +883,16 @@ public class ProjectServiceImpl implements ProjectService {
                  .filter(t -> t.getStatus() != null)
                  .collect(Collectors.groupingBy(
                      t -> t.getStatus().getName(),
-                     Collectors.mapping(taskService::mapToTaskResponse, Collectors.toList())
+                     Collectors.mapping(mapper, Collectors.toList()) // Dùng mapper mới
                  ));
+                 
         } else if ("sprint".equalsIgnoreCase(groupBy)) {
              // Nhóm theo Sprint
              return tasks.stream()
                  .collect(Collectors.groupingBy(
                      // Nếu có sprint -> lấy tên, nếu null -> gom vào "Backlog"
                      t -> t.getSprint() != null ? t.getSprint().getName() : "Backlog",
-                     Collectors.mapping(taskService::mapToTaskResponse, Collectors.toList())
+                     Collectors.mapping(mapper, Collectors.toList()) // Dùng mapper mới
                  ));
         }
 
@@ -1221,32 +1223,77 @@ public class ProjectServiceImpl implements ProjectService {
     /**
      * Helper: Map Task Entity sang TaskSummaryResponse DTO.
      */
+    /**
+     * Helper: Map Task Entity sang TaskSummaryResponse DTO (Cấu trúc Nested).
+     */
     private TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
         User assignee = task.getAssignee();
         Epic epic = task.getEpic();
         com.quanlyduan.project_manager_api.model.ProjectStatus status = task.getStatus();
 
+        // 1. Xử lý Subtask Summary
+        int totalSubtasks = 0;
+        int completedSubtasks = 0;
+        if (task.getSubTasks() != null) {
+            totalSubtasks = task.getSubTasks().size();
+            completedSubtasks = (int) task.getSubTasks().stream()
+                    .filter(st -> st.getStatus() == SubTaskStatus.DONE) // Giả sử trạng thái hoàn thành là DONE
+                    .count();
+        }
+
+        // 2. Xử lý Tags
+        List<TaskSummaryResponse.TagInfo> tagInfos = new ArrayList<>();
+        if (task.getTags() != null) {
+            tagInfos = task.getTags().stream()
+                    .map(tag -> TaskSummaryResponse.TagInfo.builder()
+                            .id(tag.getId())
+                            .name(tag.getName())
+                            .color(tag.getColor())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        // 3. Build DTO
         return TaskSummaryResponse.builder()
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
                 .taskType(task.getTaskType())
-
-                .statusId(status != null ? status.getId() : null)
-                .statusName(status != null ? status.getName() : "N/A")
-                .statusColor(status != null ? status.getColor() : "#FFFFFF")
-
                 .priority(task.getPriority())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
-                .assigneeId(assignee != null ? assignee.getId() : null)
-                .assigneeName(assignee != null ? assignee.getFullName() : null)
-                .assigneeAvatarUrl(assignee != null ? assignee.getAvatarUrl() : null)
-                .epicId(epic != null ? epic.getId() : null)
-                .epicName(epic != null ? epic.getName() : null)
-                .epicColor(epic != null ? epic.getColor() : null)
                 .storyPoints(task.getStoryPoints())
                 .dueDate(task.getDueDate())
                 .sortOrder(task.getSortOrder())
+
+                // Mapping Status Object
+                .status(status != null ? TaskSummaryResponse.StatusInfo.builder()
+                        .id(status.getId())
+                        .name(status.getName())
+                        .color(status.getColor())
+                        .build() : null)
+
+                // Mapping Epic Object
+                .epic(epic != null ? TaskSummaryResponse.EpicInfo.builder()
+                        .id(epic.getId())
+                        .name(epic.getName())
+                        .color(epic.getColor())
+                        .build() : null)
+
+                // Mapping Assignee Object
+                .assignee(assignee != null ? TaskSummaryResponse.UserInfo.builder()
+                        .id(assignee.getId())
+                        .name(assignee.getFullName())
+                        .avatarUrl(assignee.getAvatarUrl())
+                        .build() : null)
+
+                // Mapping Tags List
+                .tags(tagInfos)
+
+                // Mapping Subtask Summary
+                .subtaskSummary(TaskSummaryResponse.SubtaskSummary.builder()
+                        .total(totalSubtasks)
+                        .completed(completedSubtasks)
+                        .build())
                 .build();
     }
 
