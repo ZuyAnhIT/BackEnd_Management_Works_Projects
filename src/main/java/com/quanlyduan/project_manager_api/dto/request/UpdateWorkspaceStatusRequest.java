@@ -5,9 +5,15 @@ import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+/**
+ * DTO nhận dữ liệu cho yêu cầu cập nhật trạng thái vòng đời của Không gian làm việc (Workspace).
+ * Được sử dụng để thay đổi trạng thái hoạt động, ví dụ: Lưu trữ (ARCHIVE) hoặc Kích hoạt lại (ACTIVE).
+ */
 @Data
 public class UpdateWorkspaceStatusRequest {
 
-    @NotNull(message = "Trạng thái mới không được để trống") // Đã dịch
-    private WorkspaceStatus newStatus; // (Phải là ACTIVE, ARCHIVED, hoặc DELETED)
+    // Trạng thái mới muốn áp dụng (Bắt buộc, phải là giá trị hợp lệ trong Enum WorkspaceStatus)
+    // Các giá trị thường dùng: ACTIVE, ARCHIVED, DELETED.
+    @NotNull(message = "New status must not be null")
+    private WorkspaceStatus newStatus; 
 }

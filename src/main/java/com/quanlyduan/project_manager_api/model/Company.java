@@ -16,52 +16,54 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "companies") // Đã dịch
-public class Company { // Đã dịch
+// Đặt tên bảng là companies
+@Table(name = "companies")
+/**
+ * Entity đại diện cho một Công ty trong hệ thống.
+ */
+public class Company {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // Đã dịch
+    private Integer id; // ID định danh Công ty
 
     @Column(nullable = false)
-    private String name; // Đã dịch
+    private String name; // Tên công ty
 
-    @Column(name = "company_code", unique = true) // Đã dịch
-    private String companyCode; // Đã dịch
-    // Có thể tự động tạo từ tên
+    @Column(name = "company_code", unique = true)
+    private String companyCode; // Mã code công ty (có thể tự động tạo)
 
     @Column(name = "description")
-    private String description; // Đã dịch
+    private String description; // Mô tả công ty
 
     @Column(name = "logo_url")
-    private String logoUrl; // Đã dịch (logo -> logoUrl)
+    private String logoUrl; // URL logo công ty
 
     @Column(name = "address")
-    private String address; // Đã dịch
+    private String address; // Địa chỉ công ty
 
     @Column(name = "phone_number")
-    private String phoneNumber; // Đã dịch
+    private String phoneNumber; // Số điện thoại công ty
 
     @Column(name = "email")
-    private String email;
+    private String email; // Email công ty
 
     @Column(name = "website")
-    private String website;
+    private String website; // Website công ty
 
-    @Column(name = "created_by_id", nullable = false) // Đã dịch
-    private Integer createdById; // Đã dịch
-    // Chỉ lưu ID người tạo
+    @Column(name = "created_by_id", nullable = false)
+    private Integer createdById; // ID của người dùng đã tạo công ty này (Audit field)
 
     @Builder.Default
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false) // Đã dịch
-    private CompanyStatus status = CompanyStatus.ACTIVE; // Đã dịch
+    @Column(name = "status", nullable = false)
+    private CompanyStatus status = CompanyStatus.ACTIVE; // Trạng thái công ty (ACTIVE, SUSPENDED, DELETED)
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false) // Đã dịch
-    private LocalDateTime createdAt; // Đã dịch
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt; // Thời điểm tạo
 
     @UpdateTimestamp
-    @Column(name = "updated_at") // Đã dịch
-    private LocalDateTime updatedAt; // Đã dịch
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
 }

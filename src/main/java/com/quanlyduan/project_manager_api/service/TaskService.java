@@ -9,46 +9,58 @@ import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.Task;
 
+/**
+ * Interface Service quản lý các nghiệp vụ liên quan đến Công việc (Task).
+ * Bao gồm CRUD, quản lý vòng đời (Sprint, Status) và các thao tác kéo thả.
+ */
 public interface TaskService {
 
-    /**
-     * Tạo một Task mới trong dự án.
-     * @param projectId ID dự án mà task thuộc về
-     * @param request DTO chứa thông tin task
-     * @return TaskSummaryResponse DTO của task vừa tạo
-     */
-    TaskSummaryResponse createTask(Integer projectId, CreateTaskRequest request);
-    
-    /**
-     * Cập nhật Sprint cho một Task (kéo/thả vào Backlog hoặc Sprint).
-     * @param taskId ID của task
-     * @param sprintId ID của Sprint mới (hoặc null nếu về Backlog)
-     */
-    void updateTaskSprint(Integer taskId, Integer sprintId, Integer newSortOrder);
-    
-    /**
-     * Hàm helper để map Task (Entity) sang TaskResponse (DTO chi tiết).
-     * (Hàm này có thể được chuyển sang private hoặc một Mapper riêng sau này)
-     */
-    TaskResponse mapToTaskResponse(Task task);
+    // ========================================================================
+    // 1. NHÓM TẠO/CẬP NHẬT/XEM (CRUD)
+    // ========================================================================
 
     /**
-     * Di chuyển Task sang một trạng thái (cột) khác.
-     * @param taskId ID của task cần di chuyển
-     * @param request DTO chứa ID trạng thái mới
+     * Tạo một Task mới trong dự án (Hỗ trợ Quick Create).
+     * @param projectId ID dự án mà task thuộc về.
+     * @param request DTO chứa thông tin task (chỉ title là bắt buộc).
+     * @return TaskSummaryResponse DTO của task vừa tạo.
      */
-    void moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request);
+    TaskSummaryResponse createTask(Integer projectId, CreateTaskRequest request);
 
     /**
      * Lấy chi tiết đầy đủ của một Task.
+     * @param taskId ID Task cần xem.
+     * @return TaskResponse DTO chi tiết.
      */
     TaskResponse getTaskDetails(Integer taskId);
 
     /**
-     * Cập nhật thông tin Task.
+     * Cập nhật thông tin Task (Sửa tiêu đề, mô tả, hạn chót, metrics...).
+     * @param taskId ID Task cần cập nhật.
+     * @param request DTO chứa các trường cập nhật (Partial Update).
+     * @return TaskResponse sau khi cập nhật.
      */
     TaskResponse updateTask(Integer taskId, UpdateTaskRequest request);
+    
+    // ========================================================================
+    // 2. NHÓM THAO TÁC KÉO THẢ (DRAG & DROP ACTIONS)
+    // ========================================================================
 
+    /**
+     * Cập nhật Sprint cho một Task (Kéo thả Task vào/ra khỏi Sprint/Backlog).
+     * @param taskId ID của task.
+     * @param sprintId ID của Sprint mới (hoặc null nếu về Backlog).
+     * @param newSortOrder Vị trí sắp xếp mới của Task trong danh sách đích.
+     */
+    void updateTaskSprint(Integer taskId, Integer sprintId, Integer newSortOrder);
+    
+    /**
+     * Di chuyển Task sang một trạng thái (cột) khác trên Board.
+     * @param taskId ID của task cần di chuyển.
+     * @param request DTO chứa ID trạng thái mới và vị trí sắp xếp mới (newSortOrder).
+     */
+    void moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request);
+    
     /**
      * Gán hoặc gỡ Epic khỏi Task.
      * @param taskId ID của Task cần cập nhật.
@@ -56,4 +68,15 @@ public interface TaskService {
      * @return TaskResponse sau khi cập nhật.
      */
     TaskResponse updateTaskEpic(Integer taskId, UpdateTaskEpicRequest request);
+
+    // ========================================================================
+    // 3. HÀM HELPER
+    // ========================================================================
+
+    /**
+     * Hàm helper để map Task (Entity) sang TaskResponse (DTO chi tiết).
+     * @param task Entity Task.
+     * @return TaskResponse DTO.
+     */
+    TaskResponse mapToTaskResponse(Task task);
 }

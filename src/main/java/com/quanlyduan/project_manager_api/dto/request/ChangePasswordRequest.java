@@ -5,16 +5,23 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+/**
+ * DTO chứa thông tin yêu cầu đổi mật khẩu của người dùng.
+ * Yêu cầu người dùng phải nhập đúng mật khẩu cũ để xác thực.
+ */
 @Data
 public class ChangePasswordRequest {
 
-    @NotBlank(message = "Mật khẩu cũ không được để trống")
+    // Mật khẩu hiện tại (bắt buộc để xác minh danh tính)
+    @NotBlank(message = "Old password must not be blank")
     private String oldPassword;
 
-    @NotBlank(message = "Mật khẩu mới không được để trống")
-    @Size(min = 6, message = "Mật khẩu mới phải có ít nhất 6 ký tự")
+    // Mật khẩu mới (bắt buộc, tối thiểu 6 ký tự)
+    @NotBlank(message = "New password must not be blank")
+    @Size(min = 6, message = "New password must contain at least 6 characters")
     private String newPassword;
 
-    @NotBlank(message = "Xác nhận mật khẩu mới không được để trống")
+    // Xác nhận mật khẩu mới (bắt buộc, phải khớp với newPassword - logic so khớp thường nằm ở Service)
+    @NotBlank(message = "Confirm new password must not be blank")
     private String confirmNewPassword;
 }

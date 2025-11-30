@@ -6,18 +6,28 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import java.time.LocalDate;
 
+/**
+ * DTO nhận dữ liệu cho yêu cầu cập nhật thông tin cá nhân (Profile) của người dùng.
+ * Hỗ trợ cập nhật từng phần (Partial Update):
+ * - Chỉ những trường có giá trị (không null) mới được cập nhật vào hệ thống.
+ */
 @Data
 public class UpdateProfileRequest {
 
-    @Size(min = 3, max = 255, message = "Họ và tên phải từ 3 đến 255 ký tự")
-    private String fullName; // Đã dịch
+    // Họ và tên hiển thị mới (Tùy chọn, độ dài từ 3 đến 255 ký tự)
+    @Size(min = 3, max = 255, message = "Full name must be between 3 and 255 characters")
+    private String fullName;
 
-    private String avatarUrl; // Đã dịch
+    // Đường dẫn ảnh đại diện mới (Tùy chọn - thường được cập nhật tự động khi upload file)
+    private String avatarUrl;
 
-    @Size(max = 20, message = "Số điện thoại tối đa 20 ký tự")
-    private String phoneNumber; // Đã dịch
+    // Số điện thoại liên hệ mới (Tùy chọn, tối đa 20 ký tự)
+    @Size(max = 20, message = "Phone number must not exceed 20 characters")
+    private String phoneNumber;
 
-    private LocalDate dateOfBirth; // Đã dịch
+    // Ngày sinh mới (Tùy chọn)
+    private LocalDate dateOfBirth;
 
-    private Gender gender; // Đã dịch
+    // Giới tính mới (Enum: MALE, FEMALE, OTHER - Tùy chọn)
+    private Gender gender;
 }

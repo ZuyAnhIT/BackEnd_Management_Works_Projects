@@ -17,47 +17,52 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "workspaces") // Đã dịch
-public class Workspace { // Đã dịch
+// Đặt tên bảng là workspaces
+@Table(name = "workspaces")
+/**
+ * Entity đại diện cho một Workspace (Không gian làm việc).
+ * Workspace là một container cho các Dự án trong phạm vi một Công ty.
+ */
+public class Workspace {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // Đã dịch
+    private Integer id; // ID định danh
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "company_id", nullable = false) // Đã dịch
-    private Company company; // Đã dịch
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company; // Công ty sở hữu Workspace này
 
-    @Column(name = "name", nullable = false) // Đã dịch
-    private String name; // Đã dịch
+    @Column(name = "name", nullable = false)
+    private String name; // Tên Workspace
 
-    @Column(name = "workspace_code") // Đã dịch
-    private String workspaceCode; // Đã dịch
+    @Column(name = "workspace_code")
+    private String workspaceCode; // Mã code Workspace (Ví dụ: HR, DEV)
 
-    @Column(name = "description") // Đã dịch
-    private String description; // Đã dịch
+    @Column(name = "description")
+    private String description; // Mô tả Workspace
 
-    @Column(name = "cover_image_url") // Đã dịch
-    private String coverImageUrl; // Đã dịch
+    @Column(name = "cover_image_url")
+    private String coverImageUrl; // URL ảnh bìa
 
     @Builder.Default
-    @Column(name = "color") // Đã dịch
-    private String color = "#3498db"; // Đã dịch
+    @Column(name = "color")
+    private String color = "#3498db"; // Mã màu chủ đạo (Mặc định là #3498db)
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by_id", nullable = false) // Đã dịch
-    private User createdBy; // Đã dịch
+    @JoinColumn(name = "created_by_id", nullable = false)
+    private User createdBy; // Người dùng đã tạo Workspace này
 
     @Builder.Default
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false) // Đã dịch
-    private WorkspaceStatus status = WorkspaceStatus.ACTIVE; // Đã dịch
+    @Column(name = "status", nullable = false)
+    private WorkspaceStatus status = WorkspaceStatus.ACTIVE; // Trạng thái (ACTIVE, ARCHIVED, DELETED)
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false) // Đã dịch
-    private LocalDateTime createdAt; // Đã dịch
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt; // Thời điểm tạo
 
     @UpdateTimestamp
-    @Column(name = "updated_at") // Đã dịch
-    private LocalDateTime updatedAt; // Đã dịch
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
 }

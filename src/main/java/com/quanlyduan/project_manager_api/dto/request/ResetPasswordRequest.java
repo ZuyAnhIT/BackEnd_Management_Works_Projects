@@ -5,13 +5,19 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+/**
+ * DTO nhận dữ liệu cho yêu cầu đặt lại mật khẩu mới.
+ * Được sử dụng sau khi người dùng nhấn vào link "Quên mật khẩu" từ email.
+ */
 @Data
 public class ResetPasswordRequest {
 
-    @NotBlank(message = "Token không được để trống") // Đã dịch
+    // Token xác thực quyền đặt lại mật khẩu (được gửi kèm trong link email)
+    @NotBlank(message = "Token must not be blank")
     private String token;
 
-    @NotBlank(message = "Mật khẩu mới không được để trống") // Đã dịch
-    @Size(min = 6, message = "Mật khẩu mới phải có ít nhất 6 ký tự") // Đã dịch
+    // Mật khẩu mới mà người dùng muốn thiết lập (Bắt buộc, tối thiểu 6 ký tự)
+    @NotBlank(message = "New password must not be blank")
+    @Size(min = 6, message = "New password must contain at least 6 characters")
     private String newPassword;
 }

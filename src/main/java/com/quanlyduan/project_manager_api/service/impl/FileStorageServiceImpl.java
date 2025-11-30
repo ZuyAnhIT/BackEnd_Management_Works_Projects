@@ -19,23 +19,31 @@ import java.util.UUID;
 @Service
 public class FileStorageServiceImpl implements FileStorageService {
 
-    @Value("${app.upload.dir:uploads}") // Mặc định lưu vào thư mục "uploads" ở gốc dự án
+    // Đường dẫn gốc để lưu trữ file, đọc từ application.properties/yml, mặc định là "uploads"
+    @Value("${app.upload.dir:uploads}")
     private String baseUploadDir;
 
+    // ======================================================
+    // LOGIC LƯU TRỮ FILE (STORE FILE)
+    // ======================================================
     @Override
     public String storeFile(MultipartFile file, String folderName) {
+
         // 1. Kiểm tra file rỗng
         if (file.isEmpty()) {
-            throw new BadRequestException("Không thể lưu tệp rỗng.");
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Cannot store an empty file.");
         }
 
-        // 2. Làm sạch tên file
+        // 2. Làm sạch tên file và kiểm tra bảo mật (Path Traversal)
         String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+        // Kiểm tra ký tự đường dẫn không hợp lệ
         if (originalFileName.contains("..")) {
-            throw new BadRequestException("Tên tệp chứa đường dẫn không hợp lệ: " + originalFileName);
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("File name contains invalid path sequence: " + originalFileName);
         }
 
-        // 3. Tạo tên file mới (UUID) để tránh trùng lặp
+        // 3. Tạo tên file mới (UUID + Extension) để tránh trùng lặp
         String fileExtension = "";
         int dotIndex = originalFileName.lastIndexOf('.');
         if (dotIndex > 0) {
@@ -44,24 +52,29 @@ public class FileStorageServiceImpl implements FileStorageService {
         String newFileName = UUID.randomUUID().toString() + fileExtension;
 
         try {
-            // 4. Tạo thư mục đích nếu chưa tồn tại (ví dụ: uploads/avatars)
+            // 4. Định nghĩa và tạo thư mục đích (ví dụ: uploads/avatars)
             Path uploadPath = Paths.get(baseUploadDir, folderName);
+            
+            // Nếu thư mục chưa tồn tại, tạo mới
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
 
-            // 5. Lưu file
+            // 5. Lưu file vào đường dẫn cuối cùng
             Path filePath = uploadPath.resolve(newFileName);
             try (InputStream inputStream = file.getInputStream()) {
+                // Copy stream, ghi đè nếu đã tồn tại file cùng tên
                 Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
             }
 
-            // 6. Trả về đường dẫn tương đối để lưu vào DB (hoặc URL đầy đủ nếu muốn)
-            // Ví dụ trả về: "/avatars/uuid-abc.jpg"
+            // 6. Trả về đường dẫn tương đối (để lưu vào Database)
+            // Format: /<tên_thư_mục>/<tên_file_mới>
             return "/" + folderName + "/" + newFileName;
 
         } catch (IOException ex) {
-            throw new BadRequestException("Không thể lưu tệp " + newFileName + ". Vui lòng thử lại!");
+            // Xử lý lỗi I/O trong quá trình lưu file
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Could not store file " + newFileName + ". Please try again!");
         }
     }
 }

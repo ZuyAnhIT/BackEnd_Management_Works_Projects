@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/UpdateSubTaskRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
@@ -5,30 +6,32 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import java.math.BigDecimal;
 
+/**
+ * DTO nhận dữ liệu cho yêu cầu cập nhật thông tin SubTask (Công việc phụ).
+ * Hỗ trợ cập nhật từng phần (Partial Update):
+ * - Chỉ những trường có giá trị (không null) mới được cập nhật vào Database.
+ */
 @Data
-@Schema(description = "Request to update Subtask", example = """
-{
-  "title": "Updated Subtask Title",
-  "description": "Updated description of the subtask",
-  "status": "IN_PROGRESS",
-  "assigneeId": null,  
-    "estimatedHours": 12.5
-}
-""")
+
 public class UpdateSubTaskRequest {
     
-    @Schema(description = "New title", nullable = true)
+    // Tiêu đề mới (Tùy chọn)
+    @Schema(description = "New title of the subtask", nullable = true)
     private String title;
 
-    @Schema(description = "New description", nullable = true)
+    // Mô tả chi tiết mới (Tùy chọn)
+    @Schema(description = "New detailed description", nullable = true)
     private String description;
 
-    @Schema(description = "New status", nullable = true)
+    // Trạng thái mới (Tùy chọn - Enum: TO_DO, IN_PROGRESS, DONE)
+    @Schema(description = "New status of the subtask", nullable = true)
     private SubTaskStatus status;
 
-    @Schema(description = "New assignee ID", nullable = true)
+    // ID người thực hiện mới (Tùy chọn)
+    @Schema(description = "New assignee ID (User ID)", nullable = true)
     private Integer assigneeId;
 
-    @Schema(description = "New estimated hours", nullable = true)
+    // Thời gian ước tính mới (Tùy chọn)
+    @Schema(description = "New estimated hours to complete", nullable = true)
     private BigDecimal estimatedHours;
 }

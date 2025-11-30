@@ -17,24 +17,91 @@ import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 
+
+/**
+ * Interface Service quản lý các nghiệp vụ liên quan đến Công ty (Company).
+ * Bao gồm tạo công ty, quản lý thành viên, và luồng mời.
+ */
 public interface CompanyService {
+    
+    // ========================================================================
+    // 1. QUẢN LÝ CÔNG TY (CRUD & LIFECYCLE)
+    // ========================================================================
+
+    /**
+     * Tạo một Công ty mới.
+     */
     Company createCompany(CreateCompanyRequest request); 
 
+    /**
+     * Lấy thông tin chi tiết của Công ty.
+     * @param companyId ID công ty
+     * @return CompanyDetailsResponse DTO
+     */
+    CompanyDetailsResponse getCompanyDetails(Integer companyId);
+
+    /**
+     * Cập nhật thông tin công ty và logo (sử dụng MultipartFile).
+     */
+    CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request, MultipartFile logoFile);
+    
+    
+    // ========================================================================
+    // 2. QUẢN LÝ THÀNH VIÊN (MEMBERSHIP & ROLES)
+    // ========================================================================
+
+    /**
+     * Mời một thành viên mới vào Công ty (Gửi Email với Token).
+     * @param companyId ID công ty
+     * @param request DTO chứa email và roleCode
+     */
     void inviteMember(Integer companyId, InviteMemberRequest request); 
 
+    /**
+     * Chấp nhận lời mời tham gia Công ty (sau khi click link).
+     */
     void acceptInvitation(AcceptInvitationRequest request);
 
     /**
+     * Lấy thông tin chi tiết của một thành viên trong công ty.
+     * @param companyId ID của công ty (để kiểm tra bảo mật)
+     * @param memberId ID của bản ghi CompanyMember
+     */
+    CompanyMemberResponse getCompanyMemberDetails(Integer companyId, Integer memberId);
+    
+    /**
+     * Cập nhật trạng thái của thành viên (ACTIVE/SUSPENDED/RESTORE).
+     * @param request DTO chứa trạng thái mới
+     */
+    CompanyMemberResponse updateMemberStatus(Integer companyId, Integer memberId, UpdateMemberStatusRequest request);
+
+    /**
+     * Cập nhật vai trò (Role) của một thành viên trong công ty.
+     * @param newRoleCode Mã vai trò mới (ví dụ: "COMPANY_MEMBER")
+     * @return CompanyMember Entity đã cập nhật
+     */
+    CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode);
+
+    /**
+     * Xóa mềm (Soft Delete) một thành viên khỏi công ty (chuyển status thành REMOVED).
+     * @param userId ID người dùng bị xóa
+     */
+    void removeMemberFromCompany(Integer companyId, Integer userId);
+
+    // ========================================================================
+    // 3. XEM DANH SÁCH (LISTING & FILTERING)
+    // ========================================================================
+
+    /**
      * Lấy danh sách thành viên công ty (Phân trang & Sắp xếp).
-     * @param companyId ID công ty
-     * @param page Số trang (bắt đầu từ 0)
-     * @param size Kích thước trang
-     * @param sortBy Trường cần sắp xếp ("joinedAt", "name", "role")
-     * @param sortDir Hướng sắp xếp ("asc", "desc")
+     * @param sortBy Trường cần sắp xếp
+     * @param sortDir Hướng sắp xếp
      */
     PageResponseDTO<CompanyMemberResponse> getCompanyMembers(Integer companyId, int page, int size, String sortBy, String sortDir);
 
-    // API 2: TÌM KIẾM (Nâng cao - ĐÃ CẬP NHẬT)
+    /**
+     * Tìm kiếm thành viên công ty (Nâng cao: Tên, Email, Chức vụ, Role, SĐT).
+     */
     PageResponseDTO<CompanyMemberResponse> searchCompanyMembers(
             Integer companyId, 
             String searchName, 
@@ -42,62 +109,22 @@ public interface CompanyService {
             String searchJobTitle, 
             String searchRoleName,
             MemberStatus searchStatus,
-            String searchPhone, // *** THÊM THAM SỐ ***
+            String searchPhone, 
             int page, int size, String sortBy, String sortDir
     );
-    
-    // Xem chi tiet cong ty
-    CompanyDetailsResponse getCompanyDetails(Integer companyId); // Đã dịch
 
     /**
-     * Cập nhật thông tin công ty và logo.
+     * Lấy danh sách các lời mời đang chờ (Pending) của một công ty (Phân trang & Sắp xếp).
      */
-    CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request, MultipartFile logoFile);
+    PageResponseDTO<CompanyInvitationResponse> getPendingInvitations(Integer companyId, int page, int size, String sortBy, String sortDir);
     
     /**
-     * Xóa mềm một thành viên khỏi công ty (chuyển status thành REMOVED).
-     * @param companyId ID công ty
-     * @param userId ID người dùng bị xóa
-     */
-    void removeMemberFromCompany(Integer companyId, Integer userId);
-
-    /**
-     * Lấy thông tin chi tiết của một thành viên trong công ty.
-     * @param companyId ID của công ty (để kiểm tra bảo mật)
-     * @param memberId ID của bản ghi CompanyMember
-     * @return CompanyMemberResponse DTO
-     */
-    CompanyMemberResponse getCompanyMemberDetails(Integer companyId, Integer memberId);
-
-    /**
-     * Cập nhật trạng thái của thành viên (ACTIVE/SUSPENDED).
-     * @param companyId ID công ty
-     * @param memberId ID của bản ghi CompanyMember
-     * @param request DTO chứa trạng thái mới
-     * @return CompanyMemberResponse DTO đã cập nhật
-     */
-    CompanyMemberResponse updateMemberStatus(Integer companyId, Integer memberId, UpdateMemberStatusRequest request);
-
-    /**
-     * Lấy chi tiết lời mời (public) để frontend quyết định luồng.
-     * @param token Token từ link
-     * @return DTO chứa email, tên cty, và user đã tồn tại hay chưa
+     * Lấy chi tiết lời mời (public) để frontend quyết định luồng (Login/Register).
      */
     InvitationDetailsResponse getInvitationDetails(String token);
     
     /**
-     * Cập nhật vai trò (Role) của một thành viên trong công ty.
-     * @param companyId ID công ty
-     * @param memberId ID của bản ghi CompanyMember
-     * @param newRoleCode Mã vai trò mới (ví dụ: "COMPANY_MEMBER")
-     * @return CompanyMember Entity đã cập nhật (để Controller lấy thông tin)
+     * Lấy danh sách Project thuộc Công ty (Giả định hàm này tồn tại từ logic cũ).
      */
-    CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode);
-
-    /**
-     * Lấy danh sách các lời mời đang chờ (Pending) của một công ty.
-     * (Có phân trang và sắp xếp)
-     */
-    PageResponseDTO<CompanyInvitationResponse> getPendingInvitations(Integer companyId, int page, int size, String sortBy, String sortDir);
-    
+    // List<ProjectResponse> getCompanyProjects(Integer companyId);
 }

@@ -6,17 +6,23 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+/**
+ * DTO nhận dữ liệu đăng ký tài khoản mới từ người dùng.
+ */
 @Data
 public class RegisterRequest {
 
-    @NotBlank(message = "Họ và tên không được để trống") // Đã dịch
-    private String fullName; // Đã dịch
+    // Họ và tên đầy đủ (Bắt buộc)
+    @NotBlank(message = "Full name must not be blank")
+    private String fullName;
 
-    @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email không đúng định dạng")
+    // Email đăng ký (Bắt buộc, đúng định dạng email)
+    @NotBlank(message = "Email must not be blank")
+    @Email(message = "Invalid email format")
     private String email;
 
-    @NotBlank(message = "Mật khẩu không được để trống") // Đã dịch
-    @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự") // Đã dịch
-    private String password; // Đã dịch
+    // Mật khẩu (Bắt buộc, tối thiểu 6 ký tự để đảm bảo an toàn cơ bản)
+    @NotBlank(message = "Password must not be blank")
+    @Size(min = 6, message = "Password must contain at least 6 characters")
+    private String password;
 }

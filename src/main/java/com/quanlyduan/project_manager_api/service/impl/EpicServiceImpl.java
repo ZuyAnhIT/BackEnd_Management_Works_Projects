@@ -1,7 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/EpicServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
-import com.quanlyduan.project_manager_api.dto.request.CreateEpicRequest; 
+import com.quanlyduan.project_manager_api.dto.request.CreateEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateEpicRequest;
 import com.quanlyduan.project_manager_api.dto.response.EpicResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -16,7 +16,7 @@ import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.specification.EpicSpecification;
 import com.quanlyduan.project_manager_api.service.EpicService;
-import com.quanlyduan.project_manager_api.security.SecurityService; 
+import com.quanlyduan.project_manager_api.security.SecurityService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.jpa.domain.Specification;
@@ -27,15 +27,17 @@ import java.util.stream.Collectors;
 
 @Service
 public class EpicServiceImpl implements EpicService {
-    
+
     private final EpicRepository epicRepository;
     private final TaskRepository taskRepository;
     private final ProjectRepository projectRepository;
-    private final SecurityService securityService; // Thêm SecurityService để lấy user creator
+    private final SecurityService securityService;
 
-    // *** CONSTRUCTOR THỦ CÔNG ***
-    public EpicServiceImpl(EpicRepository epicRepository, 
-                           TaskRepository taskRepository, 
+    // ======================================================
+    // CONSTRUCTOR (Dependency Injection)
+    // ======================================================
+    public EpicServiceImpl(EpicRepository epicRepository,
+                           TaskRepository taskRepository,
                            ProjectRepository projectRepository,
                            SecurityService securityService) {
         this.epicRepository = epicRepository;
@@ -44,180 +46,214 @@ public class EpicServiceImpl implements EpicService {
         this.securityService = securityService;
     }
 
-    // --- 1. API LẤY DANH SÁCH EPIC (KÈM TÌM KIẾM & METRICS) ---
+    // ======================================================
+    // 1. LẤY DANH SÁCH EPIC (LIST & SEARCH)
+    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public List<EpicResponse> getEpicsByProject(Integer projectId, String keyword) {
-        
+
         // 1. Áp dụng Specification (Lọc theo Project ID và keyword)
         Specification<Epic> spec = EpicSpecification.filterEpics(projectId, keyword);
         List<Epic> epics = epicRepository.findAll(spec);
-        
-        // 2. Chuyển đổi và tính toán Metrics
+
+        // 2. Chuyển đổi sang DTO và tính toán Metrics
         return epics.stream()
                 .map(this::mapToEpicResponse)
                 .collect(Collectors.toList());
     }
-    
-    // --- API TẠO EPIC MỚI (ĐÃ SỬA THEO YÊU CẦU) ---
+
+    // ======================================================
+    // 2. TẠO EPIC MỚI (CREATE EPIC)
+    // ======================================================
     @Override
     @Transactional
     public EpicResponse createEpic(Integer projectId, CreateEpicRequest request) {
-        
+
+        // Lấy thông tin người tạo hiện tại
         User creator = securityService.getCurrentAuthenticatedUser();
 
         // 1. Tìm Project
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId)); // Đã dịch
-        
-        // 2. *** KIỂM TRA TRÙNG TÊN ***
-        // (Nếu đã có Epic cùng tên trong dự án này thì báo lỗi)
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
+
+        // 2. KIỂM TRA TRÙNG TÊN: Tránh trùng lặp Epic name trong cùng một dự án
         if (epicRepository.existsByProject_IdAndNameIgnoreCase(projectId, request.getName())) {
-            throw new BadRequestException("Tên Epic '" + request.getName() + "' đã tồn tại trong dự án này."); // Đã dịch
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Epic name '" + request.getName() + "' already exists in this project.");
         }
 
-        // 3. Sinh Mã Epic
-        String projectCode = project.getProjectCode(); 
+        // 3. Sinh Mã Epic (Dựa trên Project Code và Sequence tiếp theo)
+        String projectCode = project.getProjectCode();
         long nextSequence = epicRepository.countByProject_Id(projectId) + 1;
-        String epicCode = projectCode + "-E-" + nextSequence; 
-        
-        // 4. Tạo Entity
+        String epicCode = projectCode + "-E-" + nextSequence;
+
+        // 4. Tạo Entity và thiết lập giá trị mặc định
         Epic newEpic = Epic.builder()
-                .project(project) 
+                .project(project)
                 .name(request.getName())
                 .description(request.getDescription())
-                
-                // *** SỬA: Không random màu, null thì để null ***
-                .color(request.getColor()) 
-                
+
+                // Màu sắc được gửi lên (có thể null)
+                .color(request.getColor())
+
                 .startDate(request.getStartDate())
                 .dueDate(request.getDueDate())
-                .epicCode(epicCode) 
-                
-                // *** MẶC ĐỊNH: OPEN ***
-                .status(EpicStatus.OPEN) 
-                
+                .epicCode(epicCode)
+
+                // MẶC ĐỊNH: OPEN
+                .status(EpicStatus.OPEN)
+
                 .createdBy(creator)
                 .build();
-        
+
         newEpic = epicRepository.save(newEpic);
-        
+
+        // 5. Map sang DTO và trả về
         return mapToEpicResponse(newEpic);
     }
 
-    // LOGIC CAP NHAT EPIC
+    // ======================================================
+    // 3. CẬP NHẬT EPIC (UPDATE EPIC)
+    // ======================================================
     @Override
     @Transactional
     public EpicResponse updateEpic(Integer projectId, Integer epicId, UpdateEpicRequest request) {
+        // 1. Tìm Epic
         Epic epic = epicRepository.findById(epicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Epic"));
-        if (!epic.getProject().getId().equals(projectId)) throw new BadRequestException("Sai dự án");
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Epic not found."));
 
-        // (Có thể thêm check trùng tên ở đây nếu đổi tên)
-        if (request.getName() != null && !request.getName().equals(epic.getName())) {
+        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo Epic thuộc đúng Project
+        if (!epic.getProject().getId().equals(projectId)) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Mismatched project ID for this Epic.");
+        }
+
+        // 3. Cập nhật Tên (kèm kiểm tra trùng tên nếu đổi tên)
+        if (request.getName() != null && !request.getName().trim().isEmpty() && !request.getName().equals(epic.getName())) {
+             // Nếu tên mới khác tên cũ, kiểm tra trùng lặp
              if (epicRepository.existsByProject_IdAndNameIgnoreCase(projectId, request.getName())) {
-                 throw new BadRequestException("Tên Epic đã tồn tại.");
+                 // Sửa thông báo sang tiếng Anh
+                 throw new BadRequestException("Epic name already exists.");
              }
              epic.setName(request.getName());
         }
 
-        // 3. Cập nhật thông tin (Chỉ cập nhật nếu có dữ liệu gửi lên)
+        // (Logic trùng lặp: Nếu dòng trên đã xử lý tên, dòng dưới chỉ là redundant check cho trường hợp tên là null/empty, nhưng ta giữ nguyên code gốc)
         if (request.getName() != null && !request.getName().trim().isEmpty()) {
-            epic.setName(request.getName());
+             // Mặc dù đã xử lý tên ở trên, nhưng giữ lại logic này để bảo toàn code gốc nếu tên có thể được set lại (redundant)
+             // epic.setName(request.getName());
         }
-        
+
+
+        // 4. Cập nhật các trường thông tin khác (Chỉ cập nhật nếu có dữ liệu gửi lên)
         if (request.getDescription() != null) {
             epic.setDescription(request.getDescription());
         }
-        
+
         if (request.getColor() != null && !request.getColor().trim().isEmpty()) {
             epic.setColor(request.getColor());
         }
-        
+
         if (request.getStartDate() != null) {
             epic.setStartDate(request.getStartDate());
         }
-        
+
         if (request.getDueDate() != null) {
             epic.setDueDate(request.getDueDate());
         }
-        
-        // 4. Cập nhật Trạng thái (Xử lý Enum an toàn)
+
+        // 5. Cập nhật Trạng thái (Xử lý Enum an toàn)
         if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
             try {
                 EpicStatus newStatus = EpicStatus.valueOf(request.getStatus().toUpperCase());
                 epic.setStatus(newStatus);
             } catch (IllegalArgumentException e) {
-                throw new BadRequestException("Trạng thái Epic không hợp lệ: " + request.getStatus()); // Đã dịch
+                // Sửa thông báo sang tiếng Anh
+                throw new BadRequestException("Invalid Epic status: " + request.getStatus());
             }
         }
 
-        // 5. Lưu và trả về
+        // 6. Lưu và trả về
         Epic savedEpic = epicRepository.save(epic);
         return mapToEpicResponse(savedEpic);
     }
 
-    // CẬP NHẬT LOGIC XÓA EPIC 
+    // ======================================================
+    // 4. XÓA EPIC (DELETE EPIC)
+    // ======================================================
     @Override
     @Transactional
     public void deleteEpic(Integer projectId, Integer epicId) {
         // 1. Tìm Epic
         Epic epic = epicRepository.findById(epicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Epic")); // Đã dịch
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Epic not found."));
 
-        // 2. Validate: Epic thuộc Project
+        // 2. Validate: Epic phải thuộc về Project đang thao tác
         if (!epic.getProject().getId().equals(projectId)) {
-            throw new BadRequestException("Epic không thuộc về dự án này"); // Đã dịch
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Epic does not belong to this project.");
         }
 
-        // 3.  KIỂM TRA RÀNG BUỘC 
-        // Nếu Epic đang chứa Task -> Chặn xóa
+        // 3. KIỂM TRA RÀNG BUỘC: Nếu Epic đang chứa Task -> Chặn xóa
         if (taskRepository.existsByEpic_Id(epicId)) {
+            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException(
-                "Không thể xóa Epic này vì đang có công việc (Task) bên trong. " +
-                "Vui lòng di chuyển hoặc gỡ bỏ các công việc trước khi xóa."
+                "Cannot delete this Epic because it contains tasks. " +
+                "Please move or remove all tasks before deletion."
             );
         }
 
-        // 4. Nếu rỗng -> Xóa
+        // 4. Nếu không có ràng buộc -> Xóa
         epicRepository.delete(epic);
     }
 
-    // --- PRIVATE UTILITY: MAPPER VÀ LOGIC TÍNH TOÁN METRICS ---
+    // ======================================================
+    // ⚙️ PRIVATE UTILITY: MAPPER VÀ TÍNH TOÁN METRICS
+    // ======================================================
+
+    /**
+     * Helper: Map Epic Entity sang EpicResponse DTO và tính toán Metrics liên quan.
+     */
     private EpicResponse mapToEpicResponse(Epic epic) {
-        
-        // Lấy danh sách Task thuộc Epic này
+
+        // 1. Lấy danh sách Task thuộc Epic này (để tính toán)
         List<Task> tasksInEpic = taskRepository.findByEpicId(epic.getId());
 
-        // Tính toán Metrics
+        // 2. Tính toán Metrics
         Integer totalTasks = tasksInEpic.size();
         Integer tasksCompleted = (int) tasksInEpic.stream()
                 // Giả định: Task được coi là hoàn thành nếu ProjectStatus có cờ isCompletedStatus = true
-                .filter(task -> task.getStatus() != null && 
-                                 task.getStatus().getIsCompletedStatus() != null && 
-                                 task.getStatus().getIsCompletedStatus())
+                .filter(task -> task.getStatus() != null &&
+                                task.getStatus().getIsCompletedStatus() != null &&
+                                task.getStatus().getIsCompletedStatus())
                 .count();
 
-        // Tính toán %
+        // 3. Tính toán % hoàn thành (Progress)
         double progress = 0.0;
         if (totalTasks > 0) {
             progress = (double) tasksCompleted * 100 / totalTasks;
         }
 
+        // 4. Build và trả về DTO
         return EpicResponse.builder()
                 .id(epic.getId())
                 .name(epic.getName())
-                .epicCode(epic.getEpicCode()) 
-                .description(epic.getDescription()) 
+                .epicCode(epic.getEpicCode())
+                .description(epic.getDescription())
                 .color(epic.getColor())
                 .status(epic.getStatus() != null ? epic.getStatus().name() : "OPEN")
                 .projectId(epic.getProject().getId())
-                .startDate(epic.getStartDate()) 
-                .dueDate(epic.getDueDate())     
+                .startDate(epic.getStartDate())
+                .dueDate(epic.getDueDate())
                 .createdAt(epic.getCreatedAt())
                 .totalTasks(totalTasks)
                 .tasksCompleted(tasksCompleted)
-                .progressPercentage(Math.min(100.0, progress)) 
+                // Đảm bảo phần trăm không vượt quá 100
+                .progressPercentage(Math.min(100.0, progress))
                 .build();
     }
 }

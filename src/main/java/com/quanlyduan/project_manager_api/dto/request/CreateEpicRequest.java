@@ -6,19 +6,27 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import java.time.LocalDate;
 
+/**
+ * DTO nhận dữ liệu khi tạo mới một Epic.
+ */
 @Data
 public class CreateEpicRequest {
     
-    @NotBlank(message = "Tên Epic không được để trống")
-    @Size(max = 255, message = "Tên Epic không được quá 255 ký tự")
+    // Tên Epic (Bắt buộc, không quá 255 ký tự)
+    @NotBlank(message = "Epic name must not be blank")
+    @Size(max = 255, message = "Epic name must not exceed 255 characters")
     private String name;
     
-    @Size(max = 1000, message = "Mô tả không được quá 1000 ký tự")
+    // Mô tả chi tiết (Tùy chọn, không quá 1000 ký tự)
+    @Size(max = 1000, message = "Description must not exceed 1000 characters")
     private String description;
     
+    // Mã màu HEX (Tùy chọn). Nếu null, hệ thống sẽ tự động chọn màu ngẫu nhiên.
     private String color; 
     
+    // Ngày bắt đầu dự kiến
     private LocalDate startDate;
-    private LocalDate dueDate;
 
+    // Ngày kết thúc dự kiến
+    private LocalDate dueDate;
 }

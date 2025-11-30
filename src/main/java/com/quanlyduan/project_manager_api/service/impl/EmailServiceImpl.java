@@ -14,31 +14,45 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
+    // Lấy địa chỉ email người gửi từ cấu hình Spring
     @Value("${spring.mail.username}")
     private String fromEmail;
 
-    
+    // ======================================================
+    // CONSTRUCTOR (Dependency Injection)
+    // ======================================================
     public EmailServiceImpl(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
 
-    // LOGIC FORM EMAIL
+    // ======================================================
+    // LOGIC GỬI EMAIL (SEND EMAIL)
+    // ======================================================
     @Override
-    @Async // (Optional) Gửi email bất đồng bộ để không block luồng chính
+    // Sử dụng @Async để gửi email bất đồng bộ, tránh làm chậm luồng xử lý API chính
+    @Async
     public void sendEmail(String to, String subject, String body) {
         try {
+            // 1. Khởi tạo MimeMessage và Helper
             MimeMessage mimeMessage = mailSender.createMimeMessage();
+            // Tham số "utf-8" để hỗ trợ ký tự tiếng Việt
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "utf-8");
-            
+
+            // 2. Thiết lập thông tin email
             helper.setFrom(fromEmail);
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setText(body, true); // true = hỗ trợ HTML
+            // Tham số 'true' cho phép nội dung body sử dụng định dạng HTML
+            helper.setText(body, true);
 
+            // 3. Thực hiện gửi mail
             mailSender.send(mimeMessage);
-            System.out.println("Email đã gửi thành công tới: " + to); 
+
+            // Sửa thông báo console sang tiếng Anh
+            System.out.println("Email sent successfully to: " + to);
         } catch (Exception e) {
-            System.err.println("Lỗi khi gửi email: " + e.getMessage()); 
+            // Sửa thông báo console sang tiếng Anh
+            System.err.println("Error while sending email: " + e.getMessage());
         }
     }
 }

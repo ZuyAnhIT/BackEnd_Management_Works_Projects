@@ -15,22 +15,32 @@ import java.util.Collections;
 @Configuration
 public class ApplicationConfig {
 
+    // Lấy giá trị Google Client ID từ file cấu hình (application.properties)
     @Value("${google.client-id}")
     private String googleClientId;
 
+    /**
+     * Khởi tạo Bean PasswordEncoder.
+     * Sử dụng thuật toán BCrypt để mã hóa và kiểm tra mật khẩu người dùng.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-    
-    // *** THÊM BEAN NÀY ***
+
+    /**
+     * Khởi tạo Bean GoogleIdTokenVerifier.
+     * Bean này chịu trách nhiệm xác thực tính hợp lệ của Google ID Token gửi từ Client.
+     */
     @Bean
     public GoogleIdTokenVerifier googleIdTokenVerifier() {
-        // Bean này sẽ được dùng để xác thực token từ Google
+        // Xây dựng verifier sử dụng NetHttpTransport và GsonFactory chuẩn của Google
         return new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+            // Thiết lập danh sách Audience hợp lệ (chính là Client ID của ứng dụng này)
+            // Điều này đảm bảo token được cấp phát cho đúng ứng dụng của chúng ta
             .setAudience(Collections.singletonList(googleClientId))
             .build();
     }
-    
-    // Các Bean khác (như ModelMapper) có thể được thêm vào đây sau
+
+    // (Ghi chú: Các Bean cấu hình khác như ModelMapper có thể được thêm vào đây trong tương lai)
 }

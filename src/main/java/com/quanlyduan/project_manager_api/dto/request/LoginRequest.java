@@ -5,12 +5,19 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
+/**
+ * DTO nhận dữ liệu yêu cầu đăng nhập từ người dùng.
+ * Bao gồm email và mật khẩu.
+ */
 @Data
 public class LoginRequest {
-    @NotBlank(message = "Email không được để trống") // Đã dịch
-    @Email(message = "Email không đúng định dạng")
+
+    // Email đăng nhập (Bắt buộc, không được để trống và phải đúng định dạng)
+    @NotBlank(message = "Email must not be blank")
+    @Email(message = "Invalid email format")
     private String email;
 
-    @NotBlank(message = "Mật khẩu không được để trống") // Đã dịch
-    private String password; // Đã dịch
+    // Mật khẩu đăng nhập (Bắt buộc, không được để trống)
+    @NotBlank(message = "Password must not be blank")
+    private String password;
 }

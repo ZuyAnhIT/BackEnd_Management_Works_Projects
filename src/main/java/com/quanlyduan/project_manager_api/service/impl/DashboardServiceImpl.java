@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Set; 
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,8 +31,10 @@ public class DashboardServiceImpl implements DashboardService {
     private final CompanyMemberRepository companyMemberRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
-    
-    // *** THÊM CONSTRUCTOR THỦ CÔNG (Theo yêu cầu) ***
+
+    // ======================================================
+    // CONSTRUCTOR (DI)
+    // ======================================================
     public DashboardServiceImpl(SecurityService securityService,
                                   WorkspaceMemberRepository workspaceMemberRepository,
                                   CompanyMemberRepository companyMemberRepository,
@@ -47,22 +49,29 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     // ======================================================
-    // 1. Lấy danh sách WORKSPACE mà user đang tham gia
+    // 1. LẤY DANH SÁCH WORKSPACE THAM GIA (GET MY WORKSPACES)
     // ======================================================
     @Override
     public List<MyWorkspaceResponse> getMyWorkspaces() {
+        // Lấy thông tin người dùng đang đăng nhập
         User currentUser = securityService.getCurrentAuthenticatedUser();
 
+        // Tìm tất cả các Workspace mà người dùng là thành viên
         List<WorkspaceMember> memberships =
                 workspaceMemberRepository.findByUser_Id(currentUser.getId());
 
+        // Lọc các Workspace không bị xóa và Map sang DTO
         return memberships.stream()
+                // Điều kiện lọc: Đảm bảo Workspace tồn tại và không bị trạng thái DELETED
                 .filter(member -> member.getWorkspace() != null
                         && member.getWorkspace().getStatus() != WorkspaceStatus.DELETED)
                 .map(this::mapToMyWorkspaceResponse)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Helper: Map WorkspaceMember Entity sang MyWorkspaceResponse DTO.
+     */
     private MyWorkspaceResponse mapToMyWorkspaceResponse(WorkspaceMember membership) {
         Workspace workspace = membership.getWorkspace();
         Company company = workspace.getCompany();
@@ -87,23 +96,28 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     // ======================================================
-    // 2. Lấy danh sách COMPANY mà user là thành viên
+    // 2. LẤY DANH SÁCH CÔNG TY THAM GIA (GET MY COMPANIES)
     // ======================================================
     @Override
     public List<MyCompanyResponse> getMyCompanies() {
         Integer userId = securityService.getCurrentUserId();
 
+        // Định nghĩa các trạng thái Công ty cho phép hiển thị
         List<CompanyStatus> allowedStatuses =
                 List.of(CompanyStatus.ACTIVE, CompanyStatus.SUSPENDED);
-        
-        // (Giả sử bạn đã thêm hàm findByUserIdAndCompanyStatuses vào Repository)
+
+        // Tìm tất cả các CompanyMember có trạng thái công ty nằm trong danh sách cho phép
         List<CompanyMember> members = companyMemberRepository.findByUser_IdAndCompany_StatusIn(userId, allowedStatuses);
 
+        // Map sang DTO và trả về
         return members.stream()
                 .map(this::mapToMyCompanyResponse)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Helper: Map CompanyMember Entity sang MyCompanyResponse DTO.
+     */
     private MyCompanyResponse mapToMyCompanyResponse(CompanyMember member) {
         Company company = member.getCompany();
 
@@ -122,28 +136,34 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     // ======================================================
-    // 3. Lấy danh sách PROJECT mà user đang tham gia
+    // 3. LẤY DANH SÁCH PROJECT THAM GIA (GET MY PROJECTS)
     // ======================================================
     @Override
     public List<MyProjectResponse> getMyProjects() {
         Integer currentUserId = securityService.getCurrentUserId();
 
+        // Kiểm tra bảo mật
         if (currentUserId == null) {
             return List.of();
         }
 
+        // Tìm tất cả các Project mà người dùng là thành viên
         List<ProjectMember> memberships =
                 projectMemberRepository.findByUser_Id(currentUserId);
 
+        // Map sang DTO và trả về
         return memberships.stream()
                 .map(this::mapToMyProjectResponse)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Helper: Map ProjectMember Entity sang MyProjectResponse DTO.
+     */
     private MyProjectResponse mapToMyProjectResponse(ProjectMember member) {
         Project project = member.getProject();
         Workspace workspace = project.getWorkspace();
-        Company company = workspace.getCompany();
+        Company company = workspace.getCompany(); // Lấy thông tin công ty qua Workspace
 
         return MyProjectResponse.builder()
                 .projectId(project.getId())
@@ -159,43 +179,47 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     // ======================================================
-    // 4. US4-sprint3: Logic lấy tất cả Task được giao cho tôi 
+    // 4. LẤY DANH SÁCH TASK ĐƯỢC GIAO CHO TÔI (GET MY TASKS)
     // ======================================================
     @Override
     @Transactional(readOnly = true)
     public List<MyTaskResponse> getMyTasks() {
-        // 1. Lấy user ID từ SecurityService (Bean "securityService")
+        // 1. Lấy user ID
         Integer currentUserId = securityService.getCurrentUserId();
         if (currentUserId == null) {
             return List.of();
         }
-        
+
+        // 2. Lấy danh sách Task được giao (Fetch Join để tối ưu)
         List<Task> tasks = taskRepository.findByAssignee_IdWithDetails(
                 currentUserId
         );
 
-        // 4. Map sang DTO VÀ LỌC
+        // 3. Lọc và Map sang DTO
         return tasks.stream()
-            // *** SỬA: Lọc các task chưa hoàn thành (isCompletedStatus = false) ***
+            // Lọc: Chỉ giữ lại các task **chưa hoàn thành** (isCompletedStatus = false)
             .filter(task -> task.getStatus() != null && !task.getStatus().getIsCompletedStatus())
-            .map(this::mapToMyTaskResponse) // Sử dụng helper đã sửa
+            .map(this::mapToMyTaskResponse)
             .collect(Collectors.toList());
     }
 
-    // Hàm helper để map từ Task Entity sang MyTaskResponse DTO (ĐÃ SỬA)
+    /**
+     * Helper: Map Task Entity sang MyTaskResponse DTO.
+     */
     private MyTaskResponse mapToMyTaskResponse(Task task) {
-        // *** SỬA: Lấy đối tượng ProjectStatus ***
+        // Lấy đối tượng ProjectStatus
         ProjectStatus status = task.getStatus();
-        
+
         return MyTaskResponse.builder()
                 .taskId(task.getId())
                 .taskCode(task.getTaskCode())
                 .taskTitle(task.getTitle())
-                
+
+                // Xử lý an toàn (Null check) cho trạng thái Task
                 .taskStatusId(status != null ? status.getId() : null)
                 .taskStatusName(status != null ? status.getName() : "Không xác định")
                 .taskStatusColor(status != null ? status.getColor() : "#CCCCCC")
-                
+
                 .taskPriority(task.getPriority())
                 .taskDueDate(task.getDueDate())
                 .projectId(task.getProject().getId())

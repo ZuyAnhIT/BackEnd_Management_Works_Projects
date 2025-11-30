@@ -3,14 +3,14 @@ package com.quanlyduan.project_manager_api.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
-// import java.util.List; // SỬA: Xóa import
 
+/**
+ * DTO nhận dữ liệu khi người dùng tạo một bình luận mới cho Task.
+ */
 @Data
 public class CommentRequest {
 
-    @NotBlank(message = "Nội dung bình luận không được để trống")
+    // Nội dung bình luận (Bắt buộc, không được để trống hoặc chỉ chứa khoảng trắng)
+    @NotBlank(message = "Comment content must not be blank")
     private String content;
-
-    // SỬA: XÓA BỎ
-    // private List<Integer> mentionedUserIds;
 }

@@ -18,11 +18,11 @@ import com.quanlyduan.project_manager_api.model.CompanyMember;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.service.CompanyService;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
-import org.springframework.http.MediaType; 
-import org.springframework.web.bind.annotation.RequestPart; 
-import org.springframework.web.multipart.MultipartFile; 
-import io.swagger.v3.oas.annotations.Parameter; 
-import io.swagger.v3.oas.annotations.media.Schema; 
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import jakarta.validation.Valid;
 
@@ -37,7 +37,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @RestController
 @RequestMapping("/api/companies")
 @CrossOrigin("*")
-
+/**
+ * Controller xử lý các nghiệp vụ liên quan đến Công ty (Company) và Thành viên (CompanyMember).
+ */
 public class CompanyController {
 
     private final CompanyService companyService;
@@ -48,20 +50,69 @@ public class CompanyController {
         this.objectMapper = objectMapper;
     }
 
-    // API TAO CONG TY
+    // ========================================================================
+    // A. QUẢN LÝ CÔNG TY (CRUD)
+    // ========================================================================
+
+    // API TẠO CÔNG TY
     @PostMapping
-    @PreAuthorize("@securityService.hasSystemPermission('company:create')") 
+    @PreAuthorize("@securityService.hasSystemPermission('company:create')")
     public ResponseEntity<ApiResponse<Company>> createCompany(
             @Valid @RequestBody CreateCompanyRequest request) {
 
-        Company newCompany = companyService.createCompany(request); 
+        Company newCompany = companyService.createCompany(request);
 
         return ResponseEntity
+                // Sửa thông báo trả về sang tiếng Anh
                 .status(HttpStatus.CREATED) // Dùng 201 Created cho việc tạo mới
-                .body(ApiResponse.success("Tạo công ty thành công.", newCompany)); 
+                .body(ApiResponse.success("Company created successfully.", newCompany));
     }
 
-    // API 1: LẤY DANH SÁCH THÀNH VIEN (Mặc định)
+    // API HIỂN THỊ THÔNG TIN CHI TIẾT CÔNG TY
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')")
+    @GetMapping("/{companyId}")
+    public ResponseEntity<ApiResponse<CompanyDetailsResponse>> getCompanyDetails(
+            @PathVariable Integer companyId) {
+
+        CompanyDetailsResponse companyDetails = companyService.getCompanyDetails(companyId);
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Company details retrieved successfully.", companyDetails));
+    }
+
+    // API CẬP NHẬT THÔNG TIN CÔNG TY (TICH HOP UPLOAD LOGO)
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:edit')")
+    @PutMapping(value = "/{companyId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<CompanyDetailsResponse>> updateCompany(
+            @PathVariable Integer companyId,
+
+            // Nhận JSON String và convert thủ công
+            @Parameter(schema = @Schema(implementation = UpdateCompanyRequest.class)) // Gợi ý cho Swagger
+            @RequestPart("data") String dataString,
+
+            // Nhận file ảnh (Optional)
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+
+        // Convert String -> DTO
+        UpdateCompanyRequest request;
+        try {
+            request = objectMapper.readValue(dataString, UpdateCompanyRequest.class);
+        } catch (JsonProcessingException e) {
+            // Sửa thông báo trả về sang tiếng Anh
+            throw new BadRequestException("Invalid JSON data: " + e.getMessage());
+        }
+
+        // Gọi Service (Xử lý file và update DB)
+        CompanyDetailsResponse updatedCompany = companyService.updateCompany(companyId, request, file);
+
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Company information updated successfully.", updatedCompany));
+    }
+
+    // ========================================================================
+    // B. QUẢN LÝ THÀNH VIÊN (MEMBERSHIP)
+    // ========================================================================
+
+    // API 1: LẤY DANH SÁCH THÀNH VIÊN (Mặc định)
     // URL: GET /api/companies/{id}/members
     @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')")
     @GetMapping("/{companyId}/members")
@@ -73,7 +124,8 @@ public class CompanyController {
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
         PageResponseDTO<CompanyMemberResponse> members = companyService.getCompanyMembers(companyId, page, size, sortBy, sortDir);
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành viên công ty thành công.", members));
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Company member list retrieved successfully.", members));
     }
 
     // API 2: TÌM KIẾM THÀNH VIÊN (Nâng cao)
@@ -81,13 +133,13 @@ public class CompanyController {
     @GetMapping("/{companyId}/members/search")
     public ResponseEntity<ApiResponse<PageResponseDTO<CompanyMemberResponse>>> searchCompanyMembers(
             @PathVariable Integer companyId,
-            
+
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String email,
             @RequestParam(required = false) String jobTitle,
-            @RequestParam(required = false) String roleName, // Sửa tên tham số cho khớp service
+            @RequestParam(required = false) String roleName, // Tên vai trò
             @RequestParam(required = false) MemberStatus status,
-            @RequestParam(required = false) String phone, 
+            @RequestParam(required = false) String phone,
 
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -95,99 +147,57 @@ public class CompanyController {
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
         PageResponseDTO<CompanyMemberResponse> result = companyService.searchCompanyMembers(
-            companyId, name, email, jobTitle, roleName, status, phone, 
+            companyId, name, email, jobTitle, roleName, status, phone,
             page, size, sortBy, sortDir
         );
-        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm thành viên thành công.", result)); // Đã dịch
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Company member search successful.", result));
     }
 
-    // API LẤY DANH SÁCH LỜI MỜI ĐANG CHỜ (PENDING) - CÓ PHÂN TRANG
+    // API XEM CHI TIẾT THÀNH VIÊN
     @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')")
-    @GetMapping("/{companyId}/invitations/pending")
-    public ResponseEntity<ApiResponse<PageResponseDTO<CompanyInvitationResponse>>> getPendingInvitations(
+    @GetMapping("/{companyId}/members/{memberId}")
+    public ResponseEntity<ApiResponse<CompanyMemberResponse>> getCompanyMemberDetails(
             @PathVariable Integer companyId,
-            
-            // Các tham số phân trang (Optional)
-            @RequestParam(defaultValue = "0") int page,              // Trang 0
-            @RequestParam(defaultValue = "10") int size,             // 10 lời mời/trang
-            @RequestParam(defaultValue = "createdAt") String sortBy, // Mặc định ngày mời
-            @RequestParam(defaultValue = "desc") String sortDir      // Mới nhất trước
-    ) {
-        
-        PageResponseDTO<CompanyInvitationResponse> invitations = companyService.getPendingInvitations(companyId, page, size, sortBy, sortDir);
-        
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách lời mời đang chờ thành công.", invitations)); // Đã dịch
+            @PathVariable Integer memberId) {
+
+        CompanyMemberResponse memberDetails = companyService.getCompanyMemberDetails(companyId, memberId);
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Company member details retrieved successfully.", memberDetails));
     }
 
-    // API HIEN THI THONG TIN CHI TIET CONG TY
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')") // Đã sửa
-    @GetMapping("/{companyId}")
-    public ResponseEntity<ApiResponse<CompanyDetailsResponse>> getCompanyDetails(
-            @PathVariable Integer companyId) {
-
-        CompanyDetailsResponse companyDetails = companyService.getCompanyDetails(companyId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết công ty thành công.", companyDetails)); // Đã dịch
-    }
-
-    // API CAP NHAT THONG TIN CONG TY (TICH HOP UPLOAD)
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:edit')")
-    @PutMapping(value = "/{companyId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<CompanyDetailsResponse>> updateCompany(
+    // API CẬP NHẬT TRẠNG THÁI THÀNH VIÊN (ACTIVE/SUSPENDED)
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:manage_roles')")
+    @PutMapping("/{companyId}/members/{memberId}/status")
+    public ResponseEntity<ApiResponse<CompanyMemberResponse>> updateMemberStatus(
             @PathVariable Integer companyId,
-            
-            // Nhận JSON String và convert thủ công
-            @Parameter(schema = @Schema(implementation = UpdateCompanyRequest.class)) // Gợi ý cho Swagger
-            @RequestPart("data") String dataString, 
-            
-            // Nhận file ảnh (Optional)
-            @RequestPart(value = "file", required = false) MultipartFile file) {
+            @PathVariable Integer memberId,
+            @Valid @RequestBody UpdateMemberStatusRequest request) {
 
-        // Convert String -> DTO
-        UpdateCompanyRequest request;
-        try {
-            request = objectMapper.readValue(dataString, UpdateCompanyRequest.class);
-        } catch (JsonProcessingException e) {
-            throw new BadRequestException("Dữ liệu JSON không hợp lệ: " + e.getMessage()); // Đã dịch
-        }
-
-        // Gọi Service
-        CompanyDetailsResponse updatedCompany = companyService.updateCompany(companyId, request, file);
-        
-        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin công ty thành công.", updatedCompany)); // Đã dịch
+        CompanyMemberResponse updatedMember = companyService.updateMemberStatus(companyId, memberId, request);
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Member status updated successfully.", updatedMember));
     }
 
-    // API MOI THANH VIEN VAO CONG TY
-    @PostMapping("/{companyId}/invitations")
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:invite_member')") // Đã sửa
-    public ResponseEntity<ApiResponse<Object>> inviteMember(
-            @PathVariable Integer companyId,
-            @Valid @RequestBody InviteMemberRequest request) {
-
-        companyService.inviteMember(companyId, request);
-        return ResponseEntity.ok(ApiResponse.success("Gửi lời mời thành công.", null)); // Đã dịch
-    }
-
-    /**
-     * API Cập nhật vai trò (Role) của thành viên trong công ty
-     */
+    // API CẬP NHẬT VAI TRÒ (Role) của thành viên
     @PutMapping("/{companyId}/members/{memberId}/role")
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:manage_roles')") // Dùng quyền quản lý
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:manage_roles')")
     public ResponseEntity<ApiResponse<Object>> updateCompanyMemberRole(
             @PathVariable Integer companyId,
             @PathVariable Integer memberId,
             @Valid @RequestBody RoleUpdateRequest request) {
 
-        // 1. Gọi service
+        // 1. Gọi service và nhận về Entity đã update
         CompanyMember updatedMember = companyService.updateCompanyMemberRole(companyId, memberId, request.getRoleCode());
 
-        // 2. Tạo message động
-        String message = String.format("Cập nhật vai trò cho người dùng '%s' (ID: %d) thành '%s' thành công.",
+        // 2. Tạo message động (Sửa thông báo trả về sang tiếng Anh)
+        String message = String.format("Role for user '%s' (ID: %d) successfully updated to '%s'.",
             updatedMember.getUser().getFullName(),
             updatedMember.getUser().getId(),
-            updatedMember.getRole().getRoleName() // Dùng RoleName cho dễ đọc
+            updatedMember.getRole().getRoleName()
         );
 
-        // 3. Tạo data trả về
+        // 3. Tạo data trả về (cũng nên dùng tiếng Anh cho key)
         Map<String, Object> responseData = new HashMap<>();
         responseData.put("userId", updatedMember.getUser().getId());
         responseData.put("fullName", updatedMember.getUser().getFullName());
@@ -197,39 +207,51 @@ public class CompanyController {
         return ResponseEntity.ok(ApiResponse.success(message, responseData));
     }
 
-    // API XOA MEM THANH VIEN
+    // API XÓA MỀM THÀNH VIÊN (REMOVED)
     @DeleteMapping("/{companyId}/members/{userId}")
-    // Bảo vệ: Chỉ Admin công ty mới được xóa
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:remove_member')") // Đã sửa (từ delete -> remove_member)
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:remove_member')")
     public ResponseEntity<ApiResponse<Object>> removeMember(
             @PathVariable Integer companyId,
             @PathVariable Integer userId) {
-        
+
         companyService.removeMemberFromCompany(companyId, userId);
-        
-        return ResponseEntity.ok(ApiResponse.success("Xóa thành viên thành công.", null)); // Đã dịch
+
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Member successfully removed.", null));
     }
 
-    // API XEM CHI TIET THANH VIEN
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')") // Đã sửa
-    @GetMapping("/{companyId}/members/{memberId}")
-    public ResponseEntity<ApiResponse<CompanyMemberResponse>> getCompanyMemberDetails(
+    // ========================================================================
+    // C. LỜI MỜI (INVITATIONS)
+    // ========================================================================
+
+    // API MỜI THÀNH VIÊN VÀO CÔNG TY
+    @PostMapping("/{companyId}/invitations")
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:invite_member')")
+    public ResponseEntity<ApiResponse<Object>> inviteMember(
             @PathVariable Integer companyId,
-            @PathVariable Integer memberId) {
-        
-        CompanyMemberResponse memberDetails = companyService.getCompanyMemberDetails(companyId, memberId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết thành viên thành công.", memberDetails)); // Đã dịch
+            @Valid @RequestBody InviteMemberRequest request) {
+
+        companyService.inviteMember(companyId, request);
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Invitation sent successfully.", null));
     }
-    
-    // API CAP NHAT TRANG THAI THANH VIEN (ACTIVE/SUSPENDED)
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:manage_roles')") // Đã sửa (từ edit -> manage_roles)
-    @PutMapping("/{companyId}/members/{memberId}/status")
-    public ResponseEntity<ApiResponse<CompanyMemberResponse>> updateMemberStatus(
+
+    // API LẤY DANH SÁCH LỜI MỜI ĐANG CHỜ (PENDING) - CÓ PHÂN TRANG
+    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')")
+    @GetMapping("/{companyId}/invitations/pending")
+    public ResponseEntity<ApiResponse<PageResponseDTO<CompanyInvitationResponse>>> getPendingInvitations(
             @PathVariable Integer companyId,
-            @PathVariable Integer memberId,
-            @Valid @RequestBody UpdateMemberStatusRequest request) {
-        
-        CompanyMemberResponse updatedMember = companyService.updateMemberStatus(companyId, memberId, request);
-        return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái thành viên thành công.", updatedMember)); // Đã dịch
+
+            // Các tham số phân trang (Optional)
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
+    ) {
+
+        PageResponseDTO<CompanyInvitationResponse> invitations = companyService.getPendingInvitations(companyId, page, size, sortBy, sortDir);
+
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Pending invitation list retrieved successfully.", invitations));
     }
 }

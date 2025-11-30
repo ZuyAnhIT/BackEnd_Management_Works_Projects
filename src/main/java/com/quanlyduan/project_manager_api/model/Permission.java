@@ -1,5 +1,4 @@
-// File: Permission.java 
-// src/main/java/com/quanlyduan/project_manager_api/model/Permission.java
+// File: src/main/java/com/quanlyduan/project_manager_api/model/Permission.java
 package com.quanlyduan.project_manager_api.model;
 
 import jakarta.persistence.*;
@@ -16,26 +15,31 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "permissions") // Map với bảng permissions
+// Đặt tên bảng là permissions
+@Table(name = "permissions")
+/**
+ * Entity đại diện cho một Quyền hạn (Permission) trong hệ thống.
+ * Đây là đối tượng cơ sở cho việc phân quyền (Role-Based Access Control).
+ */
 public class Permission {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Integer id; // ID định danh
 
     @Column(name = "permission_code", nullable = false, unique = true)
-    private String permissionCode;
+    private String permissionCode; // Mã quyền hạn (Ví dụ: TASK_CREATE, USER_READ)
 
     @Column(name = "permission_name", nullable = false)
-    private String permissionName;
+    private String permissionName; // Tên hiển thị của quyền hạn
 
     @Column(name = "group_name")
-    private String groupName;
+    private String groupName; // Nhóm quyền hạn (Ví dụ: TASK_MANAGEMENT, USER_MANAGEMENT)
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
-    
+    private LocalDateTime createdAt; // Thời điểm tạo
+
     // Lưu ý: Không cần map quan hệ ngược lại với RolePermission
-    // vì chúng ta ít khi truy vấn từ Permission
+    // vì chúng ta ít khi truy vấn trực tiếp từ Permission
 }

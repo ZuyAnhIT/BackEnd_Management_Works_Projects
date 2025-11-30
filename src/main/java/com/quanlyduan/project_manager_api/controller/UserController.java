@@ -20,6 +20,10 @@ import org.springframework.http.MediaType;
 @RestController
 @RequestMapping("/api/users")
 @CrossOrigin("*")
+/**
+ * Controller xử lý các nghiệp vụ liên quan đến Hồ sơ người dùng (User Profile).
+ * Các API này thường yêu cầu xác thực (authenticated user).
+ */
 public class UserController {
 
     private final UserService userService;
@@ -30,48 +34,57 @@ public class UserController {
         this.objectMapper = objectMapper;
     }
 
-    // API DOI MAT KHAU
+    // ======================================================
+    // 1. LẤY THÔNG TIN CÁ NHÂN ĐẦY ĐỦ (GET PROFILE)
+    // ======================================================
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> getCurrentUser() {
+        // API này tự động được bảo vệ (yêu cầu token) qua cấu hình Security
+        UserProfileResponse userProfile = userService.getCurrentUserProfile();
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("User profile retrieved successfully.", userProfile));
+    }
+
+    // ======================================================
+    // 2. ĐỔI MẬT KHẨU (CHANGE PASSWORD)
+    // ======================================================
     @PostMapping("/me/change-password")
     public ResponseEntity<ApiResponse<Object>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request) {
 
         userService.changePassword(request);
 
-        return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu của bạn thành công.", null)); // Đã dịch
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Your password has been successfully changed.", null));
     }
 
-    // API LAY DAY DU THONG TIN CA NHAN
-    @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserProfileResponse>> getCurrentUser() {
-        // API này tự động được bảo vệ (yêu cầu token)
-        // vì nó không nằm trong PUBLIC_URLS
-        UserProfileResponse userProfile = userService.getCurrentUserProfile();
-        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin người dùng thành công.", userProfile)); // Đã dịch
-    }
-    // (Sau này chúng ta sẽ thêm endpoint GET /api/users/me để lấy thông tin user)
-
-    // API CAP NHAT THONG TIN CA NHAN (TICH HOP UPLOAD)
+    // ======================================================
+    // 3. CẬP NHẬT HỒ SƠ (UPDATE PROFILE - KÈM UPLOAD AVATAR)
+    // ======================================================
     @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<UserProfileResponse>> updateUserProfile(
-            // Thay đổi: Nhận "data" là String thay vì Object
+            // Nhận JSON String (data)
             @Parameter(schema = @Schema(implementation = UpdateProfileRequest.class))
-            @RequestPart("data") String dataString, 
-            
+            @RequestPart("data") String dataString,
+
+            // Nhận file ảnh (Optional)
             @RequestPart(value = "file", required = false) MultipartFile file
     ) {
-        
-        // 3. Tự tay convert từ String sang DTO
+
+        // 1. Tự tay convert từ String sang DTO
         UpdateProfileRequest request;
         try {
             request = objectMapper.readValue(dataString, UpdateProfileRequest.class);
         } catch (JsonProcessingException e) {
-            throw new BadRequestException("Dữ liệu JSON không hợp lệ: " + e.getMessage());
+            // Sửa thông báo trả về sang tiếng Anh
+            throw new BadRequestException("Invalid JSON data: " + e.getMessage());
         }
 
-        // 4. (Tùy chọn) Validate thủ công nếu cần, hoặc để Service lo logic
-        
+        // 2. Gọi Service (Xử lý file và cập nhật DB)
         UserProfileResponse updatedProfile = userService.updateUserProfile(request, file);
-        
-        return ResponseEntity.ok(ApiResponse.success("Cập nhật hồ sơ thành công.", updatedProfile));
+
+        // 3. Trả về kết quả
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully.", updatedProfile));
     }
 }

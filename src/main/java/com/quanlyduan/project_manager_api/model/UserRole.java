@@ -15,25 +15,32 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "user_roles", uniqueConstraints = { // Đã dịch
-    // Đảm bảo một người dùng không thể có cùng 1 role 2 lần
-    @UniqueConstraint(columnNames = {"user_id", "role_id"}) // Đã dịch
-})
-public class UserRole { // Đã dịch
+// Đặt tên bảng là user_roles
+@Table(name = "user_roles", 
+    uniqueConstraints = { 
+        // Đảm bảo một người dùng không thể có cùng 1 role 2 lần (Unique User-Role Pair)
+        @UniqueConstraint(columnNames = {"user_id", "role_id"}) 
+    }
+)
+/**
+ * Entity lưu trữ mối quan hệ Many-to-Many giữa User và Role.
+ * Thường được sử dụng để gán các Role cấp độ SYSTEM cho người dùng.
+ */
+public class UserRole { 
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // Đã dịch
+    private Integer id; // ID định danh
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false) // Đã dịch
-    private User user; // Đã dịch
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user; // Người dùng sở hữu vai trò
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_id", nullable = false) // Đã dịch
-    private Role role; // Role (capDo = SYSTEM)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role; // Vai trò (Role) được gán (thường là Role cấp SYSTEM)
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false) // Đã dịch
-    private LocalDateTime createdAt; // Đã dịch
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt; // Thời điểm tạo mối quan hệ
 }

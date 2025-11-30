@@ -18,8 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.Map; 
-import java.util.function.Function; 
+import java.util.Map;
+import java.util.function.Function;
 
 @Service
 public class ProjectStatusServiceImpl implements ProjectStatusService {
@@ -28,25 +28,30 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
     private final ProjectRepository projectRepository;
     private final TaskRepository taskRepository;
 
-    // *** CONSTRUCTOR THỦ CÔNG ***
+    // ======================================================
+    // CONSTRUCTOR (Dependency Injection)
+    // ======================================================
     public ProjectStatusServiceImpl(ProjectStatusRepository projectStatusRepository,
-                                    ProjectRepository projectRepository, 
-                                    TaskRepository taskRepository) {
+                                     ProjectRepository projectRepository,
+                                     TaskRepository taskRepository) {
         this.projectStatusRepository = projectStatusRepository;
         this.projectRepository = projectRepository;
         this.taskRepository = taskRepository;
     }
 
-    // LOGIC LẤY DANH SÁCH TRẠNG THÁI
+    // ======================================================
+    // 1. LẤY DANH SÁCH TRẠNG THÁI (GET STATUSES)
+    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public List<ProjectStatusResponse> getProjectStatuses(Integer projectId) {
         // 1. Kiểm tra dự án tồn tại
         if (!projectRepository.existsById(projectId)) {
-            throw new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId);
+            // Sửa thông báo sang tiếng Anh
+            throw new ResourceNotFoundException("Project not found with ID: " + projectId);
         }
 
-        // 2. Lấy danh sách từ DB (đã sắp xếp)
+        // 2. Lấy danh sách từ DB (đã sắp xếp theo SortOrder)
         List<ProjectStatus> statuses = projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId);
 
         // 3. Map sang DTO
@@ -55,133 +60,70 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
                 .collect(Collectors.toList());
     }
 
-    // LOGIC TAO TRANG THAI MOI
+    // ======================================================
+    // 2. TẠO TRẠNG THÁI MỚI (CREATE STATUS / COLUMN)
+    // ======================================================
     @Override
     @Transactional
     public ProjectStatusResponse createStatus(Integer projectId, CreateProjectStatusRequest request) {
         // 1. Tìm dự án
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId)); // Đã dịch
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
 
-        // 2. Kiểm tra trùng tên (Trong cùng 1 dự án không được có 2 cột cùng tên)
+        // 2. Kiểm tra trùng tên (Trong cùng 1 dự án)
         if (projectStatusRepository.existsByProject_IdAndNameIgnoreCase(projectId, request.getName())) {
-            throw new BadRequestException("Tên trạng thái này đã tồn tại trong dự án.");
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Status name already exists in this project.");
         }
 
-        // 3. Tính toán vị trí (sortOrder)
-        // Lấy max hiện tại, cột mới sẽ là max + 1
+        // 3. Tính toán vị trí (sortOrder): Cột mới sẽ ở vị trí cuối cùng
         Integer maxSortOrder = projectStatusRepository.findMaxSortOrderByProjectId(projectId);
-        int newSortOrder = maxSortOrder + 1;
+        // Nếu không có cột nào, maxSortOrder sẽ là null, ta bắt đầu từ 0
+        int newSortOrder = (maxSortOrder == null ? 0 : maxSortOrder + 1);
 
         // 4. Tạo Entity
         ProjectStatus status = ProjectStatus.builder()
                 .project(project)
                 .name(request.getName())
-                .color(request.getColor() != null ? request.getColor() : "#CCCCCC") // Mặc định màu xám nếu null
+                // Mặc định màu xám nếu không có màu nào được cung cấp
+                .color(request.getColor() != null ? request.getColor() : "#CCCCCC")
                 .sortOrder(newSortOrder)
+                // Mặc định cờ hoàn thành là false
                 .isCompletedStatus(request.getIsCompletedStatus() != null ? request.getIsCompletedStatus() : false)
                 .build();
 
         ProjectStatus saved = projectStatusRepository.save(status);
-        
+
         // 5. Map và trả về
         return mapToResponse(saved);
     }
 
-    // Helper mapping
-    private ProjectStatusResponse mapToResponse(ProjectStatus s) {
-        return ProjectStatusResponse.builder()
-                .id(s.getId())
-                .projectId(s.getProject().getId())
-                .name(s.getName())
-                .color(s.getColor())
-                .sortOrder(s.getSortOrder())
-                .isCompletedStatus(s.getIsCompletedStatus())
-                .build();
-    }
-
-    // LOGIC SAP XEP LAI VI TRI COT
-    @Override
-    @Transactional
-    public void reorderStatuses(Integer projectId, ReorderStatusRequest request) {
-        // 1. Kiểm tra dự án tồn tại
-        if (!projectRepository.existsById(projectId)) {
-            throw new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId); // Đã dịch
-        }
-
-        List<Integer> orderedIds = request.getOrderedStatusIds();
-        
-        // 2. Lấy tất cả status hiện tại của dự án
-        List<ProjectStatus> currentStatuses = projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId);
-
-        // 3. Validate: Số lượng ID gửi lên phải khớp với số lượng hiện có
-        if (orderedIds.size() != currentStatuses.size()) {
-            throw new BadRequestException("Danh sách ID sắp xếp không khớp với số lượng trạng thái hiện có của dự án."); // Đã dịch
-        }
-
-        // Tạo Map để tìm kiếm nhanh
-        Map<Integer, ProjectStatus> statusMap = currentStatuses.stream()
-                .collect(Collectors.toMap(ProjectStatus::getId, Function.identity()));
-
-        // 4. Duyệt qua danh sách ID mới và cập nhật sortOrder
-        for (int i = 0; i < orderedIds.size(); i++) {
-            Integer statusId = orderedIds.get(i);
-            ProjectStatus status = statusMap.get(statusId);
-
-            if (status == null) {
-                throw new BadRequestException("ID trạng thái không hợp lệ hoặc không thuộc dự án này: " + statusId); // Đã dịch
-            }
-
-            // Cập nhật vị trí mới (0, 1, 2...)
-            status.setSortOrder(i);
-            
-            // (Lưu trong vòng lặp, hoặc dùng saveAll cuối cùng)
-            projectStatusRepository.save(status);
-        }
-    }
-
-    // LOGIC XOA TRANG THAI (COT)
-    @Override
-    @Transactional
-    public void deleteStatus(Integer projectId, Integer statusId) {
-        // 1. Tìm Status
-        ProjectStatus status = projectStatusRepository.findById(statusId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trạng thái với ID: " + statusId)); // Đã dịch
-
-        // 2. Validate: Status phải thuộc về Project này (Tránh xóa nhầm của dự án khác)
-        if (!status.getProject().getId().equals(projectId)) {
-             throw new BadRequestException("Trạng thái này không thuộc về dự án được chỉ định"); // Đã dịch
-        }
-        
-        // 3. Validate: Không cho phép xóa nếu còn Task trong cột này
-        if (taskRepository.existsByStatus_Id(statusId)) {
-            throw new BadRequestException("Không thể xóa trạng thái này vì đang có công việc (task) bên trong. Vui lòng di chuyển các công việc sang cột khác trước."); // Đã dịch
-        }
-        
-        // 4. Thực hiện xóa cứng (vì đây là cấu trúc bảng, có thể xóa cứng nếu rỗng)
-        projectStatusRepository.delete(status);
-    }
-
-    // LOGIC CAP NHAT TRANG THAI (TEN, MAU, FLAG)
+    // ======================================================
+    // 3. CẬP NHẬT TRẠNG THÁI (UPDATE STATUS)
+    // ======================================================
     @Override
     @Transactional
     public ProjectStatusResponse updateStatus(Integer projectId, Integer statusId, UpdateStatusRequest request) {
         // 1. Tìm Status
         ProjectStatus status = projectStatusRepository.findById(statusId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trạng thái với ID: " + statusId)); // Đã dịch
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Status not found with ID: " + statusId));
 
         // 2. Validate: Status phải thuộc về Project này
         if (!status.getProject().getId().equals(projectId)) {
-             throw new BadRequestException("Trạng thái này không thuộc về dự án được chỉ định"); // Đã dịch
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("This status does not belong to the specified project.");
         }
 
         // 3. Cập nhật Tên (nếu có thay đổi)
-        if (request.getName() != null && !request.getName().trim().isEmpty() 
+        if (request.getName() != null && !request.getName().trim().isEmpty()
                 && !request.getName().equalsIgnoreCase(status.getName())) {
-            
+
             // Kiểm tra trùng tên trong project
             if (projectStatusRepository.existsByProject_IdAndNameIgnoreCase(projectId, request.getName())) {
-                throw new BadRequestException("Tên trạng thái đã tồn tại trong dự án này"); // Đã dịch
+                // Sửa thông báo sang tiếng Anh
+                throw new BadRequestException("Status name already exists in this project.");
             }
             status.setName(request.getName());
         }
@@ -199,5 +141,96 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
         // 6. Lưu và trả về
         ProjectStatus updatedStatus = projectStatusRepository.save(status);
         return mapToResponse(updatedStatus);
+    }
+
+
+    // ======================================================
+    // 4. SẮP XẾP LẠI VỊ TRÍ CỘT (REORDER STATUSES)
+    // ======================================================
+    @Override
+    @Transactional
+    public void reorderStatuses(Integer projectId, ReorderStatusRequest request) {
+        // 1. Kiểm tra dự án tồn tại
+        if (!projectRepository.existsById(projectId)) {
+            // Sửa thông báo sang tiếng Anh
+            throw new ResourceNotFoundException("Project not found with ID: " + projectId);
+        }
+
+        List<Integer> orderedIds = request.getOrderedStatusIds();
+
+        // 2. Lấy tất cả status hiện tại của dự án
+        List<ProjectStatus> currentStatuses = projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId);
+
+        // 3. Validate: Số lượng ID gửi lên phải khớp với số lượng hiện có
+        if (orderedIds.size() != currentStatuses.size()) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("The list of ordered IDs does not match the current number of statuses in the project.");
+        }
+
+        // Tạo Map để tìm kiếm nhanh
+        Map<Integer, ProjectStatus> statusMap = currentStatuses.stream()
+                .collect(Collectors.toMap(ProjectStatus::getId, Function.identity()));
+
+        // 4. Duyệt qua danh sách ID mới và cập nhật sortOrder
+        for (int i = 0; i < orderedIds.size(); i++) {
+            Integer statusId = orderedIds.get(i);
+            ProjectStatus status = statusMap.get(statusId);
+
+            if (status == null) {
+                // Sửa thông báo sang tiếng Anh
+                throw new BadRequestException("Invalid status ID or does not belong to this project: " + statusId);
+            }
+
+            // Cập nhật vị trí mới (0, 1, 2...)
+            status.setSortOrder(i);
+            
+            // Lưu đối tượng (có thể tối ưu bằng saveAll ở cuối, nhưng giữ nguyên logic save trong loop)
+            projectStatusRepository.save(status);
+        }
+    }
+
+    // ======================================================
+    // 5. XÓA TRẠNG THÁI (DELETE STATUS / COLUMN)
+    // ======================================================
+    @Override
+    @Transactional
+    public void deleteStatus(Integer projectId, Integer statusId) {
+        // 1. Tìm Status
+        ProjectStatus status = projectStatusRepository.findById(statusId)
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Status not found with ID: " + statusId));
+
+        // 2. Validate: Status phải thuộc về Project này
+        if (!status.getProject().getId().equals(projectId)) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("This status does not belong to the specified project.");
+        }
+
+        // 3. Validate: Không cho phép xóa nếu còn Task trong cột này
+        if (taskRepository.existsByStatus_Id(statusId)) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Cannot delete this status because it contains tasks. Please move all tasks to another column first.");
+        }
+
+        // 4. Thực hiện xóa cứng
+        projectStatusRepository.delete(status);
+    }
+
+    // ======================================================
+    // ⚙️ PRIVATE HELPER: MAPPER
+    // ======================================================
+
+    /**
+     * Helper: Map ProjectStatus Entity sang ProjectStatusResponse DTO.
+     */
+    private ProjectStatusResponse mapToResponse(ProjectStatus s) {
+        return ProjectStatusResponse.builder()
+                .id(s.getId())
+                .projectId(s.getProject().getId())
+                .name(s.getName())
+                .color(s.getColor())
+                .sortOrder(s.getSortOrder())
+                .isCompletedStatus(s.getIsCompletedStatus())
+                .build();
     }
 }

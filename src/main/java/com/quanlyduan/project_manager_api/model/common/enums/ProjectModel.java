@@ -2,11 +2,12 @@
 package com.quanlyduan.project_manager_api.model.common.enums;
 
 /**
+ * Các mô hình quản lý dự án chính.
  * Khớp với CSDL: model ENUM('SCRUM', 'KANBAN', 'WATERFALL', 'HYBRID')
  */
 public enum ProjectModel {
-    SCRUM,
-    KANBAN,
-    WATERFALL,
-    HYBRID
+    SCRUM,       // Mô hình phát triển lặp đi lặp lại (Agile)
+    KANBAN,      // Mô hình quản lý công việc trực quan (Agile)
+    WATERFALL,   // Mô hình tuần tự, tuyến tính (truyền thống)
+    HYBRID       // Mô hình kết hợp giữa Agile và Truyền thống
 }

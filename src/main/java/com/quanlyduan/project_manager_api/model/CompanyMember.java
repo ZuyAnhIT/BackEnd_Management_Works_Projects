@@ -17,43 +17,51 @@ import org.hibernate.annotations.UpdateTimestamp;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "company_members", uniqueConstraints = { // Đã dịch
-    @UniqueConstraint(columnNames = {"company_id", "user_id"}) // Đã dịch
-})
-public class CompanyMember { // Đã dịch
+// Đặt tên bảng là company_members
+@Table(name = "company_members", 
+    uniqueConstraints = { 
+        // Đảm bảo mỗi người dùng chỉ có một vai trò tại một công ty (Unique Company-User Pair)
+        @UniqueConstraint(columnNames = {"company_id", "user_id"}) 
+    }
+)
+/**
+ * Entity lưu trữ mối quan hệ thành viên giữa User và Company.
+ * Đây là bảng liên kết (Join Table) mở rộng.
+ */
+public class CompanyMember { 
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // Đã dịch
+    private Integer id; // ID định danh của mối quan hệ
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "company_id", nullable = false) // Đã dịch
-    private Company company; // Đã dịch
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company; // Công ty liên quan
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false) // Đã dịch
-    private User user; // Đã dịch
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user; // Người dùng liên quan
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_id", nullable = false) // Đã dịch
-    private Role role; // Sử dụng quan hệ, không phải ENUM
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role; // Vai trò của thành viên trong công ty (liên kết với bảng Role)
 
-    @Column(name = "job_title") // Đã dịch
-    private String jobTitle; // Đã dịch
+    @Column(name = "job_title")
+    private String jobTitle; // Chức danh/Chức vụ
 
-    @Column(name = "department") // Đã dịch
-    private String department; // Đã dịch
+    @Column(name = "department")
+    private String department; // Phòng ban
 
     @Builder.Default
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false) // Đã dịch
-    private MemberStatus status = MemberStatus.ACTIVE; // Đã dịch
+    @Column(name = "status", nullable = false)
+    private MemberStatus status = MemberStatus.ACTIVE; // Trạng thái thành viên (ACTIVE, SUSPENDED, REMOVED)
 
     @CreationTimestamp
-    @Column(name = "joined_at") // Đã dịch
-    private LocalDateTime joinedAt; // Đã dịch
+    @Column(name = "joined_at", updatable = false)
+    private LocalDateTime joinedAt; // Thời điểm tham gia/tạo bản ghi
 
     @UpdateTimestamp
-    @Column(name = "updated_at") // Đã dịch
-    private LocalDateTime updatedAt; // Đã dịch
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
 }

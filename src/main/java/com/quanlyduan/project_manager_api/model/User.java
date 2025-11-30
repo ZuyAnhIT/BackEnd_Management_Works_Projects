@@ -20,55 +20,60 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "users") // Đã dịch
-public class User { // Đã dịch
+// Đặt tên bảng là users
+@Table(name = "users")
+/**
+ * Entity đại diện cho người dùng (User) trong hệ thống.
+ */
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // Đã dịch
+    private Integer id; // ID định danh
 
     @Column(nullable = false, unique = true)
-    private String email;
+    private String email; // Email (dùng làm username, phải là duy nhất)
 
-    @Column(name = "password", nullable = false) // Đã dịch
-    private String password; // Đã dịch
+    @Column(name = "password", nullable = false)
+    private String password; // Mật khẩu đã hash
 
-    @Column(name = "full_name", nullable = false) // Đã dịch
-    private String fullName; // Đã dịch
+    @Column(name = "full_name", nullable = false)
+    private String fullName; // Họ và tên đầy đủ
 
-    @Column(name = "avatar_url") // Đã dịch
-    private String avatarUrl; // Đã dịch
+    @Column(name = "avatar_url")
+    private String avatarUrl; // URL ảnh đại diện
 
-    @Column(name = "phone_number") // Đã dịch
-    private String phoneNumber; // Đã dịch
+    @Column(name = "phone_number")
+    private String phoneNumber; // Số điện thoại
 
-    @Column(name = "date_of_birth") // Đã dịch
-    private LocalDate dateOfBirth; // Đã dịch
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth; // Ngày sinh
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "gender") // Đã dịch
-    private Gender gender; // Đã dịch
+    @Column(name = "gender")
+    private Gender gender; // Giới tính
 
     @Builder.Default
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false) // Đã dịch
-    private UserStatus status = UserStatus.ACTIVE; // Đã dịch
+    @Column(name = "status", nullable = false)
+    private UserStatus status = UserStatus.ACTIVE; // Trạng thái tài khoản (ACTIVE, LOCKED, DELETED)
 
     @Builder.Default
-    @Column(name = "is_email_verified", nullable = false) // Đã dịch
-    private Boolean isEmailVerified = false; // Đã dịch
+    @Column(name = "is_email_verified", nullable = false)
+    private Boolean isEmailVerified = false; // Cờ xác định email đã được xác minh chưa
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false) // Đã dịch
-    private LocalDateTime createdAt; // Đã dịch
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt; // Thời điểm tạo tài khoản
 
     @UpdateTimestamp
-    @Column(name = "updated_at") // Đã dịch
-    private LocalDateTime updatedAt; // Đã dịch
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
 
-    @Column(name = "last_login_at") // Đã dịch
-    private LocalDateTime lastLoginAt; // Đã dịch
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt; // Thời điểm đăng nhập gần nhất
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true) // Đã dịch
-    private List<AuthToken> tokens; // Đã dịch (Giả sử Token -> AuthToken)
+    // Quan hệ nghịch đảo: Một User có nhiều AuthToken (Refresh Token, OTP,...)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AuthToken> tokens;
 }

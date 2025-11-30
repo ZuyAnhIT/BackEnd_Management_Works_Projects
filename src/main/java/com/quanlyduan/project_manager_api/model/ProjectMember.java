@@ -1,3 +1,4 @@
+// File: src/main/java/com/quanlyduan.project_manager_api/model/ProjectMember.java
 package com.quanlyduan.project_manager_api.model;
 
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
@@ -16,32 +17,36 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "project_members", uniqueConstraints = {
-    // Đảm bảo unique key giống trong CSDL: uk_project_user (project_id, user_id)
-    @UniqueConstraint(columnNames = {"project_id", "user_id"})
-})
+@Table(name = "project_members", 
+    uniqueConstraints = {
+        // Đảm bảo mỗi người dùng chỉ có một vai trò tại một dự án (Unique Project-User Pair)
+        @UniqueConstraint(columnNames = {"project_id", "user_id"})
+    }
+)
+/**
+ * Entity lưu trữ mối quan hệ thành viên giữa User và Project.
+ */
 public class ProjectMember {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Integer id; // ID định danh
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
-    private Project project; // (Bạn phải có Entity Project.java)
+    private Project project; // Dự án liên quan
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user; // (Bạn phải có Entity User.java)
+    private User user; // Người dùng liên quan
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
-    private Role role; // (Bạn phải có Entity Role.java)
+    private Role role; // Vai trò của thành viên trong dự án
 
     /**
-     * Map với ENUM('ACTIVE', 'REMOVED') trong CSDL.
-     * Chúng ta giả định MemberStatus enum (dùng ở CompanyMember)
-     * cũng chứa các giá trị này.
+     * Map với ENUM('ACTIVE', 'REMOVED') hoặc ('ACTIVE', 'SUSPENDED', 'REMOVED').
+     * Trạng thái thành viên trong Dự án.
      */
     @Builder.Default
     @Enumerated(EnumType.STRING)
@@ -50,9 +55,9 @@ public class ProjectMember {
 
     @CreationTimestamp
     @Column(name = "joined_at", updatable = false)
-    private LocalDateTime joinedAt;
+    private LocalDateTime joinedAt; // Thời điểm tham gia dự án
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
 }

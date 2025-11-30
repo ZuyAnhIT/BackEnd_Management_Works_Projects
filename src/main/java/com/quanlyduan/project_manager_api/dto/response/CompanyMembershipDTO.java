@@ -2,13 +2,28 @@
 package com.quanlyduan.project_manager_api.dto.response;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-// DTO con: Chứa thông tin 1 vai trò trong 1 công ty
+/**
+ * DTO con (Nested DTO) chứa thông tin về tư cách thành viên của người dùng trong một Công ty cụ thể.
+ * Thường được sử dụng trong danh sách "My Companies" hoặc thông tin Profile mở rộng.
+ */
 @Data
+@Builder
+@NoArgsConstructor
 @AllArgsConstructor
 public class CompanyMembershipDTO {
+
+    // ID định danh của công ty
     private Integer companyId;
-    private String companyName; // Đã dịch
-    private String roleCode; // (vd: "COMPANY_ADMIN" hoặc "COMPANY_MEMBER")
+
+    // Tên hiển thị của công ty
+    private String companyName; 
+
+    // Mã vai trò của người dùng trong công ty này.
+    // Ví dụ: "COMPANY_ADMIN" (Quản trị viên) hoặc "COMPANY_MEMBER" (Thành viên).
+    // Frontend dùng trường này để quyết định có hiển thị nút "Cài đặt công ty" hay không.
+    private String roleCode; 
 }

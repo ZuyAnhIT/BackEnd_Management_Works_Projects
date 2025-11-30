@@ -20,52 +20,56 @@ import java.util.Set;
 @AllArgsConstructor
 @Entity
 @Table(name = "sprints")
+/**
+ * Entity đại diện cho một Sprint trong quy trình Scrum/Agile.
+ * Sprint là một khoảng thời gian cố định để hoàn thành một lượng công việc đã chọn.
+ */
 public class Sprint {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Integer id; // ID định danh
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
-    private Project project;
+    private Project project; // Dự án chứa Sprint này
 
     @Column(name = "name", nullable = false)
-    private String name;
+    private String name; // Tên Sprint (Ví dụ: Sprint 1, Q3-2025)
 
     @Column(name = "sprint_code", length = 50)
-    private String sprintCode;
+    private String sprintCode; // Mã code Sprint (Ví dụ: PROJ-S1)
 
     @Column(name = "goal", columnDefinition = "TEXT")
-    private String goal;
+    private String goal; // Mục tiêu của Sprint này
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    private SprintStatus status;
+    private SprintStatus status; // Trạng thái Sprint (NOT_STARTED, IN_PROGRESS, COMPLETED, CANCELLED)
 
     @Column(name = "start_date")
-    private LocalDateTime startDate;
+    private LocalDateTime startDate; // Ngày bắt đầu thực tế/dự kiến
 
     @Column(name = "end_date")
-    private LocalDateTime endDate;
+    private LocalDateTime endDate; // Ngày kết thúc thực tế/dự kiến
 
     @Column(name = "duration_days")
-    private Integer durationDays;
+    private Integer durationDays; // Độ dài Sprint theo ngày (Ví dụ: 14 ngày)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
-    private User createdBy;
+    private User createdBy; // Người tạo Sprint
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt; // Thời điểm tạo
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
 
     // Quan hệ nghịch đảo: Một Sprint có nhiều Task
-    // Bảng 'tasks' có cột 'sprint_id'
+    // mappedBy trỏ đến tên thuộc tính "sprint" trong Entity Task
     @OneToMany(mappedBy = "sprint")
     private Set<Task> tasks;
 }

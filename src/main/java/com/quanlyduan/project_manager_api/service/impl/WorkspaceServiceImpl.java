@@ -46,26 +46,29 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
-    private final CompanyRepository companyRepository; 
+    private final CompanyRepository companyRepository;
     private final RoleRepository roleRepository;
-    private final SecurityService securityService; 
-    private final UserRepository userRepository; 
-    private final CompanyMemberRepository companyMemberRepository; 
+    private final SecurityService securityService;
+    private final UserRepository userRepository;
+    private final CompanyMemberRepository companyMemberRepository;
     private final EmailService emailService;
     private final FileStorageService fileStorageService;
-    
+
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
+    // ========================================================================
+    // CONSTRUCTOR (Dependency Injection)
+    // ========================================================================
     public WorkspaceServiceImpl(WorkspaceRepository workspaceRepository,
-                                WorkspaceMemberRepository workspaceMemberRepository,
-                                CompanyRepository companyRepository,
-                                RoleRepository roleRepository,
-                                SecurityService securityService,
-                                UserRepository userRepository,
-                                CompanyMemberRepository companyMemberRepository,
-                                EmailService emailService,
-                                FileStorageService fileStorageService) {
+                                 WorkspaceMemberRepository workspaceMemberRepository,
+                                 CompanyRepository companyRepository,
+                                 RoleRepository roleRepository,
+                                 SecurityService securityService,
+                                 UserRepository userRepository,
+                                 CompanyMemberRepository companyMemberRepository,
+                                 EmailService emailService,
+                                 FileStorageService fileStorageService) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.companyRepository = companyRepository;
@@ -78,98 +81,188 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     }
 
     // ========================================================================
-    // NHÓM 1: QUẢN LÝ WORKSPACE (Create, Update, List...)
+    // NHÓM 1: QUẢN LÝ WORKSPACE (Create, Update, Details, List)
     // ========================================================================
 
+    // LOGIC TẠO WORKSPACE (KÈM UPLOAD ẢNH BÌA)
     @Override
     @Transactional
     public WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request, MultipartFile coverImageFile) {
-        
+
+        // 1. Kiểm tra tồn tại Công ty và User tạo
         User creator = securityService.getCurrentAuthenticatedUser();
         Company company = companyRepository.findById(companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty"));
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
 
+        // 2. Kiểm tra trùng tên Workspace trong cùng Công ty
         if (workspaceRepository.existsByCompany_IdAndName(companyId, request.getWorkspaceName())) {
-            throw new BadRequestException("Tên không gian làm việc này đã tồn tại trong công ty");
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Workspace name already exists in this company.");
         }
 
+        // 3. Tìm Role Admin Workspace
         Role workspaceAdminRole = roleRepository.findFirstByRoleCode(RoleCode.WORKSPACE_ADMIN.name())
                 .orElseThrow(() -> new ResourceNotFoundException(
-                    "Không tìm thấy vai trò: WORKSPACE_ADMIN. Vui lòng cấu hình cơ sở dữ liệu."
+                        // Sửa thông báo sang tiếng Anh
+                        "Role not found: WORKSPACE_ADMIN. Please configure the database."
                 ));
 
+        // 4. Tạo Workspace Entity
         Workspace newWorkspace = Workspace.builder()
                 .company(company)
                 .name(request.getWorkspaceName())
                 .description(request.getDescription())
-                .color(request.getColor() != null ? request.getColor() : "#3498db") 
+                .color(request.getColor() != null ? request.getColor() : "#3498db")
                 .createdBy(creator)
                 .status(WorkspaceStatus.ACTIVE)
                 .build();
 
+        // 5. Xử lý Upload/Link Ảnh Bìa
         if (coverImageFile != null && !coverImageFile.isEmpty()) {
+            // Lưu file và gán đường dẫn cục bộ
             String coverPath = fileStorageService.storeFile(coverImageFile, "workspace-covers");
             newWorkspace.setCoverImageUrl(coverPath);
         } else if (request.getCoverImage() != null) {
+            // Gán đường dẫn URL từ request
             newWorkspace.setCoverImageUrl(request.getCoverImage());
         }
-        
-        Workspace savedWorkspace = workspaceRepository.save(newWorkspace); 
 
-        WorkspaceMember membership = WorkspaceMember.builder() 
-                .workspace(savedWorkspace) 
-                .user(creator) 
+        Workspace savedWorkspace = workspaceRepository.save(newWorkspace);
+
+        // 6. Gán người tạo làm thành viên Admin Workspace đầu tiên
+        WorkspaceMember membership = WorkspaceMember.builder()
+                .workspace(savedWorkspace)
+                .user(creator)
                 .role(workspaceAdminRole)
-                .status(MemberStatus.ACTIVE) 
+                .status(MemberStatus.ACTIVE)
                 .build();
-        
-        workspaceMemberRepository.save(membership); 
 
+        workspaceMemberRepository.save(membership);
+
+        // 7. Map và trả về
         return mapToWorkspaceResponse(savedWorkspace);
     }
 
+    // LOGIC LẤY CHI TIẾT WORKSPACE
+    @Override
+    public WorkspaceResponse getWorkspaceDetails(Integer workspaceId) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
+        return mapToWorkspaceResponse(workspace);
+    }
 
+    // LOGIC CẬP NHẬT WORKSPACE (KÈM UPLOAD ẢNH BÌA)
+    @Override
+    @Transactional
+    public WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request, MultipartFile coverImageFile) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
+
+        // 1. Kiểm tra trùng tên (nếu tên thay đổi)
+        if (request.getName() != null && !request.getName().equals(workspace.getName())) {
+             if (workspaceRepository.existsByCompany_IdAndName(workspace.getCompany().getId(), request.getName())) {
+                  // Sửa thông báo sang tiếng Anh
+                  throw new BadRequestException("Workspace name already exists.");
+             }
+             workspace.setName(request.getName());
+        }
+
+        // 2. Cập nhật các trường Scalar
+        if (request.getDescription() != null) workspace.setDescription(request.getDescription());
+        if (request.getColor() != null) workspace.setColor(request.getColor());
+
+        // 3. Xử lý Upload/Link Ảnh Bìa
+        if (coverImageFile != null && !coverImageFile.isEmpty()) {
+            String path = fileStorageService.storeFile(coverImageFile, "workspace-covers");
+            workspace.setCoverImageUrl(path);
+        } else if (request.getCoverImage() != null) {
+            // Cho phép cập nhật URL hoặc set null
+            workspace.setCoverImageUrl(request.getCoverImage());
+        }
+
+        // 4. Lưu và trả về
+        return mapToWorkspaceResponse(workspaceRepository.save(workspace));
+    }
+
+    // LOGIC SOFT DELETE (DELETED)
+    @Override
+    @Transactional
+    public void deleteWorkspace(Integer workspaceId) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
+        // Sửa thông báo sang tiếng Anh
+        if (workspace.getStatus() == WorkspaceStatus.DELETED) throw new BadRequestException("Workspace is already marked as deleted.");
+        workspace.setStatus(WorkspaceStatus.DELETED);
+        workspaceRepository.save(workspace);
+    }
+
+    // LOGIC CẬP NHẬT TRẠNG THÁI WORKSPACE
+    @Override
+    @Transactional
+    public WorkspaceResponse updateWorkspaceStatus(Integer companyId, Integer workspaceId, UpdateWorkspaceStatusRequest request) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
+        // Sửa thông báo sang tiếng Anh
+        if (!workspace.getCompany().getId().equals(companyId)) throw new ResourceNotFoundException("Mismatched company ID.");
+        // Sửa thông báo sang tiếng Anh
+        if (workspace.getStatus() == request.getNewStatus()) throw new BadRequestException("Status is already the requested value.");
+
+        workspace.setStatus(request.getNewStatus());
+        return mapToWorkspaceResponse(workspaceRepository.save(workspace));
+    }
+
+    // LOGIC LẤY DANH SÁCH WORKSPACE (Cơ bản)
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<WorkspaceResponse> getWorkspacesByCompany(Integer companyId, int page, int size, String sortBy, String sortDir) {
-        
+
         // 1. ĐỊNH NGHĨA MAP CHO WORKSPACE
         Map<String, String> workspaceMapping = Map.of(
-            "createdAt", "createdAt",        
-            "name", "name",                  
-            "code", "workspaceCode",         
-            "status", "status",              
-            "createdBy", "createdBy.fullName" 
+            "createdAt", "createdAt",
+            "name", "name",
+            "code", "workspaceCode",
+            "status", "status",
+            "createdBy", "createdBy.fullName"
         );
 
-        // 2. GỌI HELPER CHUNG (Truyền map vào)
+        // 2. GỌI HELPER CHUNG
         Pageable pageable = createPageable(page, size, sortBy, sortDir, "createdAt", workspaceMapping);
 
+        // 3. Query DB
         Page<Workspace> workspacePage = workspaceRepository.findByCompany_Id(companyId, pageable);
         Page<WorkspaceResponse> dtoPage = workspacePage.map(this::mapToWorkspaceResponse);
         return new PageResponseDTO<>(dtoPage);
     }
-    
-    // (Logic tìm kiếm nâng cao cho Workspace - nếu cần)
+
+    // LOGIC TÌM KIẾM WORKSPACE (Nâng cao)
     public PageResponseDTO<WorkspaceResponse> searchWorkspaces(
-            Integer companyId, 
+            Integer companyId,
             String searchName, String searchCode, String searchDescription, WorkspaceStatus searchStatus,
             int page, int size, String sortBy, String sortDir) {
-        
+
+        // 1. Dùng lại Map của Workspace
         Map<String, String> workspaceMapping = Map.of(
-            "createdAt", "createdAt",        
-            "name", "name",                  
-            "code", "workspaceCode",         
-            "status", "status",              
-            "createdBy", "createdBy.fullName" 
+            "createdAt", "createdAt",
+            "name", "name",
+            "code", "workspaceCode",
+            "status", "status",
+            "createdBy", "createdBy.fullName"
         );
 
+        // 2. Tạo Pageable
         Pageable pageable = createPageable(page, size, sortBy, sortDir, "createdAt", workspaceMapping);
 
+        // 3. Specification
         Specification<Workspace> spec = WorkspaceSpecification.filterWorkspaces(
             companyId, searchName, searchCode, searchDescription, searchStatus
         );
 
+        // 4. Query DB
         Page<Workspace> workspacePage = workspaceRepository.findAll(spec, pageable);
         Page<WorkspaceResponse> dtoPage = workspacePage.map(this::mapToWorkspaceResponse);
         return new PageResponseDTO<>(dtoPage);
@@ -180,38 +273,50 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     // NHÓM 2: QUẢN LÝ THÀNH VIÊN WORKSPACE (Members)
     // ========================================================================
 
-    // LOGIC LAY DANH SACH THANH VIEN (CO BAN)
+    // LOGIC LẤY CHI TIẾT THÀNH VIÊN
+    @Override
+    public WorkspaceMemberResponse getWorkspaceMemberDetails(Integer workspaceId, Integer memberId) {
+        WorkspaceMember member = workspaceMemberRepository.findById(memberId)
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found."));
+        // Sửa thông báo sang tiếng Anh
+        if (!member.getWorkspace().getId().equals(workspaceId)) throw new ResourceNotFoundException("Mismatched workspace ID.");
+        return mapToWorkspaceMemberResponse(member);
+    }
+
+    // LOGIC LẤY DANH SÁCH THÀNH VIÊN (Cơ bản)
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<WorkspaceMemberResponse> getWorkspaceMembers(
             Integer workspaceId, int page, int size, String sortBy, String sortDir) {
-        
-        // 1. ĐỊNH NGHĨA MAP CHO MEMBER (Khác với Workspace)
+
+        // 1. ĐỊNH NGHĨA MAP CHO MEMBER
         Map<String, String> memberMapping = Map.of(
-            "joinedAt", "joinedAt",          // Đúng tên Entity
-            "createdAt", "joinedAt",         // Alias: Nếu gửi createdAt -> hiểu là joinedAt
+            "joinedAt", "joinedAt",
+            "createdAt", "joinedAt",
             "name", "user.fullName",
             "email", "user.email",
             "role", "role.roleName",
             "phone", "user.phoneNumber"
         );
 
-        // 2. GỌI HELPER CHUNG (Truyền map của Member vào)
+        // 2. GỌI HELPER CHUNG
         Pageable pageable = createPageable(page, size, sortBy, sortDir, "joinedAt", memberMapping);
 
+        // 3. Query DB
         Page<WorkspaceMember> membersPage = workspaceMemberRepository.findByWorkspace_Id(workspaceId, pageable);
         Page<WorkspaceMemberResponse> dtoPage = membersPage.map(this::mapToWorkspaceMemberResponse);
         return new PageResponseDTO<>(dtoPage);
     }
 
-    // LOGIC TIM KIEM THANH VIEN (NANG CAO)
+    // LOGIC TÌM KIẾM THÀNH VIÊN (Nâng cao)
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<WorkspaceMemberResponse> searchWorkspaceMembers(
-            Integer workspaceId, 
+            Integer workspaceId,
             String searchName, String searchEmail, String searchRoleName, String searchPhone,
             int page, int size, String sortBy, String sortDir) {
-        
+
         // 1. Dùng lại Map của Member
         Map<String, String> memberMapping = Map.of(
             "joinedAt", "joinedAt",
@@ -221,8 +326,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
             "role", "role.roleName",
             "phone", "user.phoneNumber"
         );
-        
-        // 2. Gọi Helper chung
+
+        // 2. Tạo Pageable
         Pageable pageable = createPageable(page, size, sortBy, sortDir, "joinedAt", memberMapping);
 
         // 3. Specification
@@ -230,35 +335,179 @@ public class WorkspaceServiceImpl implements WorkspaceService {
             workspaceId, searchName, searchEmail, searchRoleName, searchPhone
         );
 
+        // 4. Query DB
         Page<WorkspaceMember> membersPage = workspaceMemberRepository.findAll(spec, pageable);
         Page<WorkspaceMemberResponse> dtoPage = membersPage.map(this::mapToWorkspaceMemberResponse);
         return new PageResponseDTO<>(dtoPage);
     }
 
+    // LOGIC MỜI THÀNH VIÊN VÀO WORKSPACE
+    @Override
+    @Transactional
+    public void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request) {
+        // 1. Lấy thông tin cần thiết
+        User admin = securityService.getCurrentAuthenticatedUser();
+        User userToInvite = userRepository.findByEmail(request.getEmail())
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+
+        // 2. Validate: Phải là thành viên ACTIVE của Công ty
+        if (!companyMemberRepository.existsByCompany_IdAndUser_IdAndStatus(companyId, userToInvite.getId(), MemberStatus.ACTIVE)) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("This user is not an active member of the company.");
+        }
+
+        // 3. Lấy Workspace và Role
+        Workspace workspace = workspaceRepository.findById(workspaceId).orElseThrow(
+                // Sửa thông báo sang tiếng Anh
+                () -> new ResourceNotFoundException("Workspace not found.")
+        );
+        Role role = roleRepository.findFirstByRoleCode(request.getRoleCode()).orElseThrow(
+                // Sửa thông báo sang tiếng Anh
+                () -> new ResourceNotFoundException("Role not found.")
+        );
+
+        // 4. Kiểm tra: Đã là thành viên Workspace chưa?
+        if (workspaceMemberRepository.findByWorkspace_IdAndUser_Id(workspaceId, userToInvite.getId()).isPresent()) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Already a member of this workspace.");
+        }
+
+        // 5. Thêm thành viên và gửi mail thông báo (Internal Member)
+        WorkspaceMember member = WorkspaceMember.builder()
+                .workspace(workspace).user(userToInvite).role(role).status(MemberStatus.ACTIVE).build();
+        workspaceMemberRepository.save(member);
+        sendWorkspaceNotificationEmail(admin, userToInvite, workspace, role);
+    }
+
+    // LOGIC CẬP NHẬT TRẠNG THÁI THÀNH VIÊN (ACTIVE/SUSPENDED)
+    @Override
+    @Transactional
+    public WorkspaceMemberResponse updateWorkspaceMemberStatus(Integer companyId, Integer workspaceId, Integer memberId, UpdateMemberStatusRequest request) {
+        WorkspaceMember member = workspaceMemberRepository.findById(memberId).orElseThrow(
+                // Sửa thông báo sang tiếng Anh
+                () -> new ResourceNotFoundException("Member not found.")
+        );
+
+        // Kiểm tra Hierarchy
+        if (!member.getWorkspace().getId().equals(workspaceId)) throw new ResourceNotFoundException("Mismatched workspace ID.");
+        if (!member.getWorkspace().getCompany().getId().equals(companyId)) throw new ResourceNotFoundException("Mismatched company ID.");
+
+        // Kiểm tra nghiệp vụ: Không thể tự đổi trạng thái
+        User admin = securityService.getCurrentAuthenticatedUser();
+        if (admin.getId().equals(member.getUser().getId())) throw new BadRequestException("Cannot change your own status.");
+
+        // Kiểm tra nghiệp vụ: Không dùng API này để xóa hẳn (REMOVED)
+        if (request.getNewStatus() == MemberStatus.REMOVED) throw new BadRequestException("Use the delete API to remove a member.");
+        // Kiểm tra nghiệp vụ: Trạng thái không thay đổi
+        if (member.getStatus() == request.getNewStatus()) throw new BadRequestException("Status unchanged.");
+
+
+        member.setStatus(request.getNewStatus());
+        return mapToWorkspaceMemberResponse(workspaceMemberRepository.save(member));
+    }
+
+    // LOGIC CẬP NHẬT VAI TRÒ THÀNH VIÊN
+    @Override
+    @Transactional
+    public WorkspaceMemberResponse updateWorkspaceMemberRole(Integer companyId, Integer workspaceId, Integer memberId, String newRoleCode) {
+        WorkspaceMember member = workspaceMemberRepository.findById(memberId).orElseThrow(
+                // Sửa thông báo sang tiếng Anh
+                () -> new ResourceNotFoundException("Member not found.")
+        );
+
+        // Kiểm tra Hierarchy
+        if (!member.getWorkspace().getId().equals(workspaceId)) throw new ResourceNotFoundException("Mismatched workspace ID.");
+        if (!member.getWorkspace().getCompany().getId().equals(companyId)) throw new ResourceNotFoundException("Mismatched company ID.");
+
+        // Kiểm tra nghiệp vụ: Không thể tự đổi vai trò
+        User admin = securityService.getCurrentAuthenticatedUser();
+        if (admin.getId().equals(member.getUser().getId())) throw new BadRequestException("Cannot change your own role.");
+
+        // Tìm và Validate Role
+        Role role = roleRepository.findFirstByRoleCode(newRoleCode).orElseThrow(
+                // Sửa thông báo sang tiếng Anh
+                () -> new ResourceNotFoundException("Role not found.")
+        );
+        if (role.getLevel() != RoleLevel.WORKSPACE) throw new BadRequestException("Invalid role level.");
+
+        // Kiểm tra nghiệp vụ: Vai trò không thay đổi
+        if (member.getRole().getRoleCode().equals(newRoleCode)) throw new BadRequestException("Role unchanged.");
+        // Kiểm tra nghiệp vụ: Thành viên đã bị xóa (REMOVED)
+        if (member.getStatus() == MemberStatus.REMOVED) throw new BadRequestException("Member has been removed.");
+
+        member.setRole(role);
+        return mapToWorkspaceMemberResponse(workspaceMemberRepository.save(member));
+    }
+
+    // LOGIC XÓA THÀNH VIÊN (SOFT DELETE: REMOVED)
+    @Override
+    @Transactional
+    public void removeMemberFromWorkspace(Integer companyId, Integer workspaceId, Integer memberId) {
+        // 1. Tìm thành viên
+        WorkspaceMember member = workspaceMemberRepository.findById(memberId)
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found with ID: " + memberId));
+
+        // 2. Validate Hierarchy
+        if (!member.getWorkspace().getId().equals(workspaceId)) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Member does not belong to the current workspace.");
+        }
+        if (!member.getWorkspace().getCompany().getId().equals(companyId)) {
+            // Sửa thông báo sang tiếng Anh
+            throw new ResourceNotFoundException("Data mismatch with the current company.");
+        }
+
+        // 3. Kiểm tra nghiệp vụ: Không thể tự xóa mình
+        User currentUser = securityService.getCurrentAuthenticatedUser();
+        if (currentUser.getId().equals(member.getUser().getId())) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("You cannot remove yourself from the workspace.");
+        }
+
+        // 4. Kiểm tra xem họ đã bị xóa chưa
+        if (member.getStatus() == MemberStatus.REMOVED) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("This member has already been removed from the workspace.");
+        }
+
+        // 5. Thực hiện xóa mềm (REMOVED)
+        member.setStatus(MemberStatus.REMOVED);
+        workspaceMemberRepository.save(member);
+    }
+
     // ========================================================================
-    // PRIVATE HELPER METHODS (ĐÃ SỬA ĐỂ LINH HOẠT)
+    // PRIVATE HELPER METHODS (MAPPERS & UTILS)
     // ========================================================================
 
     /**
      * Helper tạo Pageable TỔNG QUÁT.
-     * @param defaultSortField Trường sort mặc định nếu client không gửi (vd: "createdAt" hoặc "joinedAt")
-     * @param sortMapping Map ánh xạ tên trường cụ thể cho từng loại đối tượng
      */
-    private Pageable createPageable(int page, int size, String sortBy, String sortDir, 
-                                    String defaultSortField, Map<String, String> sortMapping) {
-        
+    private Pageable createPageable(int page, int size, String sortBy, String sortDir,
+                                     String defaultSortField, Map<String, String> sortMapping) {
+
         // SortUtils giờ sẽ dùng cái map được truyền vào này để ánh xạ
         Sort sort = SortUtils.createSort(sortBy, sortDir, defaultSortField, sortMapping);
         return PageRequest.of(page, size, sort);
     }
 
+    /**
+     * Helper: Map Workspace Entity sang WorkspaceResponse DTO.
+     */
     private WorkspaceResponse mapToWorkspaceResponse(Workspace kg) {
+        // Lấy đường dẫn API cho ảnh bìa nếu là đường dẫn cục bộ
+        String coverUrl = kg.getCoverImageUrl();
+        if (coverUrl != null && !coverUrl.isBlank() && !coverUrl.startsWith("http")) {
+            coverUrl = "/api/files" + coverUrl; // Giả sử FileController mapping /api/files/**
+        }
+
         return WorkspaceResponse.builder()
                 .workspaceId(kg.getId())
                 .companyId(kg.getCompany().getId())
                 .workspaceName(kg.getName())
                 .description(kg.getDescription())
-                .coverImage(kg.getCoverImageUrl())
+                .coverImage(coverUrl) // Sử dụng URL đã xử lý
                 .color(kg.getColor())
                 .createdById(kg.getCreatedBy().getId())
                 .status(kg.getStatus().name())
@@ -266,6 +515,9 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 .build();
     }
 
+    /**
+     * Helper: Map WorkspaceMember Entity sang WorkspaceMemberResponse DTO.
+     */
     private WorkspaceMemberResponse mapToWorkspaceMemberResponse(WorkspaceMember member) {
         return WorkspaceMemberResponse.builder()
                 .memberId(member.getId())
@@ -279,186 +531,28 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 .status(member.getStatus())
                 .build();
     }
-    
+
+    /**
+     * Helper: Gửi mail thông báo khi thêm thành viên (Nội bộ).
+     */
     private void sendWorkspaceNotificationEmail(User admin, User userAdded, Workspace workspace, Role role) {
-         try {
+        try {
+            // Sửa nội dung mail sang tiếng Anh
             String workspaceUrl = String.format("%s/companies/%d/workspaces/%d", frontendUrl, workspace.getCompany().getId(), workspace.getId());
             String emailBody = String.format(
-                "<p>Xin chào %s,</p>" +
-                "<p>Bạn vừa được thêm vào không gian làm việc <strong>%s</strong> bởi %s.</p>" +
+                "<p>Hello %s,</p>" +
+                "<p>You have been added to the workspace <strong>%s</strong> by %s.</p>" +
                 "<ul>" +
-                "<li><strong>Vai trò của bạn:</strong> %s</li>" +
-                "<li><strong>Công ty:</strong> %s</li>" +
+                "<li><strong>Your Role:</strong> %s</li>" +
+                "<li><strong>Company:</strong> %s</li>" +
                 "</ul>" +
-                "<p>Bạn có thể truy cập không gian làm việc ngay bằng cách nhấp vào <a href=\"%s\">liên kết này</a>.</p>" +
-                "<p>Cảm ơn,<br>Đội ngũ Quản lý Dự án</p>",
+                "<p>You can access the workspace immediately by clicking on <a href=\"%s\">this link</a>.</p>" +
+                "<p>Thank you,<br>Project Management Team</p>",
                 userAdded.getFullName(), workspace.getName(), admin.getFullName(), role.getRoleName(), workspace.getCompany().getName(), workspaceUrl);
-            
-            emailService.sendEmail(userAdded.getEmail(), "Thêm vào không gian làm việc: " + workspace.getName(), emailBody);
+
+            emailService.sendEmail(userAdded.getEmail(), "Added to Workspace: " + workspace.getName(), emailBody);
         } catch (Exception e) {
-            System.err.println("Lỗi gửi mail: " + e.getMessage());
+            System.err.println("Error sending email: " + e.getMessage());
         }
-    }
-
-
-    // ... (Các hàm logic nghiệp vụ khác)
-    
-    @Override
-    public WorkspaceResponse getWorkspaceDetails(Integer workspaceId) {
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
-        return mapToWorkspaceResponse(workspace);
-    }
-
-    @Override
-    @Transactional
-    public WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request, MultipartFile coverImageFile) {
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
-        
-        if (request.getName() != null && !request.getName().equals(workspace.getName())) {
-             if (workspaceRepository.existsByCompany_IdAndName(workspace.getCompany().getId(), request.getName())) {
-                  throw new BadRequestException("Tên không gian đã tồn tại");
-             }
-             workspace.setName(request.getName());
-        }
-        if (request.getDescription() != null) workspace.setDescription(request.getDescription());
-        if (request.getColor() != null) workspace.setColor(request.getColor());
-        
-        if (coverImageFile != null && !coverImageFile.isEmpty()) {
-            String path = fileStorageService.storeFile(coverImageFile, "workspace-covers");
-            workspace.setCoverImageUrl(path);
-        } else if (request.getCoverImage() != null) {
-            workspace.setCoverImageUrl(request.getCoverImage());
-        }
-        
-        return mapToWorkspaceResponse(workspaceRepository.save(workspace));
-    }
-
-    @Override
-    @Transactional
-    public void deleteWorkspace(Integer workspaceId) {
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy không gian làm việc"));
-        if (workspace.getStatus() == WorkspaceStatus.DELETED) throw new BadRequestException("Đã bị xóa");
-        workspace.setStatus(WorkspaceStatus.DELETED);
-        workspaceRepository.save(workspace);
-    }
-
-    @Override
-    @Transactional
-    public void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request) {
-        User admin = securityService.getCurrentAuthenticatedUser();
-        User userToInvite = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user"));
-        
-        if (!companyMemberRepository.existsByCompany_IdAndUser_IdAndStatus(companyId, userToInvite.getId(), MemberStatus.ACTIVE)) {
-            throw new BadRequestException("Người này chưa là thành viên hoạt động của công ty");
-        }
-        
-        Workspace workspace = workspaceRepository.findById(workspaceId).orElseThrow();
-        Role role = roleRepository.findFirstByRoleCode(request.getRoleCode()).orElseThrow();
-        
-        if (workspaceMemberRepository.findByWorkspace_IdAndUser_Id(workspaceId, userToInvite.getId()).isPresent()) {
-            throw new BadRequestException("Đã là thành viên của không gian này");
-        }
-        
-        WorkspaceMember member = WorkspaceMember.builder()
-                .workspace(workspace).user(userToInvite).role(role).status(MemberStatus.ACTIVE).build();
-        workspaceMemberRepository.save(member);
-        sendWorkspaceNotificationEmail(admin, userToInvite, workspace, role);
-    }
-
-    @Override
-    public WorkspaceMemberResponse getWorkspaceMemberDetails(Integer workspaceId, Integer memberId) {
-        WorkspaceMember member = workspaceMemberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên"));
-        if (!member.getWorkspace().getId().equals(workspaceId)) throw new ResourceNotFoundException("Sai không gian làm việc");
-        return mapToWorkspaceMemberResponse(member);
-    }
-
-    @Override
-    @Transactional
-    public WorkspaceMemberResponse updateWorkspaceMemberStatus(Integer companyId, Integer workspaceId, Integer memberId, UpdateMemberStatusRequest request) {
-         WorkspaceMember member = workspaceMemberRepository.findById(memberId).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên"));
-         
-         if (!member.getWorkspace().getId().equals(workspaceId)) throw new ResourceNotFoundException("Sai không gian làm việc");
-         if (!member.getWorkspace().getCompany().getId().equals(companyId)) throw new ResourceNotFoundException("Sai công ty");
-
-         User admin = securityService.getCurrentAuthenticatedUser();
-         if (admin.getId().equals(member.getUser().getId())) throw new BadRequestException("Không thể tự đổi trạng thái");
-
-         if (request.getNewStatus() == MemberStatus.REMOVED) throw new BadRequestException("Dùng API xóa để xóa");
-         if (member.getStatus() == request.getNewStatus()) throw new BadRequestException("Trạng thái không thay đổi");
-
-         
-         member.setStatus(request.getNewStatus());
-         return mapToWorkspaceMemberResponse(workspaceMemberRepository.save(member));
-    }
-
-    @Override
-    @Transactional
-    public WorkspaceMemberResponse updateWorkspaceMemberRole(Integer companyId, Integer workspaceId, Integer memberId, String newRoleCode) {
-        WorkspaceMember member = workspaceMemberRepository.findById(memberId).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên"));
-        
-        if (!member.getWorkspace().getId().equals(workspaceId)) throw new ResourceNotFoundException("Sai không gian làm việc");
-        if (!member.getWorkspace().getCompany().getId().equals(companyId)) throw new ResourceNotFoundException("Sai công ty");
-
-        User admin = securityService.getCurrentAuthenticatedUser();
-        if (admin.getId().equals(member.getUser().getId())) throw new BadRequestException("Không thể tự đổi vai trò");
-
-        Role role = roleRepository.findFirstByRoleCode(newRoleCode).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò"));
-        if (role.getLevel() != RoleLevel.WORKSPACE) throw new BadRequestException("Vai trò không hợp lệ");
-        
-        if (member.getRole().getRoleCode().equals(newRoleCode)) throw new BadRequestException("Vai trò không thay đổi");
-        if (member.getStatus() == MemberStatus.REMOVED) throw new BadRequestException("Thành viên đã bị xóa");
-
-        member.setRole(role);
-        return mapToWorkspaceMemberResponse(workspaceMemberRepository.save(member));
-    }
-
-    @Override
-    @Transactional
-    public WorkspaceResponse updateWorkspaceStatus(Integer companyId, Integer workspaceId, UpdateWorkspaceStatusRequest request) {
-        Workspace workspace = workspaceRepository.findById(workspaceId).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy workspace"));
-        if (!workspace.getCompany().getId().equals(companyId)) throw new ResourceNotFoundException("Sai công ty");
-        if (workspace.getStatus() == request.getNewStatus()) throw new BadRequestException("Trạng thái không thay đổi");
-        
-        workspace.setStatus(request.getNewStatus());
-        return mapToWorkspaceResponse(workspaceRepository.save(workspace));
-    }
-
-    // *** HÀM MỚI: Xóa thành viên khỏi Workspace ***
-    @Override
-    @Transactional
-    public void removeMemberFromWorkspace(Integer companyId, Integer workspaceId, Integer memberId) {
-        // 1. Tìm thành viên trực tiếp bằng memberId
-        WorkspaceMember member = workspaceMemberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên với ID: " + memberId));
-
-        // 2. Validate: Đảm bảo member này thuộc đúng workspace đang thao tác
-        if (!member.getWorkspace().getId().equals(workspaceId)) {
-            throw new BadRequestException("Thành viên này không thuộc không gian làm việc hiện tại.");
-        }
-
-        // 3. Validate: Đảm bảo workspace thuộc đúng company
-        if (!member.getWorkspace().getCompany().getId().equals(companyId)) {
-            throw new ResourceNotFoundException("Dữ liệu không khớp với công ty hiện tại.");
-        }
-
-        // 4. Kiểm tra xem có tự xóa chính mình không (Lấy User từ Member)
-        User currentUser = securityService.getCurrentAuthenticatedUser();
-        if (currentUser.getId().equals(member.getUser().getId())) {
-            throw new BadRequestException("Bạn không thể tự xóa mình khỏi không gian làm việc.");
-        }
-
-        // 5. Kiểm tra xem họ đã bị xóa chưa
-        if (member.getStatus() == MemberStatus.REMOVED) {
-            throw new BadRequestException("Thành viên này đã bị xóa khỏi không gian làm việc.");
-        }
-
-        // 6. Thực hiện xóa mềm
-        member.setStatus(MemberStatus.REMOVED);
-        workspaceMemberRepository.save(member);
     }
 }

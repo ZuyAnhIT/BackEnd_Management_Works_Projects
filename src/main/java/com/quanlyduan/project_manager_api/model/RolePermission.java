@@ -15,25 +15,32 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "role_permissions", uniqueConstraints = {
-    // Unique key từ CSDL: uk_role_permission (role_id, permission_id)
-    @UniqueConstraint(columnNames = {"role_id", "permission_id"})
-})
+// Đặt tên bảng là role_permissions
+@Table(name = "role_permissions", 
+    uniqueConstraints = {
+        // Đảm bảo mỗi Role chỉ có một Permission duy nhất (Unique Role-Permission Pair)
+        @UniqueConstraint(columnNames = {"role_id", "permission_id"})
+    }
+)
+/**
+ * Entity lưu trữ mối quan hệ Many-to-Many giữa Role và Permission.
+ * Đây là bảng trung gian cho việc phân quyền (RBAC).
+ */
 public class RolePermission {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Integer id; // ID định danh
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
+    private Role role; // Vai trò (Role) liên quan
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "permission_id", nullable = false)
-    private Permission permission;
+    private Permission permission; // Quyền hạn (Permission) liên quan
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt; // Thời điểm tạo mối quan hệ
 }

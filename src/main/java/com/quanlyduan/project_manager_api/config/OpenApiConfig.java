@@ -15,28 +15,29 @@ public class OpenApiConfig {
 
     @Bean
     public OpenAPI customOpenAPI() {
+        // Định nghĩa tên định danh cho scheme bảo mật
         final String securitySchemeName = "bearerAuth";
 
         return new OpenAPI()
-            // 1. Thêm thông tin chung cho API
+            // 1. Cấu hình thông tin chung về API (Tiêu đề, Phiên bản, Mô tả)
             .info(new Info()
                 .title("Project Manager API")
                 .version("v1.0")
-                .description("Tài liệu API cho hệ thống Quản lý dự án và công việc.") // Đã dịch
+                .description("API Documentation for the Project and Task Management System.") // Mô tả hiển thị trên Swagger UI
                 .license(new License().name("Apache 2.0").url("http://springdoc.org")))
             
-            // 2. Thêm yêu cầu bảo mật (nút Authorize) cho tất cả API
+            // 2. Áp dụng yêu cầu bảo mật (Hiện nút Authorize - Ổ khóa) cho toàn bộ các endpoint
             .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
             
-            // 3. Định nghĩa Security Scheme (Bearer Token - JWT)
+            // 3. Định nghĩa chi tiết về cơ chế bảo mật (Sử dụng JWT Bearer Token)
             .components(new Components()
                 .addSecuritySchemes(securitySchemeName,
                     new SecurityScheme()
                         .name(securitySchemeName)
-                        .type(SecurityScheme.Type.HTTP) // Loại là HTTP
-                        .scheme("bearer")               // Scheme là "bearer"
-                        .bearerFormat("JWT")            // Định dạng là JWT
-                        .description("Nhập JWT Token của bạn vào đây để truy cập API!") // Đã dịch
+                        .type(SecurityScheme.Type.HTTP) // Loại xác thực là HTTP
+                        .scheme("bearer")               // Sử dụng cơ chế Bearer Token
+                        .bearerFormat("JWT")            // Định dạng token là JWT
+                        .description("Enter your JWT Token to access the API.") // Hướng dẫn người dùng
                 )
             );
     }

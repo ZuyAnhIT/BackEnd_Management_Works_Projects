@@ -1,13 +1,20 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/repository/CompanyRepository.java
 package com.quanlyduan.project_manager_api.repository;
 
-import com.quanlyduan.project_manager_api.model.Company; // Đã dịch
+import com.quanlyduan.project_manager_api.model.Company; // Entity Công ty
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface CompanyRepository extends JpaRepository<Company, Integer> { // Đã dịch
-    Boolean existsByName(String name); // Đã dịch
+/**
+ * Repository cho Entity Company (Quản lý các thao tác với bảng companies).
+ */
+public interface CompanyRepository extends JpaRepository<Company, Integer> {
+
+    /**
+     * Kiểm tra xem đã có Công ty nào tồn tại với tên này chưa.
+     */
+    Boolean existsByName(String name);
 }

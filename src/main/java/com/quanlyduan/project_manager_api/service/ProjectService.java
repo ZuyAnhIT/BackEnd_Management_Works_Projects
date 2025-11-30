@@ -1,4 +1,4 @@
-
+// File: src/main/java/com.quanlyduan.project_manager_api/service/ProjectService.java
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest;
@@ -12,26 +12,56 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationDetailsR
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
-import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
-import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Service cho Project – US7 chỉ yêu cầu tạo mới Project.
+ * Interface Service quản lý các nghiệp vụ liên quan đến Dự án (Project).
+ * Bao gồm CRUD, quản lý thành viên, và dữ liệu Board/Backlog.
  */
 public interface ProjectService {
+
+    // ========================================================================
+    // 1. QUẢN LÝ DỰ ÁN (CRUD & UPDATE)
+    // ========================================================================
 
     /**
      * Tạo dự án mới (có hỗ trợ upload ảnh bìa).
      */
     ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId, MultipartFile coverImageFile);
-    
-    
+
+    /**
+     * Lấy thông tin chi tiết của một dự án.
+     */
+    ProjectResponse getProjectDetails(Integer companyId, Integer workspaceId, Integer projectId);
+
+    /**
+     * Cập nhật thông tin dự án và ảnh bìa (Partial Update).
+     */
+    ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request, MultipartFile coverImageFile);
+
+    /**
+     * Update project status (trạng thái vòng đời).
+     */
+    ProjectResponse updateProjectStatus(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectStatusRequest request);
+
+    /**
+     * Xóa dự án (soft delete) – chuyển trạng thái Project sang CANCELLED.
+     */
+    void deleteProject(Integer companyId, Integer workspaceId, Integer projectId);
+
+    // ========================================================================
+    // 2. DANH SÁCH & TÌM KIẾM DỰ ÁN (LISTING & SEARCH)
+    // ========================================================================
+
+    /**
+     * Lấy danh sách dự án trong workspace (Phân trang & Sắp xếp cơ bản).
+     */
     PageResponseDTO<ProjectResponse> listProjectsByWorkspace(
             Integer companyId, 
             Integer workspaceId, 
@@ -43,72 +73,7 @@ public interface ProjectService {
     );
 
     /**
-     * US9: Xóa dự án (soft delete) – chuyển trạng thái Project sang CANCELLED.
-     * Nghiệp vụ:
-     * - Xác thực workspace thuộc companyId (sai → 400) và project thuộc workspace (sai → 400).
-     * - Yêu cầu quyền project:delete tại Controller bằng @PreAuthorize (project-level permission).
-     * - Không xóa cứng; chỉ set status = CANCELLED và lưu.
-     */
-    void deleteProject(Integer companyId, Integer workspaceId, Integer projectId);  
-    ProjectResponse getProjectDetails(Integer companyId, Integer workspaceId, Integer projectId);
-
-    /**
-     * Update project status (except CANCELLED which is reserved for delete endpoint).
-     */
-    ProjectResponse updateProjectStatus(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectStatusRequest request);
-
-    /**
-     * Cập nhật thông tin dự án và ảnh bìa.
-     */
-    ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request, MultipartFile coverImageFile);
-
-   /**
-     * Lấy dữ liệu màn hình Backlog.
-     * - Active Sprints: Lấy hết (có lọc keyword).
-     * - Backlog Tasks: Lấy phân trang + lọc keyword + sắp xếp.
-     */
-    ProjectBacklogResponse getProjectBacklog(
-            Integer companyId, 
-            Integer workspaceId, 
-            Integer projectId,
-            String keyword,     
-            Integer assigneeId, 
-            TaskPriority priority, 
-            TaskType taskType,     
-            int page,           
-            int size,           
-            String sortBy,      
-            String sortDir      
-    );
-
-
-    /**
-     * Cập nhật vai trò (Role) của một thành viên trong dự án.
-     * @param projectId ID dự án
-     * @param memberId ID của bản ghi ProjectMember
-     * @param newRoleCode Mã vai trò mới (ví dụ: "PROJECT_MEMBER")
-     * @return ProjectMemberResponse DTO đã cập nhật
-     */
-    ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode);
-
-    // API 1: LẤY DANH SÁCH CƠ BẢN
-    /**
-     * Lấy danh sách thành viên của dự án (Chỉ phân trang & sắp xếp).
-     */
-    PageResponseDTO<ProjectMemberResponse> getProjectMembers(Integer projectId, int page, int size, String sortBy, String sortDir);
-
-    // API 2: TÌM KIẾM NÂNG CAO (*** MỚI ***)
-    /**
-     * Tìm kiếm thành viên trong dự án.
-     */
-    PageResponseDTO<ProjectMemberResponse> searchProjectMembers(
-            Integer projectId, 
-            String searchName, String searchEmail, String searchRoleName, String searchPhone,
-            int page, int size, String sortBy, String sortDir
-    );
-
-    /**
-     * Tìm kiếm dự án trong workspace (Nâng cao).
+     * Tìm kiếm dự án trong workspace (Nâng cao: Tên, Mã, Quản lý, Trạng thái).
      */
     PageResponseDTO<ProjectResponse> searchProjects(
             Integer companyId, 
@@ -117,7 +82,58 @@ public interface ProjectService {
             int page, int size, String sortBy, String sortDir
     );
 
-    // US-S4-2 & S4-4: Lấy Board (kèm filter)
+    // ========================================================================
+    // 3. QUẢN LÝ THÀNH VIÊN (MEMBERSHIP)
+    // ========================================================================
+
+    /**
+     * Gửi lời mời tham gia dự án (Xử lý cả nội bộ và bên ngoài).
+     */
+    void inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request);
+
+    /**
+     * Lấy danh sách thành viên của dự án (Phân trang & Sắp xếp cơ bản).
+     */
+    PageResponseDTO<ProjectMemberResponse> getProjectMembers(Integer projectId, int page, int size, String sortBy, String sortDir);
+
+    /**
+     * Tìm kiếm thành viên trong dự án (Nâng cao).
+     */
+    PageResponseDTO<ProjectMemberResponse> searchProjectMembers(
+            Integer projectId, 
+            String searchName, String searchEmail, String searchRoleName, String searchPhone,
+            int page, int size, String sortBy, String sortDir
+    );
+
+    /**
+     * Cập nhật vai trò (Role) của một thành viên trong dự án.
+     */
+    ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode);
+
+    // ========================================================================
+    // 4. QUẢN LÝ TASK VÀ BOARD (BACKLOG & BOARD VIEW)
+    // ========================================================================
+
+    /**
+     * Lấy dữ liệu màn hình Backlog (Active Sprints + Unassigned Tasks) - Có Phân trang.
+     */
+    ProjectBacklogResponse getProjectBacklog(
+            Integer companyId, 
+            Integer workspaceId, 
+            Integer projectId,
+            String keyword,     
+            Integer assigneeId, 
+            TaskPriority priority, 
+            TaskType taskType, 
+            int page, 
+            int size, 
+            String sortBy, 
+            String sortDir
+    );
+
+    /**
+     * Lấy dữ liệu Board (Các cột trạng thái và task bên trong) - Dùng cho Scrum/Kanban Board.
+     */
     List<BoardColumnResponse> getProjectBoard(
             Integer companyId, 
             Integer workspaceId, 
@@ -125,24 +141,33 @@ public interface ProjectService {
             Integer sprintId, 
             String keyword, 
             Integer assigneeId, 
-            TaskPriority priority, // Dùng Enum
-            TaskType taskType      // Dùng Enum
+            TaskPriority priority,
+            TaskType taskType
     );
-   PageResponseDTO<TaskResponse> getProjectTaskList(
+
+    /**
+     * API Xem danh sách Task dạng List View (Table).
+     * Hỗ trợ lọc theo nhiều trạng thái (statusIds) và phân trang.
+     */
+    PageResponseDTO<TaskResponse> getProjectTaskList(
             Integer companyId, 
             Integer workspaceId, 
             Integer projectId, 
             Integer sprintId, 
             String search, 
             Integer assigneeId, 
-            TaskPriority priority, // Đổi từ String -> Enum
+            TaskPriority priority, 
             List<Integer> statusIds,
             int page, 
             int size, 
             String sortBy, 
             String sortDir
     );
-    // --- US-S4-10: Nhóm Task (Grouping View) ---
+    
+    /**
+     * API Xem Task theo Nhóm (Grouping View).
+     * Ví dụ: Nhóm theo Assignee, Priority...
+     */
     Map<String, List<TaskResponse>> getTasksGroupedBy(
         Integer companyId, 
         Integer workspaceId, 
@@ -152,20 +177,19 @@ public interface ProjectService {
         String search
     );
 
-   /**
-     * Gửi lời mời tham gia dự án (Xử lý cả nội bộ và bên ngoài).
-     */
-    void inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request);
+    // ========================================================================
+    // 5. HỖ TRỢ LUỒNG MỜI (INVITATION FLOW HELPERS)
+    // ========================================================================
 
     /**
      * Lấy thông tin chi tiết của lời mời (Public API).
+     * Dùng để kiểm tra token và quyết định luồng UI (Register/Login).
      */
     ProjectInvitationDetailsResponse getProjectInvitationDetails(String token);
 
     /**
      * Chấp nhận lời mời (Dành cho user đã login).
+     * Tạo ProjectMember và đánh dấu lời mời là ACCEPTED.
      */
     void acceptProjectInvitation(String token);
-    
-    
 }

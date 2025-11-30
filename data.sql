@@ -246,6 +246,22 @@ CREATE TABLE project_members (
     UNIQUE KEY uk_project_user (project_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE project_invitations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    role_id INT NOT NULL,
+    invited_by_id INT NOT NULL,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id),
+    FOREIGN KEY (role_id) REFERENCES roles(id),
+    FOREIGN KEY (invited_by_id) REFERENCES users(id)
+);
+
 -- 5. Project Internals
 CREATE TABLE sprints (
     id INT PRIMARY KEY AUTO_INCREMENT,

@@ -5,9 +5,15 @@ import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 import java.util.List;
 
+/**
+ * DTO nhận dữ liệu cho hành động sắp xếp lại vị trí các cột trạng thái (Kéo thả cột).
+ * Client sẽ gửi lên một danh sách chứa toàn bộ ID của các status trong dự án theo thứ tự mới mong muốn.
+ */
 @Data
 public class ReorderStatusRequest {
-    @NotEmpty(message = "Danh sách ID trạng thái không được để trống") // Đã dịch
+
+    // Danh sách ID trạng thái đã được sắp xếp theo thứ tự mới (Bắt buộc)
+    // Ví dụ: [3, 1, 2, 4] nghĩa là cột có ID=3 nằm đầu tiên, sau đó đến 1, 2, và 4.
+    @NotEmpty(message = "Ordered status IDs list must not be empty")
     private List<Integer> orderedStatusIds; 
-    // Ví dụ gửi lên: [3, 1, 2, 4] (ID theo thứ tự từ trái sang phải)
 }

@@ -1,7 +1,6 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/WorkspaceService.java
 package com.quanlyduan.project_manager_api.service;
 
-import java.util.List;
 
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,99 +16,66 @@ import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusReque
 
 public interface WorkspaceService {
     
+    // ========================================================================
+    // 1. QUẢN LÝ WORKSPACE (CRUD & Lifecycle)
+    // ========================================================================
+    
     /**
-     * Tạo một không gian làm việc mới (có hỗ trợ upload ảnh bìa).
+     * Tạo một không gian làm việc mới (hỗ trợ upload ảnh bìa).
      */
     WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request, MultipartFile coverImageFile); 
 
-    
-   /**
+    /**
      * Lấy danh sách không gian làm việc của công ty (Phân trang & Sắp xếp).
-     * @param companyId ID công ty
-     * @param page Trang số mấy
-     * @param size Kích thước trang
-     * @param sortBy Trường sắp xếp
-     * @param sortDir Hướng sắp xếp
-     * @return PageResponseDTO
      */
     PageResponseDTO<WorkspaceResponse> getWorkspacesByCompany(Integer companyId, int page, int size, String sortBy, String sortDir);
     
+    /**
+     * Tìm kiếm không gian làm việc trong công ty theo tiêu chí.
+     */
+    PageResponseDTO<WorkspaceResponse> searchWorkspaces(
+            Integer companyId, 
+            String searchName, String searchCode, String searchDescription, WorkspaceStatus searchStatus,
+            int page, int size, String sortBy, String sortDir
+    );
 
     /**
      * Lấy thông tin chi tiết của một không gian làm việc.
-     * @param workspaceId ID của không gian cần xem
-     * @return WorkspaceResponse DTO
      */
     WorkspaceResponse getWorkspaceDetails(Integer workspaceId);
 
     /**
-     * Mời/Thêm một thành viên công ty vào không gian làm việc.
-     * @param congTyId ID công ty (để kiểm tra)
-     * @param khongGianId ID không gian
-     * @param request DTO chứa email và roleId
-     */
-    void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request); // Đã dịch
-
-   /**
      * Cập nhật thông tin không gian làm việc và ảnh bìa.
      */
     WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request, MultipartFile coverImageFile);
 
     /**
-     * Xóa mềm (Soft Delete) một không gian làm việc.
-     * @param workspaceId ID của không gian cần xóa
-     */
-    void deleteWorkspace(Integer workspaceId);
-
-    /**
-     * Lấy thông tin chi tiết của một thành viên trong không gian.
-     * @param workspaceId ID của không gian (để kiểm tra)
-     * @param memberId ID của bản ghi WorkspaceMember
-     * @return WorkspaceMemberResponse DTO
-     */
-    WorkspaceMemberResponse getWorkspaceMemberDetails(Integer workspaceId, Integer memberId);
-
-    /**
-     * Cập nhật trạng thái của thành viên trong không gian (ACTIVE/SUSPENDED).
-     * @param companyId ID công ty
-     * @param workspaceId ID không gian
-     * @param memberId ID của bản ghi WorkspaceMember
-     * @param request DTO chứa trạng thái mới
-     * @return WorkspaceMemberResponse DTO đã cập nhật
-     */
-    WorkspaceMemberResponse updateWorkspaceMemberStatus(Integer companyId, Integer workspaceId, Integer memberId, UpdateMemberStatusRequest request);
-
-
-    /**
      * Cập nhật trạng thái của một không gian làm việc (ACTIVE, ARCHIVED, DELETED).
-     * @param companyId ID công ty (để kiểm tra)
-     * @param workspaceId ID không gian
-     * @param request DTO chứa trạng thái mới
-     * @return WorkspaceResponse DTO đã cập nhật
      */
     WorkspaceResponse updateWorkspaceStatus(Integer companyId, Integer workspaceId, UpdateWorkspaceStatusRequest request);
 
     /**
-     * Cập nhật vai trò (Role) của một thành viên trong không gian làm việc.
-     * @param companyId ID công ty (để kiểm tra)
-     * @param workspaceId ID không gian
-     * @param memberId ID của bản ghi WorkspaceMember
-     * @param newRoleCode Mã vai trò mới (ví dụ: "WORKSPACE_MEMBER")
-     * @return WorkspaceMemberResponse DTO đã cập nhật
+     * Xóa mềm (Soft Delete) một không gian làm việc.
      */
-    WorkspaceMemberResponse updateWorkspaceMemberRole(Integer companyId, Integer workspaceId, Integer memberId, String newRoleCode);
+    void deleteWorkspace(Integer workspaceId);
 
-    void removeMemberFromWorkspace(Integer companyId, Integer workspaceId, Integer memberId);
 
-    // API 1: LẤY DANH SÁCH CƠ BẢN
+    // ========================================================================
+    // 2. QUẢN LÝ THÀNH VIÊN (MEMBERSHIP & ROLES)
+    // ========================================================================
+
     /**
-     * Lấy danh sách thành viên của một không gian làm việc (Chỉ phân trang & sắp xếp).
+     * Mời/Thêm một thành viên công ty vào không gian làm việc.
+     */
+    void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request);
+
+    /**
+     * Lấy danh sách thành viên của một không gian làm việc (Phân trang & Sắp xếp).
      */
     PageResponseDTO<WorkspaceMemberResponse> getWorkspaceMembers(Integer workspaceId, int page, int size, String sortBy, String sortDir);
 
-    // API 2: TÌM KIẾM NÂNG CAO 
     /**
-     * Tìm kiếm thành viên trong phòng ban.
+     * Tìm kiếm thành viên trong phòng ban theo tiêu chí (Tên, Email, Role, SĐT).
      */
     PageResponseDTO<WorkspaceMemberResponse> searchWorkspaceMembers(
             Integer workspaceId, 
@@ -117,13 +83,23 @@ public interface WorkspaceService {
             int page, int size, String sortBy, String sortDir
     );
 
-    // API 2: TÌM KIẾM NÂNG CAO (*** MỚI ***)
     /**
-     * Tìm kiếm không gian làm việc trong công ty.
+     * Lấy thông tin chi tiết của một thành viên trong không gian.
      */
-    PageResponseDTO<WorkspaceResponse> searchWorkspaces(
-            Integer companyId, 
-            String searchName, String searchCode, String searchDescription, WorkspaceStatus searchStatus,
-            int page, int size, String sortBy, String sortDir
-    );
+    WorkspaceMemberResponse getWorkspaceMemberDetails(Integer workspaceId, Integer memberId);
+
+    /**
+     * Cập nhật trạng thái của thành viên trong không gian (Khôi phục/Tạm dừng).
+     */
+    WorkspaceMemberResponse updateWorkspaceMemberStatus(Integer companyId, Integer workspaceId, Integer memberId, UpdateMemberStatusRequest request);
+
+    /**
+     * Cập nhật vai trò (Role) của một thành viên trong không gian làm việc.
+     */
+    WorkspaceMemberResponse updateWorkspaceMemberRole(Integer companyId, Integer workspaceId, Integer memberId, String newRoleCode);
+    
+    /**
+     * Xóa mềm một thành viên khỏi không gian làm việc.
+     */
+    void removeMemberFromWorkspace(Integer companyId, Integer workspaceId, Integer memberId);
 }
