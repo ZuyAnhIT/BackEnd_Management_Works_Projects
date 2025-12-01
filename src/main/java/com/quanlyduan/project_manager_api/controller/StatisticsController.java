@@ -5,6 +5,7 @@ import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionResponse;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.impl.StatisticsServiceImpl;
 
@@ -110,5 +111,32 @@ public class StatisticsController {
         List<PriorityDistributionResponse> data = statisticsService.getTaskPriorityDistribution(projectId, currentUserId);
         
         return ResponseEntity.ok(ApiResponse.success("Personal priority distribution retrieved successfully.", data));
+    }
+
+
+    // ======================================================
+    // API BIỂU ĐỒ PHÂN BỐ LOẠI CÔNG VIỆC (TYPE CHART)
+    // ======================================================
+
+    // 1. Cho DỰ ÁN
+    @GetMapping("/projects/{projectId}/type-distribution")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<TaskTypeDistributionResponse>>> getProjectTypeDistribution(
+            @PathVariable Integer projectId) {
+        
+        List<TaskTypeDistributionResponse> data = statisticsService.getTaskTypeDistribution(projectId, null);
+        
+        return ResponseEntity.ok(ApiResponse.success("Task type distribution retrieved successfully.", data));
+    }
+
+    // 2. Cho CÁ NHÂN
+    @GetMapping("/me/type-distribution")
+    public ResponseEntity<ApiResponse<List<TaskTypeDistributionResponse>>> getMyTypeDistribution(
+            @RequestParam(required = false) Integer projectId) {
+        
+        Integer currentUserId = securityService.getCurrentUserId();
+        List<TaskTypeDistributionResponse> data = statisticsService.getTaskTypeDistribution(projectId, currentUserId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Personal task type distribution retrieved successfully.", data));
     }
 }
