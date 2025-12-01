@@ -6,21 +6,29 @@ import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionResponse;
+import com.quanlyduan.project_manager_api.dto.response.WorkloadResponse;
 import com.quanlyduan.project_manager_api.model.Task;
+import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
+import com.quanlyduan.project_manager_api.repository.specification.TaskSpecification;
 import com.quanlyduan.project_manager_api.service.StatisticsService;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.quanlyduan.project_manager_api.model.ProjectStatus;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -172,7 +180,6 @@ public class StatisticsServiceImpl implements StatisticsService {
         return responseList;
     }
 
-
     // 4. Dữ liệu phân bổ loại công việc (Task Type Distribution)
     @Override
     @Transactional(readOnly = true)
@@ -205,6 +212,105 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
 
         return responseList;
+    }
+
+    // 5. Dữ liệu phân bổ công việc (Workload Distribution - Stacked Bar Chart)
+    @Override
+    @Transactional(readOnly = true)
+    public List<WorkloadResponse> getWorkloadDistribution(
+            Integer projectId, String viewType, String groupBy,
+            Integer sprintId, LocalDate from, LocalDate to, List<Integer> statusIds) {
+
+        // 1. Tận dụng Specification cũ để lọc dữ liệu (DRY - Don't Repeat Yourself)
+        // Chúng ta tái sử dụng filterTasksForCalendar vì nó có logic lọc theo Date
+        // Range rất tốt
+        Specification<Task> spec = TaskSpecification.filterTasksForCalendar(
+                projectId, from, to, null, null, null, null // null các param không dùng
+        );
+
+        // Nếu có lọc theo sprint hoặc status cụ thể thì add thêm
+        if (sprintId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("sprint").get("id"), sprintId));
+        }
+        if (statusIds != null && !statusIds.isEmpty()) {
+            spec = spec.and((root, query, cb) -> root.get("status").get("id").in(statusIds));
+        }
+
+        // 2. Lấy dữ liệu thô
+        List<Task> tasks = taskRepository.findAll(spec);
+
+        // 3. Gom nhóm theo User (Assignee)
+        Map<User, List<Task>> tasksByUser = tasks.stream()
+                .collect(
+                        Collectors.groupingBy(t -> t.getAssignee() != null ? t.getAssignee() : createUnassignedUser()));
+
+        // 4. Xử lý từng User để tạo cột (Bar)
+        List<WorkloadResponse> response = new ArrayList<>();
+
+        for (Map.Entry<User, List<Task>> entry : tasksByUser.entrySet()) {
+            User user = entry.getKey();
+            List<Task> userTasks = entry.getValue();
+
+            // 4a. Gom nhóm con (Breakdown) theo Status hoặc Priority
+            Map<String, List<Task>> tasksByStackKey = new HashMap<>();
+
+            if ("PRIORITY".equalsIgnoreCase(groupBy)) {
+                tasksByStackKey = userTasks.stream()
+                        .collect(Collectors.groupingBy(t -> t.getPriority() != null ? t.getPriority().name() : "NONE"));
+            } else {
+                // Mặc định group by STATUS
+                tasksByStackKey = userTasks.stream()
+                        .collect(Collectors
+                                .groupingBy(t -> t.getStatus() != null ? t.getStatus().getName() : "Unknown"));
+            }
+
+            // 4b. Tính toán giá trị cho từng Stack Segment
+            List<WorkloadResponse.WorkloadBreakdown> breakdowns = new ArrayList<>();
+            double totalLoad = 0;
+
+            for (Map.Entry<String, List<Task>> stackEntry : tasksByStackKey.entrySet()) {
+                String stackName = stackEntry.getKey();
+                List<Task> stackTasks = stackEntry.getValue();
+
+                // Tính tổng value (Points hoặc Hours)
+                double value = 0;
+                if ("HOURS".equalsIgnoreCase(viewType)) {
+                    value = stackTasks.stream()
+                            .map(t -> t.getEstimatedHours() != null ? t.getEstimatedHours() : BigDecimal.ZERO)
+                            .mapToDouble(BigDecimal::doubleValue).sum();
+                } else {
+                    // Mặc định POINTS
+                    value = stackTasks.stream()
+                            .mapToInt(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
+                            .sum();
+                }
+
+                // Lấy màu (Lấy từ Status object hoặc map cứng cho Priority)
+                String color = getStackColor(stackTasks.get(0), groupBy);
+
+                breakdowns.add(WorkloadResponse.WorkloadBreakdown.builder()
+                        .stackName(stackName)
+                        .value(value)
+                        .taskCount(stackTasks.size())
+                        .color(color)
+                        .build());
+
+                totalLoad += value;
+            }
+
+            response.add(WorkloadResponse.builder()
+                    .userId(user.getId())
+                    .userName(user.getFullName())
+                    .avatarUrl(user.getAvatarUrl())
+                    .totalLoad(totalLoad)
+                    .breakdowns(breakdowns)
+                    .build());
+        }
+
+        // Sắp xếp theo tổng load giảm dần (người bận nhất lên đầu)
+        response.sort((a, b) -> Double.compare(b.getTotalLoad(), a.getTotalLoad()));
+
+        return response;
     }
 
     // HEPER METHODS
@@ -258,4 +364,33 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     }
 
+    // Helper: Tạo User "Unassigned" giả để nhóm task chưa có assignee
+    private User createUnassignedUser() {
+        return User.builder().id(0).fullName("Unassigned").build();
+    }
+
+    // Helper: Lấy màu cho từng Stack Segment dựa trên groupBy
+    private String getStackColor(Task sampleTask, String groupBy) {
+        if ("PRIORITY".equalsIgnoreCase(groupBy)) {
+            // Map màu Priority cứng (như bài trước)
+            if (sampleTask.getPriority() == null)
+                return "#ccc";
+            switch (sampleTask.getPriority()) {
+                case URGENT:
+                    return "#e74c3c";
+                case HIGH:
+                    return "#e67e22";
+                case MEDIUM:
+                    return "#3498db";
+                case LOW:
+                    return "#2ecc71";
+                default:
+                    return "#95a5a6";
+            }
+        } else {
+            // Group by Status -> Lấy màu động từ DB
+            return (sampleTask.getStatus() != null) ? sampleTask.getStatus().getColor() : "#ccc";
+        }
+
+    }
 }

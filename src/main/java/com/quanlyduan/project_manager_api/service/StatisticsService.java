@@ -1,12 +1,14 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/StatisticsService.java
 package com.quanlyduan.project_manager_api.service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionResponse;
+import com.quanlyduan.project_manager_api.dto.response.WorkloadResponse;
 
 /**
  * Interface định nghĩa các nghiệp vụ liên quan đến Thống kê và Báo cáo.
@@ -40,4 +42,18 @@ public interface StatisticsService {
      * Lấy dữ liệu phân bổ loại công việc (Story, Bug, Task...).
      */
     List<TaskTypeDistributionResponse> getTaskTypeDistribution(Integer projectId, Integer assigneeId);
+
+    /**
+     * Lấy dữ liệu phân bổ công việc (Workload) theo Stacked Bar Chart.
+     * * @param projectId ID dự án
+     * @param viewType "POINTS" hoặc "HOURS"
+     * @param groupBy "STATUS" hoặc "PRIORITY"
+     * @param ... các filter khác (sprintId, date range...)
+     */
+    List<WorkloadResponse> getWorkloadDistribution(
+            Integer projectId, 
+            String viewType, 
+            String groupBy,
+            Integer sprintId, LocalDate from, LocalDate to, List<Integer> statusIds
+    );
 }

@@ -6,11 +6,14 @@ import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionRespo
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionResponse;
+import com.quanlyduan.project_manager_api.dto.response.WorkloadResponse;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.impl.StatisticsServiceImpl;
 
+import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -138,5 +141,31 @@ public class StatisticsController {
         List<TaskTypeDistributionResponse> data = statisticsService.getTaskTypeDistribution(projectId, currentUserId);
         
         return ResponseEntity.ok(ApiResponse.success("Personal task type distribution retrieved successfully.", data));
+    }
+
+    // ======================================================
+    // API PHÂN BỔ CÔNG VIỆC (WORKLOAD - STACKED BAR CHART)
+    // ======================================================
+    @GetMapping("/projects/{projectId}/workload")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<WorkloadResponse>>> getProjectWorkload(
+            @PathVariable Integer projectId,
+            
+            // View Options
+            @RequestParam(defaultValue = "POINTS") String viewType, // POINTS | HOURS
+            @RequestParam(defaultValue = "STATUS") String groupBy,  // STATUS | PRIORITY
+            
+            // Filters
+            @RequestParam(required = false) Integer sprintId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) List<Integer> statusIds
+    ) {
+        
+        List<WorkloadResponse> workload = statisticsService.getWorkloadDistribution(
+            projectId, viewType, groupBy, sprintId, from, to, statusIds
+        );
+        
+        return ResponseEntity.ok(ApiResponse.success("Workload distribution retrieved successfully.", workload));
     }
 }
