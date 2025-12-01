@@ -3,6 +3,8 @@ package com.quanlyduan.project_manager_api.repository;
 
 import com.quanlyduan.project_manager_api.model.Sprint; // Entity Sprint
 import com.quanlyduan.project_manager_api.model.Task; // Entity Task
+
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
@@ -11,6 +13,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Collection;
 
 @Repository
@@ -127,6 +130,9 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
     List<Task> findIncompleteTasksBySprintId(@Param("sprintId") Integer sprintId);
 
 
+
+
+
     // --- HÀM HỖ TRỢ AUDIT/VALIDATION ---
 
     /**
@@ -184,4 +190,102 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
     @Modifying
     @Query("UPDATE Task t SET t.sortOrder = t.sortOrder + 1 WHERE t.project.id = :projectId AND t.status.id = :statusId AND t.sortOrder >= :newSortOrder")
     void shiftSortOrderInStatus(@Param("projectId") Integer projectId, @Param("statusId") Integer statusId, @Param("newSortOrder") Integer newSortOrder);
+
+
+    // --- HÀM HỖ TRỢ TÍNH TOÁN (CALENDAR) ---
+
+    // 1. Đếm Task được TẠO trong khoảng thời gian
+    // Nếu projectId null -> đếm toàn bộ (cho ngữ cảnh cá nhân user)
+    // Nếu assigneeId null -> đếm toàn bộ team
+    @Query("SELECT COUNT(t) FROM Task t WHERE " +
+           "(:projectId IS NULL OR t.project.id = :projectId) AND " +
+           "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
+           "t.createdAt BETWEEN :startDate AND :endDate")
+    long countCreatedTasks(@Param("projectId") Integer projectId, 
+                           @Param("assigneeId") Integer assigneeId,
+                           @Param("startDate") LocalDateTime startDate, 
+                           @Param("endDate") LocalDateTime endDate);
+
+    // 2. Đếm Task HOÀN THÀNH (Dựa vào completedAt)
+    @Query("SELECT COUNT(t) FROM Task t WHERE " +
+           "(:projectId IS NULL OR t.project.id = :projectId) AND " +
+           "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
+           "t.completedAt BETWEEN :startDate AND :endDate")
+    long countCompletedTasks(@Param("projectId") Integer projectId, 
+                             @Param("assigneeId") Integer assigneeId,
+                             @Param("startDate") LocalDateTime startDate, 
+                             @Param("endDate") LocalDateTime endDate);
+
+    // 3. Đếm Task CẬP NHẬT (updatedAt trong khoảng, và created != updated để tránh trùng lúc tạo)
+    @Query("SELECT COUNT(t) FROM Task t WHERE " +
+           "(:projectId IS NULL OR t.project.id = :projectId) AND " +
+           "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
+           "t.updatedAt BETWEEN :startDate AND :endDate")
+    long countUpdatedTasks(@Param("projectId") Integer projectId, 
+                           @Param("assigneeId") Integer assigneeId,
+                           @Param("startDate") LocalDateTime startDate, 
+                           @Param("endDate") LocalDateTime endDate);
+
+    // 4. Tìm Task SẮP ĐẾN HẠN (DueDate trong tương lai gần & Chưa xong)
+    @Query("SELECT t FROM Task t " +
+           "JOIN FETCH t.project p " + // Fetch để hiển thị chi tiết
+           "LEFT JOIN FETCH t.status s " +
+           "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND " +
+           "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
+           "t.dueDate BETWEEN :now AND :futureDate AND " +
+           "(t.status.isCompletedStatus = false OR t.status IS NULL) " +
+           "ORDER BY t.dueDate ASC")
+    List<Task> findTasksDueSoon(@Param("projectId") Integer projectId, 
+                                @Param("assigneeId") Integer assigneeId,
+                                @Param("now") LocalDateTime now, 
+                                @Param("futureDate") LocalDateTime futureDate);
+
+
+   // --- CÁC HÀM MỚI ĐỂ LẤY DANH SÁCH CHI TIẾT ---
+
+    // 1. Lấy danh sách Task TẠO trong khoảng thời gian
+    @Query("SELECT t FROM Task t " +
+           "JOIN FETCH t.project p " +
+           "LEFT JOIN FETCH t.status s " +
+           "LEFT JOIN FETCH t.assignee a " +
+           "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND " +
+           "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
+           "t.createdAt BETWEEN :startDate AND :endDate " +
+           "ORDER BY t.createdAt DESC") // Mới nhất lên đầu
+    List<Task> findCreatedTasks(@Param("projectId") Integer projectId,
+                                @Param("assigneeId") Integer assigneeId,
+                                @Param("startDate") LocalDateTime startDate,
+                                @Param("endDate") LocalDateTime endDate,
+                                Pageable pageable); // Dùng Pageable để giới hạn số lượng (Limit)
+
+    // 2. Lấy danh sách Task HOÀN THÀNH
+    @Query("SELECT t FROM Task t " +
+           "JOIN FETCH t.project p " +
+           "LEFT JOIN FETCH t.status s " +
+           "LEFT JOIN FETCH t.assignee a " +
+           "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND " +
+           "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
+           "t.completedAt BETWEEN :startDate AND :endDate " +
+           "ORDER BY t.completedAt DESC")
+    List<Task> findCompletedTasks(@Param("projectId") Integer projectId,
+                                  @Param("assigneeId") Integer assigneeId,
+                                  @Param("startDate") LocalDateTime startDate,
+                                  @Param("endDate") LocalDateTime endDate,
+                                  Pageable pageable);
+
+    // 3. Lấy danh sách Task CẬP NHẬT
+    @Query("SELECT t FROM Task t " +
+           "JOIN FETCH t.project p " +
+           "LEFT JOIN FETCH t.status s " +
+           "LEFT JOIN FETCH t.assignee a " +
+           "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND " +
+           "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
+           "t.updatedAt BETWEEN :startDate AND :endDate " +
+           "ORDER BY t.updatedAt DESC")
+    List<Task> findUpdatedTasks(@Param("projectId") Integer projectId,
+                                @Param("assigneeId") Integer assigneeId,
+                                @Param("startDate") LocalDateTime startDate,
+                                @Param("endDate") LocalDateTime endDate,
+                                Pageable pageable);
+
 }
