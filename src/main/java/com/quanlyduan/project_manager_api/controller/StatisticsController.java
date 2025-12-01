@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.controller;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.EpicProgressResponse;
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
+import com.quanlyduan.project_manager_api.dto.response.RoadmapItemResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionResponse;
@@ -186,5 +187,20 @@ public class StatisticsController {
         List<EpicProgressResponse> data = statisticsService.getEpicProgress(projectId, sprintId, from, to, statusIds);
         
         return ResponseEntity.ok(ApiResponse.success("Epic progress retrieved successfully.", data));
+    }
+
+    // ======================================================
+    // API ROADMAP / TIMELINE (EPIC & SPRINT)
+    // ======================================================
+    @GetMapping("/projects/{projectId}/roadmap")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<RoadmapItemResponse>>> getProjectRoadmap(
+            @PathVariable Integer projectId,
+            @RequestParam(defaultValue = "ALL") String viewType // EPIC, SPRINT, ALL
+    ) {
+        
+        List<RoadmapItemResponse> roadmap = statisticsService.getProjectRoadmap(projectId, viewType);
+        
+        return ResponseEntity.ok(ApiResponse.success("Project roadmap retrieved successfully.", roadmap));
     }
 }

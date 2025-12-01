@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.quanlyduan.project_manager_api.dto.response.EpicProgressResponse;
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
+import com.quanlyduan.project_manager_api.dto.response.RoadmapItemResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionResponse;
@@ -76,4 +77,12 @@ public interface StatisticsService {
             LocalDate to,
             List<Integer> statusIds
     );
+
+    /**
+     * Lấy dữ liệu cho biểu đồ Roadmap/Timeline.
+     * @param projectId ID dự án.
+     * @param viewType Loại dữ liệu muốn xem ("EPIC", "SPRINT", "ALL").
+     * @return Danh sách các item để vẽ lên trục thời gian.
+     */
+    List<RoadmapItemResponse> getProjectRoadmap(Integer projectId, String viewType);
 }
