@@ -131,7 +131,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of("http://localhost:3000")); 
         
         // Cho phép các phương thức HTTP
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         
         // Cho phép tất cả các Header (bao gồm Authorization, Content-Type...)
         config.setAllowedHeaders(List.of("*"));
