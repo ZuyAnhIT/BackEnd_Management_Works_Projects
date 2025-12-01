@@ -2,20 +2,25 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
+import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
+import com.quanlyduan.project_manager_api.service.StatisticsService;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.quanlyduan.project_manager_api.model.ProjectStatus;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class StatisticsServiceImpl {
+public class StatisticsServiceImpl implements StatisticsService {
 
     private final TaskRepository taskRepository;
     private final ProjectServiceImpl projectService; // Để dùng mapper
@@ -25,6 +30,7 @@ public class StatisticsServiceImpl {
         this.projectService = projectService;
     }
 
+    // 1. Thống kê tuần (Weekly Statistics)
     @Transactional(readOnly = true)
     public StatisticsResponse getWeeklyStatistics(Integer projectId, Integer assigneeId) {
         
@@ -74,6 +80,59 @@ public class StatisticsServiceImpl {
                 .updatedCount(updatedCount)
                 .updatedTasks(mapList(updatedTasks))
                 .build();
+    }
+
+
+    // 2. Dữ liệu phân bổ trạng thái (Pie Chart Data)
+    @Transactional(readOnly = true)
+    public List<StatusDistributionResponse> getTaskStatusDistribution(Integer projectId, Integer assigneeId) {
+        
+        // 1. Gọi Repo lấy dữ liệu thô (Group By)
+        List<Object[]> results = taskRepository.countTasksByStatusGroup(projectId, assigneeId);
+
+        // 2. Tính tổng số task để tính phần trăm
+        long totalTasks = results.stream()
+                .mapToLong(row -> (Long) row[1])
+                .sum();
+
+        // 3. Map sang DTO
+        List<StatusDistributionResponse> responseList = new ArrayList<>();
+
+        for (Object[] row : results) {
+            ProjectStatus status = (ProjectStatus) row[0]; // Phần tử 0 là Entity Status
+            Long count = (Long) row[1];                    // Phần tử 1 là Count
+
+            // Xử lý trường hợp status bị null (nếu có task chưa gán status)
+            if (status == null) {
+                responseList.add(StatusDistributionResponse.builder()
+                        .statusId(null)
+                        .statusName("Unassigned") // Hoặc "No Status"
+                        .color("#95a5a6") // Màu xám
+                        .taskCount(count)
+                        .percentage(calculatePercentage(count, totalTasks))
+                        .build());
+                continue;
+            }
+
+            responseList.add(StatusDistributionResponse.builder()
+                    .statusId(status.getId())
+                    .statusName(status.getName())
+                    .color(status.getColor())
+                    .taskCount(count)
+                    .percentage(calculatePercentage(count, totalTasks))
+                    .build());
+        }
+
+        return responseList;
+    }
+
+
+    // HEPER METHODS
+
+    // Helper tính phần trăm làm tròn 2 chữ số
+    private Double calculatePercentage(Long count, Long total) {
+        if (total == 0) return 0.0;
+        return Math.round((double) count / total * 10000.0) / 100.0;
     }
 
     // Helper: Map List<Entity> -> List<DTO>

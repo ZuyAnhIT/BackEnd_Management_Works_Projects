@@ -3,8 +3,12 @@ package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
+import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.impl.StatisticsServiceImpl;
+
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,6 +25,10 @@ public class StatisticsController {
         this.statisticsService = statisticsService;
         this.securityService = securityService;
     }
+
+    // ======================================================
+    // API THỐNG KÊ CHUNG (WEEKLY STATISTICS)
+    // ======================================================
 
     // 1. Thống kê cho TOÀN DỰ ÁN (Dành cho Manager/Dashboard Dự án)
     @GetMapping("/projects/{projectId}")
@@ -46,5 +54,34 @@ public class StatisticsController {
         StatisticsResponse stats = statisticsService.getWeeklyStatistics(projectId, currentUserId);
         
         return ResponseEntity.ok(ApiResponse.success("Personal statistics retrieved successfully.", stats));
+    }
+
+    // ======================================================
+    // API BIỂU ĐỒ PHÂN BỐ TRẠNG THÁI (PIE CHART DATA)
+    // ======================================================
+    
+    // 1. Cho DỰ ÁN
+    @GetMapping("/projects/{projectId}/status-distribution")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<StatusDistributionResponse>>> getProjectStatusDistribution(
+            @PathVariable Integer projectId) {
+        
+        List<StatusDistributionResponse> data = statisticsService.getTaskStatusDistribution(projectId, null);
+        
+        // Sửa thông báo sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Status distribution retrieved successfully.", data));
+    }
+
+    // 2. Cho CÁ NHÂN
+    @GetMapping("/me/status-distribution")
+    public ResponseEntity<ApiResponse<List<StatusDistributionResponse>>> getMyStatusDistribution(
+            @RequestParam(required = false) Integer projectId) { // Optional: Lọc theo project cụ thể của tôi
+        
+        Integer currentUserId = securityService.getCurrentUserId();
+        
+        List<StatusDistributionResponse> data = statisticsService.getTaskStatusDistribution(projectId, currentUserId);
+        
+        // Sửa thông báo sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Personal status distribution retrieved successfully.", data));
     }
 }
