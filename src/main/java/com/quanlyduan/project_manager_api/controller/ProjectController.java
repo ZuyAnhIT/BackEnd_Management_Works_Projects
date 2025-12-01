@@ -29,6 +29,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +37,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -345,6 +347,36 @@ public class ProjectController {
 
         // Sửa thông báo sang tiếng Anh
         return ResponseEntity.ok(ApiResponse.success("Grouped task data retrieved successfully.", data));
+    }
+
+    // ======================================================
+    // API XEM LỊCH (CALENDAR VIEW)
+    // ======================================================
+    @GetMapping("/{projectId}/calendar")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<TaskSummaryResponse>>> getProjectCalendar(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+
+            // Thời gian view (Bắt buộc cho Calendar)
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from, // ex: 2025-10-01
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,   // ex: 2025-11-01
+
+            // Filter Params (Optional)
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer assigneeId,
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) TaskType taskType
+    ) {
+
+        List<TaskSummaryResponse> calendarTasks = projectService.getTaskCalendar(
+            companyId, workspaceId, projectId,
+            from, to, keyword, assigneeId, priority, taskType
+        );
+
+        // Sửa thông báo trả về sang tiếng Anh
+        return ResponseEntity.ok(ApiResponse.success("Calendar tasks retrieved successfully.", calendarTasks));
     }
 
     // ========================================================================
