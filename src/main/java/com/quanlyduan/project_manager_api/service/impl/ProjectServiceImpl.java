@@ -1278,7 +1278,7 @@ public class ProjectServiceImpl implements ProjectService {
     /**
      * Helper: Map Task Entity sang TaskSummaryResponse DTO (Cấu trúc Nested).
      */
-    private TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
+    public TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
         User assignee = task.getAssignee();
         Epic epic = task.getEpic();
         com.quanlyduan.project_manager_api.model.ProjectStatus status = task.getStatus();
