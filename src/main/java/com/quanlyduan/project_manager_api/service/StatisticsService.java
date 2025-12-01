@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.service;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.quanlyduan.project_manager_api.dto.response.EpicProgressResponse;
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
@@ -55,5 +56,24 @@ public interface StatisticsService {
             String viewType, 
             String groupBy,
             Integer sprintId, LocalDate from, LocalDate to, List<Integer> statusIds
+    );
+
+    /**
+     * Lấy danh sách tiến độ của các Epic trong dự án.
+     * Tính toán dựa trên số lượng Task và Story Points đã hoàn thành so với tổng số.
+     *
+     * @param projectId  (Bắt buộc) ID của dự án.
+     * @param sprintId   (Tùy chọn) Lọc task trong một Sprint cụ thể thuộc Epic.
+     * @param from       (Tùy chọn) Lọc task bắt đầu từ ngày này.
+     * @param to         (Tùy chọn) Lọc task kết thúc trước ngày này.
+     * @param statusIds  (Tùy chọn) Chỉ tính các task thuộc các trạng thái này (ví dụ: chỉ tính task Active).
+     * @return Danh sách các đối tượng chứa thông tin tiến độ Epic.
+     */
+    List<EpicProgressResponse> getEpicProgress(
+            Integer projectId,
+            Integer sprintId,
+            LocalDate from,
+            LocalDate to,
+            List<Integer> statusIds
     );
 }
