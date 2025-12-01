@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.response.EpicProgressResponse;
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
+import com.quanlyduan.project_manager_api.dto.response.RoadmapItemResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
@@ -10,8 +11,11 @@ import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionRespo
 import com.quanlyduan.project_manager_api.dto.response.WorkloadResponse;
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
+import com.quanlyduan.project_manager_api.repository.EpicRepository;
+import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.specification.TaskSpecification;
 import com.quanlyduan.project_manager_api.service.StatisticsService;
@@ -24,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.quanlyduan.project_manager_api.model.Epic;
 import com.quanlyduan.project_manager_api.model.ProjectStatus;
+import com.quanlyduan.project_manager_api.model.Sprint;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -39,10 +44,14 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     private final TaskRepository taskRepository;
     private final ProjectServiceImpl projectService; // Để dùng mapper
+    private final EpicRepository epicRepository;
+    private final SprintRepository sprintRepository;
 
-    public StatisticsServiceImpl(TaskRepository taskRepository, ProjectServiceImpl projectService) {
+    public StatisticsServiceImpl(TaskRepository taskRepository, ProjectServiceImpl projectService, EpicRepository epicRepository, SprintRepository sprintRepository) {
         this.taskRepository = taskRepository;
         this.projectService = projectService;
+        this.epicRepository = epicRepository;
+        this.sprintRepository = sprintRepository;
     }
 
     // 1. Thống kê tuần (Weekly Statistics)
@@ -395,6 +404,86 @@ public class StatisticsServiceImpl implements StatisticsService {
         response.sort((a, b) -> Double.compare(b.getTaskProgressPercent(), a.getTaskProgressPercent()));
 
         return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoadmapItemResponse> getProjectRoadmap(Integer projectId, String viewType) {
+        List<RoadmapItemResponse> roadmapItems = new ArrayList<>();
+
+        // 1. XỬ LÝ EPICS (NẾU VIEW TYPE LÀ EPIC HOẶC ALL)
+        if ("EPIC".equalsIgnoreCase(viewType) || "ALL".equalsIgnoreCase(viewType)) {
+            List<Epic> epics = epicRepository.findByProject_Id(projectId);
+            
+            // Lấy thống kê task của từng Epic để tính progress
+            // (Tối ưu: Nên dùng 1 query aggregate thay vì loop, nhưng ở đây dùng loop cho dễ hiểu logic)
+            for (Epic epic : epics) {
+                // Tính toán tiến độ
+                List<Task> tasks = taskRepository.findByEpicId(epic.getId());
+                long total = tasks.size();
+                long completed = tasks.stream()
+                        .filter(t -> t.getStatus() != null && Boolean.TRUE.equals(t.getStatus().getIsCompletedStatus()))
+                        .count();
+                double progress = (total == 0) ? 0 : (double) completed / total * 100;
+
+                // Xử lý ngày hiển thị (Nếu null thì lấy ngày tạo hoặc mặc định)
+                LocalDateTime start = epic.getStartDate() != null ? epic.getStartDate().atStartOfDay() : epic.getCreatedAt();
+                LocalDateTime end = epic.getDueDate() != null ? epic.getDueDate().atStartOfDay() : start.plusDays(14); // Mặc định 2 tuần nếu ko có due date
+
+                roadmapItems.add(RoadmapItemResponse.builder()
+                        .id("epic-" + epic.getId())
+                        .originalId(epic.getId())
+                        .title(epic.getName())
+                        .type("EPIC")
+                        .startDate(start)
+                        .endDate(end)
+                        .progress(Math.round(progress * 100.0) / 100.0)
+                        .status(epic.getStatus().name())
+                        .color(epic.getColor() != null ? epic.getColor() : "#9b59b6") // Màu tím mặc định cho Epic
+                        .totalTasks(total)
+                        .completedTasks(completed)
+                        .build());
+            }
+        }
+
+        // 2. XỬ LÝ SPRINTS (NẾU VIEW TYPE LÀ SPRINT HOẶC ALL)
+        if ("SPRINT".equalsIgnoreCase(viewType) || "ALL".equalsIgnoreCase(viewType)) {
+            List<Sprint> sprints = sprintRepository.findByProject_IdOrderByStartDateDesc(projectId);
+
+            for (Sprint sprint : sprints) {
+                // Tính toán tiến độ Sprint
+                long total = taskRepository.countBySprint_Id(sprint.getId());
+                List<Task> incompleteTasks = taskRepository.findIncompleteTasksBySprintId(sprint.getId());
+                long completed = total - incompleteTasks.size();
+                double progress = (total == 0) ? 0 : (double) completed / total * 100;
+
+                // Màu sắc dựa theo trạng thái Sprint
+                String color;
+                if (sprint.getStatus() == SprintStatus.IN_PROGRESS) color = "#2ecc71"; // Xanh lá (Đang chạy)
+                else if (sprint.getStatus() == SprintStatus.COMPLETED) color = "#95a5a6"; // Xám (Xong)
+                else color = "#3498db"; // Xanh dương (Sắp tới)
+
+                // Ngày hiển thị
+                LocalDateTime start = sprint.getStartDate() != null ? sprint.getStartDate() : LocalDateTime.now();
+                LocalDateTime end = sprint.getEndDate() != null ? sprint.getEndDate() : start.plusDays(14);
+
+                roadmapItems.add(RoadmapItemResponse.builder()
+                        .id("sprint-" + sprint.getId())
+                        .originalId(sprint.getId())
+                        .title(sprint.getName())
+                        .type("SPRINT")
+                        .startDate(start)
+                        .endDate(end)
+                        .progress(Math.round(progress * 100.0) / 100.0)
+                        .status(sprint.getStatus().name())
+                        .color(color)
+                        .totalTasks(total)
+                        .completedTasks(completed)
+                        .build());
+            }
+        }
+
+        return roadmapItems;
     }
 
     // HEPER METHODS
