@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service;
 
 import java.util.List;
 
+import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 
@@ -28,4 +29,9 @@ public interface StatisticsService {
      * @return Danh sách các đối tượng chứa thông tin trạng thái, số lượng và phần trăm.
      */
     List<StatusDistributionResponse> getTaskStatusDistribution(Integer projectId, Integer assigneeId);
+
+    /**
+     * Lấy dữ liệu phân bổ mức độ ưu tiên (Urgent, High, Medium, Low).
+     */
+    List<PriorityDistributionResponse> getTaskPriorityDistribution(Integer projectId, Integer assigneeId);
 }

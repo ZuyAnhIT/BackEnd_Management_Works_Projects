@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.security.SecurityService;
@@ -83,5 +84,31 @@ public class StatisticsController {
         
         // Sửa thông báo sang tiếng Anh
         return ResponseEntity.ok(ApiResponse.success("Personal status distribution retrieved successfully.", data));
+    }
+
+    //======================================================
+    // API BIỂU ĐỒ PHÂN BỐ ĐỘ ƯU TIÊN (PRIORITY CHART)
+    // ======================================================
+
+    // 1. Cho DỰ ÁN
+    @GetMapping("/projects/{projectId}/priority-distribution")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<PriorityDistributionResponse>>> getProjectPriorityDistribution(
+            @PathVariable Integer projectId) {
+        
+        List<PriorityDistributionResponse> data = statisticsService.getTaskPriorityDistribution(projectId, null);
+        
+        return ResponseEntity.ok(ApiResponse.success("Priority distribution retrieved successfully.", data));
+    }
+
+    // 2. Cho CÁ NHÂN
+    @GetMapping("/me/priority-distribution")
+    public ResponseEntity<ApiResponse<List<PriorityDistributionResponse>>> getMyPriorityDistribution(
+            @RequestParam(required = false) Integer projectId) {
+        
+        Integer currentUserId = securityService.getCurrentUserId();
+        List<PriorityDistributionResponse> data = statisticsService.getTaskPriorityDistribution(projectId, currentUserId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Personal priority distribution retrieved successfully.", data));
     }
 }

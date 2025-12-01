@@ -1,10 +1,12 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/StatisticsServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.Task;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.service.StatisticsService;
 
@@ -33,7 +35,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     // 1. Thống kê tuần (Weekly Statistics)
     @Transactional(readOnly = true)
     public StatisticsResponse getWeeklyStatistics(Integer projectId, Integer assigneeId) {
-        
+
         // 1. Cấu hình thời gian
         LocalDateTime endDate = LocalDateTime.now();
         LocalDateTime startDate = endDate.minusDays(7);
@@ -63,30 +65,29 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         // 4. --- MAPPING DTO ---
         // Sử dụng hàm helper để code gọn hơn
-        
+
         return StatisticsResponse.builder()
                 .fromDate(startDate.toString())
                 .toDate(endDate.toString())
-                
+
                 .dueSoonCount(dueCount)
                 .dueSoonTasks(mapList(dueTasks))
-                
+
                 .createdCount(createdCount)
                 .createdTasks(mapList(createdTasks))
-                
+
                 .completedCount(completedCount)
                 .completedTasks(mapList(completedTasks))
-                
+
                 .updatedCount(updatedCount)
                 .updatedTasks(mapList(updatedTasks))
                 .build();
     }
 
-
     // 2. Dữ liệu phân bổ trạng thái (Pie Chart Data)
     @Transactional(readOnly = true)
     public List<StatusDistributionResponse> getTaskStatusDistribution(Integer projectId, Integer assigneeId) {
-        
+
         // 1. Gọi Repo lấy dữ liệu thô (Group By)
         List<Object[]> results = taskRepository.countTasksByStatusGroup(projectId, assigneeId);
 
@@ -100,7 +101,7 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         for (Object[] row : results) {
             ProjectStatus status = (ProjectStatus) row[0]; // Phần tử 0 là Entity Status
-            Long count = (Long) row[1];                    // Phần tử 1 là Count
+            Long count = (Long) row[1]; // Phần tử 1 là Count
 
             // Xử lý trường hợp status bị null (nếu có task chưa gán status)
             if (status == null) {
@@ -126,12 +127,55 @@ public class StatisticsServiceImpl implements StatisticsService {
         return responseList;
     }
 
+    // 3. Dữ liệu phân bổ mức độ ưu tiên (Priority Distribution)
+    @Override
+    @Transactional(readOnly = true)
+    public List<PriorityDistributionResponse> getTaskPriorityDistribution(Integer projectId, Integer assigneeId) {
+
+        // 1. Gọi Repo lấy dữ liệu thô
+        List<Object[]> results = taskRepository.countTasksByPriorityGroup(projectId, assigneeId);
+
+        // 2. Tính tổng để tính phần trăm
+        long totalTasks = results.stream()
+                .mapToLong(row -> (Long) row[1])
+                .sum();
+
+        List<PriorityDistributionResponse> responseList = new ArrayList<>();
+
+        for (Object[] row : results) {
+            TaskPriority priority = (TaskPriority) row[0];
+            Long count = (Long) row[1];
+
+            // Xử lý trường hợp priority null (nếu có data cũ)
+            if (priority == null) {
+                responseList.add(PriorityDistributionResponse.builder()
+                        .priorityName("Unknown")
+                        .priorityCode("UNKNOWN")
+                        .color("#bdc3c7") // Xám nhạt
+                        .taskCount(count)
+                        .percentage(calculatePercentage(count, totalTasks))
+                        .build());
+                continue;
+            }
+
+            responseList.add(PriorityDistributionResponse.builder()
+                    .priorityName(priority.name()) // Hoặc switch-case để lấy tên đẹp hơn
+                    .priorityCode(priority.name())
+                    .color(getPriorityColor(priority)) // Hàm lấy màu
+                    .taskCount(count)
+                    .percentage(calculatePercentage(count, totalTasks))
+                    .build());
+        }
+
+        return responseList;
+    }
 
     // HEPER METHODS
 
     // Helper tính phần trăm làm tròn 2 chữ số
     private Double calculatePercentage(Long count, Long total) {
-        if (total == 0) return 0.0;
+        if (total == 0)
+            return 0.0;
         return Math.round((double) count / total * 10000.0) / 100.0;
     }
 
@@ -141,4 +185,21 @@ public class StatisticsServiceImpl implements StatisticsService {
                 .map(projectService::mapToTaskSummaryResponse) // Cần đảm bảo hàm này là PUBLIC trong ProjectService
                 .collect(Collectors.toList());
     }
+
+    // Helper: Định nghĩa màu sắc cho từng mức ưu tiên (Chuẩn Jira/Traffic Light)
+    private String getPriorityColor(TaskPriority priority) {
+        switch (priority) {
+            case URGENT:
+                return "#e74c3c"; // Đỏ (Nguy hiểm)
+            case HIGH:
+                return "#e67e22"; // Cam (Cảnh báo)
+            case MEDIUM:
+                return "#3498db"; // Xanh dương (Bình thường)
+            case LOW:
+                return "#2ecc71"; // Xanh lá (Thư thả)
+            default:
+                return "#95a5a6";
+        }
+    }
+
 }
