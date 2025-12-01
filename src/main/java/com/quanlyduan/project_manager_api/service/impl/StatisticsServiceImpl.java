@@ -5,8 +5,10 @@ import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionRespo
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionResponse;
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.service.StatisticsService;
 
@@ -170,6 +172,41 @@ public class StatisticsServiceImpl implements StatisticsService {
         return responseList;
     }
 
+
+    // 4. Dữ liệu phân bổ loại công việc (Task Type Distribution)
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskTypeDistributionResponse> getTaskTypeDistribution(Integer projectId, Integer assigneeId) {
+
+        // 1. Query dữ liệu thô
+        List<Object[]> results = taskRepository.countTasksByTypeGroup(projectId, assigneeId);
+
+        // 2. Tính tổng
+        long totalTasks = results.stream()
+                .mapToLong(row -> (Long) row[1])
+                .sum();
+
+        List<TaskTypeDistributionResponse> responseList = new ArrayList<>();
+
+        for (Object[] row : results) {
+            TaskType type = (TaskType) row[0];
+            Long count = (Long) row[1];
+
+            if (type == null)
+                continue; // Bỏ qua nếu dữ liệu lỗi không có type
+
+            responseList.add(TaskTypeDistributionResponse.builder()
+                    .typeName(type.name()) // Hoặc format tên đẹp hơn (Title Case)
+                    .typeCode(type.name())
+                    .color(getTypeColor(type)) // Hàm lấy màu
+                    .taskCount(count)
+                    .percentage(calculatePercentage(count, totalTasks))
+                    .build());
+        }
+
+        return responseList;
+    }
+
     // HEPER METHODS
 
     // Helper tính phần trăm làm tròn 2 chữ số
@@ -200,6 +237,25 @@ public class StatisticsServiceImpl implements StatisticsService {
             default:
                 return "#95a5a6";
         }
+    }
+
+    // Helper: Định nghĩa màu sắc chuẩn cho từng loại task
+    private String getTypeColor(TaskType type) {
+        switch (type) {
+            case BUG:
+                return "#e74c3c"; // Đỏ
+            case STORY:
+                return "#2ecc71"; // Xanh lá
+            case EPIC:
+                return "#9b59b6"; // Tím
+            case SUBTASK:
+                return "#34495e"; // Xám xanh
+            case TASK:
+                return "#3498db"; // Xanh dương
+            default:
+                return "#95a5a6"; // Xám nhạt
+        }
+
     }
 
 }

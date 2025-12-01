@@ -285,7 +285,6 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
                         @Param("startDate") LocalDateTime startDate,
                         @Param("endDate") LocalDateTime endDate,
                         Pageable pageable);
-                        
 
         /**
          * Thống kê số lượng Task theo Trạng thái (GROUP BY Status).
@@ -299,7 +298,6 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
         List<Object[]> countTasksByStatusGroup(@Param("projectId") Integer projectId,
                         @Param("assigneeId") Integer assigneeId);
 
-
         /**
          * Thống kê số lượng Task theo Mức độ ưu tiên (GROUP BY Priority).
          * Kết quả trả về List<Object[]>: [TaskPriority enum, Long count]
@@ -310,5 +308,18 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
                         "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) " +
                         "GROUP BY t.priority")
         List<Object[]> countTasksByPriorityGroup(@Param("projectId") Integer projectId,
+                        @Param("assigneeId") Integer assigneeId);
+
+                        
+        /**
+         * Thống kê số lượng Task theo Loại công việc (GROUP BY TaskType).
+         * Kết quả trả về List<Object[]>: [TaskType enum, Long count]
+         */
+        @Query("SELECT t.taskType, COUNT(t) " +
+                        "FROM Task t " +
+                        "WHERE (:projectId IS NULL OR t.project.id = :projectId) " +
+                        "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) " +
+                        "GROUP BY t.taskType")
+        List<Object[]> countTasksByTypeGroup(@Param("projectId") Integer projectId,
                         @Param("assigneeId") Integer assigneeId);
 }
