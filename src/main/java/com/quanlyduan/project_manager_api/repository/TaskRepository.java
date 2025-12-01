@@ -241,7 +241,7 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
                                 @Param("futureDate") LocalDateTime futureDate);
 
 
-   // --- CÁC HÀM MỚI ĐỂ LẤY DANH SÁCH CHI TIẾT ---
+   // --- CÁC HÀM MỚI THỐNG KÊ ---
 
     // 1. Lấy danh sách Task TẠO trong khoảng thời gian
     @Query("SELECT t FROM Task t " +
@@ -288,4 +288,16 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
                                 @Param("endDate") LocalDateTime endDate,
                                 Pageable pageable);
 
+
+    /**
+     * Thống kê số lượng Task theo Trạng thái (GROUP BY Status).
+     * Kết quả trả về List<Object[]>: [ProjectStatus entity, Long count]
+     */
+    @Query("SELECT t.status, COUNT(t) " +
+           "FROM Task t " +
+           "WHERE (:projectId IS NULL OR t.project.id = :projectId) " +
+           "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) " +
+           "GROUP BY t.status")
+    List<Object[]> countTasksByStatusGroup(@Param("projectId") Integer projectId, 
+                                           @Param("assigneeId") Integer assigneeId);
 }
