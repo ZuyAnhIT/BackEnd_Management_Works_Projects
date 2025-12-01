@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/StatisticsServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.dto.response.EpicProgressResponse;
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
@@ -20,6 +21,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.quanlyduan.project_manager_api.model.Epic;
 import com.quanlyduan.project_manager_api.model.ProjectStatus;
 
 import java.math.BigDecimal;
@@ -309,6 +312,87 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         // Sắp xếp theo tổng load giảm dần (người bận nhất lên đầu)
         response.sort((a, b) -> Double.compare(b.getTotalLoad(), a.getTotalLoad()));
+
+        return response;
+    }
+
+
+    // 6.Tiến độ của các Epic trong dự án
+    @Override
+    @Transactional(readOnly = true)
+    public List<EpicProgressResponse> getEpicProgress(
+            Integer projectId, 
+            Integer sprintId, 
+            LocalDate from, LocalDate to,
+            List<Integer> statusIds // Filter: Chỉ tính các task thuộc trạng thái này (nếu cần)
+    ) {
+        
+        // 1. Lấy danh sách Task theo bộ lọc (Sử dụng lại Specification)
+        // Lưu ý: assigneeId = null để lấy toàn bộ team
+        Specification<Task> spec = TaskSpecification.filterTasksForCalendar(
+                projectId, from, to, null, null, null, null
+        );
+
+        // Filter bổ sung (Sprint, Status)
+        if (sprintId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("sprint").get("id"), sprintId));
+        }
+        if (statusIds != null && !statusIds.isEmpty()) {
+            spec = spec.and((root, query, cb) -> root.get("status").get("id").in(statusIds));
+        }
+
+        // Chỉ lấy những task CÓ Epic
+        spec = spec.and((root, query, cb) -> cb.isNotNull(root.get("epic")));
+
+        List<Task> tasks = taskRepository.findAll(spec);
+
+        // 2. Gom nhóm theo Epic
+        Map<Epic, List<Task>> tasksByEpic = tasks.stream()
+                .collect(Collectors.groupingBy(Task::getEpic));
+
+        // 3. Tính toán KPI cho từng Epic
+        List<EpicProgressResponse> response = new ArrayList<>();
+
+        for (Map.Entry<Epic, List<Task>> entry : tasksByEpic.entrySet()) {
+            Epic epic = entry.getKey();
+            List<Task> epicTasks = entry.getValue();
+
+            // Tính tổng
+            long totalTasks = epicTasks.size();
+            long totalPoints = epicTasks.stream().mapToInt(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0).sum();
+
+            // Tính hoàn thành (Dựa vào flag isCompletedStatus trong ProjectStatus)
+            long completedTasks = epicTasks.stream()
+                    .filter(t -> t.getStatus() != null && Boolean.TRUE.equals(t.getStatus().getIsCompletedStatus()))
+                    .count();
+            
+            long completedPoints = epicTasks.stream()
+                    .filter(t -> t.getStatus() != null && Boolean.TRUE.equals(t.getStatus().getIsCompletedStatus()))
+                    .mapToInt(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
+                    .sum();
+
+            // Tính phần trăm
+            double taskPercent = (totalTasks == 0) ? 0 : (double) completedTasks / totalTasks * 100;
+            double pointPercent = (totalPoints == 0) ? 0 : (double) completedPoints / totalPoints * 100;
+
+            response.add(EpicProgressResponse.builder()
+                    .epicId(epic.getId())
+                    .epicName(epic.getName())
+                    .epicCode(epic.getEpicCode())
+                    .color(epic.getColor())
+                    
+                    .totalTasks(totalTasks)
+                    .completedTasks(completedTasks)
+                    .taskProgressPercent(Math.round(taskPercent * 100.0) / 100.0) // Làm tròn 2 số thập phân
+                    
+                    .totalPoints(totalPoints)
+                    .completedPoints(completedPoints)
+                    .pointProgressPercent(Math.round(pointPercent * 100.0) / 100.0)
+                    .build());
+        }
+        
+        // Sắp xếp theo tiến độ giảm dần (hoặc theo tên)
+        response.sort((a, b) -> Double.compare(b.getTaskProgressPercent(), a.getTaskProgressPercent()));
 
         return response;
     }

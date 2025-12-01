@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.EpicProgressResponse;
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
@@ -167,5 +168,23 @@ public class StatisticsController {
         );
         
         return ResponseEntity.ok(ApiResponse.success("Workload distribution retrieved successfully.", workload));
+    }
+
+    // ======================================================
+    // API TIẾN ĐỘ EPIC (EPIC PROGRESS BAR)
+    // ======================================================
+    @GetMapping("/projects/{projectId}/epic-progress")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<EpicProgressResponse>>> getEpicProgress(
+            @PathVariable Integer projectId,
+            @RequestParam(required = false) Integer sprintId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) List<Integer> statusIds
+    ) {
+        
+        List<EpicProgressResponse> data = statisticsService.getEpicProgress(projectId, sprintId, from, to, statusIds);
+        
+        return ResponseEntity.ok(ApiResponse.success("Epic progress retrieved successfully.", data));
     }
 }
