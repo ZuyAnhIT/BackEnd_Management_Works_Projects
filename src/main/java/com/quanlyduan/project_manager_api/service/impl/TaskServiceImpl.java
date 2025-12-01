@@ -560,6 +560,7 @@ public class TaskServiceImpl implements TaskService {
                 .priority(task.getPriority())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
                 .storyPoints(task.getStoryPoints())
+                .startDate(task.getStartDate())
                 .dueDate(task.getDueDate())
                 .sortOrder(task.getSortOrder())
 

@@ -53,6 +53,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -900,6 +901,57 @@ public class ProjectServiceImpl implements ProjectService {
         throw new BadRequestException("Invalid groupBy parameter. Use 'assignee', 'priority', 'status' or 'sprint'.");
     }
 
+    
+    // ======================================================
+    // API XEM LỊCH (CALENDAR VIEW)
+    // ======================================================
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskSummaryResponse> getTaskCalendar(
+            Integer companyId, Integer workspaceId, Integer projectId,
+            LocalDate from, LocalDate to,
+            String keyword, Integer assigneeId, TaskPriority priority, TaskType taskType) {
+
+        // 1. VALIDATE HỆ THỐNG PHÂN CẤP (Hierarchy Validation)
+        Project project = projectRepository.findById(projectId)
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
+
+        // Kiểm tra Project có thuộc Workspace này không
+        if (!project.getWorkspace().getId().equals(workspaceId)) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Project does not belong to the specified Workspace.");
+        }
+
+        // Kiểm tra Workspace có thuộc Company này không
+        if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Workspace does not belong to the specified Company.");
+        }
+
+        // 2. TẠO SPECIFICATION (Bộ lọc)
+        // Gọi hàm filterTasksForCalendar trong TaskSpecification để xử lý logic giao thoa thời gian (Date Range Overlap)
+        Specification<Task> spec = TaskSpecification.filterTasksForCalendar(
+                projectId,
+                from, to, // Khoảng thời gian View (Ví dụ: 01/10 - 31/10)
+                keyword,
+                assigneeId,
+                priority,
+                taskType
+        );
+
+        // 3. QUERY DATABASE
+        // Lấy tất cả task thỏa mãn điều kiện, sắp xếp theo ngày bắt đầu tăng dần để hiển thị đẹp trên lịch
+        // Lưu ý: Không phân trang (Pagination) ở đây vì Calendar thường load hết event trong khung nhìn
+        List<Task> tasks = taskRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "startDate"));
+
+        // 4. MAP SANG DTO & TRẢ VỀ
+        // Sử dụng hàm helper mapToTaskSummaryResponse (đã nâng cấp Nested Object) để dữ liệu đồng nhất với Board/Backlog
+        return tasks.stream()
+                .map(this::mapToTaskSummaryResponse)
+                .collect(Collectors.toList());
+    }
+
     // ------------------------------------------------------------------------
     // NHÓM CHỨC NĂNG: QUẢN LÝ THÀNH VIÊN & LỜI MỜI
     // ------------------------------------------------------------------------
@@ -1262,6 +1314,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .priority(task.getPriority())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
                 .storyPoints(task.getStoryPoints())
+                .startDate(task.getStartDate())
                 .dueDate(task.getDueDate())
                 .sortOrder(task.getSortOrder())
 

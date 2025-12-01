@@ -20,6 +20,7 @@ public class TaskSummaryResponse {
     private TaskPriority priority;
     private Integer sprintId;
     private Integer storyPoints;
+    private LocalDateTime startDate;
     private LocalDateTime dueDate;
     private Integer sortOrder;
 
