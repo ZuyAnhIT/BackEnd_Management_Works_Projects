@@ -20,14 +20,15 @@ public class TaskSpecification {
     // Dùng cho: Board, Backlog, List View, Search
     // ========================================================================
     /**
-     * @param projectId (Bắt buộc) ID dự án
-     * @param sprintId (Tùy chọn) ID Sprint cụ thể.
-     * @param isBacklog (Tùy chọn) Nếu true, Task phải có Sprint IS NULL.
-     * @param keyword (Tùy chọn) Tìm kiếm chung (Title hoặc Code).
+     * @param projectId  (Bắt buộc) ID dự án
+     * @param sprintId   (Tùy chọn) ID Sprint cụ thể.
+     * @param isBacklog  (Tùy chọn) Nếu true, Task phải có Sprint IS NULL.
+     * @param keyword    (Tùy chọn) Tìm kiếm chung (Title hoặc Code).
      * @param assigneeId (Tùy chọn) Tìm theo người được giao.
-     * @param priority (Tùy chọn) Tìm theo độ ưu tiên (Enum).
-     * @param taskType (Tùy chọn) Tìm theo loại task (Enum).
-     * @param statusIds (Tùy chọn) Danh sách ID trạng thái để lọc (Dùng cho List View).
+     * @param priority   (Tùy chọn) Tìm theo độ ưu tiên (Enum).
+     * @param taskType   (Tùy chọn) Tìm theo loại task (Enum).
+     * @param statusIds  (Tùy chọn) Danh sách ID trạng thái để lọc (Dùng cho List
+     *                   View).
      */
     public static Specification<Task> filterTasks(
             Integer projectId,
@@ -37,11 +38,9 @@ public class TaskSpecification {
             Integer assigneeId,
             TaskPriority priority,
             TaskType taskType,
-            List<Integer> statusIds
-    ) {
+            List<Integer> statusIds) {
         // 1. ĐIỀU KIỆN BẮT BUỘC: Thuộc Project
-        Specification<Task> spec = (root, query, cb) ->
-                cb.equal(root.get("project").get("id"), projectId);
+        Specification<Task> spec = (root, query, cb) -> cb.equal(root.get("project").get("id"), projectId);
 
         // 2. LỌC THEO SPRINT HOẶC BACKLOG
         if (isBacklog) {
@@ -94,11 +93,9 @@ public class TaskSpecification {
             String keyword,
             Integer assigneeId,
             TaskPriority priority,
-            TaskType taskType
-    ) {
+            TaskType taskType) {
         return filterTasks(projectId, sprintId, isBacklog, keyword, assigneeId, priority, taskType, null);
     }
-
 
     // ========================================================================
     // 2. BỘ LỌC LỊCH (CALENDAR FILTER) - MỚI
@@ -107,8 +104,8 @@ public class TaskSpecification {
     /**
      * @param projectId ID dự án
      * @param viewStart Ngày bắt đầu của view lịch (VD: 01/10)
-     * @param viewEnd Ngày kết thúc của view lịch (VD: 31/10)
-     * @param keyword, assigneeId... Các filter phụ
+     * @param viewEnd   Ngày kết thúc của view lịch (VD: 31/10)
+     * @param keyword,  assigneeId... Các filter phụ
      */
     public static Specification<Task> filterTasksForCalendar(
             Integer projectId,
@@ -122,29 +119,28 @@ public class TaskSpecification {
             predicates.add(criteriaBuilder.equal(root.get("project").get("id"), projectId));
 
             // 2. Filter theo THỜI GIAN (QUAN TRỌNG)
-            // Logic: Task hiển thị nếu khoảng thời gian của nó GIAO với [viewStart, viewEnd]
+            // Logic: Task hiển thị nếu khoảng thời gian của nó GIAO với [viewStart,
+            // viewEnd]
             // Công thức Range Overlap: (TaskStart <= ViewEnd) AND (TaskEnd >= ViewStart)
-            
+
             // Ở đây ta dùng 'startDate' và 'dueDate' của Task
             // Nếu startDate null, có thể thay thế bằng createdAt hoặc bỏ qua
             // Nếu dueDate null, task đó có thể hiển thị ở ngày start hoặc không hiển thị
-            
+
             if (viewStart != null && viewEnd != null) {
                 // Điều kiện 1: Task bắt đầu trước khi view kết thúc (startDate <= viewEnd)
                 // Dùng coalesce để xử lý null: nếu startDate null thì dùng createdAt
                 Predicate startCondition = criteriaBuilder.lessThanOrEqualTo(
-                    criteriaBuilder.coalesce(root.get("startDate"), root.get("createdAt").as(LocalDate.class)), 
-                    viewEnd
-                );
+                        criteriaBuilder.coalesce(root.get("startDate"), root.get("createdAt").as(LocalDate.class)),
+                        viewEnd);
 
                 // Điều kiện 2: Task kết thúc sau khi view bắt đầu (dueDate >= viewStart)
                 // Nếu dueDate null (task vô hạn), ta coi như nó thỏa mãn (luôn >= viewStart)
                 // Hoặc tùy logic, ở đây giả sử dueDate null thì chỉ check startDate
                 Predicate endCondition = criteriaBuilder.or(
-                    criteriaBuilder.isNull(root.get("dueDate")),
-                    criteriaBuilder.greaterThanOrEqualTo(root.get("dueDate"), viewStart)
-                );
-                
+                        criteriaBuilder.isNull(root.get("dueDate")),
+                        criteriaBuilder.greaterThanOrEqualTo(root.get("dueDate"), viewStart));
+
                 predicates.add(criteriaBuilder.and(startCondition, endCondition));
             }
 
@@ -152,9 +148,8 @@ public class TaskSpecification {
             if (keyword != null && !keyword.trim().isEmpty()) {
                 String likePattern = "%" + keyword.toLowerCase() + "%";
                 predicates.add(criteriaBuilder.or(
-                    criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), likePattern),
-                    criteriaBuilder.like(criteriaBuilder.lower(root.get("taskCode")), likePattern)
-                ));
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), likePattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("taskCode")), likePattern)));
             }
             if (assigneeId != null) {
                 predicates.add(criteriaBuilder.equal(root.get("assignee").get("id"), assigneeId));
@@ -167,9 +162,73 @@ public class TaskSpecification {
             }
 
             // 4. (Tùy chọn) Loại bỏ các task đã xóa mềm hoặc Archived nếu cần
-            // predicates.add(criteriaBuilder.notEqual(root.get("status").get("name"), "Archived"));
+            // predicates.add(criteriaBuilder.notEqual(root.get("status").get("name"),
+            // "Archived"));
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    // ======================================================
+    // 3. CÁC BỘ LỌC THỐNG KÊ (STATISTICS FILTERS) - MỚI
+    // ======================================================
+
+    /**
+     * Tạo Specification cơ bản dựa trên các filter chung (Project, Keyword,
+     * Priority...).
+     * Đây là nền tảng để cộng thêm điều kiện thời gian.
+     */
+    public static Specification<Task> filterBase(
+            Integer projectId, Integer assigneeId,
+            String keyword, TaskPriority priority, TaskType taskType, List<Integer> statusIds) {
+        // Tái sử dụng hàm filterTasks cũ, nhưng set sprintId=null, isBacklog=false để
+        // lấy tất cả
+        return filterTasks(projectId, null, false, keyword, assigneeId, priority, taskType, statusIds);
+    }
+
+    /**
+     * Lọc theo ngày TẠO (Created At) trong khoảng.
+     */
+    public static Specification<Task> createdBetween(LocalDate from, LocalDate to) {
+        return (root, query, cb) -> cb.between(root.get("createdAt").as(LocalDate.class), from, to);
+    }
+
+    /**
+     * Lọc theo ngày HOÀN THÀNH (Completed At) trong khoảng.
+     * Kèm điều kiện status phải là 'isCompletedStatus = true'.
+     */
+    public static Specification<Task> completedBetween(LocalDate from, LocalDate to) {
+        return (root, query, cb) -> {
+            Predicate time = cb.between(root.get("completedAt").as(LocalDate.class), from, to);
+            // Đảm bảo task thực sự đã hoàn thành (dựa vào flag trong status hoặc field
+            // completedAt not null)
+            Predicate isDone = cb.isNotNull(root.get("completedAt"));
+            return cb.and(time, isDone);
+        };
+    }
+
+    /**
+     * Lọc theo ngày CẬP NHẬT (Updated At) trong khoảng.
+     */
+    public static Specification<Task> updatedBetween(LocalDate from, LocalDate to) {
+        return (root, query, cb) -> cb.between(root.get("updatedAt").as(LocalDate.class), from, to);
+    }
+
+    /**
+     * Lọc theo HẠN CHÓT (Due Date) trong khoảng.
+     * Và Task chưa hoàn thành.
+     */
+    public static Specification<Task> dueBetweenAndNotDone(LocalDate from, LocalDate to) {
+        return (root, query, cb) -> {
+            // 1. Hạn chót trong khoảng
+            Predicate time = cb.between(root.get("dueDate").as(LocalDate.class), from, to);
+
+            // 2. Chưa hoàn thành (Status null hoặc isCompletedStatus = false)
+            Predicate notDone = cb.or(
+                    cb.isNull(root.get("status")),
+                    cb.isFalse(root.get("status").get("isCompletedStatus")));
+
+            return cb.and(time, notDone);
         };
     }
 }

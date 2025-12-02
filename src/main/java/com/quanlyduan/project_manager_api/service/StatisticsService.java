@@ -13,6 +13,8 @@ import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionRespo
 import com.quanlyduan.project_manager_api.dto.response.WorkloadResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.EpicStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 
 /**
  * Interface định nghĩa các nghiệp vụ liên quan đến Thống kê và Báo cáo.
@@ -20,12 +22,14 @@ import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 public interface StatisticsService {
 
     /**
-     * Lấy thống kê hoạt động trong 7 ngày gần nhất.
-     * * @param projectId  (Tùy chọn) Nếu có, chỉ thống kê trong dự án này.
-     * @param assigneeId (Tùy chọn) Nếu có, chỉ thống kê công việc của người này.
-     * @return Đối tượng chứa số liệu thống kê và danh sách task sắp đến hạn.
+     * Lấy thống kê tổng quan với bộ lọc linh hoạt (Thời gian, Trạng thái, Priority...).
      */
-    StatisticsResponse getWeeklyStatistics(Integer projectId, Integer assigneeId);
+    StatisticsResponse getOverviewStatistics(
+            Integer projectId, Integer assigneeId,
+            LocalDate from, LocalDate to,
+            String keyword, Integer filterAssigneeId, 
+            TaskPriority priority, TaskType taskType, List<Integer> statusIds
+    );
 
     /**
      * Lấy dữ liệu phân bổ trạng thái (To Do, In Progress, Done...) để vẽ biểu đồ tròn (Pie Chart).

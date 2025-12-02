@@ -25,6 +25,7 @@ import com.quanlyduan.project_manager_api.service.StatisticsService;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,55 +58,86 @@ public class StatisticsServiceImpl implements StatisticsService {
         this.sprintRepository = sprintRepository;
     }
 
-    // 1. Thống kê tuần (Weekly Statistics)
+    // 1. Thống kê tổng quan
+    @Override
     @Transactional(readOnly = true)
-    public StatisticsResponse getWeeklyStatistics(Integer projectId, Integer assigneeId) {
+    public StatisticsResponse getOverviewStatistics(
+            Integer projectId, Integer assigneeId,
+            LocalDate from, LocalDate to,
+            String keyword, Integer filterAssigneeId,
+            TaskPriority priority, TaskType taskType, List<Integer> statusIds
+    ) {
+        // Xử lý assigneeId: 
+        // Nếu API gọi từ "/me" -> assigneeId có giá trị (User đang login)
+        // Nếu API gọi từ "/projects" -> assigneeId = null, nhưng user có thể lọc theo `filterAssigneeId`
+        Integer finalAssigneeId = (assigneeId != null) ? assigneeId : filterAssigneeId;
 
-        // 1. Cấu hình thời gian
-        LocalDateTime endDate = LocalDateTime.now();
-        LocalDateTime startDate = endDate.minusDays(7);
-        LocalDateTime dueSoonLimit = endDate.plusDays(3); // Sắp hết hạn trong 3 ngày tới
+        // 1. Tạo Base Specification (Chứa các điều kiện chung: Project, User, Priority...)
+        Specification<Task> baseSpec = TaskSpecification.filterBase(
+                projectId, finalAssigneeId, keyword, priority, taskType, statusIds
+        );
 
-        // 2. Giới hạn số lượng items trả về trong list (Ví dụ: Top 10)
-        // Để tránh payload quá nặng
-        Pageable limit = PageRequest.of(0, 10);
+        // 2. --- TÍNH TOÁN CÁC CHỈ SỐ ---
 
-        // 3. --- TRUY VẤN DỮ LIỆU ---
+        // A. Số lượng TẠO mới (Base + CreatedAt Between)
+        Specification<Task> createdSpec = baseSpec.and(TaskSpecification.createdBetween(from, to));
+        long createdCount = taskRepository.count(createdSpec);
+        
+        // Lấy danh sách chi tiết (Top 5 mới nhất)
+        Pageable top5Newest = PageRequest.of(0, 5, Sort.by("createdAt").descending());
+        List<Task> createdTasks = taskRepository.findAll(createdSpec, top5Newest).getContent();
 
-        // A. Task Sắp đến hạn (Due Soon)
-        List<Task> dueTasks = taskRepository.findTasksDueSoon(projectId, assigneeId, endDate, dueSoonLimit);
-        long dueCount = dueTasks.size(); // Hoặc count riêng nếu list bị limit
 
-        // B. Task Đã tạo (Created)
-        long createdCount = taskRepository.countCreatedTasks(projectId, assigneeId, startDate, endDate);
-        List<Task> createdTasks = taskRepository.findCreatedTasks(projectId, assigneeId, startDate, endDate, limit);
+        // B. Số lượng HOÀN THÀNH (Base + CompletedAt Between)
+        Specification<Task> completedSpec = baseSpec.and(TaskSpecification.completedBetween(from, to));
+        long completedCount = taskRepository.count(completedSpec);
+        
+        Pageable top5Completed = PageRequest.of(0, 5, Sort.by("completedAt").descending());
+        List<Task> completedTasksList = taskRepository.findAll(completedSpec, top5Completed).getContent();
 
-        // C. Task Đã hoàn thành (Completed)
-        long completedCount = taskRepository.countCompletedTasks(projectId, assigneeId, startDate, endDate);
-        List<Task> completedTasks = taskRepository.findCompletedTasks(projectId, assigneeId, startDate, endDate, limit);
 
-        // D. Task Đã cập nhật (Updated)
-        long updatedCount = taskRepository.countUpdatedTasks(projectId, assigneeId, startDate, endDate);
-        List<Task> updatedTasks = taskRepository.findUpdatedTasks(projectId, assigneeId, startDate, endDate, limit);
+        // C. Số lượng CẬP NHẬT (Base + UpdatedAt Between)
+        Specification<Task> updatedSpec = baseSpec.and(TaskSpecification.updatedBetween(from, to));
+        long updatedCount = taskRepository.count(updatedSpec);
+        
+        Pageable top5Updated = PageRequest.of(0, 5, Sort.by("updatedAt").descending());
+        List<Task> updatedTasks = taskRepository.findAll(updatedSpec, top5Updated).getContent();
 
-        // 4. --- MAPPING DTO ---
-        // Sử dụng hàm helper để code gọn hơn
 
+        // D. SẮP ĐẾN HẠN (Base + DueDate Between + Not Done)
+        // "Sắp đến hạn" thường là tính từ Hiện tại -> Tương lai gần (ví dụ: 3 ngày tới hoặc 7 ngày tới)
+        // Hoặc theo khoảng 'to' mà user chọn. Ở đây ta lấy theo khoảng user chọn để linh hoạt.
+        Specification<Task> dueSoonSpec = baseSpec.and(TaskSpecification.dueBetweenAndNotDone(from, to));
+        
+        // Nếu user chọn khoảng quá khứ, dueSoon có thể = 0. 
+        // Nếu muốn luôn hiển thị "Sắp đến hạn tính từ bây giờ", bạn có thể override `from` = LocalDate.now() ở đây.
+        // Ví dụ: LocalDate dueFrom = LocalDate.now();
+        //        LocalDate dueTo = dueFrom.plusDays(7);
+        //        Specification<Task> dueSoonSpec = baseSpec.and(TaskSpecification.dueBetweenAndNotDone(dueFrom, dueTo));
+        
+        long dueSoonCount = taskRepository.count(dueSoonSpec);
+        
+        // Lấy danh sách (Top 10 sắp hết hạn nhất -> Sort DueDate ASC)
+        Pageable top10Due = PageRequest.of(0, 10, Sort.by("dueDate").ascending());
+        List<Task> dueSoonTasks = taskRepository.findAll(dueSoonSpec, top10Due).getContent();
+
+
+        // 3. --- MAPPING & TRẢ VỀ ---
         return StatisticsResponse.builder()
-                .fromDate(startDate.toString())
-                .toDate(endDate.toString())
-
-                .dueSoonCount(dueCount)
-                .dueSoonTasks(mapList(dueTasks))
-
+                .fromDate(from.toString())
+                .toDate(to.toString())
+                
                 .createdCount(createdCount)
                 .createdTasks(mapList(createdTasks))
-
+                
                 .completedCount(completedCount)
-                .completedTasks(mapList(completedTasks))
-
+                .completedTasks(mapList(completedTasksList))
+                
                 .updatedCount(updatedCount)
                 .updatedTasks(mapList(updatedTasks))
+                
+                .dueSoonCount(dueSoonCount)
+                .dueSoonTasks(mapList(dueSoonTasks))
                 .build();
     }
 

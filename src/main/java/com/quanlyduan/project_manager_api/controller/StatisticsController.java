@@ -11,6 +11,8 @@ import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionRespo
 import com.quanlyduan.project_manager_api.dto.response.WorkloadResponse;
 import com.quanlyduan.project_manager_api.model.common.enums.EpicStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.impl.StatisticsServiceImpl;
 
@@ -39,28 +41,58 @@ public class StatisticsController {
     // API THỐNG KÊ CHUNG (WEEKLY STATISTICS)
     // ======================================================
 
-    // 1. Thống kê cho TOÀN DỰ ÁN (Dành cho Manager/Dashboard Dự án)
+    // Cho DỰ ÁN
     @GetMapping("/projects/{projectId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<StatisticsResponse>> getProjectStatistics(
-            @PathVariable Integer projectId) {
+            @PathVariable Integer projectId,
+
+            // 1. Khoảng thời gian (Tùy chọn, mặc định 7 ngày gần nhất nếu null)
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+
+            // 2. Bộ lọc nâng cao
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer assigneeId, // Lọc theo người cụ thể trong dự án
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) TaskType taskType,
+            @RequestParam(required = false) List<Integer> statusIds // Lọc theo trạng thái cụ thể
+    ) {
         
-        // assigneeId = null để lấy toàn bộ dự án
-        StatisticsResponse stats = statisticsService.getWeeklyStatistics(projectId, null);
+        // Nếu không gửi ngày, tự động lấy 7 ngày qua
+        LocalDate endDate = (to != null) ? to : LocalDate.now();
+        LocalDate startDate = (from != null) ? from : endDate.minusDays(7);
+
+        StatisticsResponse stats = statisticsService.getOverviewStatistics(
+            projectId, null, startDate, endDate, 
+            keyword, assigneeId, priority, taskType, statusIds
+        );
         
         return ResponseEntity.ok(ApiResponse.success("Project statistics retrieved successfully.", stats));
     }
 
-    // 2. Thống kê CÁ NHÂN (Dành cho Dashboard cá nhân / My Work)
+    // Cho CÁ NHÂN (Tương tự)
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<StatisticsResponse>> getMyStatistics(
-            @RequestParam(required = false) Integer projectId) {
+            @RequestParam(required = false) Integer projectId,
+            
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) TaskType taskType,
+            @RequestParam(required = false) List<Integer> statusIds
+    ) {
         
         Integer currentUserId = securityService.getCurrentUserId();
+        LocalDate endDate = (to != null) ? to : LocalDate.now();
+        LocalDate startDate = (from != null) ? from : endDate.minusDays(7);
         
-        // Nếu projectId được gửi lên, xem thống kê của TÔI trong DỰ ÁN ĐÓ
-        // Nếu không gửi projectId, xem thống kê của TÔI trong TẤT CẢ DỰ ÁN
-        StatisticsResponse stats = statisticsService.getWeeklyStatistics(projectId, currentUserId);
+        StatisticsResponse stats = statisticsService.getOverviewStatistics(
+            projectId, currentUserId, startDate, endDate,
+            keyword, null, priority, taskType, statusIds // assigneeId là currentUserId
+        );
         
         return ResponseEntity.ok(ApiResponse.success("Personal statistics retrieved successfully.", stats));
     }
