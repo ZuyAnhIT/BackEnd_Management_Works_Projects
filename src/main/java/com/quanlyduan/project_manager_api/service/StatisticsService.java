@@ -22,12 +22,22 @@ import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 public interface StatisticsService {
 
     /**
-     * Lấy thống kê tổng quan với bộ lọc linh hoạt (Thời gian, Trạng thái, Priority...).
+     * Lấy thống kê tổng quan (Overview) với bộ lọc linh hoạt.
+     * * @param projectId        ID dự án (Bắt buộc nếu xem Project Dashboard).
+     * @param assigneeId       ID người dùng (Nếu xem Personal Dashboard, hệ thống tự truyền).
+     * @param from             Ngày bắt đầu thống kê.
+     * @param to               Ngày kết thúc thống kê.
+     * @param keyword          Từ khóa tìm kiếm task.
+     * @param filterAssigneeId ID người dùng muốn lọc (khi xem Project Dashboard).
+     * @param priority         Độ ưu tiên.
+     * @param taskType         Loại task.
+     * @param statusIds        Danh sách ID trạng thái.
+     * @return Đối tượng chứa các con số thống kê và danh sách chi tiết.
      */
     StatisticsResponse getOverviewStatistics(
             Integer projectId, Integer assigneeId,
             LocalDate from, LocalDate to,
-            String keyword, Integer filterAssigneeId, 
+            String keyword, Integer filterAssigneeId,
             TaskPriority priority, TaskType taskType, List<Integer> statusIds
     );
 

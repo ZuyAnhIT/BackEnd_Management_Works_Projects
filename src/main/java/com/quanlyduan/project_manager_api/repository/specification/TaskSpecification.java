@@ -7,6 +7,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.util.JpaSpecificationUtil;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -173,62 +174,69 @@ public class TaskSpecification {
     // 3. CÁC BỘ LỌC THỐNG KÊ (STATISTICS FILTERS) - MỚI
     // ======================================================
 
-    /**
-     * Tạo Specification cơ bản dựa trên các filter chung (Project, Keyword,
-     * Priority...).
-     * Đây là nền tảng để cộng thêm điều kiện thời gian.
-     */
     public static Specification<Task> filterBase(
             Integer projectId, Integer assigneeId,
-            String keyword, TaskPriority priority, TaskType taskType, List<Integer> statusIds) {
-        // Tái sử dụng hàm filterTasks cũ, nhưng set sprintId=null, isBacklog=false để
-        // lấy tất cả
+            String keyword, TaskPriority priority, TaskType taskType, List<Integer> statusIds
+    ) {
         return filterTasks(projectId, null, false, keyword, assigneeId, priority, taskType, statusIds);
     }
 
     /**
-     * Lọc theo ngày TẠO (Created At) trong khoảng.
+     * Lọc theo ngày TẠO (Created At) trong khoảng thời gian chính xác.
      */
-    public static Specification<Task> createdBetween(LocalDate from, LocalDate to) {
-        return (root, query, cb) -> cb.between(root.get("createdAt").as(LocalDate.class), from, to);
+    public static Specification<Task> createdBetween(LocalDateTime from, LocalDateTime to) {
+        return (root, query, cb) -> {
+            if (from == null || to == null) return null;
+            return cb.between(root.get("createdAt"), from, to);
+        };
     }
 
     /**
-     * Lọc theo ngày HOÀN THÀNH (Completed At) trong khoảng.
-     * Kèm điều kiện status phải là 'isCompletedStatus = true'.
+     * Lọc theo ngày HOÀN THÀNH (Completed At).
      */
-    public static Specification<Task> completedBetween(LocalDate from, LocalDate to) {
+    public static Specification<Task> completedBetween(LocalDateTime from, LocalDateTime to) {
         return (root, query, cb) -> {
-            Predicate time = cb.between(root.get("completedAt").as(LocalDate.class), from, to);
-            // Đảm bảo task thực sự đã hoàn thành (dựa vào flag trong status hoặc field
-            // completedAt not null)
+            if (from == null || to == null) return null;
+            Predicate time = cb.between(root.get("completedAt"), from, to);
             Predicate isDone = cb.isNotNull(root.get("completedAt"));
             return cb.and(time, isDone);
         };
     }
 
     /**
-     * Lọc theo ngày CẬP NHẬT (Updated At) trong khoảng.
+     * Lọc theo ngày CẬP NHẬT (Updated At).
      */
-    public static Specification<Task> updatedBetween(LocalDate from, LocalDate to) {
-        return (root, query, cb) -> cb.between(root.get("updatedAt").as(LocalDate.class), from, to);
+    public static Specification<Task> updatedBetween(LocalDateTime from, LocalDateTime to) {
+        return (root, query, cb) -> {
+            if (from == null || to == null) return null;
+            return cb.between(root.get("updatedAt"), from, to);
+        };
     }
 
     /**
-     * Lọc theo HẠN CHÓT (Due Date) trong khoảng.
-     * Và Task chưa hoàn thành.
+     * Lọc Task SẮP ĐẾN HẠN (Due Date) và CHƯA HOÀN THÀNH.
      */
-    public static Specification<Task> dueBetweenAndNotDone(LocalDate from, LocalDate to) {
+    public static Specification<Task> dueBetweenAndNotDone(LocalDateTime from, LocalDateTime to) {
         return (root, query, cb) -> {
-            // 1. Hạn chót trong khoảng
-            Predicate time = cb.between(root.get("dueDate").as(LocalDate.class), from, to);
+            if (from == null || to == null) return null;
 
-            // 2. Chưa hoàn thành (Status null hoặc isCompletedStatus = false)
-            Predicate notDone = cb.or(
-                    cb.isNull(root.get("status")),
-                    cb.isFalse(root.get("status").get("isCompletedStatus")));
+            // 1. Hạn chót trong khoảng (dueDate là LocalDateTime trong DB)
+            Predicate time = cb.between(root.get("dueDate"), from, to);
 
-            return cb.and(time, notDone);
+            // 2. Chưa hoàn thành: Status null HOẶC isCompletedStatus = false
+            Predicate statusNull = cb.isNull(root.get("status"));
+            
+            // Lưu ý: Cần join bảng status để check flag isCompletedStatus
+            // Nếu dùng root.get("status").get(...) có thể gây lỗi nếu status null
+            // Cách an toàn nhất là dùng OR
+            
+            // Cách đơn giản: Nếu status != null thì check flag
+            Predicate notCompleted = cb.or(
+                statusNull,
+                cb.equal(root.get("status").get("isCompletedStatus"), false)
+            );
+
+            return cb.and(time, notCompleted);
         };
     }
 }
