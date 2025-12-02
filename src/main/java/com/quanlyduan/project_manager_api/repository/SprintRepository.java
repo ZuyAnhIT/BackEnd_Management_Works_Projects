@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.repository;
 import com.quanlyduan.project_manager_api.model.Sprint; // Entity Sprint
 import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,7 +16,7 @@ import java.util.Optional;
 /**
  * Repository cho Entity Sprint (Quản lý các chu kỳ phát triển Scrum/Agile).
  */
-public interface SprintRepository extends JpaRepository<Sprint, Integer> {
+public interface SprintRepository extends JpaRepository<Sprint, Integer>, JpaSpecificationExecutor<Sprint> {
 
     /**
      * Lấy tất cả sprint của một dự án, sắp xếp theo Ngày bắt đầu giảm dần (mới nhất lên đầu).
