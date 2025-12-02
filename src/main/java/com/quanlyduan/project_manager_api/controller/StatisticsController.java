@@ -9,6 +9,8 @@ import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkloadResponse;
+import com.quanlyduan.project_manager_api.model.common.enums.EpicStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.impl.StatisticsServiceImpl;
 
@@ -189,17 +191,33 @@ public class StatisticsController {
         return ResponseEntity.ok(ApiResponse.success("Epic progress retrieved successfully.", data));
     }
 
-    // ======================================================
-    // API ROADMAP / TIMELINE (EPIC & SPRINT)
-    // ======================================================
     @GetMapping("/projects/{projectId}/roadmap")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<List<RoadmapItemResponse>>> getProjectRoadmap(
             @PathVariable Integer projectId,
-            @RequestParam(defaultValue = "ALL") String viewType // EPIC, SPRINT, ALL
+            
+            @RequestParam(defaultValue = "ALL") String viewType,
+            
+            // --- Filter Epic ---
+            @RequestParam(required = false) List<Integer> epicIds,
+            @RequestParam(required = false) List<EpicStatus> epicStatuses,
+            
+            // --- Filter Sprint (MỚI) ---
+            @RequestParam(required = false) List<Integer> sprintIds,
+            @RequestParam(required = false) List<SprintStatus> sprintStatuses,
+            
+            // --- Chung ---
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
         
-        List<RoadmapItemResponse> roadmap = statisticsService.getProjectRoadmap(projectId, viewType);
+        List<RoadmapItemResponse> roadmap = statisticsService.getProjectRoadmap(
+            projectId, viewType, 
+            epicIds, epicStatuses, 
+            sprintIds, sprintStatuses, 
+            keyword, from, to
+        );
         
         return ResponseEntity.ok(ApiResponse.success("Project roadmap retrieved successfully.", roadmap));
     }

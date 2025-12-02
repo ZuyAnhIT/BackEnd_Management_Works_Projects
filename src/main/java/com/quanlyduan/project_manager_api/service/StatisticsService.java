@@ -11,6 +11,8 @@ import com.quanlyduan.project_manager_api.dto.response.StatisticsResponse;
 import com.quanlyduan.project_manager_api.dto.response.StatusDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkloadResponse;
+import com.quanlyduan.project_manager_api.model.common.enums.EpicStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 
 /**
  * Interface định nghĩa các nghiệp vụ liên quan đến Thống kê và Báo cáo.
@@ -79,10 +81,32 @@ public interface StatisticsService {
     );
 
     /**
-     * Lấy dữ liệu cho biểu đồ Roadmap/Timeline.
-     * @param projectId ID dự án.
-     * @param viewType Loại dữ liệu muốn xem ("EPIC", "SPRINT", "ALL").
-     * @return Danh sách các item để vẽ lên trục thời gian.
+     * Lấy dữ liệu cho biểu đồ Roadmap/Timeline (Gantt Chart).
+     * Trả về danh sách các Epic và Sprint đã được chuẩn hóa để vẽ lên trục thời gian.
+     *
+     * @param projectId    (Bắt buộc) ID dự án.
+     * @param viewType     Loại dữ liệu hiển thị: "EPIC", "SPRINT", hoặc "ALL".
+     * @param epicIds      (Tùy chọn) Lọc theo danh sách ID Epic cụ thể.
+     * @param epicStatuses (Tùy chọn) Lọc Epic theo trạng thái (ví dụ: chỉ xem OPEN, IN_PROGRESS).
+     * @param keyword      (Tùy chọn) Tìm kiếm Epic theo tên hoặc mã.
+     * @param sprintIds    (Tùy chọn) Lọc theo danh sách ID Sprint cụ thể.
+     * @param sprintStatuses (Tùy chọn) Lọc Sprint theo trạng thái (ví dụ: chỉ xem IN_PROGRESS, COMPLETED).
+     * @param from         (Tùy chọn) Ngày bắt đầu của khung nhìn timeline (Start View).
+     * @param to           (Tùy chọn) Ngày kết thúc của khung nhìn timeline (End View).
+     * @return Danh sách các item (Epic/Sprint) có thông tin ngày tháng và tiến độ.
      */
-    List<RoadmapItemResponse> getProjectRoadmap(Integer projectId, String viewType);
+    List<RoadmapItemResponse> getProjectRoadmap(
+            Integer projectId,
+            String viewType,        // EPIC, SPRINT, ALL
+            
+            List<Integer> epicIds,
+            List<EpicStatus> epicStatuses,
+            
+            List<Integer> sprintIds,
+            List<SprintStatus> sprintStatuses,
+            
+            String keyword,         // Tìm chung
+            LocalDate from,         // View Start
+            LocalDate to            // View End
+    );
 }
