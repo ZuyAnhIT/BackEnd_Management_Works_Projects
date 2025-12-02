@@ -38,28 +38,26 @@ public class StatisticsController {
     }
 
     // ======================================================
-    // API THỐNG KÊ CHUNG (WEEKLY STATISTICS)
+    // THỐNG KÊ CHO DỰ ÁN 
     // ======================================================
-
-    // Cho DỰ ÁN
     @GetMapping("/projects/{projectId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<StatisticsResponse>> getProjectStatistics(
             @PathVariable Integer projectId,
 
-            // 1. Khoảng thời gian (Tùy chọn, mặc định 7 ngày gần nhất nếu null)
+            // Khoảng thời gian (Optional, Default = 7 ngày qua)
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
 
-            // 2. Bộ lọc nâng cao
+            // Các bộ lọc nâng cao
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Integer assigneeId, // Lọc theo người cụ thể trong dự án
+            @RequestParam(required = false) Integer assigneeId, // Lọc theo thành viên cụ thể
             @RequestParam(required = false) TaskPriority priority,
             @RequestParam(required = false) TaskType taskType,
-            @RequestParam(required = false) List<Integer> statusIds // Lọc theo trạng thái cụ thể
+            @RequestParam(required = false) List<Integer> statusIds
     ) {
         
-        // Nếu không gửi ngày, tự động lấy 7 ngày qua
+        // Logic mặc định thời gian nếu không truyền
         LocalDate endDate = (to != null) ? to : LocalDate.now();
         LocalDate startDate = (from != null) ? from : endDate.minusDays(7);
 
@@ -71,10 +69,9 @@ public class StatisticsController {
         return ResponseEntity.ok(ApiResponse.success("Project statistics retrieved successfully.", stats));
     }
 
-    // Cho CÁ NHÂN (Tương tự)
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<StatisticsResponse>> getMyStatistics(
-            @RequestParam(required = false) Integer projectId,
+            @RequestParam(required = false) Integer projectId, // Lọc theo dự án cụ thể của tôi
             
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -89,9 +86,10 @@ public class StatisticsController {
         LocalDate endDate = (to != null) ? to : LocalDate.now();
         LocalDate startDate = (from != null) ? from : endDate.minusDays(7);
         
+        // Truyền currentUserId vào tham số assigneeId thứ 2
         StatisticsResponse stats = statisticsService.getOverviewStatistics(
             projectId, currentUserId, startDate, endDate,
-            keyword, null, priority, taskType, statusIds // assigneeId là currentUserId
+            keyword, null, priority, taskType, statusIds
         );
         
         return ResponseEntity.ok(ApiResponse.success("Personal statistics retrieved successfully.", stats));

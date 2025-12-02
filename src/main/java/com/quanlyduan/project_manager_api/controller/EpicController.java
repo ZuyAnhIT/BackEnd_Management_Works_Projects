@@ -89,4 +89,18 @@ public class EpicController {
         // Sửa thông báo trả về sang tiếng Anh
         return ResponseEntity.ok(ApiResponse.success("Epic deleted successfully.", null));
     }
+
+    // ======================================================
+    // 5. XEM CHI TIẾT EPIC (GET EPIC DETAILS) 
+    // ======================================================
+    @GetMapping("/{epicId}")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<EpicResponse>> getEpicDetails(
+            @PathVariable Integer projectId,
+            @PathVariable Integer epicId) {
+        
+        EpicResponse epic = epicService.getEpicDetails(projectId, epicId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Epic details retrieved successfully.", epic));
+    }
 }

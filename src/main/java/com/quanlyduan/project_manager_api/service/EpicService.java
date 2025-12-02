@@ -25,6 +25,14 @@ public interface EpicService {
      */
     List<EpicResponse> getEpicsByProject(Integer projectId, String keyword);
 
+    /**
+     * Lấy thông tin chi tiết của một Epic.
+     * @param projectId ID của dự án (để kiểm tra bảo mật/phạm vi)
+     * @param epicId ID của Epic cần lấy
+     * @return DTO thông tin Epic
+     */
+    EpicResponse getEpicDetails(Integer projectId, Integer epicId);
+
     // ========================================================================
     // 2. TẠO & CẬP NHẬT (CRUD)
     // ========================================================================

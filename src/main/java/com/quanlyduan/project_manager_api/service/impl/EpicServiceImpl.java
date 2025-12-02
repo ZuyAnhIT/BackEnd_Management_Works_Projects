@@ -212,6 +212,27 @@ public class EpicServiceImpl implements EpicService {
     }
 
     // ======================================================
+    // 5. XEM CHI TIẾT EPIC (GET EPIC DETAILS)
+    // ======================================================
+    @Override
+    @Transactional(readOnly = true)
+    public EpicResponse getEpicDetails(Integer projectId, Integer epicId) {
+        // 1. Tìm Epic
+        Epic epic = epicRepository.findById(epicId)
+                // Sửa thông báo sang tiếng Anh
+                .orElseThrow(() -> new ResourceNotFoundException("Epic not found with ID: " + epicId));
+
+        // 2. Validate: Epic phải thuộc Project
+        if (!epic.getProject().getId().equals(projectId)) {
+            // Sửa thông báo sang tiếng Anh
+            throw new BadRequestException("Epic does not belong to the specified project.");
+        }
+
+        // 3. Map và Trả về (Tái sử dụng hàm mapToEpicResponse để có cả metrics)
+        return mapToEpicResponse(epic);
+    }
+
+    // ======================================================
     // ⚙️ PRIVATE UTILITY: MAPPER VÀ TÍNH TOÁN METRICS
     // ======================================================
 

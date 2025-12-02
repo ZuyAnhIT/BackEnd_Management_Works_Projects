@@ -37,6 +37,7 @@ import com.quanlyduan.project_manager_api.model.Sprint;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -63,66 +64,81 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Transactional(readOnly = true)
     public StatisticsResponse getOverviewStatistics(
             Integer projectId, Integer assigneeId,
-            LocalDate from, LocalDate to,
+            LocalDate from, LocalDate to, // Nhận vào ngày
             String keyword, Integer filterAssigneeId,
             TaskPriority priority, TaskType taskType, List<Integer> statusIds
     ) {
-        // Xử lý assigneeId: 
-        // Nếu API gọi từ "/me" -> assigneeId có giá trị (User đang login)
-        // Nếu API gọi từ "/projects" -> assigneeId = null, nhưng user có thể lọc theo `filterAssigneeId`
         Integer finalAssigneeId = (assigneeId != null) ? assigneeId : filterAssigneeId;
 
-        // 1. Tạo Base Specification (Chứa các điều kiện chung: Project, User, Priority...)
+        // --- CHUYỂN ĐỔI THỜI GIAN (FIX LỖI LOGIC CŨ) ---
+        // Chuyển từ LocalDate -> LocalDateTime để query chính xác
+        // Ví dụ: from=2025-10-01 -> 2025-10-01 00:00:00
+        //        to=2025-10-07   -> 2025-10-07 23:59:59.999999
+        LocalDateTime startDateTime = from.atStartOfDay();
+        LocalDateTime endDateTime = to.atTime(LocalTime.MAX);
+
+        // 1. Tạo Base Specification (Các điều kiện lọc chung)
         Specification<Task> baseSpec = TaskSpecification.filterBase(
                 projectId, finalAssigneeId, keyword, priority, taskType, statusIds
         );
 
-        // 2. --- TÍNH TOÁN CÁC CHỈ SỐ ---
+        // ---------------------------------------------------
+        // 2. TÍNH TOÁN CÁC CHỈ SỐ (Dùng LocalDateTime)
+        // ---------------------------------------------------
 
-        // A. Số lượng TẠO mới (Base + CreatedAt Between)
-        Specification<Task> createdSpec = baseSpec.and(TaskSpecification.createdBetween(from, to));
+        // A. TẠO MỚI
+        Specification<Task> createdSpec = baseSpec.and(TaskSpecification.createdBetween(startDateTime, endDateTime));
         long createdCount = taskRepository.count(createdSpec);
         
-        // Lấy danh sách chi tiết (Top 5 mới nhất)
         Pageable top5Newest = PageRequest.of(0, 5, Sort.by("createdAt").descending());
         List<Task> createdTasks = taskRepository.findAll(createdSpec, top5Newest).getContent();
 
 
-        // B. Số lượng HOÀN THÀNH (Base + CompletedAt Between)
-        Specification<Task> completedSpec = baseSpec.and(TaskSpecification.completedBetween(from, to));
+        // B. HOÀN THÀNH
+        Specification<Task> completedSpec = baseSpec.and(TaskSpecification.completedBetween(startDateTime, endDateTime));
         long completedCount = taskRepository.count(completedSpec);
         
         Pageable top5Completed = PageRequest.of(0, 5, Sort.by("completedAt").descending());
         List<Task> completedTasksList = taskRepository.findAll(completedSpec, top5Completed).getContent();
 
 
-        // C. Số lượng CẬP NHẬT (Base + UpdatedAt Between)
-        Specification<Task> updatedSpec = baseSpec.and(TaskSpecification.updatedBetween(from, to));
+        // C. CẬP NHẬT
+        Specification<Task> updatedSpec = baseSpec.and(TaskSpecification.updatedBetween(startDateTime, endDateTime));
         long updatedCount = taskRepository.count(updatedSpec);
         
         Pageable top5Updated = PageRequest.of(0, 5, Sort.by("updatedAt").descending());
         List<Task> updatedTasks = taskRepository.findAll(updatedSpec, top5Updated).getContent();
 
 
-        // D. SẮP ĐẾN HẠN (Base + DueDate Between + Not Done)
-        // "Sắp đến hạn" thường là tính từ Hiện tại -> Tương lai gần (ví dụ: 3 ngày tới hoặc 7 ngày tới)
-        // Hoặc theo khoảng 'to' mà user chọn. Ở đây ta lấy theo khoảng user chọn để linh hoạt.
-        Specification<Task> dueSoonSpec = baseSpec.and(TaskSpecification.dueBetweenAndNotDone(from, to));
+        // D. SẮP ĐẾN HẠN (Due Soon)
+        // Logic cũ: Tính từ "bây giờ" đến "3 ngày tới" (hoặc khoảng user chọn)
+        // Ở đây ta dùng khoảng thời gian user chọn, nhưng thường "sắp đến hạn" là tính tương lai.
+        // Nếu user không chọn filter thời gian, mặc định from=now-7, to=now.
+        // Nên ta lấy mốc là: Từ [Hiện tại] -> [Tương lai gần]
         
-        // Nếu user chọn khoảng quá khứ, dueSoon có thể = 0. 
-        // Nếu muốn luôn hiển thị "Sắp đến hạn tính từ bây giờ", bạn có thể override `from` = LocalDate.now() ở đây.
-        // Ví dụ: LocalDate dueFrom = LocalDate.now();
-        //        LocalDate dueTo = dueFrom.plusDays(7);
-        //        Specification<Task> dueSoonSpec = baseSpec.and(TaskSpecification.dueBetweenAndNotDone(dueFrom, dueTo));
+        // Để giống logic cũ (3 ngày tới), ta override lại thời gian cho riêng mục này:
+        LocalDateTime dueFrom = LocalDateTime.now();
+        LocalDateTime dueTo = dueFrom.plusDays(3); // 3 ngày tới
         
+        // Tuy nhiên, nếu user đang muốn lọc theo khoảng thời gian tùy chỉnh (VD: xem task hết hạn tuần sau)
+        // thì ta nên dùng startDateTime và endDateTime của user.
+        // Quyết định: Dùng startDateTime/endDateTime của user nếu có, 
+        // nhưng trong controller ta đã set default là 7 ngày trước -> nay. 
+        // Vậy nên để giống logic "Sắp đến hạn", ta nên dùng logic tương lai.
+        
+        // Logic Hybrid: Nếu user KHÔNG filter custom (tức là đang xem view mặc định) -> Lấy 3 ngày tới.
+        // Nếu user CÓ filter custom -> Lấy theo filter.
+        // Ở đây mình dùng logic: Lấy tasks có due date trong khoảng [Hôm nay] -> [Cuối khoảng user chọn + 3 ngày]
+        // Hoặc đơn giản nhất: Dùng đúng logic cũ: NOW -> NOW + 3 DAYS (Bất kể filter kia là gì, vì đây là mục "Cảnh báo")
+        
+        Specification<Task> dueSoonSpec = baseSpec.and(TaskSpecification.dueBetweenAndNotDone(dueFrom, dueTo));
         long dueSoonCount = taskRepository.count(dueSoonSpec);
         
-        // Lấy danh sách (Top 10 sắp hết hạn nhất -> Sort DueDate ASC)
         Pageable top10Due = PageRequest.of(0, 10, Sort.by("dueDate").ascending());
         List<Task> dueSoonTasks = taskRepository.findAll(dueSoonSpec, top10Due).getContent();
 
 
-        // 3. --- MAPPING & TRẢ VỀ ---
+        // 3. --- MAPPING VÀ TRẢ VỀ ---
         return StatisticsResponse.builder()
                 .fromDate(from.toString())
                 .toDate(to.toString())
