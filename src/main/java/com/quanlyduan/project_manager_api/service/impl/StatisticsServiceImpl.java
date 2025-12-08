@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/StatisticsServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.dto.response.CalendarEventResponse;
 import com.quanlyduan.project_manager_api.dto.response.EpicProgressResponse;
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.RoadmapItemResponse;
@@ -9,6 +10,8 @@ import com.quanlyduan.project_manager_api.dto.response.StatusDistributionRespons
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskTypeDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkloadResponse;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.common.enums.EpicStatus;
@@ -16,6 +19,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.specification.EpicSpecification;
@@ -51,12 +55,14 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final ProjectServiceImpl projectService; // Để dùng mapper
     private final EpicRepository epicRepository;
     private final SprintRepository sprintRepository;
+    private final ProjectRepository projectRepository;
 
-    public StatisticsServiceImpl(TaskRepository taskRepository, ProjectServiceImpl projectService, EpicRepository epicRepository, SprintRepository sprintRepository) {
+    public StatisticsServiceImpl(TaskRepository taskRepository, ProjectServiceImpl projectService, EpicRepository epicRepository, SprintRepository sprintRepository, ProjectRepository projectRepository) {
         this.taskRepository = taskRepository;
         this.projectService = projectService;
         this.epicRepository = epicRepository;
         this.sprintRepository = sprintRepository;
+        this.projectRepository = projectRepository;
     }
 
     // 1. Thống kê tổng quan
@@ -560,6 +566,103 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         return roadmapItems;
     }
+
+    // ======================================================
+    // API XEM LỊCH (CALENDAR VIEW)
+    // ======================================================
+    @Override
+    @Transactional(readOnly = true)
+    public List<CalendarEventResponse> getProjectCalendar(
+            Integer projectId,
+            LocalDate from, LocalDate to,
+            String keyword, Integer assigneeId, TaskPriority priority, TaskType taskType,
+            boolean showSprints
+    ) {
+        // 1. Chỉ cần kiểm tra Project tồn tại
+        // (Quyền truy cập đã được @PreAuthorize lo ở Controller)
+        if (!projectRepository.existsById(projectId)) {
+             throw new ResourceNotFoundException("Project not found with ID: " + projectId);
+        }
+
+        List<CalendarEventResponse> events = new ArrayList<>();
+
+        // -------------------------------------------------
+        // 2. LẤY DỮ LIỆU TASK
+        // -------------------------------------------------
+        Specification<Task> taskSpec = TaskSpecification.filterTasksForCalendar(
+                projectId, from, to, keyword, assigneeId, priority, taskType
+        );
+        
+        List<Task> tasks = taskRepository.findAll(taskSpec);
+
+        for (Task t : tasks) {
+            String color = (t.getStatus() != null && t.getStatus().getColor() != null) 
+                            ? t.getStatus().getColor() 
+                            : "#3b82f6"; 
+
+            // Logic thời gian: Start -> Due -> Created
+            LocalDateTime start = t.getStartDate() != null ? t.getStartDate() : (t.getDueDate() != null ? t.getDueDate() : t.getCreatedAt());
+            LocalDateTime end = t.getDueDate() != null ? t.getDueDate() : start.plusHours(1);
+
+            events.add(CalendarEventResponse.builder()
+                    .id("task-" + t.getId())
+                    .originalId(t.getId())
+                    .title(t.getTaskCode() + " - " + t.getTitle())
+                    .start(start)
+                    .end(end)
+                    .allDay(false)
+                    .type("TASK")
+                    .backgroundColor(color)
+                    .borderColor(color)
+                    .textColor("#ffffff")
+                    .statusName(t.getStatus() != null ? t.getStatus().getName() : "Unknown")
+                    .priority(t.getPriority() != null ? t.getPriority().name() : "")
+                    .assigneeName(t.getAssignee() != null ? t.getAssignee().getFullName() : "Unassigned")
+                    .assigneeAvatar(t.getAssignee() != null ? t.getAssignee().getAvatarUrl() : null)
+                    .build());
+        }
+
+        // -------------------------------------------------
+        // 3. LẤY DỮ LIỆU SPRINT
+        // -------------------------------------------------
+        if (showSprints) {
+            Specification<Sprint> sprintSpec = SprintSpecification.filterSprintsForRoadmap(
+                    projectId, null, null, keyword, from, to
+            );
+            
+            List<Sprint> sprints = sprintRepository.findAll(sprintSpec);
+
+            for (Sprint s : sprints) {
+                String bgColor = "#f3e8ff"; // Tím nhạt
+                String bdColor = "#9333ea"; // Tím đậm
+                
+                if (s.getStatus() == SprintStatus.COMPLETED) {
+                    bgColor = "#f1f5f9"; 
+                    bdColor = "#94a3b8"; 
+                }
+
+                LocalDateTime start = s.getStartDate() != null ? s.getStartDate() : LocalDateTime.now();
+                LocalDateTime end = s.getEndDate() != null ? s.getEndDate() : start.plusDays(14);
+
+                events.add(CalendarEventResponse.builder()
+                        .id("sprint-" + s.getId())
+                        .originalId(s.getId())
+                        .title("Sprint: " + s.getName())
+                        .start(start)
+                        .end(end)
+                        .allDay(true)
+                        .type("SPRINT")
+                        .backgroundColor(bgColor)
+                        .borderColor(bdColor)
+                        .textColor("#333333")
+                        .statusName(s.getStatus().name())
+                        .build());
+            }
+        }
+
+        return events;
+    }
+    
 
     // HEPER METHODS
 
