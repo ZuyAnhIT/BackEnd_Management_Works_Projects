@@ -9,6 +9,7 @@ import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
+import com.quanlyduan.project_manager_api.dto.response.ActivityLogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
@@ -477,4 +478,19 @@ public class ProjectController {
         // Sửa thông báo trả về sang tiếng Anh
         return ResponseEntity.ok(ApiResponse.success("Operation successful.", null));
     }
+
+    // US 5: Xem hoạt động gần đây
+    @GetMapping("/{projectId}/activities")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<ActivityLogResponse>>> getRecentActivities(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId) {
+        
+        return ResponseEntity.ok(ApiResponse.success(
+            "Lấy danh sách hoạt động gần đây thành công.",
+            projectService.getRecentActivities(companyId, workspaceId, projectId)
+        ));
+    }
+
 }

@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
+import com.quanlyduan.project_manager_api.dto.response.ActivityLogResponse;
 import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
@@ -60,12 +61,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
 import org.springframework.beans.factory.annotation.Value;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 import java.util.stream.Collectors;
+
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
@@ -74,16 +77,19 @@ import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
+import com.quanlyduan.project_manager_api.repository.ActivityLogRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectInvitationRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
+import com.quanlyduan.project_manager_api.validation.ProjectHierarchyValidator;
 
 @Service
 public class ProjectServiceImpl implements ProjectService {
 
     private final ProjectRepository projectRepository;
     private final WorkspaceRepository workspaceRepository;
+    private final ActivityLogRepository activityLogRepository;
     private final UserRepository userRepository;
     private final ProjectTypeRepository projectTypeRepository;
     private final ObjectMapper objectMapper;
@@ -99,8 +105,11 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectStatusRepository projectStatusRepository;
     private final CompanyMemberRepository companyMemberRepository;
     private final ProjectInvitationRepository projectInvitationRepository;
+    private final ProjectHierarchyValidator hierarchyValidator;
+
 
     private final EmailService emailService;
+
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -110,6 +119,7 @@ public class ProjectServiceImpl implements ProjectService {
     // ========================================================================
     public ProjectServiceImpl(ProjectRepository projectRepository,
                               WorkspaceRepository workspaceRepository,
+                              ActivityLogRepository activityLogRepository,
                               UserRepository userRepository,
                               ProjectTypeRepository projectTypeRepository,
                               ObjectMapper objectMapper,
@@ -124,10 +134,12 @@ public class ProjectServiceImpl implements ProjectService {
                               FileStorageService fileStorageService,
                               EmailService emailService,
                               CompanyMemberRepository companyMemberRepository,
-                              ProjectInvitationRepository projectInvitationRepository
+                              ProjectInvitationRepository projectInvitationRepository,
+                              ProjectHierarchyValidator hierarchyValidator
                               ) {
         this.projectRepository = projectRepository;
         this.workspaceRepository = workspaceRepository;
+        this.activityLogRepository = activityLogRepository;
         this.userRepository = userRepository;
         this.projectTypeRepository = projectTypeRepository;
         this.objectMapper = objectMapper;
@@ -143,6 +155,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.emailService = emailService;
         this.companyMemberRepository = companyMemberRepository;
         this.projectInvitationRepository = projectInvitationRepository;
+        this.hierarchyValidator = hierarchyValidator;
     }
 
     /**
@@ -1388,4 +1401,36 @@ public class ProjectServiceImpl implements ProjectService {
             System.err.println("Error sending external project invitation email: " + e.getMessage());
         }
     }
+    
+    //Log với các bản ghi
+    @Override
+        @Transactional(readOnly = true)
+        public List<ActivityLogResponse> getRecentActivities(Integer companyId, Integer workspaceId, Integer projectId) {
+            
+            // 1. Validate Hierarchy
+            hierarchyValidator.validateProject(companyId, workspaceId, projectId);
+
+            // 2. Lấy 20 log gần nhất
+            Pageable top20 = PageRequest.of(0, 20);
+            List<ActivityLog> logs = activityLogRepository.findByProjectMembers(projectId, top20);
+
+            // 3. Map sang DTO
+            return logs.stream().map(log -> {
+                User user = userRepository.findById(log.getUserId()).orElse(null);
+                String userName = (user != null) ? user.getFullName() : "Unknown User";
+                String userAvatar = (user != null) ? user.getAvatarUrl() : "";
+
+                return ActivityLogResponse.builder()
+                        .id(log.getId())
+                        .userName(userName)
+                        .userAvatar(userAvatar)
+                        .action(log.getAction())
+                        .entityType(log.getEntityType())
+                        .entityId(log.getEntityId())
+                        .description(log.getNewValue())
+                        .timestamp(log.getCreatedAt())
+                        .build();
+            }).collect(Collectors.toList());
+        }
+
 }
