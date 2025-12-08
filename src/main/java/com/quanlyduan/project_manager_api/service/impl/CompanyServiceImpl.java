@@ -9,6 +9,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.service.CompanyService;
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
@@ -94,6 +95,7 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
+    @LogActivity(action = "CREATE", entityType = "COMPANY", description = "Create new Company") 
     public Company createCompany(CreateCompanyRequest request) {
         // 1. Lấy người dùng đang đăng nhập (người tạo)
         User creator = getCurrentAuthenticatedUser();
@@ -143,6 +145,7 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
+    @LogActivity(action = "INVITE", entityType = "COMPANY_MEMBER", description = "Invite member to Company") // <-- THÊM
     public void inviteMember(Integer companyId, InviteMemberRequest request) {
 
         // 1. Lấy thông tin cần thiết: Admin (người mời) và Công ty
@@ -273,6 +276,7 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE_ROLE", entityType = "COMPANY_MEMBER", description = "Update member role")
     public CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode) {
         // 1. Lấy thông tin thành viên
         CompanyMember member = companyMemberRepository.findById(memberId)
@@ -376,6 +380,7 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
+    @LogActivity(action = "REMOVE", entityType = "COMPANY_MEMBER", description = "Remove member from Company")
     public void removeMemberFromCompany(Integer companyId, Integer userId) {
         // 1. Kiểm tra xem có tự xóa chính mình không
         User admin = getCurrentAuthenticatedUser();
@@ -424,6 +429,7 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "COMPANY", description = "Update Company Info") 
     public CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request, MultipartFile logoFile) {
 
         // 1. Tìm công ty

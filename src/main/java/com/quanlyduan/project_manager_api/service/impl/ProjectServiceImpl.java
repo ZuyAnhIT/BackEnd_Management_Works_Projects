@@ -37,6 +37,7 @@ import com.quanlyduan.project_manager_api.service.FileStorageService;
 import com.quanlyduan.project_manager_api.service.ProjectService;
 import com.quanlyduan.project_manager_api.service.TaskService;
 import com.quanlyduan.project_manager_api.util.SortUtils;
+import com.quanlyduan.project_manager_api.util.TimeUtils;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -1084,7 +1085,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
-    //Log only for User @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update project information")
+    @LogActivity(action = "INVITE", entityType = "PROJECT_MEMBER", description = "Invite member to Project")
     public void inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request) {
         // 1. Tìm Project và lấy thông tin người mời/Công ty
         Project project = projectRepository.findById(projectId)
@@ -1255,6 +1256,8 @@ public class ProjectServiceImpl implements ProjectService {
         return ProjectResponse.builder()
                 .id(p.getId())
                 .workspaceId(p.getWorkspace() != null ? p.getWorkspace().getId() : null)
+                .companyId(p.getWorkspace() != null && p.getWorkspace().getCompany() != null 
+                           ? p.getWorkspace().getCompany().getId() : null)
                 .name(p.getName())
                 .projectCode(p.getProjectCode())
                 .description(p.getDescription())
@@ -1330,6 +1333,9 @@ public class ProjectServiceImpl implements ProjectService {
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
+                .projectId(task.getProject().getId())
+                .workspaceId(task.getProject().getWorkspace().getId())
+                .companyId(task.getProject().getWorkspace().getCompany().getId())
                 .taskType(task.getTaskType())
                 .priority(task.getPriority())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
@@ -1409,35 +1415,6 @@ public class ProjectServiceImpl implements ProjectService {
         }
     }
 
-    //Log với các bản ghi
-    @Override
-        @Transactional(readOnly = true)
-        public List<ActivityLogResponse> getRecentActivities(Integer companyId, Integer workspaceId, Integer projectId) {
-            
-            // 1. Validate Hierarchy
-            hierarchyValidator.validateProject(companyId, workspaceId, projectId);
-
-            // 2. Lấy 20 log gần nhất
-            Pageable top20 = PageRequest.of(0, 20);
-            List<ActivityLog> logs = activityLogRepository.findByProjectMembers(projectId, top20);
-
-            // 3. Map sang DTO
-            return logs.stream().map(log -> {
-                User user = userRepository.findById(log.getUserId()).orElse(null);
-                String userName = (user != null) ? user.getFullName() : "Unknown User";
-                String userAvatar = (user != null) ? user.getAvatarUrl() : "";
-
-                return ActivityLogResponse.builder()
-                        .id(log.getId())
-                        .userName(userName)
-                        .userAvatar(userAvatar)
-                        .action(log.getAction())
-                        .entityType(log.getEntityType())
-                        .entityId(log.getEntityId())
-                        .description(log.getNewValue())
-                        .timestamp(log.getCreatedAt())
-                        .build();
-            }).collect(Collectors.toList());
-        }
+    
 
 }

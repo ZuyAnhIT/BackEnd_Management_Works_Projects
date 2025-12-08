@@ -136,8 +136,10 @@ public class TaskCommentServiceImpl implements TaskCommentService {
                 .commentId(comment.getId())
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
-                .user(commentUser) // Thông tin người viết
-                // .mentionedUsers(mentionedUsersList) // Bỏ qua logic mentioned users
+                .user(commentUser) 
+                .projectId(comment.getTask().getProject().getId())
+                .workspaceId(comment.getTask().getProject().getWorkspace().getId())
+                .companyId(comment.getTask().getProject().getWorkspace().getCompany().getId())
                 .build();
     }
 }

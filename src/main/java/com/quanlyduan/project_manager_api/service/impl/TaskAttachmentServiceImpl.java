@@ -136,6 +136,9 @@ public class TaskAttachmentServiceImpl implements TaskAttachmentService {
                 .uploadedById(a.getUploadedBy().getId())
                 .uploadedByName(a.getUploadedBy().getFullName())
                 .uploadedAt(a.getUploadedAt())
+                .projectId(a.getTask().getProject().getId())
+                .workspaceId(a.getTask().getProject().getWorkspace().getId())
+                .companyId(a.getTask().getProject().getWorkspace().getCompany().getId())
                 .build();
     }
 }

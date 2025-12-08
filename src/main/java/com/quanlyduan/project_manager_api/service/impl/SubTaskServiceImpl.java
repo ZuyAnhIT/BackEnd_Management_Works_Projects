@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/SubTaskServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateSubTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateSubTaskRequest;
 import com.quanlyduan.project_manager_api.dto.response.SubTaskResponse;
@@ -73,6 +74,7 @@ public class SubTaskServiceImpl implements SubTaskService {
     // ======================================================
     // 3. TẠO SUBTASK MỚI (CREATE SUBTASK)
     // ======================================================
+    @LogActivity(action = "CREATE", entityType = "SUBTASK", description = "Create new Subtask")
     @Override
     @Transactional
     public SubTaskResponse createSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, CreateSubTaskRequest request) {
@@ -120,6 +122,7 @@ public class SubTaskServiceImpl implements SubTaskService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "SUBTASK", description = "Update Subtask")
     public SubTaskResponse updateSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId, UpdateSubTaskRequest request) {
         // 1. Validate SubTask và Lấy Entity
         SubTask subTask = validator.validateSubTask(companyId, workspaceId, projectId, taskId, subTaskId);
@@ -155,6 +158,7 @@ public class SubTaskServiceImpl implements SubTaskService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "DELETE", entityType = "SUBTASK", description = "Delete Subtask")
     public void deleteSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId) {
         // 1. Validate SubTask và Lấy Entity (Đảm bảo SubTask thuộc đúng Hierarchy)
         SubTask subTask = validator.validateSubTask(companyId, workspaceId, projectId, taskId, subTaskId);
@@ -172,6 +176,7 @@ public class SubTaskServiceImpl implements SubTaskService {
     private SubTaskResponse mapToResponse(SubTask subTask) {
         return SubTaskResponse.builder()
                 .id(subTask.getId())
+                .projectId(subTask.getParentTask().getProject().getId())
                 .parentTaskId(subTask.getParentTask().getId())
                 .title(subTask.getTitle())
                 .description(subTask.getDescription())

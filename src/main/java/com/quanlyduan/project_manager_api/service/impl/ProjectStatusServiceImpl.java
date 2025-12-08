@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/ProjectStatusServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.ReorderStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateStatusRequest;
@@ -65,6 +66,7 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "CREATE", entityType = "PROJECT", description = "Create new Project Column Status")
     public ProjectStatusResponse createStatus(Integer projectId, CreateProjectStatusRequest request) {
         // 1. Tìm dự án
         Project project = projectRepository.findById(projectId)
@@ -104,6 +106,7 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update Project Column Status")
     public ProjectStatusResponse updateStatus(Integer projectId, Integer statusId, UpdateStatusRequest request) {
         // 1. Tìm Status
         ProjectStatus status = projectStatusRepository.findById(statusId)
@@ -149,6 +152,7 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Rearrange Project Column Position")
     public void reorderStatuses(Integer projectId, ReorderStatusRequest request) {
         // 1. Kiểm tra dự án tồn tại
         if (!projectRepository.existsById(projectId)) {
@@ -194,6 +198,7 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "DELETE", entityType = "PROJECT", description = "Delte Project Column Status")
     public void deleteStatus(Integer projectId, Integer statusId) {
         // 1. Tìm Status
         ProjectStatus status = projectStatusRepository.findById(statusId)

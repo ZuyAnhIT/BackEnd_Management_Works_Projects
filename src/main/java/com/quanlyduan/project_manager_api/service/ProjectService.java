@@ -183,7 +183,4 @@ public interface ProjectService {
          */
         void acceptProjectInvitation(String token);
 
-        // Activity Logs
-         List<ActivityLogResponse> getRecentActivities(Integer companyId, Integer workspaceId, Integer projectId);
-         
 }

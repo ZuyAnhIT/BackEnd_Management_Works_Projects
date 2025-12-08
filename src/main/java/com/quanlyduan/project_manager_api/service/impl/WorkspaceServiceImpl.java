@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/WorkspaceServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
@@ -87,6 +88,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     // LOGIC TẠO WORKSPACE (KÈM UPLOAD ẢNH BÌA)
     @Override
     @Transactional
+    @LogActivity(action = "CREATE", entityType = "WORKSPACE", description = "Create new Workspace")
     public WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request, MultipartFile coverImageFile) {
 
         // 1. Kiểm tra tồn tại Công ty và User tạo
@@ -156,6 +158,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     // LOGIC CẬP NHẬT WORKSPACE (KÈM UPLOAD ẢNH BÌA)
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "WORKSPACE", description = "Update Workspace")
     public WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request, MultipartFile coverImageFile) {
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 // Sửa thông báo sang tiếng Anh
@@ -190,6 +193,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     // LOGIC SOFT DELETE (DELETED)
     @Override
     @Transactional
+    @LogActivity(action = "DELETE", entityType = "WORKSPACE", description = "Delete Workspace")
     public void deleteWorkspace(Integer workspaceId) {
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 // Sửa thông báo sang tiếng Anh
@@ -344,6 +348,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     // LOGIC MỜI THÀNH VIÊN VÀO WORKSPACE
     @Override
     @Transactional
+    @LogActivity(action = "INVITE", entityType = "WORKSPACE_MEMBER", description = "Invite member to Workspace") 
     public void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request) {
         // 1. Lấy thông tin cần thiết
         User admin = securityService.getCurrentAuthenticatedUser();
@@ -443,6 +448,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     // LOGIC XÓA THÀNH VIÊN (SOFT DELETE: REMOVED)
     @Override
     @Transactional
+    @LogActivity(action = "REMOVE", entityType = "WORKSPACE_MEMBER", description = "Remove member from Workspace") 
     public void removeMemberFromWorkspace(Integer companyId, Integer workspaceId, Integer memberId) {
         // 1. Tìm thành viên
         WorkspaceMember member = workspaceMemberRepository.findById(memberId)

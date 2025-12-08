@@ -16,6 +16,9 @@ public class TaskSummaryResponse {
     private Integer id;
     private String taskCode;
     private String title;
+    private Integer projectId;
+    private Integer workspaceId;
+    private Integer companyId;
     private TaskType taskType;
     private TaskPriority priority;
     private Integer sprintId;

@@ -28,6 +28,8 @@ public class TaskResponse {
     // ========================================================================
     private Integer id;
     private String taskCode;    // Ví dụ: WEB-01
+    private Integer workspaceId;
+    private Integer companyId;
     private String title;
     private String description; // Chi tiết mô tả
 

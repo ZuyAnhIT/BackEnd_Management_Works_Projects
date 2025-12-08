@@ -463,6 +463,8 @@ public class TaskServiceImpl implements TaskService {
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
+                .workspaceId(task.getProject().getWorkspace().getId())
+                .companyId(task.getProject().getWorkspace().getCompany().getId())
                 .description(task.getDescription())
                 .taskType(task.getTaskType())
                 .priority(task.getPriority())
@@ -574,6 +576,9 @@ public class TaskServiceImpl implements TaskService {
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
+                .projectId(task.getProject() != null ? task.getProject().getId() : null)
+                .workspaceId(task.getProject().getWorkspace().getId())
+                .companyId(task.getProject().getWorkspace().getCompany().getId())
                 .taskType(task.getTaskType())
                 .priority(task.getPriority())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
@@ -602,7 +607,7 @@ public class TaskServiceImpl implements TaskService {
                         .name(assignee.getFullName())
                         .avatarUrl(assignee.getAvatarUrl())
                         .build() : null)
-
+  
                 // Mapping Tags List
                 .tags(tagInfos)
 
