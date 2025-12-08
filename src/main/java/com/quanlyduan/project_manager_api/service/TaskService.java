@@ -68,7 +68,7 @@ public interface TaskService {
      * @return TaskResponse sau khi cập nhật.
      */
     TaskResponse updateTaskEpic(Integer taskId, UpdateTaskEpicRequest request);
-
+    void deleteTask(Integer taskId);
     // ========================================================================
     // 3. HÀM HELPER
     // ========================================================================
