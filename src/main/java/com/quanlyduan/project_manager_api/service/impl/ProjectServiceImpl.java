@@ -947,20 +947,31 @@ public class ProjectServiceImpl implements ProjectService {
     // ======================================================
     @Override
     @Transactional(readOnly = true)
-    public PageResponseDTO<TaskSummaryResponse> getArchivedTasks(Integer projectId, int page, int size) {
-        // 1. Validate
+    public PageResponseDTO<TaskSummaryResponse> getArchivedTasks(
+            Integer projectId, 
+            String keyword, Integer assigneeId, TaskPriority priority, TaskType taskType,
+            int page, int size) {
+        
+        // 1. Validate Project tồn tại
         if (!projectRepository.existsById(projectId)) {
             throw new ResourceNotFoundException("Project not found with ID: " + projectId);
         }
 
-        // 2. Gọi Specification với isArchived = TRUE
-        // Các tham số filter khác để null (có thể mở rộng sau nếu muốn tìm kiếm trong thùng rác)
+        // 2. Gọi Specification để lọc
+        // Lưu ý tham số cuối cùng là TRUE (isArchived = true)
         Specification<Task> spec = TaskSpecification.filterTasks(
-            projectId, null, false, null, null, null, null, null, 
-            true // *** QUAN TRỌNG: isArchived = true ***
+            projectId, 
+            null,   // sprintId (Archived thường ko quan tâm sprint, hoặc để null để lấy all)
+            false,  // isBacklog (false vì archived ko phải backlog active)
+            keyword, 
+            assigneeId, 
+            priority, 
+            taskType, 
+            null,   // statusIds
+            true    // *** QUAN TRỌNG: isArchived = true ***
         );
         
-        // 3. Phân trang, sắp xếp theo ngày cập nhật mới nhất
+        // 3. Phân trang, sắp xếp theo ngày cập nhật mới nhất (để thấy task vừa archive ở đầu)
         Pageable pageable = PageRequest.of(page, size, Sort.by("updatedAt").descending());
         
         Page<Task> tasks = taskRepository.findAll(spec, pageable);
