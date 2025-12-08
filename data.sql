@@ -335,6 +335,7 @@ CREATE TABLE tasks (
     task_type ENUM('STORY', 'TASK', 'BUG', 'EPIC', 'SUBTASK') DEFAULT 'TASK',
     status_id INT, 
     priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') DEFAULT 'MEDIUM',
+    is_archived BOOLEAN DEFAULT FALSE,
     assigner_id INT,
     assignee_id INT,
     reviewer_id INT,
