@@ -69,6 +69,12 @@ public interface TaskService {
      */
     TaskResponse updateTaskEpic(Integer taskId, UpdateTaskEpicRequest request);
 
+    // Lưu trữ task
+    void archiveTask(Integer taskId);
+
+    // Khôi phục task
+    void restoreTask(Integer taskId);
+
     // ========================================================================
     // 3. HÀM HELPER
     // ========================================================================

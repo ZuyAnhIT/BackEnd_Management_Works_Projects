@@ -379,6 +379,22 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success("Calendar tasks retrieved successfully.", calendarTasks));
     }
 
+    // API XEM DANH SÁCH TASK ĐÃ LƯU TRỮ (ARCHIVE BIN)
+    @GetMapping("/{projectId}/archived-tasks")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<TaskSummaryResponse>>> getArchivedTasks(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        // Ta dùng lại hàm getProjectTaskList nhưng truyền tham số statusIds=null và isArchived=TRUE
+        PageResponseDTO<TaskSummaryResponse> archivedTasks = projectService.getArchivedTasks(projectId, page, size);
+        
+        return ResponseEntity.ok(ApiResponse.success("Archived tasks retrieved successfully.", archivedTasks));
+    }
+
     // ========================================================================
     // C. QUẢN LÝ THÀNH VIÊN DỰ ÁN
     // ========================================================================
