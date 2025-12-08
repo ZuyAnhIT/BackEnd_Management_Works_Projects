@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/EpicServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateEpicRequest;
 import com.quanlyduan.project_manager_api.dto.response.EpicResponse;
@@ -68,6 +69,7 @@ public class EpicServiceImpl implements EpicService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "CREATE", entityType = "EPIC", description = "Create new Epic")
     public EpicResponse createEpic(Integer projectId, CreateEpicRequest request) {
 
         // Lấy thông tin người tạo hiện tại
@@ -119,6 +121,7 @@ public class EpicServiceImpl implements EpicService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "EPIC", description = "Update Epic")
     public EpicResponse updateEpic(Integer projectId, Integer epicId, UpdateEpicRequest request) {
         // 1. Tìm Epic
         Epic epic = epicRepository.findById(epicId)
@@ -186,6 +189,7 @@ public class EpicServiceImpl implements EpicService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "DELETE", entityType = "EPIC", description = "Delete Epic")
     public void deleteEpic(Integer projectId, Integer epicId) {
         // 1. Tìm Epic
         Epic epic = epicRepository.findById(epicId)
