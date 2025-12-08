@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/TagServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateTagRequest;
 import com.quanlyduan.project_manager_api.dto.request.TagFilterRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTagRequest;
@@ -67,6 +68,7 @@ public class TagServiceImpl implements TagService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "CREATE", entityType = "TAG", description = "Create new Tag")
     public TagResponse createTag(Integer companyId, Integer workspaceId, Integer projectId, CreateTagRequest request) {
         // 1. Validate và Lấy Project
         Project project = validator.validateProject(companyId, workspaceId, projectId);
@@ -99,6 +101,7 @@ public class TagServiceImpl implements TagService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "TAG", description = "Update Tag")
     public TagResponse updateTag(Integer companyId, Integer workspaceId, Integer projectId, Integer tagId, UpdateTagRequest request) {
         // 1. Validate và Lấy Tag (kiểm tra full hierarchy)
         Tag tag = validator.validateTag(companyId, workspaceId, projectId, tagId);
@@ -134,6 +137,7 @@ public class TagServiceImpl implements TagService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "DELETE", entityType = "TAG", description = "Delete Tag")
     public void deleteTag(Integer companyId, Integer workspaceId, Integer projectId, Integer tagId) {
         // 1. Validate và Lấy Tag
         Tag tag = validator.validateTag(companyId, workspaceId, projectId, tagId);
@@ -147,6 +151,7 @@ public class TagServiceImpl implements TagService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "ASSIGN_TAG", entityType = "TASK", description = "Assign Tag to Task")
     public List<TagResponse> assignTagToTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer tagId) {
         // 1. Validate Task và Tag
         Task task = validator.validateTask(companyId, workspaceId, projectId, taskId);
@@ -173,6 +178,7 @@ public class TagServiceImpl implements TagService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "REMOVE_TAG", entityType = "TASK", description = "Remove Tag from Task")
     public List<TagResponse> removeTagFromTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer tagId) {
         // 1. Validate Task và Tag
         Task task = validator.validateTask(companyId, workspaceId, projectId, taskId);
