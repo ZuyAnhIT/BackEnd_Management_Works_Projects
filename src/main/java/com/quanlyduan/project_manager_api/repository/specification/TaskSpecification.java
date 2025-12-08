@@ -5,14 +5,13 @@ import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.util.JpaSpecificationUtil;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.springframework.data.jpa.domain.Specification;
-import jakarta.persistence.criteria.Predicate;
 
 public class TaskSpecification {
 
@@ -28,8 +27,8 @@ public class TaskSpecification {
      * @param assigneeId (Tùy chọn) Tìm theo người được giao.
      * @param priority   (Tùy chọn) Tìm theo độ ưu tiên (Enum).
      * @param taskType   (Tùy chọn) Tìm theo loại task (Enum).
-     * @param statusIds  (Tùy chọn) Danh sách ID trạng thái để lọc (Dùng cho List
-     *                   View).
+     * @param statusIds  (Tùy chọn) Danh sách ID trạng thái để lọc (Dùng cho List View).
+     * @param isArchived (Tùy chọn) Lọc theo trạng thái lưu trữ (Mới thêm).
      */
     public static Specification<Task> filterTasks(
             Integer projectId,
@@ -39,9 +38,23 @@ public class TaskSpecification {
             Integer assigneeId,
             TaskPriority priority,
             TaskType taskType,
-            List<Integer> statusIds) {
+            List<Integer> statusIds,
+            // MỚI THÊM: Tham số lọc Archive
+            Boolean isArchived
+    ) {
         // 1. ĐIỀU KIỆN BẮT BUỘC: Thuộc Project
         Specification<Task> spec = (root, query, cb) -> cb.equal(root.get("project").get("id"), projectId);
+
+        // --- LOGIC LỌC ARCHIVE (MỚI) ---
+        if (isArchived != null) {
+            // Nếu true: Chỉ lấy task đã lưu trữ
+            // Nếu false: Chỉ lấy task chưa lưu trữ
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("isArchived"), isArchived));
+        } else {
+            // Mặc định an toàn: Chỉ lấy task CHƯA lưu trữ (cho các hàm cũ gọi thiếu tham số này)
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("isArchived"), false));
+        }
+        // ------------------------------
 
         // 2. LỌC THEO SPRINT HOẶC BACKLOG
         if (isBacklog) {
@@ -86,6 +99,7 @@ public class TaskSpecification {
     /**
      * (Wrapper) Hàm tương thích ngược/tiện ích cho logic Backlog.
      * Hàm này chỉ gọi hàm tổng quát 'filterTasks' và gán statusIds = null.
+     * Mặc định lấy task chưa lưu trữ (isArchived = false).
      */
     public static Specification<Task> filterBacklog(
             Integer projectId,
@@ -95,19 +109,32 @@ public class TaskSpecification {
             Integer assigneeId,
             TaskPriority priority,
             TaskType taskType) {
-        return filterTasks(projectId, sprintId, isBacklog, keyword, assigneeId, priority, taskType, null);
+        // Truyền false vào cuối để chỉ lấy task chưa archive
+        return filterTasks(projectId, sprintId, isBacklog, keyword, assigneeId, priority, taskType, null, false);
     }
 
+    /**
+     * (Overload) Hàm tương thích ngược cho các đoạn code cũ chỉ gọi với 8 tham số.
+     * Mặc định lấy task chưa lưu trữ.
+     */
+    public static Specification<Task> filterTasks(
+            Integer projectId,
+            Integer sprintId,
+            boolean isBacklog,
+            String keyword,
+            Integer assigneeId,
+            TaskPriority priority,
+            TaskType taskType,
+            List<Integer> statusIds
+    ) {
+        return filterTasks(projectId, sprintId, isBacklog, keyword, assigneeId, priority, taskType, statusIds, false);
+    }
+
+
     // ========================================================================
-    // 2. BỘ LỌC LỊCH (CALENDAR FILTER) - MỚI
+    // 2. BỘ LỌC LỊCH (CALENDAR FILTER)
     // Dùng cho: Calendar View (Tìm task trong khoảng thời gian)
     // ========================================================================
-    /**
-     * @param projectId ID dự án
-     * @param viewStart Ngày bắt đầu của view lịch (VD: 01/10)
-     * @param viewEnd   Ngày kết thúc của view lịch (VD: 31/10)
-     * @param keyword,  assigneeId... Các filter phụ
-     */
     public static Specification<Task> filterTasksForCalendar(
             Integer projectId,
             LocalDate viewStart, LocalDate viewEnd,
@@ -119,25 +146,17 @@ public class TaskSpecification {
             // 1. Filter theo Project (Bắt buộc)
             predicates.add(criteriaBuilder.equal(root.get("project").get("id"), projectId));
 
+            // *** MỚI THÊM: Không hiện task đã lưu trữ trên lịch ***
+            predicates.add(criteriaBuilder.equal(root.get("isArchived"), false));
+
             // 2. Filter theo THỜI GIAN (QUAN TRỌNG)
-            // Logic: Task hiển thị nếu khoảng thời gian của nó GIAO với [viewStart,
-            // viewEnd]
-            // Công thức Range Overlap: (TaskStart <= ViewEnd) AND (TaskEnd >= ViewStart)
-
-            // Ở đây ta dùng 'startDate' và 'dueDate' của Task
-            // Nếu startDate null, có thể thay thế bằng createdAt hoặc bỏ qua
-            // Nếu dueDate null, task đó có thể hiển thị ở ngày start hoặc không hiển thị
-
             if (viewStart != null && viewEnd != null) {
-                // Điều kiện 1: Task bắt đầu trước khi view kết thúc (startDate <= viewEnd)
-                // Dùng coalesce để xử lý null: nếu startDate null thì dùng createdAt
+                // Điều kiện 1: Task bắt đầu trước khi view kết thúc
                 Predicate startCondition = criteriaBuilder.lessThanOrEqualTo(
                         criteriaBuilder.coalesce(root.get("startDate"), root.get("createdAt").as(LocalDate.class)),
                         viewEnd);
 
-                // Điều kiện 2: Task kết thúc sau khi view bắt đầu (dueDate >= viewStart)
-                // Nếu dueDate null (task vô hạn), ta coi như nó thỏa mãn (luôn >= viewStart)
-                // Hoặc tùy logic, ở đây giả sử dueDate null thì chỉ check startDate
+                // Điều kiện 2: Task kết thúc sau khi view bắt đầu
                 Predicate endCondition = criteriaBuilder.or(
                         criteriaBuilder.isNull(root.get("dueDate")),
                         criteriaBuilder.greaterThanOrEqualTo(root.get("dueDate"), viewStart));
@@ -145,7 +164,7 @@ public class TaskSpecification {
                 predicates.add(criteriaBuilder.and(startCondition, endCondition));
             }
 
-            // 3. Các filter phụ (Copy logic từ filterTasks)
+            // 3. Các filter phụ
             if (keyword != null && !keyword.trim().isEmpty()) {
                 String likePattern = "%" + keyword.toLowerCase() + "%";
                 predicates.add(criteriaBuilder.or(
@@ -162,10 +181,6 @@ public class TaskSpecification {
                 predicates.add(criteriaBuilder.equal(root.get("taskType"), taskType));
             }
 
-            // 4. (Tùy chọn) Loại bỏ các task đã xóa mềm hoặc Archived nếu cần
-            // predicates.add(criteriaBuilder.notEqual(root.get("status").get("name"),
-            // "Archived"));
-
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
     }
@@ -178,7 +193,8 @@ public class TaskSpecification {
             Integer projectId, Integer assigneeId,
             String keyword, TaskPriority priority, TaskType taskType, List<Integer> statusIds
     ) {
-        return filterTasks(projectId, null, false, keyword, assigneeId, priority, taskType, statusIds);
+        // Mặc định lấy task chưa lưu trữ cho thống kê
+        return filterTasks(projectId, null, false, keyword, assigneeId, priority, taskType, statusIds, false);
     }
 
     /**

@@ -92,6 +92,22 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success("Task Epic updated successfully.", task));
     }
 
+    // API LƯU TRỮ TASK
+    @PatchMapping("/{taskId}/archive")
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:edit')")
+    public ResponseEntity<ApiResponse<Object>> archiveTask(@PathVariable Integer taskId) {
+        taskService.archiveTask(taskId);
+        return ResponseEntity.ok(ApiResponse.success("Task archived successfully.", null));
+    }
+
+    // API KHÔI PHỤC TASK
+    @PatchMapping("/{taskId}/restore")
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:edit')")
+    public ResponseEntity<ApiResponse<Object>> restoreTask(@PathVariable Integer taskId) {
+        taskService.restoreTask(taskId);
+        return ResponseEntity.ok(ApiResponse.success("Task restored successfully.", null));
+    }
+
     // ======================================================
     // B. KÉO THẢ & TRẠNG THÁI
     // ======================================================
