@@ -23,23 +23,37 @@ public class ActivityLog {
     private Integer userId;
 
     @Column(name = "action", nullable = false)
-    private String action;
+    private String action; // CREATE, UPDATE, DELETE, COMMENT, LOGIN
 
     @Column(name = "entity_type")
-    private String entityType;
+    private String entityType; // PROJECT, TASK, SUBTASK
 
     @Column(name = "entity_id")
     private Integer entityId;
+
+    // --- Nâng cấp để lọc 4 cấp độ ---
+    @Column(name = "company_id")
+    private Integer companyId;
+
+    @Column(name = "workspace_id")
+    private Integer workspaceId;
+
+    @Column(name = "project_id")
+    private Integer projectId;
+    // --------------------------------
 
     @Column(name = "old_value", columnDefinition = "TEXT")
     private String oldValue;
 
     @Column(name = "new_value", columnDefinition = "TEXT")
-    private String newValue;
+    private String newValue; // Chứa nội dung mô tả chi tiết (ví dụ: "changed status from To Do to Done")
 
     @Column(name = "ip_address")
     private String ipAddress;
 
+    @Column(name = "user_agent")
+    private String userAgent;
+    
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
