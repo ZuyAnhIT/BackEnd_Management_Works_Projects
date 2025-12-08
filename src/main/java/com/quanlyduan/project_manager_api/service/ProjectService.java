@@ -167,10 +167,14 @@ public interface ProjectService {
                         String keyword, Integer assigneeId, TaskPriority priority, TaskType taskType);
 
         /**
-         * Lấy danh sách các Task đã được lưu trữ (Archived Tasks).
+         * Lấy danh sách các Task đã được lưu trữ (Archived Tasks) với bộ lọc.
          */
         PageResponseDTO<TaskSummaryResponse> getArchivedTasks(
                         Integer projectId,
+                        String keyword,
+                        Integer assigneeId,
+                        TaskPriority priority,
+                        TaskType taskType,
                         int page,
                         int size);
 
