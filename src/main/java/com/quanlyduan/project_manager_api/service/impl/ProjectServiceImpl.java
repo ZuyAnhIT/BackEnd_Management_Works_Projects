@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/ProjectServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.response.ActivityLogResponse;
@@ -174,6 +175,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    @LogActivity(action = "CREATE", entityType = "PROJECT", description = "Create new Project")
     public ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId, MultipartFile coverImageFile) {
         // (1) Kiểm tra workspace tồn tại và thuộc đúng companyId
         Workspace workspace = workspaceRepository.findById(workspaceId)
@@ -285,6 +287,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    @LogActivity(action = "DELETE", entityType = "PROJECT", description = "Delete Project")
     public void deleteProject(Integer companyId, Integer workspaceId, Integer projectId) {
         // 1. Kiểm tra Workspace Hierarchy
         Workspace workspace = workspaceRepository.findById(workspaceId)
@@ -314,6 +317,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update Project Status")
     public ProjectResponse updateProjectStatus(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectStatusRequest request) {
         // 1. Kiểm tra Workspace Hierarchy
         Workspace workspace = workspaceRepository.findById(workspaceId)
@@ -359,6 +363,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update project information")
     public ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request, MultipartFile coverImageFile) {
 
         // 1. Tìm và Kiểm tra Workspace Hierarchy
@@ -1029,6 +1034,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update Project Member Role")
     public ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode) {
         // 1. Lấy thông tin thành viên
         ProjectMember member = projectMemberRepository.findById(memberId)
@@ -1078,6 +1084,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    //Log only for User @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update project information")
     public void inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request) {
         // 1. Tìm Project và lấy thông tin người mời/Công ty
         Project project = projectRepository.findById(projectId)
@@ -1372,9 +1379,9 @@ public class ProjectServiceImpl implements ProjectService {
 
             String subject = "You have been added to the project: " + project.getName();
             String body = String.format(
-                "Xin chào %s,<br><br>" +
-                "%s đã thêm bạn vào dự án <strong>%s</strong> với vai trò <strong>%s</strong>.<br>" +
-                "Truy cập dự án tại đây: <a href=\"%s\">View Project</a>",
+                "Hi %s,<br><br>" +
+                "%s has included you into project <strong>%s</strong> with role <strong>%s</strong>.<br>" +
+                "Please access project with this link: <a href=\"%s\">View Project</a>",
                 user.getFullName(), inviter.getFullName(), project.getName(), role.getRoleName(), projectUrl
             );
             emailService.sendEmail(user.getEmail(), subject, body);
@@ -1389,11 +1396,11 @@ public class ProjectServiceImpl implements ProjectService {
             String acceptUrl = frontendUrl + "/accept-project-invitation?token=" + token;
             String subject = "Project Invitation: " + project.getName();
             String body = String.format(
-                "Xin chào,<br><br>" +
-                "%s đã mời bạn tham gia dự án <strong>%s</strong> với vai trò <strong>%s</strong>.<br>" +
-                "Vui lòng nhấp vào liên kết dưới đây để chấp nhận lời mời:<br>" +
+                "Hi,<br><br>" +
+                "%s has invited you into project<strong>%s</strong> with role <strong>%s</strong>.<br>" +
+                "Please click the link below to accept the invitation:<br>" +
                 "<a href=\"%s\">Accept Invitation</a><br><br>" +
-                "Liên kết này sẽ hết hạn sau 7 ngày.",
+                "This link will expire in 7 days.",
                 inviter.getFullName(), project.getName(), role.getRoleName(), acceptUrl
             );
             emailService.sendEmail(email, subject, body);
@@ -1401,7 +1408,7 @@ public class ProjectServiceImpl implements ProjectService {
             System.err.println("Error sending external project invitation email: " + e.getMessage());
         }
     }
-    
+
     //Log với các bản ghi
     @Override
         @Transactional(readOnly = true)
