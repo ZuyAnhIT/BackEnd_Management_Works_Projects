@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/SprintServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateSprintRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateSprintRequest;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
@@ -58,6 +59,7 @@ public class SprintServiceImpl implements SprintService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "CREATE", entityType = "SPRINT", description = "Create a new Sprint")
     public SprintResponse createSprint(Integer projectId, CreateSprintRequest request) {
         Integer currentUserId = securityService.getCurrentUserId();
 
@@ -109,6 +111,7 @@ public class SprintServiceImpl implements SprintService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "START", entityType = "SPRINT", description = "Start Sprint")
     public SprintResponse startSprint(Integer projectId, Integer sprintId) {
         // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
@@ -146,6 +149,7 @@ public class SprintServiceImpl implements SprintService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "COMPLETE", entityType = "SPRINT", description = "Complete Sprint")
     public SprintResponse completeSprint(Integer projectId, Integer sprintId) {
         // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
@@ -191,6 +195,7 @@ public class SprintServiceImpl implements SprintService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "SPRINT", description = "Update Sprint")
     public SprintResponse updateSprint(Integer projectId, Integer sprintId, UpdateSprintRequest request) {
         // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
@@ -241,6 +246,7 @@ public class SprintServiceImpl implements SprintService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "DELETE", entityType = "SPRINT", description = "Delete Sprint")
     public void deleteSprint(Integer projectId, Integer sprintId) {
         // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
