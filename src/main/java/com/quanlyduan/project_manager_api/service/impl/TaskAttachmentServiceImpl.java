@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/TaskAttachmentServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.response.TaskAttachmentResponse;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Task;
@@ -51,6 +52,7 @@ public class TaskAttachmentServiceImpl implements TaskAttachmentService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPLOAD", entityType = "TASK", description = "Upload file attactment")
     public TaskAttachmentResponse storeAttachment(Integer taskId, MultipartFile file, Integer uploaderId) throws IOException {
 
         // 1. Kiểm tra tồn tại Task và Uploader

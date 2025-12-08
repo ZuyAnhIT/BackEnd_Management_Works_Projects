@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/TaskCommentServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CommentRequest;
 import com.quanlyduan.project_manager_api.dto.response.TaskCommentResponse;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
@@ -44,6 +45,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "COMMENT", entityType = "TASK", description = "Comment on task")
     public TaskCommentResponse addComment(Integer taskId, CommentRequest request) {
 
         // 1. Lấy user hiện tại (người bình luận)
