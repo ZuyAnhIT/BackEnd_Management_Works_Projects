@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.controller;
 
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.CalendarEventResponse;
 import com.quanlyduan.project_manager_api.dto.response.EpicProgressResponse;
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.RoadmapItemResponse;
@@ -250,5 +251,36 @@ public class StatisticsController {
         );
         
         return ResponseEntity.ok(ApiResponse.success("Project roadmap retrieved successfully.", roadmap));
+    }
+
+    // ======================================================
+    // API LỊCH DỰ ÁN (CALENDAR VIEW)
+    // URL: /api/statistics/projects/{projectId}/calendar
+    // ======================================================
+    @GetMapping("/projects/{projectId}/calendar")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<List<CalendarEventResponse>>> getProjectCalendar(
+            @PathVariable Integer projectId,
+            
+            // Thời gian view
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+
+            // Filter Params
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer assigneeId,
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) TaskType taskType,
+            @RequestParam(defaultValue = "true") boolean showSprints
+    ) {
+        
+        List<CalendarEventResponse> events = statisticsService.getProjectCalendar(
+             projectId, 
+             from, to,
+             keyword, assigneeId, priority, taskType,
+             showSprints
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("Calendar events retrieved successfully.", events));
     }
 }

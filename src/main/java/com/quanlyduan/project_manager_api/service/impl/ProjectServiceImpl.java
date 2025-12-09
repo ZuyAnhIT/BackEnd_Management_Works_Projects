@@ -614,8 +614,9 @@ public class ProjectServiceImpl implements ProjectService {
 
         List<SprintDetailsResponse> sprintDtos = activeSprints.stream().map(sprint -> {
             // Lọc Task trong Sprint
-            Specification<Task> sprintTaskSpec = TaskSpecification.filterBacklog(
-                projectId, sprint.getId(), false, keyword, assigneeId, priority, taskType
+            Specification<Task> sprintTaskSpec = TaskSpecification.filterTasks(
+                projectId, sprint.getId(), false, keyword, assigneeId, priority, taskType, null, 
+                false // *** QUAN TRỌNG: isArchived = false ***
             );
 
             // Task trong Sprint luôn sắp xếp theo thứ tự hiển thị (sortOrder)
@@ -649,8 +650,9 @@ public class ProjectServiceImpl implements ProjectService {
 
 
         // 3. PHẦN B: PRODUCT BACKLOG (Tasks chưa được gán Sprint)
-        Specification<Task> backlogSpec = TaskSpecification.filterBacklog(
-            projectId, null, true, keyword, assigneeId, priority, taskType
+        Specification<Task> backlogSpec = TaskSpecification.filterTasks(
+            projectId, null, true, keyword, assigneeId, priority, taskType, null, 
+            false // *** QUAN TRỌNG: isArchived = false ***
         );
 
         // Định nghĩa Map sắp xếp cho Backlog Task
@@ -732,8 +734,8 @@ public class ProjectServiceImpl implements ProjectService {
 
         // 4. TẠO SPECIFICATION ĐỂ LỌC TASK
         Specification<Task> spec = TaskSpecification.filterTasks(
-                projectId, targetSprintId, isBacklog, keyword,
-                assigneeId, priority, taskType, null
+                projectId, targetSprintId, isBacklog, keyword, assigneeId, priority, taskType, null, 
+                false // *** QUAN TRỌNG: isArchived = false ***
         );
 
         // 5. LẤY TASK TỪ DB (1 Query duy nhất, sort theo thứ tự trong cột)
@@ -800,14 +802,8 @@ public class ProjectServiceImpl implements ProjectService {
 
         // 3. GỌI FILTER SPECIFICATION
         Specification<Task> spec = TaskSpecification.filterTasks(
-                projectId,      // 1. projectId
-                sprintId,       // 2. sprintId (0 hoặc ID)
-                isBacklog,      // 3. isBacklog
-                search,         // 4. keyword
-                assigneeId,     // 5. assigneeId
-                priority,       // 6. priority
-                null,           // 7. taskType (null, không lọc)
-                statusIds       // 8. statusIds (List trạng thái để lọc)
+                projectId, sprintId, isBacklog, search, assigneeId, priority, null, statusIds, 
+                false // *** QUAN TRỌNG: isArchived = false ***
         );
 
         // 4. XỬ LÝ SORT
@@ -856,16 +852,10 @@ public class ProjectServiceImpl implements ProjectService {
         // Xử lý logic Backlog (0 -> Backlog)
         boolean isBacklog = (sprintId != null && sprintId == 0);
 
-        // Gọi Specification theo chuẩn mới (8 tham số)
+        // Specification: Thêm tham số cuối cùng là FALSE (isArchived)
         Specification<Task> spec = TaskSpecification.filterTasks(
-                projectId,
-                sprintId,       // Filter theo sprintId
-                isBacklog,      // Filter boolean isBacklog
-                search,         // Search keyword
-                null,           // assigneeId (null để lấy hết)
-                null,           // priority (null để lấy hết)
-                null,           // taskType (null)
-                null            // statusIds (null)
+                projectId, sprintId, isBacklog, search, null, null, null, null, 
+                false // *** QUAN TRỌNG: isArchived = false ***
         );
 
         List<Task> tasks = taskRepository.findAll(spec);
@@ -963,6 +953,44 @@ public class ProjectServiceImpl implements ProjectService {
         return tasks.stream()
                 .map(this::mapToTaskSummaryResponse)
                 .collect(Collectors.toList());
+    }
+
+    // ======================================================
+    // LOGIC MỚI: XEM DANH SÁCH ĐÃ LƯU TRỮ (VIEW ARCHIVE)
+    // ======================================================
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<TaskSummaryResponse> getArchivedTasks(
+            Integer projectId, 
+            String keyword, Integer assigneeId, TaskPriority priority, TaskType taskType,
+            int page, int size) {
+        
+        // 1. Validate Project tồn tại
+        if (!projectRepository.existsById(projectId)) {
+            throw new ResourceNotFoundException("Project not found with ID: " + projectId);
+        }
+
+        // 2. Gọi Specification để lọc
+        // Lưu ý tham số cuối cùng là TRUE (isArchived = true)
+        Specification<Task> spec = TaskSpecification.filterTasks(
+            projectId, 
+            null,   // sprintId (Archived thường ko quan tâm sprint, hoặc để null để lấy all)
+            false,  // isBacklog (false vì archived ko phải backlog active)
+            keyword, 
+            assigneeId, 
+            priority, 
+            taskType, 
+            null,   // statusIds
+            true    // *** QUAN TRỌNG: isArchived = true ***
+        );
+        
+        // 3. Phân trang, sắp xếp theo ngày cập nhật mới nhất (để thấy task vừa archive ở đầu)
+        Pageable pageable = PageRequest.of(page, size, Sort.by("updatedAt").descending());
+        
+        Page<Task> tasks = taskRepository.findAll(spec, pageable);
+        
+        // 4. Map và trả về
+        return new PageResponseDTO<>(tasks.map(this::mapToTaskSummaryResponse));
     }
 
     // ------------------------------------------------------------------------
