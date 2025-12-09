@@ -30,7 +30,7 @@ public class ProjectResponse {
 
     // ID của Không gian làm việc chứa dự án này
     private Integer workspaceId;
-
+    private Integer companyId;
     // ========================================================================
     // 2. THÔNG TIN CƠ BẢN (BASIC INFO)
     // ========================================================================

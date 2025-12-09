@@ -1,37 +1,16 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/CompanyServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
-import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
-import com.quanlyduan.project_manager_api.exception.BadRequestException;
-import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
-import com.quanlyduan.project_manager_api.model.common.enums.CombinedMemberStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
-import com.quanlyduan.project_manager_api.service.CompanyService;
-import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
-import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
-import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
-import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
-import com.quanlyduan.project_manager_api.security.SecurityService;
-import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
-import com.quanlyduan.project_manager_api.dto.response.CompanyInvitationResponse;
-import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
-import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
-import com.quanlyduan.project_manager_api.model.*;
-import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
-import com.quanlyduan.project_manager_api.repository.*;
-import com.quanlyduan.project_manager_api.repository.specification.CompanyMemberSpecification;
-import com.quanlyduan.project_manager_api.service.EmailService;
-import com.quanlyduan.project_manager_api.service.FileStorageService;
-import com.quanlyduan.project_manager_api.service.InvitationService;
-
-import org.springframework.beans.factory.annotation.Value;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
-
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -39,15 +18,44 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
+import com.quanlyduan.project_manager_api.aop.LogActivity;
+import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
+import com.quanlyduan.project_manager_api.dto.request.CreateCompanyRequest;
+import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateCompanyRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
+import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
+import com.quanlyduan.project_manager_api.dto.response.CompanyInvitationResponse;
+import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
+import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.Company;
+import com.quanlyduan.project_manager_api.model.CompanyInvitation;
+import com.quanlyduan.project_manager_api.model.CompanyMember;
+import com.quanlyduan.project_manager_api.model.Role;
+import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.common.enums.CombinedMemberStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
+import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
+import com.quanlyduan.project_manager_api.repository.CompanyInvitationRepository;
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
+import com.quanlyduan.project_manager_api.repository.CompanyRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectRepository;
+import com.quanlyduan.project_manager_api.repository.RoleRepository;
+import com.quanlyduan.project_manager_api.repository.UserRepository;
+import com.quanlyduan.project_manager_api.repository.specification.CompanyMemberSpecification;
+import com.quanlyduan.project_manager_api.security.SecurityService;
+import com.quanlyduan.project_manager_api.service.CompanyService;
+import com.quanlyduan.project_manager_api.service.EmailService;
+import com.quanlyduan.project_manager_api.service.FileStorageService;
+import com.quanlyduan.project_manager_api.service.InvitationService;
 import com.quanlyduan.project_manager_api.util.SortUtils;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
-
-import java.util.Map;
 
 @Service
 public class CompanyServiceImpl implements CompanyService {
@@ -94,6 +102,7 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
+    @LogActivity(action = "CREATE", entityType = "COMPANY", description = "Create new Company") 
     public Company createCompany(CreateCompanyRequest request) {
         // 1. Lấy người dùng đang đăng nhập (người tạo)
         User creator = getCurrentAuthenticatedUser();
@@ -143,10 +152,12 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
-    public void inviteMember(Integer companyId, InviteMemberRequest request) {
+    @LogActivity(action = "INVITE", entityType = "COMPANY_MEMBER", description = "Invite member to Company") // <-- THÊM
+    public CompanyInvitation inviteMember(Integer companyId, InviteMemberRequest request) {
 
         // 1. Lấy thông tin cần thiết: Admin (người mời) và Công ty
         User admin = getCurrentAuthenticatedUser();
+        
         Company company = companyRepository.findById(companyId)
                 // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
@@ -197,8 +208,8 @@ public class CompanyServiceImpl implements CompanyService {
                 .expiresAt(expiryDate)
                 .build();
 
-        companyInvitationRepository.save(invitation);
-
+        CompanyInvitation companyInvitation = companyInvitationRepository.save(invitation);
+        
         // 6. Gửi Email (Nội dung email giữ nguyên tiếng Việt như logic cũ)
         String acceptUrl = frontendUrl + "/accept-invitation?token=" + token;
         String emailBody = String.format(
@@ -209,6 +220,7 @@ public class CompanyServiceImpl implements CompanyService {
         );
 
         emailService.sendEmail(invitedEmail, "Lời mời tham gia " + company.getName(), emailBody);
+        return companyInvitation;
     }
 
     // =================================================================================
@@ -216,7 +228,8 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
-    public void acceptInvitation(AcceptInvitationRequest request) {
+    @LogActivity(action = "JOIN", entityType = "COMPANY_MEMBER", description = "Accept company invitation")
+    public CompanyDetailsResponse acceptInvitation(AcceptInvitationRequest request) {
         // 1. Xác thực token lời mời (SỬ DỤNG SERVICE CHUNG)
         // Hàm này đã xử lý các lỗi Token hết hạn/không tồn tại
         CompanyInvitation invitation = invitationService.validateInvitationToken(request.getInvitationToken());
@@ -243,6 +256,13 @@ public class CompanyServiceImpl implements CompanyService {
         // 6. Cập nhật lời mời
         invitation.setStatus(InvitationStatus.ACCEPTED);
         companyInvitationRepository.save(invitation);
+
+        String welcomeMsg = String.format("has joined the company <strong>%s</strong> as <strong>%s</strong> 🎉", 
+                invitation.getCompany().getName(), 
+                invitation.getRole().getRoleName());
+        
+        ActivityLogContext.setDetail(welcomeMsg);
+        return mapCompanyToDetailsDto(invitation.getCompany());
     }
 
     // =================================================================================
@@ -273,6 +293,7 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE_ROLE", entityType = "COMPANY_MEMBER", description = "Update member role")
     public CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode) {
         // 1. Lấy thông tin thành viên
         CompanyMember member = companyMemberRepository.findById(memberId)
@@ -314,7 +335,7 @@ public class CompanyServiceImpl implements CompanyService {
             // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("The new role is the same as the current role — nothing to update.");
         }
-
+        
         // 8. Cập nhật vai trò
         member.setRole(newRole);
         return companyMemberRepository.save(member);
@@ -376,6 +397,7 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
+    @LogActivity(action = "REMOVE", entityType = "COMPANY_MEMBER", description = "Remove member from Company")
     public void removeMemberFromCompany(Integer companyId, Integer userId) {
         // 1. Kiểm tra xem có tự xóa chính mình không
         User admin = getCurrentAuthenticatedUser();
@@ -424,40 +446,61 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "COMPANY", description = "Update Company Info")
     public CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request, MultipartFile logoFile) {
-
-        // 1. Tìm công ty
         Company company = companyRepository.findById(companyId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
 
-        // 2. Cập nhật các trường văn bản (Nếu có)
+        StringBuilder changes = new StringBuilder();
+
+        // 1. Name
         if (request.getCompanyName() != null && !request.getCompanyName().equals(company.getName())) {
-             // Kiểm tra tên công ty mới có bị trùng không
              if (companyRepository.existsByName(request.getCompanyName())) {
-                  // Sửa thông báo sang tiếng Anh
                   throw new BadRequestException("Company name already exists.");
              }
+             if (changes.length() > 0) changes.append(", ");
+             changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", company.getName(), request.getCompanyName()));
              company.setName(request.getCompanyName());
         }
-        if (request.getDescription() != null) company.setDescription(request.getDescription());
-        if (request.getAddress() != null) company.setAddress(request.getAddress());
-        if (request.getPhoneNumber() != null) company.setPhoneNumber(request.getPhoneNumber());
-        if (request.getEmail() != null) company.setEmail(request.getEmail());
-        if (request.getWebsite() != null) company.setWebsite(request.getWebsite());
 
-        // 3. Xử lý Upload Logo
-        if (logoFile != null && !logoFile.isEmpty()) {
-            // Lưu vào thư mục "company-logos"
-            String logoPath = fileStorageService.storeFile(logoFile, "company-logos");
-            company.setLogoUrl(logoPath);
+        // 2. Description
+        if (request.getDescription() != null && !request.getDescription().equals(company.getDescription())) {
+             if (changes.length() > 0) changes.append(", ");
+             changes.append("updated description");
+             company.setDescription(request.getDescription());
         }
-        // Nếu gửi link ảnh trực tiếp (String) và không gửi file
-        else if (request.getLogo() != null) {
+
+        // 3. Other fields
+        if (request.getAddress() != null && !request.getAddress().equals(company.getAddress())) {
+             company.setAddress(request.getAddress());
+        }
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(company.getPhoneNumber())) {
+             company.setPhoneNumber(request.getPhoneNumber());
+        }
+        if (request.getEmail() != null && !request.getEmail().equals(company.getEmail())) {
+             company.setEmail(request.getEmail());
+        }
+        if (request.getWebsite() != null && !request.getWebsite().equals(company.getWebsite())) {
+             company.setWebsite(request.getWebsite());
+        }
+
+        // 4. Logo
+        if (logoFile != null && !logoFile.isEmpty()) {
+            String logoPath = fileStorageService.storeFile(logoFile, "company-logos");
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("updated logo");
+            company.setLogoUrl(logoPath);
+        } else if (request.getLogo() != null && !request.getLogo().equals(company.getLogoUrl())) {
             company.setLogoUrl(request.getLogo());
         }
 
-        // 4. Lưu và trả về
+        // Set log
+        if (changes.length() > 0) {
+            ActivityLogContext.setDetail(changes.toString());
+        } else {
+            //  ActivityLogContext.setDetail("updated company info");
+        }
+
         Company savedCompany = companyRepository.save(company);
         return mapCompanyToDetailsDto(savedCompany);
     }

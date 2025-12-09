@@ -26,7 +26,7 @@ public class SubTaskResponse {
 
     // ID định danh của SubTask
     private Integer id;
-
+    private Integer projectId;
     // ID của Task cha (Công việc chính chứa SubTask này)
     private Integer parentTaskId;
 

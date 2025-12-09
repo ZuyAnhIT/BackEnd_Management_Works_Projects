@@ -25,6 +25,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
@@ -175,6 +177,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    @LogActivity(action = "CREATE", entityType = "PROJECT", description = "Create new Project")
     public ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId, MultipartFile coverImageFile) {
         // (1) Kiểm tra workspace tồn tại và thuộc đúng companyId
         Workspace workspace = workspaceRepository.findById(workspaceId)
@@ -289,6 +292,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    @LogActivity(action = "DELETE", entityType = "PROJECT", description = "Delete Project")
     public void deleteProject(Integer companyId, Integer workspaceId, Integer projectId) {
         // 1. Kiểm tra Workspace Hierarchy
         Workspace workspace = workspaceRepository.findById(workspaceId)
@@ -318,6 +322,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update Project Status")
     public ProjectResponse updateProjectStatus(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectStatusRequest request) {
         // 1. Kiểm tra Workspace Hierarchy
         Workspace workspace = workspaceRepository.findById(workspaceId)
@@ -361,116 +366,117 @@ public class ProjectServiceImpl implements ProjectService {
     /**
      * LOGIC CẬP NHẬT DỰ ÁN (TICH HOP UPLOAD ẢNH).
      */
+    // ======================================================
+    // LOGIC CẬP NHẬT DỰ ÁN - FULL CODE
+    // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update project information")
     public ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request, MultipartFile coverImageFile) {
-
-        // 1. Tìm và Kiểm tra Workspace Hierarchy
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Workspace does not belong to the specified company.");
         }
 
-        // 2. Tìm Project Hierarchy
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found."));
         if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Project does not belong to the specified workspace.");
         }
 
-        // 3. Cập nhật các trường thông tin (Scalar)
-        if (isProvided(request.getName())) {
+        StringBuilder changes = new StringBuilder();
+
+        // 1. Name & Code
+        if (isProvided(request.getName()) && !request.getName().equals(project.getName())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", project.getName(), request.getName()));
             project.setName(request.getName());
         }
 
-        // Cập nhật Project Code (kiểm tra trùng lặp nếu code thay đổi)
-        if (isProvided(request.getProjectCode())) {
-            String newCode = request.getProjectCode();
-            String currentCode = project.getProjectCode();
-            if (!newCode.equalsIgnoreCase(currentCode)) {
-                if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, newCode)) {
-                    // Sửa thông báo sang tiếng Anh
-                    throw new BadRequestException("Project code already exists in this workspace.");
-                }
-                project.setProjectCode(newCode);
+        if (isProvided(request.getProjectCode()) && !request.getProjectCode().equals(project.getProjectCode())) {
+            if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, request.getProjectCode())) {
+                throw new BadRequestException("Project code already exists.");
             }
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("changed code from <strong>%s</strong> to <strong>%s</strong>", project.getProjectCode(), request.getProjectCode()));
+            project.setProjectCode(request.getProjectCode());
         }
 
-        if (isProvided(request.getDescription())) {
+        // 2. Description & Goal
+        if (isProvided(request.getDescription()) && !request.getDescription().equals(project.getDescription())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("updated description");
             project.setDescription(request.getDescription());
         }
-        if (isProvided(request.getGoal())) {
+        if (isProvided(request.getGoal()) && !request.getGoal().equals(project.getGoal())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("updated goal");
             project.setGoal(request.getGoal());
         }
 
-        if (request.getPriority() != null) {
+        // 3. Priority
+        if (request.getPriority() != null && request.getPriority() != project.getPriority()) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("changed priority to <strong>%s</strong>", request.getPriority()));
             project.setPriority(request.getPriority());
         }
-        if (request.getStartDate() != null) {
+
+        // 4. Dates
+        if (request.getStartDate() != null && !request.getStartDate().equals(project.getStartDate())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("changed start date");
             project.setStartDate(request.getStartDate());
         }
-        if (request.getDueDate() != null) {
+        if (request.getDueDate() != null && !request.getDueDate().equals(project.getDueDate())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("changed due date");
             project.setDueDate(request.getDueDate());
         }
-        if (request.getCompletedAt() != null) {
-            project.setCompletedAt(request.getCompletedAt());
+        if (request.getCompletedAt() != null && !request.getCompletedAt().equals(project.getCompletedAt())) {
+             // Logic riêng cho completed
+             project.setCompletedAt(request.getCompletedAt());
         }
 
-        // Cập nhật Manager
+        // 5. Manager
         if (request.getManagerId() != null) {
-            Integer managerId = request.getManagerId();
-            if (managerId == 0) { // Set null
-                project.setManager(null);
-            } else {
-                User manager = userRepository.findById(managerId)
-                        // Sửa thông báo sang tiếng Anh
-                        .orElseThrow(() -> new ResourceNotFoundException("Manager not found."));
-                project.setManager(manager);
+            Integer oldManagerId = project.getManager() != null ? project.getManager().getId() : 0;
+            if (!request.getManagerId().equals(oldManagerId)) {
+                if (request.getManagerId() == 0) {
+                     if (changes.length() > 0) changes.append(", ");
+                     changes.append("removed manager");
+                     project.setManager(null);
+                } else {
+                    User manager = userRepository.findById(request.getManagerId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Manager not found."));
+                    
+                    if (changes.length() > 0) changes.append(", ");
+                    changes.append(String.format("changed manager to <strong>%s</strong>", manager.getFullName()));
+                    project.setManager(manager);
+                }
             }
         }
 
-        // Cập nhật Project Type
-        if (request.getProjectTypeId() != null) {
-            Integer projectTypeId = request.getProjectTypeId();
-            if (projectTypeId == 0) { // Set null
-                project.setProjectType(null);
-            } else {
-                ProjectType type = projectTypeRepository.findById(projectTypeId)
-                        // Sửa thông báo sang tiếng Anh
-                        .orElseThrow(() -> new ResourceNotFoundException("Project type not found."));
-                project.setProjectType(type);
-            }
-        }
-
-        // Cập nhật Board Config (kiểm tra JSON hợp lệ)
-        if (isProvided(request.getBoardConfig())) {
-            try {
-                objectMapper.readTree(request.getBoardConfig());
-            } catch (Exception e) {
-                // Sửa thông báo sang tiếng Anh
-                throw new BadRequestException("boardConfig is not valid JSON.");
-            }
-            project.setBoardConfig(request.getBoardConfig());
-        }
-
-        // 4. XỬ LÝ UPLOAD ẢNH BÌA
+        // 6. Cover Image
         if (coverImageFile != null && !coverImageFile.isEmpty()) {
-            // Lưu file mới và cập nhật đường dẫn
             String coverPath = fileStorageService.storeFile(coverImageFile, "project-covers");
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("updated cover image");
             project.setCoverImageUrl(coverPath);
-        }
-        // Nếu gửi link ảnh trực tiếp (String) hoặc muốn xóa ảnh bằng cách gửi chuỗi rỗng
-        else if (request.getCoverImageUrl() != null) {
-            // Cập nhật URL (bao gồm null hoặc rỗng nếu người dùng muốn xóa ảnh)
-            project.setCoverImageUrl(request.getCoverImageUrl().isBlank() ? null : request.getCoverImageUrl());
+        } else if (request.getCoverImageUrl() != null && !request.getCoverImageUrl().equals(project.getCoverImageUrl())) {
+             if (changes.length() > 0) changes.append(", ");
+             changes.append("updated cover image");
+             project.setCoverImageUrl(request.getCoverImageUrl().isBlank() ? null : request.getCoverImageUrl());
         }
 
-        // 5. Lưu và trả về
+        // Set log
+        if (changes.length() > 0) {
+            ActivityLogContext.setDetail(changes.toString());
+        } else {
+             // Nếu không có thay đổi gì (hoặc chỉ đổi field không quan trọng)
+            //  ActivityLogContext.setDetail("updated project details");
+        }
+
         Project saved = projectRepository.save(project);
         return toResponse(saved);
     }
@@ -1061,6 +1067,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update Project Member Role")
     public ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode) {
         // 1. Lấy thông tin thành viên
         ProjectMember member = projectMemberRepository.findById(memberId)
@@ -1110,7 +1117,8 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
-    public void inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request) {
+    @LogActivity(action = "INVITE", entityType = "PROJECT_MEMBER", description = "Invite member to Project")
+    public ProjectInvitation inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request) {
         // 1. Tìm Project và lấy thông tin người mời/Công ty
         Project project = projectRepository.findById(projectId)
                 // Sửa thông báo sang tiếng Anh
@@ -1159,7 +1167,7 @@ public class ProjectServiceImpl implements ProjectService {
 
                 // Gửi mail thông báo
                 sendProjectNotificationEmail(inviter, existingUser, project, role);
-                return; // Kết thúc
+                return null; // Kết thúc
             }
         }
 
@@ -1184,10 +1192,11 @@ public class ProjectServiceImpl implements ProjectService {
                 .expiresAt(expiresAt)
                 .build();
 
-        projectInvitationRepository.save(invitation);
+        ProjectInvitation projectInvitation = projectInvitationRepository.save(invitation);
 
         // 6. Gửi Email Mời
         sendProjectInvitationEmail(inviter, email, project, role, token);
+        return projectInvitationRepository.save(projectInvitation);
     }
 
     /**
@@ -1226,6 +1235,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    @LogActivity(action = "JOIN", entityType = "PROJECT_MEMBER", description = "Accept project invitation")
     public void acceptProjectInvitation(String token) {
         User currentUser = securityService.getCurrentAuthenticatedUser();
 
@@ -1256,6 +1266,11 @@ public class ProjectServiceImpl implements ProjectService {
         // Cập nhật trạng thái lời mời
         invitation.setStatus(InvitationStatus.ACCEPTED);
         projectInvitationRepository.save(invitation);
+
+        String welcomeMsg = String.format("has joined the project <strong>%s</strong> 🎉", 
+                invitation.getProject().getName());
+        
+        ActivityLogContext.setDetail(welcomeMsg);
     }
 
     // ------------------------------------------------------------------------
@@ -1280,6 +1295,8 @@ public class ProjectServiceImpl implements ProjectService {
         return ProjectResponse.builder()
                 .id(p.getId())
                 .workspaceId(p.getWorkspace() != null ? p.getWorkspace().getId() : null)
+                .companyId(p.getWorkspace() != null && p.getWorkspace().getCompany() != null 
+                           ? p.getWorkspace().getCompany().getId() : null)
                 .name(p.getName())
                 .projectCode(p.getProjectCode())
                 .description(p.getDescription())
@@ -1355,6 +1372,9 @@ public class ProjectServiceImpl implements ProjectService {
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
+                .projectId(task.getProject().getId())
+                .workspaceId(task.getProject().getWorkspace().getId())
+                .companyId(task.getProject().getWorkspace().getCompany().getId())
                 .taskType(task.getTaskType())
                 .priority(task.getPriority())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
@@ -1404,9 +1424,9 @@ public class ProjectServiceImpl implements ProjectService {
 
             String subject = "You have been added to the project: " + project.getName();
             String body = String.format(
-                "Xin chào %s,<br><br>" +
-                "%s đã thêm bạn vào dự án <strong>%s</strong> với vai trò <strong>%s</strong>.<br>" +
-                "Truy cập dự án tại đây: <a href=\"%s\">View Project</a>",
+                "Hi %s,<br><br>" +
+                "%s has included you into project <strong>%s</strong> with role <strong>%s</strong>.<br>" +
+                "Please access project with this link: <a href=\"%s\">View Project</a>",
                 user.getFullName(), inviter.getFullName(), project.getName(), role.getRoleName(), projectUrl
             );
             emailService.sendEmail(user.getEmail(), subject, body);
@@ -1421,11 +1441,11 @@ public class ProjectServiceImpl implements ProjectService {
             String acceptUrl = frontendUrl + "/accept-project-invitation?token=" + token;
             String subject = "Project Invitation: " + project.getName();
             String body = String.format(
-                "Xin chào,<br><br>" +
-                "%s đã mời bạn tham gia dự án <strong>%s</strong> với vai trò <strong>%s</strong>.<br>" +
-                "Vui lòng nhấp vào liên kết dưới đây để chấp nhận lời mời:<br>" +
+                "Hi,<br><br>" +
+                "%s has invited you into project<strong>%s</strong> with role <strong>%s</strong>.<br>" +
+                "Please click the link below to accept the invitation:<br>" +
                 "<a href=\"%s\">Accept Invitation</a><br><br>" +
-                "Liên kết này sẽ hết hạn sau 7 ngày.",
+                "This link will expire in 7 days.",
                 inviter.getFullName(), project.getName(), role.getRoleName(), acceptUrl
             );
             emailService.sendEmail(email, subject, body);
@@ -1433,37 +1453,8 @@ public class ProjectServiceImpl implements ProjectService {
             System.err.println("Error sending external project invitation email: " + e.getMessage());
         }
     }
+
     
-    //Log với các bản ghi
-    @Override
-        @Transactional(readOnly = true)
-        public List<ActivityLogResponse> getRecentActivities(Integer companyId, Integer workspaceId, Integer projectId) {
-            
-            // 1. Validate Hierarchy
-            hierarchyValidator.validateProject(companyId, workspaceId, projectId);
-
-            // 2. Lấy 20 log gần nhất
-            Pageable top20 = PageRequest.of(0, 20);
-            List<ActivityLog> logs = activityLogRepository.findByProjectMembers(projectId, top20);
-
-            // 3. Map sang DTO
-            return logs.stream().map(log -> {
-                User user = userRepository.findById(log.getUserId()).orElse(null);
-                String userName = (user != null) ? user.getFullName() : "Unknown User";
-                String userAvatar = (user != null) ? user.getAvatarUrl() : "";
-
-                return ActivityLogResponse.builder()
-                        .id(log.getId())
-                        .userName(userName)
-                        .userAvatar(userAvatar)
-                        .action(log.getAction())
-                        .entityType(log.getEntityType())
-                        .entityId(log.getEntityId())
-                        .description(log.getNewValue())
-                        .timestamp(log.getCreatedAt())
-                        .build();
-            }).collect(Collectors.toList());
-        }
 
     // ======================================================
     // PRIVATE HELPER: TẠO STATUS MẶC ĐỊNH

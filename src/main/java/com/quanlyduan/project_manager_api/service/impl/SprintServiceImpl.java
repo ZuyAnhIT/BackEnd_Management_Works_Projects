@@ -1,6 +1,17 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/SprintServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateSprintRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateSprintRequest;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
@@ -8,22 +19,20 @@ import com.quanlyduan.project_manager_api.dto.response.SprintResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
-import com.quanlyduan.project_manager_api.model.*;
+import com.quanlyduan.project_manager_api.model.Epic;
+import com.quanlyduan.project_manager_api.model.Project;
+import com.quanlyduan.project_manager_api.model.Sprint;
+import com.quanlyduan.project_manager_api.model.Task;
+import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
-import com.quanlyduan.project_manager_api.repository.*;
+import com.quanlyduan.project_manager_api.repository.ProjectRepository;
+import com.quanlyduan.project_manager_api.repository.SprintRepository;
+import com.quanlyduan.project_manager_api.repository.TaskRepository;
+import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.SprintService;
 import com.quanlyduan.project_manager_api.service.TaskService;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class SprintServiceImpl implements SprintService {
@@ -58,6 +67,7 @@ public class SprintServiceImpl implements SprintService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "CREATE", entityType = "SPRINT", description = "Create a new Sprint")
     public SprintResponse createSprint(Integer projectId, CreateSprintRequest request) {
         Integer currentUserId = securityService.getCurrentUserId();
 
@@ -109,6 +119,7 @@ public class SprintServiceImpl implements SprintService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "START", entityType = "SPRINT", description = "Start Sprint")
     public SprintResponse startSprint(Integer projectId, Integer sprintId) {
         // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
@@ -126,7 +137,6 @@ public class SprintServiceImpl implements SprintService {
             // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Sprint has already been started or completed.");
         }
-
         // 3. Cập nhật
         sprint.setStatus(SprintStatus.IN_PROGRESS);
         // Tự động gán ngày bắt đầu nếu chưa có
@@ -135,7 +145,7 @@ public class SprintServiceImpl implements SprintService {
         }
 
         Sprint savedSprint = sprintRepository.save(sprint);
-
+        
         // 4. Lấy các task liên quan để trả về
         List<Task> tasks = taskRepository.findBySprintIdWithDetails(savedSprint.getId());
         return mapToSprintResponse(savedSprint, tasks);
@@ -146,6 +156,7 @@ public class SprintServiceImpl implements SprintService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "COMPLETE", entityType = "SPRINT", description = "Complete Sprint")
     public SprintResponse completeSprint(Integer projectId, Integer sprintId) {
         // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
@@ -191,48 +202,47 @@ public class SprintServiceImpl implements SprintService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "SPRINT", description = "Update Sprint")
     public SprintResponse updateSprint(Integer projectId, Integer sprintId, UpdateSprintRequest request) {
-        // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Sprint not found."));
 
-        // 2. Validate: Sprint thuộc đúng Project
         if (!sprint.getProject().getId().equals(projectId)) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Sprint does not belong to this project.");
         }
 
-        // 3. Cập nhật thông tin (nếu có)
-        if (request.getName() != null && !request.getName().trim().isEmpty()) {
-            sprint.setName(request.getName());
+        StringBuilder changes = new StringBuilder();
+
+        if (request.getName() != null && !request.getName().trim().isEmpty() && !request.getName().equals(sprint.getName())) {
+             if (changes.length() > 0) changes.append(", ");
+             changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", sprint.getName(), request.getName()));
+             sprint.setName(request.getName());
         }
 
-        if (request.getGoal() != null) {
-            sprint.setGoal(request.getGoal());
+        if (request.getGoal() != null && !request.getGoal().equals(sprint.getGoal())) {
+             if (changes.length() > 0) changes.append(", ");
+             changes.append("updated goal");
+             sprint.setGoal(request.getGoal());
         }
 
-        // Lấy ngày mới hoặc ngày cũ để kiểm tra hợp lệ
+        // Dates logic ...
         LocalDateTime newStartDate = (request.getStartDate() != null) ? request.getStartDate() : sprint.getStartDate();
         LocalDateTime newEndDate = (request.getEndDate() != null) ? request.getEndDate() : sprint.getEndDate();
 
-        // Validate ngày: Ngày bắt đầu không được sau ngày kết thúc
         if (newStartDate != null && newEndDate != null && newStartDate.isAfter(newEndDate)) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Start date cannot be after end date.");
         }
 
-        if (request.getStartDate() != null) {
-            sprint.setStartDate(request.getStartDate());
-        }
-        if (request.getEndDate() != null) {
-            sprint.setEndDate(request.getEndDate());
+        if (request.getStartDate() != null) sprint.setStartDate(request.getStartDate());
+        if (request.getEndDate() != null) sprint.setEndDate(request.getEndDate());
+
+        if (changes.length() > 0) {
+            ActivityLogContext.setDetail(changes.toString());
+        } else {
+            //  ActivityLogContext.setDetail("updated details");
         }
 
-        // 4. Lưu và trả về
         Sprint savedSprint = sprintRepository.save(sprint);
-
-        // Trả về danh sách task rỗng (vì logic update thông tin không cần kèm task)
         return mapToSprintResponse(savedSprint, Collections.emptyList());
     }
 
@@ -241,6 +251,7 @@ public class SprintServiceImpl implements SprintService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "DELETE", entityType = "SPRINT", description = "Delete Sprint")
     public void deleteSprint(Integer projectId, Integer sprintId) {
         // 1. Tìm Sprint
         Sprint sprint = sprintRepository.findById(sprintId)
@@ -440,6 +451,9 @@ public class SprintServiceImpl implements SprintService {
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
+                .projectId(task.getProject().getId())
+                .workspaceId(task.getProject().getWorkspace().getId())
+                .companyId(task.getProject().getWorkspace().getCompany().getId())
                 .taskType(task.getTaskType())
                 .priority(task.getPriority())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)

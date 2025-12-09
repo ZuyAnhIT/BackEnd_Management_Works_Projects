@@ -1,4 +1,4 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/ProjectStatusResponse.java
+ // File: src/main/java/com/quanlyduan/project_manager_api/dto/response/ProjectStatusResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
 import lombok.AllArgsConstructor;
@@ -26,6 +26,8 @@ public class ProjectStatusResponse {
 
     // ID của dự án chứa trạng thái này.
     private Integer projectId;
+    private Integer workspaceId; 
+    private Integer companyId;
 
     // ========================================================================
     // 2. THÔNG TIN HIỂN THỊ (DISPLAY INFO)

@@ -1,6 +1,15 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/TaskServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+ 
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
@@ -10,25 +19,30 @@ import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
-import com.quanlyduan.project_manager_api.model.*;
+import com.quanlyduan.project_manager_api.model.Epic;
+import com.quanlyduan.project_manager_api.model.Project;
+import com.quanlyduan.project_manager_api.model.ProjectStatus;
+import com.quanlyduan.project_manager_api.model.Sprint;
+import com.quanlyduan.project_manager_api.model.Task;
+import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
-import com.quanlyduan.project_manager_api.repository.*;
+import com.quanlyduan.project_manager_api.repository.EpicRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
+import com.quanlyduan.project_manager_api.repository.SprintRepository;
+import com.quanlyduan.project_manager_api.repository.TaskCommentRepository;
+import com.quanlyduan.project_manager_api.repository.TaskRepository;
+import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.TaskService;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TaskServiceImpl implements TaskService {
 
     private final TaskRepository taskRepository;
+    private final TaskCommentRepository taskCommentRepository;
     private final ProjectRepository projectRepository;
     private final SprintRepository sprintRepository;
     private final UserRepository userRepository;
@@ -40,6 +54,7 @@ public class TaskServiceImpl implements TaskService {
     // CONSTRUCTOR (Dependency Injection)
     // ======================================================
     public TaskServiceImpl(TaskRepository taskRepository,
+                            TaskCommentRepository taskCommentRepository,
                            ProjectRepository projectRepository,
                            SprintRepository sprintRepository,
                            UserRepository userRepository,
@@ -47,6 +62,7 @@ public class TaskServiceImpl implements TaskService {
                            SecurityService securityService,
                            ProjectStatusRepository projectStatusRepository) {
         this.taskRepository = taskRepository;
+        this.taskCommentRepository = taskCommentRepository;
         this.projectRepository = projectRepository;
         this.sprintRepository = sprintRepository;
         this.userRepository = userRepository;
@@ -61,7 +77,7 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     @LogActivity(action = "UPDATE", entityType = "TASK", description = "Drag and drop Task with Sprint")
-    public void updateTaskSprint(Integer taskId, Integer newSprintId, Integer newSortOrder) {
+    public TaskResponse updateTaskSprint(Integer taskId, Integer newSprintId, Integer newSortOrder) {
         // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
                 // Sửa thông báo sang tiếng Anh
@@ -107,7 +123,8 @@ public class TaskServiceImpl implements TaskService {
         task.setSprint(targetSprint);
         task.setSortOrder(newSortOrder);
 
-        taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+        return mapToTaskResponse(savedTask);
     }
 
     // ======================================================
@@ -201,152 +218,235 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     @LogActivity(action = "MOVE_STATUS", entityType = "TASK", description = "Change task status")
-    public void moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request) {
-        // 1. Tìm Task
+    public TaskResponse moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request) {
         Task task = taskRepository.findById(taskId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
 
         Integer projectId = task.getProject().getId();
         Integer newStatusId = request.getNewStatusId();
 
-        // 2. Tìm Status mới
         ProjectStatus newStatus = projectStatusRepository.findById(newStatusId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Status not found with ID: " + newStatusId));
 
-        // 3. Validate Project
         if (!newStatus.getProject().getId().equals(projectId)) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("New status does not belong to the task's project.");
         }
 
-        // 4. Xử lý Vị Trí (Sort Order)
+        // Logic Sort Order
         Integer newSortOrder = request.getNewSortOrder();
-
         if (newSortOrder == null) {
-            // Mặc định xuống cuối cột mới
             newSortOrder = taskRepository.findMaxSortOrderByStatusId(projectId, newStatusId) + 1;
         } else {
-            // Nếu có vị trí cụ thể -> Phải đẩy các task đang đứng đó lùi xuống
-            // Logic này sẽ đẩy các task khác có sortOrder >= newSortOrder trong cột MỚI lùi xuống
             taskRepository.shiftSortOrderInStatus(projectId, newStatusId, newSortOrder);
         }
 
-        // 5. Cập nhật Task
+        // --- LOGIC GHI LOG CHI TIẾT ---
+        String oldStatusName = (task.getStatus() != null) ? task.getStatus().getName() : "None";
+        String newStatusName = newStatus.getName();
+
+        // Chỉ ghi log nếu trạng thái thực sự thay đổi
+        if (!oldStatusName.equals(newStatusName)) {
+             ActivityLogContext.setDetail(String.format(
+                "changed status from <strong>%s</strong> to <strong>%s</strong>", 
+                oldStatusName, newStatusName
+            ));
+        } else {
+             ActivityLogContext.setDetail("reordered in <strong>" + newStatusName + "</strong> column");
+        }
+        // ------------------------------
+
         task.setStatus(newStatus);
         task.setSortOrder(newSortOrder);
 
-        // 6. Cập nhật cờ hoàn thành (completedAt)
         if (newStatus.getIsCompletedStatus()) {
             task.setCompletedAt(java.time.LocalDateTime.now());
         } else {
             task.setCompletedAt(null);
         }
 
-        taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+        return mapToTaskResponse(savedTask);
     }
 
     // ======================================================
-    // 4. CẬP NHẬT TASK (UPDATE ALL FIELDS)
+    // 4. CẬP NHẬT TASK (UPDATE ALL FIELDS) - FULL CODE
     // ======================================================
+
     @Override
     @Transactional
     @LogActivity(action = "UPDATE", entityType = "TASK", description = "Update task information")
     public TaskResponse updateTask(Integer taskId, UpdateTaskRequest request) {
-        // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
-
+        
         Integer projectId = task.getProject().getId();
+        StringBuilder changes = new StringBuilder();
 
-        // 2. Cập nhật các trường Scalar (Văn bản/Số)
-        if (request.getTitle() != null && !request.getTitle().isEmpty()) {
+        // ==========================================
+        // 1. SCALAR FIELDS (So sánh an toàn)
+        // ==========================================
+
+        // Title
+        if (request.getTitle() != null && !request.getTitle().isBlank() 
+                && !request.getTitle().equals(task.getTitle())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", task.getTitle(), request.getTitle()));
             task.setTitle(request.getTitle());
         }
-        if (request.getDescription() != null) {
+
+        // Description
+        // Lưu ý: Swagger hay gửi chuỗi "string" mặc định, ta nên check khác "string" nếu muốn kỹ hơn
+        if (request.getDescription() != null 
+                && !request.getDescription().equals(task.getDescription())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("updated description");
             task.setDescription(request.getDescription());
         }
-        if (request.getTaskType() != null) {
+
+        // Task Type
+        if (request.getTaskType() != null && request.getTaskType() != task.getTaskType()) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("changed type to <strong>%s</strong>", request.getTaskType()));
             task.setTaskType(request.getTaskType());
         }
-        if (request.getPriority() != null) {
+
+        // Priority
+        if (request.getPriority() != null && request.getPriority() != task.getPriority()) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("changed priority to <strong>%s</strong>", request.getPriority()));
             task.setPriority(request.getPriority());
         }
-        if (request.getStoryPoints() != null) {
+
+        // Story Points (So sánh số)
+        if (request.getStoryPoints() != null && !Objects.equals(request.getStoryPoints(), task.getStoryPoints())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("changed points to <strong>%d</strong>", request.getStoryPoints()));
             task.setStoryPoints(request.getStoryPoints());
         }
+
+        // Estimated Hours (So sánh BigDecimal an toàn: dùng compareTo để 10.0 == 10.00)
         if (request.getEstimatedHours() != null) {
-            task.setEstimatedHours(request.getEstimatedHours());
-        }
-        if (request.getStartDate() != null) {
-            task.setStartDate(request.getStartDate());
-        }
-        if (request.getDueDate() != null) {
-            task.setDueDate(request.getDueDate());
-        }
+            boolean isDifferent;
+            if (task.getEstimatedHours() == null) isDifferent = true;
+            else isDifferent = request.getEstimatedHours().compareTo(task.getEstimatedHours()) != 0;
 
-        // 3. Cập nhật các Quan hệ (Cần validate)
-
-        // A. Status (Cột)
-        if (request.getStatusId() != null) {
-            ProjectStatus newStatus = projectStatusRepository.findById(request.getStatusId())
-                    // Sửa thông báo sang tiếng Anh
-                    .orElseThrow(() -> new ResourceNotFoundException("Status not found"));
-            if (!newStatus.getProject().getId().equals(projectId)) {
-                // Sửa thông báo sang tiếng Anh
-                throw new BadRequestException("Status does not belong to this project.");
+            if (isDifferent) {
+                if (changes.length() > 0) changes.append(", ");
+                changes.append(String.format("changed estimate to <strong>%s</strong>h", request.getEstimatedHours()));
+                task.setEstimatedHours(request.getEstimatedHours());
             }
-            task.setStatus(newStatus);
+        }
+
+        // Dates (Quan trọng: Sử dụng isEqual để so sánh thời gian)
+        if (request.getStartDate() != null) {
+            boolean isDifferent = (task.getStartDate() == null) || !request.getStartDate().isEqual(task.getStartDate());
+            if (isDifferent) {
+                if (changes.length() > 0) changes.append(", ");
+                changes.append("changed start date");
+                task.setStartDate(request.getStartDate());
+            }
+        }
+
+        if (request.getDueDate() != null) {
+            boolean isDifferent = (task.getDueDate() == null) || !request.getDueDate().isEqual(task.getDueDate());
+            if (isDifferent) {
+                if (changes.length() > 0) changes.append(", ");
+                changes.append("changed due date");
+                task.setDueDate(request.getDueDate());
+            }
+        }
+
+        // ==========================================
+        // 2. RELATIONS (Quan hệ)
+        // ==========================================
+
+        // A. Status
+        if (request.getStatusId() != null) {
+            Integer oldStatusId = task.getStatus() != null ? task.getStatus().getId() : 0;
+            if (!request.getStatusId().equals(oldStatusId)) {
+                ProjectStatus newStatus = projectStatusRepository.findById(request.getStatusId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Status not found"));
+                if (!newStatus.getProject().getId().equals(projectId)) throw new BadRequestException("Status invalid");
+
+                if (changes.length() > 0) changes.append(", ");
+                String oldName = task.getStatus() != null ? task.getStatus().getName() : "None";
+                changes.append(String.format("changed status from <strong>%s</strong> to <strong>%s</strong>", oldName, newStatus.getName()));
+                
+                task.setStatus(newStatus);
+            }
         }
 
         // B. Sprint
         if (request.getSprintId() != null) {
-            if (request.getSprintId() == 0) {
-                task.setSprint(null); // Gỡ bỏ sprint (về backlog)
-            } else {
-                Sprint sprint = sprintRepository.findById(request.getSprintId())
-                        // Sửa thông báo sang tiếng Anh
-                        .orElseThrow(() -> new ResourceNotFoundException("Sprint not found"));
-                if (!sprint.getProject().getId().equals(projectId)) {
-                    // Sửa thông báo sang tiếng Anh
-                    throw new BadRequestException("Sprint does not belong to this project.");
+            Integer oldSprintId = task.getSprint() != null ? task.getSprint().getId() : 0;
+            // Nếu gửi lên 0 (muốn gỡ sprint) và hiện tại đang có sprint (id khác 0) -> Thay đổi
+            // Nếu gửi lên X, hiện tại là Y -> Thay đổi
+            if (!request.getSprintId().equals(oldSprintId)) {
+                if (request.getSprintId() == 0) {
+                    if (changes.length() > 0) changes.append(", ");
+                    changes.append("moved to <strong>Backlog</strong>");
+                    task.setSprint(null);
+                } else {
+                    Sprint sprint = sprintRepository.findById(request.getSprintId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Sprint not found"));
+                    if (!sprint.getProject().getId().equals(projectId)) throw new BadRequestException("Sprint invalid");
+
+                    if (changes.length() > 0) changes.append(", ");
+                    changes.append(String.format("moved to sprint <strong>%s</strong>", sprint.getName()));
+                    task.setSprint(sprint);
                 }
-                task.setSprint(sprint);
             }
         }
 
         // C. Epic
         if (request.getEpicId() != null) {
-            if (request.getEpicId() == 0) {
-                task.setEpic(null); // Gỡ bỏ Epic
-            } else {
-                Epic epic = epicRepository.findById(request.getEpicId())
-                        // Sửa thông báo sang tiếng Anh
-                        .orElseThrow(() -> new ResourceNotFoundException("Epic not found"));
-                if (!epic.getProject().getId().equals(projectId)) {
-                    // Sửa thông báo sang tiếng Anh
-                    throw new BadRequestException("Epic does not belong to this project.");
-                }
-                task.setEpic(epic);
-            }
+             Integer oldEpicId = task.getEpic() != null ? task.getEpic().getId() : 0;
+             if (!request.getEpicId().equals(oldEpicId)) {
+                 if (request.getEpicId() == 0) {
+                     if (changes.length() > 0) changes.append(", ");
+                     changes.append("removed from Epic");
+                     task.setEpic(null);
+                 } else {
+                     Epic epic = epicRepository.findById(request.getEpicId())
+                             .orElseThrow(() -> new ResourceNotFoundException("Epic not found"));
+                     if (!epic.getProject().getId().equals(projectId)) throw new BadRequestException("Epic invalid");
+
+                     if (changes.length() > 0) changes.append(", ");
+                     changes.append(String.format("added to epic <strong>%s</strong>", epic.getName()));
+                     task.setEpic(epic);
+                 }
+             }
         }
 
-        // D. Assignee (Người được giao)
+        // D. Assignee
         if (request.getAssigneeId() != null) {
-            if (request.getAssigneeId() == 0) {
-                task.setAssignee(null); // Bỏ giao việc
-            } else {
-                User assignee = userRepository.findById(request.getAssigneeId())
-                        // Sửa thông báo sang tiếng Anh
-                        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-                // (Nên check xem user có trong Project không, nhưng giữ nguyên logic cũ)
-                task.setAssignee(assignee);
-            }
+             Integer oldAssigneeId = task.getAssignee() != null ? task.getAssignee().getId() : 0;
+             if (!request.getAssigneeId().equals(oldAssigneeId)) {
+                 if (request.getAssigneeId() == 0) {
+                     if (changes.length() > 0) changes.append(", ");
+                     changes.append("unassigned");
+                     task.setAssignee(null);
+                 } else {
+                     User assignee = userRepository.findById(request.getAssigneeId())
+                             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                     
+                     if (changes.length() > 0) changes.append(", ");
+                     changes.append(String.format("assigned to <strong>%s</strong>", assignee.getFullName()));
+                     task.setAssignee(assignee);
+                 }
+             }
         }
 
-        // 4. Lưu và trả về
+        // ==========================================
+        // 3. SET LOG & SAVE
+        // ==========================================
+
+        if (changes.length() > 0) {
+            ActivityLogContext.setDetail(changes.toString());
+        } else {
+            // ActivityLogContext.setDetail("updated details");
+        }
+
         Task updatedTask = taskRepository.save(task);
         return mapToTaskResponse(updatedTask);
     }
@@ -356,42 +456,42 @@ public class TaskServiceImpl implements TaskService {
     // ======================================================
     @Override
     @Transactional
-    @LogActivity(action = "UPDATE", entityType = "TASK", description = "Assign/Remove Epic to Task")
+    @LogActivity(action = "UPDATE", entityType = "TASK", description = "Update Task Epic")
     public TaskResponse updateTaskEpic(Integer taskId, UpdateTaskEpicRequest request) {
-        // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
 
         Integer newEpicId = request.getEpicId();
+        
+        // --- LOGIC LOG CHI TIẾT ---
+        String oldEpicName = task.getEpic() != null ? task.getEpic().getName() : "None";
+        String newEpicName = "None";
+        // --------------------------
 
-        if (newEpicId == null) {
-            // Trường hợp 1: GỠ EPIC KHỎI TASK
+        if (newEpicId == null || newEpicId == 0) {
+            // Trường hợp 1: GỠ EPIC
             task.setEpic(null);
+            ActivityLogContext.setDetail("removed from epic <strong>" + oldEpicName + "</strong>");
 
         } else {
-            // Trường hợp 2: GÁN EPIC VÀO TASK
+            // Trường hợp 2: GÁN EPIC
             Epic epic = epicRepository.findById(newEpicId)
-                    // Sửa thông báo sang tiếng Anh
                     .orElseThrow(() -> new ResourceNotFoundException("Epic not found with ID: " + newEpicId));
 
-            // *** KIỂM TRA TÍNH TOÀN VẸN DỮ LIỆU ***
-            // Task và Epic phải thuộc cùng một Project
             if (!task.getProject().getId().equals(epic.getProject().getId())) {
-                // Sửa thông báo sang tiếng Anh
-                throw new BadRequestException(
-                    "Cannot assign this Epic. Epic and Task must belong to the same Project."
-                );
+                throw new BadRequestException("Epic does not belong to this project.");
             }
-
-            // Gán Epic mới
+            
+            newEpicName = epic.getName();
             task.setEpic(epic);
+            
+            ActivityLogContext.setDetail(String.format(
+                "changed epic from <strong>%s</strong> to <strong>%s</strong>", 
+                oldEpicName, newEpicName
+            ));
         }
 
-        // 3. Lưu và trả về
         Task updatedTask = taskRepository.save(task);
-
-        // Giả định bạn có hàm mapToTaskResponse
         return mapToTaskResponse(updatedTask);
     }
 
@@ -410,17 +510,34 @@ public class TaskServiceImpl implements TaskService {
         return mapToTaskResponse(task);
     }
     // Delete Task
-    @Override
+     @Override
     @Transactional
     @LogActivity(action = "DELETE", entityType = "TASK", description = "Delete task")
-    public void deleteTask(Integer taskId) {
-        // 1. Kiểm tra Task có tồn tại không
-        if (!taskRepository.existsById(taskId)) {
-            throw new ResourceNotFoundException("Task not found with ID: " + taskId);
+    public TaskResponse deleteTask(Integer taskId) {
+        // BƯỚC 1: Tìm Task trước (Để lấy dữ liệu trả về và để xóa)
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+
+        // BƯỚC 2: Map sang Response DTO (Lưu lại thông tin trước khi xóa)
+        // Lưu ý: Phải map trước khi xóa các quan hệ con nếu cần thông tin con
+        TaskResponse response = mapToTaskResponse(task);
+
+        // BƯỚC 3: XỬ LÝ LỖI "Row was updated or deleted..." (Vấn đề cũ của bạn)
+        // Xóa thủ công comments trước để tránh xung đột Hibernate
+        if (task.getComments() != null && !task.getComments().isEmpty()) {
+            // Cần inject TaskCommentRepository ở trên Constructor
+             taskCommentRepository.deleteAll(task.getComments());
+             
+             // Xóa list trong memory để Hibernate không bị loạn
+             task.setComments(new ArrayList<>()); 
         }
 
-        // 2. Thực hiện Xóa Vĩnh Viễn
-        taskRepository.deleteById(taskId);
+        // BƯỚC 4: Xóa Task
+        // Dùng delete(entity) thay vì deleteById(id) để tận dụng object đã load
+        taskRepository.delete(task);
+
+        // BƯỚC 5: Trả về thông tin task vừa xóa
+        return response;
     }
 
     // ======================================================
@@ -491,6 +608,8 @@ public class TaskServiceImpl implements TaskService {
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
+                .workspaceId(task.getProject().getWorkspace().getId())
+                .companyId(task.getProject().getWorkspace().getCompany().getId())
                 .description(task.getDescription())
                 .taskType(task.getTaskType())
                 .priority(task.getPriority())
@@ -602,6 +721,9 @@ public class TaskServiceImpl implements TaskService {
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
                 .title(task.getTitle())
+                .projectId(task.getProject() != null ? task.getProject().getId() : null)
+                .workspaceId(task.getProject().getWorkspace().getId())
+                .companyId(task.getProject().getWorkspace().getCompany().getId())
                 .taskType(task.getTaskType())
                 .priority(task.getPriority())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId() : null)
@@ -630,7 +752,7 @@ public class TaskServiceImpl implements TaskService {
                         .name(assignee.getFullName())
                         .avatarUrl(assignee.getAvatarUrl())
                         .build() : null)
-
+  
                 // Mapping Tags List
                 .tags(tagInfos)
 
