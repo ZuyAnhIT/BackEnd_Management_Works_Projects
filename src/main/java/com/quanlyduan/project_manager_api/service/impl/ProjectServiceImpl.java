@@ -1,8 +1,34 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/ProjectServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ActivityLogResponse;
 import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
@@ -11,64 +37,23 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationDetailsR
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
-import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
-import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
-import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
-import com.quanlyduan.project_manager_api.model.*;
+import com.quanlyduan.project_manager_api.model.ActivityLog;
+import com.quanlyduan.project_manager_api.model.Epic;
+import com.quanlyduan.project_manager_api.model.Project;
+import com.quanlyduan.project_manager_api.model.ProjectInvitation;
+import com.quanlyduan.project_manager_api.model.ProjectMember;
+import com.quanlyduan.project_manager_api.model.ProjectType;
+import com.quanlyduan.project_manager_api.model.Role;
+import com.quanlyduan.project_manager_api.model.Sprint;
+import com.quanlyduan.project_manager_api.model.Task;
+import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.Workspace;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
-import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
-import com.quanlyduan.project_manager_api.repository.ProjectRepository;
-import com.quanlyduan.project_manager_api.repository.ProjectTypeRepository;
-import com.quanlyduan.project_manager_api.repository.RoleRepository;
-import com.quanlyduan.project_manager_api.repository.TaskRepository;
-import com.quanlyduan.project_manager_api.repository.UserRepository;
-import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
-import com.quanlyduan.project_manager_api.repository.specification.ProjectMemberSpecification;
-import com.quanlyduan.project_manager_api.repository.specification.ProjectSpecification;
-import com.quanlyduan.project_manager_api.repository.specification.TaskSpecification;
-import com.quanlyduan.project_manager_api.service.EmailService;
-import com.quanlyduan.project_manager_api.service.FileStorageService;
-import com.quanlyduan.project_manager_api.service.ProjectService;
-import com.quanlyduan.project_manager_api.service.TaskService;
-import com.quanlyduan.project_manager_api.util.SortUtils;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
-import com.quanlyduan.project_manager_api.security.SecurityService;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-
-import org.springframework.beans.factory.annotation.Value;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-import java.util.stream.Collectors;
-
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
@@ -76,12 +61,28 @@ import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
-import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.ActivityLogRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectInvitationRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectTypeRepository;
+import com.quanlyduan.project_manager_api.repository.RoleRepository;
+import com.quanlyduan.project_manager_api.repository.SprintRepository;
+import com.quanlyduan.project_manager_api.repository.TaskRepository;
+import com.quanlyduan.project_manager_api.repository.UserRepository;
+import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
+import com.quanlyduan.project_manager_api.repository.specification.ProjectMemberSpecification;
+import com.quanlyduan.project_manager_api.repository.specification.ProjectSpecification;
+import com.quanlyduan.project_manager_api.repository.specification.TaskSpecification;
+import com.quanlyduan.project_manager_api.security.SecurityService;
+import com.quanlyduan.project_manager_api.service.EmailService;
+import com.quanlyduan.project_manager_api.service.FileStorageService;
+import com.quanlyduan.project_manager_api.service.ProjectService;
+import com.quanlyduan.project_manager_api.service.TaskService;
+import com.quanlyduan.project_manager_api.util.SortUtils;
 import com.quanlyduan.project_manager_api.validation.ProjectHierarchyValidator;
 
 @Service
@@ -276,7 +277,10 @@ public class ProjectServiceImpl implements ProjectService {
 
         projectMemberRepository.save(projectMember);
 
-        // (7) Trả response
+        // (7) KHỞI TẠO TRẠNG THÁI MẶC ĐỊNH ***
+        initDefaultStatuses(saved); 
+
+        // (8) Trả response
         return toResponse(saved);
     }
 
@@ -1460,5 +1464,44 @@ public class ProjectServiceImpl implements ProjectService {
                         .build();
             }).collect(Collectors.toList());
         }
+
+    // ======================================================
+    // PRIVATE HELPER: TẠO STATUS MẶC ĐỊNH
+    // ======================================================
+    private void initDefaultStatuses(Project project) {
+        // Lưu ý: Sử dụng đường dẫn đầy đủ (Full Package Name) cho Entity ProjectStatus
+        // Để tránh nhầm lẫn với Enum ProjectStatus đã import ở trên đầu file
+        List<com.quanlyduan.project_manager_api.model.ProjectStatus> defaultStatuses = new ArrayList<>();
+
+        // 1. TO DO (Cần làm)
+        defaultStatuses.add(com.quanlyduan.project_manager_api.model.ProjectStatus.builder()
+                .project(project)
+                .name("To Do")
+                .color("#95a5a6") // Gray
+                .sortOrder(0)
+                .isCompletedStatus(false)
+                .build());
+
+        // 2. IN PROGRESS (Đang làm)
+        defaultStatuses.add(com.quanlyduan.project_manager_api.model.ProjectStatus.builder()
+                .project(project)
+                .name("In Progress")
+                .color("#3498db") // Blue
+                .sortOrder(1)
+                .isCompletedStatus(false)
+                .build());
+
+        // 3. DONE (Hoàn thành)
+        defaultStatuses.add(com.quanlyduan.project_manager_api.model.ProjectStatus.builder()
+                .project(project)
+                .name("Done")
+                .color("#2ecc71") // Green
+                .sortOrder(2)
+                .isCompletedStatus(true)
+                .build());
+
+        // Lưu tất cả vào DB
+        projectStatusRepository.saveAll(defaultStatuses);
+    }
 
 }
