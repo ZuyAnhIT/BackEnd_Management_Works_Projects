@@ -14,7 +14,7 @@ import java.util.HashSet; // Nhớ import HashSet
 import java.util.List;
 import java.util.Set;
 
-@Getter // 1. Thay @Data
+@Getter 
 @Setter
 @Builder
 @NoArgsConstructor
@@ -90,6 +90,10 @@ public class Task {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigner_id")
     private User assigner; // Người giao việc
+
+    @Builder.Default
+    @Column(name = "is_archived", nullable = false)
+    private Boolean isArchived = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")

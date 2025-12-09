@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.service;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.quanlyduan.project_manager_api.dto.response.CalendarEventResponse;
 import com.quanlyduan.project_manager_api.dto.response.EpicProgressResponse;
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
 import com.quanlyduan.project_manager_api.dto.response.RoadmapItemResponse;
@@ -122,5 +123,16 @@ public interface StatisticsService {
             String keyword,         // Tìm chung
             LocalDate from,         // View Start
             LocalDate to            // View End
+    );
+
+    /**
+     * Lấy dữ liệu Lịch Dự Án (Calendar View).
+     * Bao gồm cả Task và Sprint.
+     */
+    List<CalendarEventResponse> getProjectCalendar(
+            Integer projectId, // Chỉ cần ID dự án là đủ
+            LocalDate from, LocalDate to,
+            String keyword, Integer assigneeId, TaskPriority priority, TaskType taskType,
+            boolean showSprints
     );
 }

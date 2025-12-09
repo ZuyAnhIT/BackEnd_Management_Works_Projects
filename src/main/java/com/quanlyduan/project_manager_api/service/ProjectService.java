@@ -162,11 +162,23 @@ public interface ProjectService {
                         Integer companyId, Integer workspaceId, Integer projectId,
                         String groupBy, Integer sprintId, String search);
 
-        // Lấy dữ liệu lịch công việc (Task Calendar)                
+        // Lấy dữ liệu lịch công việc (Task Calendar)
         List<TaskSummaryResponse> getTaskCalendar(
                         Integer companyId, Integer workspaceId, Integer projectId,
                         LocalDate from, LocalDate to,
                         String keyword, Integer assigneeId, TaskPriority priority, TaskType taskType);
+
+        /**
+         * Lấy danh sách các Task đã được lưu trữ (Archived Tasks) với bộ lọc.
+         */
+        PageResponseDTO<TaskSummaryResponse> getArchivedTasks(
+                        Integer projectId,
+                        String keyword,
+                        Integer assigneeId,
+                        TaskPriority priority,
+                        TaskType taskType,
+                        int page,
+                        int size);
 
         // ========================================================================
         // 5. HỖ TRỢ LUỒNG MỜI (INVITATION FLOW HELPERS)
