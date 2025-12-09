@@ -95,12 +95,21 @@ CREATE TABLE activity_logs (
     action VARCHAR(255) NOT NULL,
     entity_type VARCHAR(100),
     entity_id INT,
+    company_id INT,
+    workspace_id INT,
+    project_id INT,
     old_value TEXT,
     new_value TEXT,
     ip_address VARCHAR(50),
     user_agent TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    -- TẠO INDEX (Giúp query nhanh hơn)
+    KEY idx_logs_company (company_id),
+    KEY idx_logs_workspace (workspace_id),
+    KEY idx_logs_project (project_id),
+    KEY idx_logs_user (user_id),
+    KEY idx_logs_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE role_permissions (

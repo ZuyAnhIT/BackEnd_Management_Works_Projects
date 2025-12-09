@@ -5,6 +5,7 @@ import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
+import com.quanlyduan.project_manager_api.dto.response.ActivityLogResponse;
 import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
@@ -193,4 +194,8 @@ public interface ProjectService {
          * Tạo ProjectMember và đánh dấu lời mời là ACCEPTED.
          */
         void acceptProjectInvitation(String token);
+
+        // Activity Logs
+         List<ActivityLogResponse> getRecentActivities(Integer companyId, Integer workspaceId, Integer projectId);
+         
 }

@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/TaskServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskEpicRequest;
@@ -59,6 +60,7 @@ public class TaskServiceImpl implements TaskService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "TASK", description = "Drag and drop Task with Sprint")
     public void updateTaskSprint(Integer taskId, Integer newSprintId, Integer newSortOrder) {
         // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
@@ -113,6 +115,7 @@ public class TaskServiceImpl implements TaskService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "CREATE", entityType = "TASK", description = "Create new Task")
     public TaskSummaryResponse createTask(Integer projectId, CreateTaskRequest request) {
 
         // 1. Lấy thông tin người tạo
@@ -197,6 +200,7 @@ public class TaskServiceImpl implements TaskService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "MOVE_STATUS", entityType = "TASK", description = "Change task status")
     public void moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request) {
         // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
@@ -248,6 +252,7 @@ public class TaskServiceImpl implements TaskService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "TASK", description = "Update task information")
     public TaskResponse updateTask(Integer taskId, UpdateTaskRequest request) {
         // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
@@ -351,6 +356,7 @@ public class TaskServiceImpl implements TaskService {
     // ======================================================
     @Override
     @Transactional
+    @LogActivity(action = "UPDATE", entityType = "TASK", description = "Assign/Remove Epic to Task")
     public TaskResponse updateTaskEpic(Integer taskId, UpdateTaskEpicRequest request) {
         // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
@@ -402,6 +408,45 @@ public class TaskServiceImpl implements TaskService {
 
         // 2. Map sang DTO chi tiết
         return mapToTaskResponse(task);
+    }
+    // Delete Task
+    @Override
+    @Transactional
+    @LogActivity(action = "DELETE", entityType = "TASK", description = "Delete task")
+    public void deleteTask(Integer taskId) {
+        // 1. Kiểm tra Task có tồn tại không
+        if (!taskRepository.existsById(taskId)) {
+            throw new ResourceNotFoundException("Task not found with ID: " + taskId);
+        }
+
+        // 2. Thực hiện Xóa Vĩnh Viễn
+        taskRepository.deleteById(taskId);
+    }
+    // ======================================================
+    // 7. LƯU TRỮ TASK
+    // ======================================================
+    @Override
+    @Transactional
+    public void archiveTask(Integer taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+        
+        // Có thể thêm logic kiểm tra quyền ở đây hoặc ở Controller
+        task.setIsArchived(true);
+        taskRepository.save(task);
+    }
+
+    // ======================================================
+    // 6. KHÔI PHỤC TASK
+    // ======================================================
+    @Override
+    @Transactional
+    public void restoreTask(Integer taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+        
+        task.setIsArchived(false);
+        taskRepository.save(task);
     }
 
     // ======================================================

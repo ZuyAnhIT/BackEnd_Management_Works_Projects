@@ -77,7 +77,14 @@ public class TaskController {
         // Sửa thông báo trả về sang tiếng Anh
         return ResponseEntity.ok(ApiResponse.success("Task updated successfully.", updatedTask));
     }
-
+    @DeleteMapping("/{taskId}")
+    @PreAuthorize("@securityService.hasPermission('task', #taskId, 'task:delete')")
+    public ResponseEntity<ApiResponse<Object>> deleteTask(@PathVariable Integer taskId) {
+        
+        taskService.deleteTask(taskId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Task deleted successfully.", null));
+    }
     // API GÁN/GỠ EPIC CHO TASK
     @PatchMapping("/{taskId}/epic")
     // Bảo vệ: Task phải thuộc về Project mà User có quyền sửa (project:edit)
