@@ -74,6 +74,7 @@ public interface TaskService {
 
     // Khôi phục task
     void restoreTask(Integer taskId);
+    
     void deleteTask(Integer taskId);
 
     // ========================================================================
