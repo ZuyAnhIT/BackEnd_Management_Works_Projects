@@ -422,32 +422,6 @@ public class TaskServiceImpl implements TaskService {
         // 2. Thực hiện Xóa Vĩnh Viễn
         taskRepository.deleteById(taskId);
     }
-    // ======================================================
-    // 7. LƯU TRỮ TASK
-    // ======================================================
-    @Override
-    @Transactional
-    public void archiveTask(Integer taskId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
-        
-        // Có thể thêm logic kiểm tra quyền ở đây hoặc ở Controller
-        task.setIsArchived(true);
-        taskRepository.save(task);
-    }
-
-    // ======================================================
-    // 6. KHÔI PHỤC TASK
-    // ======================================================
-    @Override
-    @Transactional
-    public void restoreTask(Integer taskId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
-        
-        task.setIsArchived(false);
-        taskRepository.save(task);
-    }
 
     // ======================================================
     // 7. LƯU TRỮ TASK
