@@ -1,17 +1,7 @@
 package com.quanlyduan.project_manager_api.aop;
 
-import com.quanlyduan.project_manager_api.dto.response.*; // Import * cho gọn
-import com.quanlyduan.project_manager_api.model.ActivityLog;
-import com.quanlyduan.project_manager_api.model.CompanyInvitation;
-import com.quanlyduan.project_manager_api.model.ProjectInvitation;
-import com.quanlyduan.project_manager_api.model.User;
-import com.quanlyduan.project_manager_api.repository.UserRepository;
-import com.quanlyduan.project_manager_api.security.SecurityService;
-import com.quanlyduan.project_manager_api.service.ActivityLogService;
-
-import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.lang.reflect.Method; // Import * cho gọn
+import java.util.Optional;
 
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
@@ -20,8 +10,29 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.lang.reflect.Method;
-import java.util.Optional;
+import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
+import com.quanlyduan.project_manager_api.dto.response.EpicResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectStatusResponse;
+import com.quanlyduan.project_manager_api.dto.response.SprintResponse;
+import com.quanlyduan.project_manager_api.dto.response.SubTaskResponse;
+import com.quanlyduan.project_manager_api.dto.response.TagResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskAttachmentResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskCommentResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
+import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
+import com.quanlyduan.project_manager_api.model.ActivityLog;
+import com.quanlyduan.project_manager_api.model.CompanyInvitation;
+import com.quanlyduan.project_manager_api.model.ProjectInvitation;
+import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.WorkspaceMember;
+import com.quanlyduan.project_manager_api.repository.UserRepository;
+import com.quanlyduan.project_manager_api.security.SecurityService;
+import com.quanlyduan.project_manager_api.service.ActivityLogService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 
 @Aspect
 @Component
@@ -104,33 +115,48 @@ public class ActivityLogAspect {
     /**
      * Hàm tạo log riêng cho người được mời
      */
+    /**
+     * Hàm tạo log riêng cho người được mời
+     */
     private void createLogForRecipient(String email, LogActivity logActivity, Integer entityId, ContextIds contextIds, String ip, String ua) {
         try {
             Optional<User> recipientOpt = userRepository.findByEmail(email);
-            
+           
             if (recipientOpt.isPresent()) {
                 User recipient = recipientOpt.get();
-                
-                // Xác định loại mời: "company", "project", "workspace"
-                String inviteType = logActivity.entityType().toLowerCase().replace("_member", "");
-                
-                // Lấy tên đích (TechVision, E-Commerce App...)
+               
+                // 1. Xác định loại (Scope): Company, Workspace, hay Project
+                String scope = "system"; // Mặc định
+                String entityTypeUpper = logActivity.entityType().toUpperCase();
+
+                if (entityTypeUpper.contains("COMPANY")) {
+                    scope = "company";
+                } else if (entityTypeUpper.contains("WORKSPACE")) {
+                    scope = "workspace";
+                } else if (entityTypeUpper.contains("PROJECT")) {
+                    scope = "project";
+                }
+
+                // 2. Lấy tên đích (TechVision, E-Commerce App...)
                 String targetName = (contextIds.targetName != null) ? contextIds.targetName : "the system";
 
-                // Tạo thông báo chi tiết
-                // VD: You have been invited to company <strong>TechVision Solutions</strong>.
-                String recipientMsg = String.format("You have been invited to join %s <strong>%s</strong>. Please check your email.", 
-                        inviteType, targetName);
+                // 3. Format thông báo
+                // Kết quả VD: "You have been invited to join company <strong>TechVision</strong>. Please check your email."
+                String recipientMsg = String.format(
+                    "You have been invited to join %s <strong>%s</strong>. Please check your email.",
+                    scope,      // %s thứ nhất: company/workspace/project
+                    targetName  // %s thứ hai: Tên cụ thể (in đậm)
+                );
 
                 ActivityLog recipientLog = ActivityLog.builder()
-                        .userId(recipient.getId()) 
-                        .action("RECEIVED_INVITE") 
+                        .userId(recipient.getId())
+                        .action("RECEIVED_INVITE")
                         .entityType(logActivity.entityType())
-                        .entityId(entityId) // Lưu ID lời mời để Frontend xử lý nút Accept
+                        .entityId(entityId) 
                         .companyId(contextIds.companyId)
                         .workspaceId(contextIds.workspaceId)
                         .projectId(contextIds.projectId)
-                        .newValue(recipientMsg)
+                        .newValue(recipientMsg) // Lưu thông báo đã format vào đây
                         .ipAddress(ip)
                         .userAgent(ua)
                         .build();
@@ -196,9 +222,16 @@ public class ActivityLogAspect {
                 // ids.workspaceId = s.getWorkspaceId();
                 // ids.companyId = s.getCompanyId();
                 ids.entityName = s.getName();
-                ids.entityCode = "COLUMN";
+                ids.entityCode = "column";
             }
             // --- INVITATION (Xử lý Email người được mời) ---
+            else if (data instanceof WorkspaceMember) { // ✅ Case mới quan trọng
+                WorkspaceMember wm = (WorkspaceMember) data;
+                ids.workspaceId = wm.getWorkspace().getId();
+                // ids.companyId = wm.getWorkspace().getCompany().getId();
+                ids.entityName = wm.getUser().getEmail(); // Email người được mời
+                ids.targetName = wm.getWorkspace().getName();
+            }
             else if (data instanceof CompanyInvitation) {
                 CompanyInvitation inv = (CompanyInvitation) data;
                 ids.companyId = inv.getCompany().getId();

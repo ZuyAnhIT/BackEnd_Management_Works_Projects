@@ -7,12 +7,13 @@ import org.springframework.web.multipart.MultipartFile;
 import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
+import com.quanlyduan.project_manager_api.model.WorkspaceMember;
 import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
-import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
-import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
 
 public interface WorkspaceService {
     
@@ -67,7 +68,7 @@ public interface WorkspaceService {
     /**
      * Mời/Thêm một thành viên công ty vào không gian làm việc.
      */
-    void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request);
+    WorkspaceMember inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request);
 
     /**
      * Lấy danh sách thành viên của một không gian làm việc (Phân trang & Sắp xếp).

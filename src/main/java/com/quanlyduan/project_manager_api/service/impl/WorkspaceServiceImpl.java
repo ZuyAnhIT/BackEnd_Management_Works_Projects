@@ -1,30 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/WorkspaceServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
-import com.quanlyduan.project_manager_api.aop.LogActivity;
-import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
-import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
-import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
-import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
-import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
-import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
-import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
-import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
-import com.quanlyduan.project_manager_api.exception.BadRequestException;
-import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
-import com.quanlyduan.project_manager_api.model.*;
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
-import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
-import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
-import com.quanlyduan.project_manager_api.repository.*;
-import com.quanlyduan.project_manager_api.repository.specification.WorkspaceMemberSpecification;
-import com.quanlyduan.project_manager_api.repository.specification.WorkspaceSpecification;
-import com.quanlyduan.project_manager_api.service.EmailService;
-import com.quanlyduan.project_manager_api.service.FileStorageService;
-import com.quanlyduan.project_manager_api.security.SecurityService;
-import com.quanlyduan.project_manager_api.service.WorkspaceService;
-import com.quanlyduan.project_manager_api.util.SortUtils;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -36,11 +13,40 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.Objects;
+import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
+import com.quanlyduan.project_manager_api.aop.LogActivity;
+import com.quanlyduan.project_manager_api.dto.request.CreateWorkspaceRequest;
+import com.quanlyduan.project_manager_api.dto.request.InviteWorkspaceMemberRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateMemberStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateWorkspaceStatusRequest;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
+import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.Company;
+import com.quanlyduan.project_manager_api.model.Role;
+import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.Workspace;
+import com.quanlyduan.project_manager_api.model.WorkspaceMember;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
+import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
+import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
+import com.quanlyduan.project_manager_api.repository.CompanyRepository;
+import com.quanlyduan.project_manager_api.repository.RoleRepository;
+import com.quanlyduan.project_manager_api.repository.UserRepository;
+import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository;
+import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
+import com.quanlyduan.project_manager_api.repository.specification.WorkspaceMemberSpecification;
+import com.quanlyduan.project_manager_api.repository.specification.WorkspaceSpecification;
+import com.quanlyduan.project_manager_api.security.SecurityService;
+import com.quanlyduan.project_manager_api.service.EmailService;
+import com.quanlyduan.project_manager_api.service.FileStorageService;
+import com.quanlyduan.project_manager_api.service.WorkspaceService;
+import com.quanlyduan.project_manager_api.util.SortUtils;
 
 @Service
 public class WorkspaceServiceImpl implements WorkspaceService {
@@ -156,37 +162,53 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     }
 
     // LOGIC CẬP NHẬT WORKSPACE (KÈM UPLOAD ẢNH BÌA)
-    @Override
+   @Override
     @Transactional
     @LogActivity(action = "UPDATE", entityType = "WORKSPACE", description = "Update Workspace")
     public WorkspaceResponse updateWorkspace(Integer workspaceId, UpdateWorkspaceRequest request, MultipartFile coverImageFile) {
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
 
-        // 1. Kiểm tra trùng tên (nếu tên thay đổi)
+        StringBuilder changes = new StringBuilder();
+
+        // 1. Name
         if (request.getName() != null && !request.getName().equals(workspace.getName())) {
              if (workspaceRepository.existsByCompany_IdAndName(workspace.getCompany().getId(), request.getName())) {
-                  // Sửa thông báo sang tiếng Anh
                   throw new BadRequestException("Workspace name already exists.");
              }
+             if (changes.length() > 0) changes.append(", ");
+             changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", workspace.getName(), request.getName()));
              workspace.setName(request.getName());
         }
 
-        // 2. Cập nhật các trường Scalar
-        if (request.getDescription() != null) workspace.setDescription(request.getDescription());
-        if (request.getColor() != null) workspace.setColor(request.getColor());
+        // 2. Description
+        if (request.getDescription() != null && !request.getDescription().equals(workspace.getDescription())) {
+             if (changes.length() > 0) changes.append(", ");
+             changes.append("updated description");
+             workspace.setDescription(request.getDescription());
+        }
+        
+        // 3. Color
+        if (request.getColor() != null && !request.getColor().equals(workspace.getColor())) {
+             workspace.setColor(request.getColor());
+        }
 
-        // 3. Xử lý Upload/Link Ảnh Bìa
+        // 4. Cover Image
         if (coverImageFile != null && !coverImageFile.isEmpty()) {
             String path = fileStorageService.storeFile(coverImageFile, "workspace-covers");
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("updated cover image");
             workspace.setCoverImageUrl(path);
-        } else if (request.getCoverImage() != null) {
-            // Cho phép cập nhật URL hoặc set null
+        } else if (request.getCoverImage() != null && !request.getCoverImage().equals(workspace.getCoverImageUrl())) {
             workspace.setCoverImageUrl(request.getCoverImage());
         }
 
-        // 4. Lưu và trả về
+        if (changes.length() > 0) {
+            ActivityLogContext.setDetail(changes.toString());
+        } else {
+            //  ActivityLogContext.setDetail("updated details");
+        }
+
         return mapToWorkspaceResponse(workspaceRepository.save(workspace));
     }
 
@@ -349,7 +371,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     @Override
     @Transactional
     @LogActivity(action = "INVITE", entityType = "WORKSPACE_MEMBER", description = "Invite member to Workspace") 
-    public void inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request) {
+    public WorkspaceMember inviteMemberToWorkspace(Integer companyId, Integer workspaceId, InviteWorkspaceMemberRequest request) {
         // 1. Lấy thông tin cần thiết
         User admin = securityService.getCurrentAuthenticatedUser();
         User userToInvite = userRepository.findByEmail(request.getEmail())
@@ -380,9 +402,17 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
         // 5. Thêm thành viên và gửi mail thông báo (Internal Member)
         WorkspaceMember member = WorkspaceMember.builder()
-                .workspace(workspace).user(userToInvite).role(role).status(MemberStatus.ACTIVE).build();
-        workspaceMemberRepository.save(member);
+                .workspace(workspace)
+                .user(userToInvite)
+                .role(role)
+                .status(MemberStatus.ACTIVE)
+                .build();
+        WorkspaceMember savedMember = workspaceMemberRepository.save(member);
+        
+        // 7. Gửi mail
         sendWorkspaceNotificationEmail(admin, userToInvite, workspace, role);
+
+        return savedMember;
     }
 
     // LOGIC CẬP NHẬT TRẠNG THÁI THÀNH VIÊN (ACTIVE/SUSPENDED)

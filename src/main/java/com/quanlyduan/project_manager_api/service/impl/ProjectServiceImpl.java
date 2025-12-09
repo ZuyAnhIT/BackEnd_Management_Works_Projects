@@ -1,11 +1,36 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/ProjectServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
-import com.quanlyduan.project_manager_api.dto.response.ActivityLogResponse;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
@@ -13,65 +38,22 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationDetailsR
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
-import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
-import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
-import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
-import com.quanlyduan.project_manager_api.model.*;
+import com.quanlyduan.project_manager_api.model.Epic;
+import com.quanlyduan.project_manager_api.model.Project;
+import com.quanlyduan.project_manager_api.model.ProjectInvitation;
+import com.quanlyduan.project_manager_api.model.ProjectMember;
+import com.quanlyduan.project_manager_api.model.ProjectType;
+import com.quanlyduan.project_manager_api.model.Role;
+import com.quanlyduan.project_manager_api.model.Sprint;
+import com.quanlyduan.project_manager_api.model.Task;
+import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.Workspace;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
-import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
-import com.quanlyduan.project_manager_api.repository.ProjectRepository;
-import com.quanlyduan.project_manager_api.repository.ProjectTypeRepository;
-import com.quanlyduan.project_manager_api.repository.RoleRepository;
-import com.quanlyduan.project_manager_api.repository.TaskRepository;
-import com.quanlyduan.project_manager_api.repository.UserRepository;
-import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
-import com.quanlyduan.project_manager_api.repository.specification.ProjectMemberSpecification;
-import com.quanlyduan.project_manager_api.repository.specification.ProjectSpecification;
-import com.quanlyduan.project_manager_api.repository.specification.TaskSpecification;
-import com.quanlyduan.project_manager_api.service.EmailService;
-import com.quanlyduan.project_manager_api.service.FileStorageService;
-import com.quanlyduan.project_manager_api.service.ProjectService;
-import com.quanlyduan.project_manager_api.service.TaskService;
-import com.quanlyduan.project_manager_api.util.SortUtils;
-import com.quanlyduan.project_manager_api.util.TimeUtils;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
-import com.quanlyduan.project_manager_api.security.SecurityService;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-
-import org.springframework.beans.factory.annotation.Value;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-import java.util.stream.Collectors;
-
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
@@ -79,12 +61,28 @@ import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
-import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.ActivityLogRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectInvitationRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectTypeRepository;
+import com.quanlyduan.project_manager_api.repository.RoleRepository;
+import com.quanlyduan.project_manager_api.repository.SprintRepository;
+import com.quanlyduan.project_manager_api.repository.TaskRepository;
+import com.quanlyduan.project_manager_api.repository.UserRepository;
+import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
+import com.quanlyduan.project_manager_api.repository.specification.ProjectMemberSpecification;
+import com.quanlyduan.project_manager_api.repository.specification.ProjectSpecification;
+import com.quanlyduan.project_manager_api.repository.specification.TaskSpecification;
+import com.quanlyduan.project_manager_api.security.SecurityService;
+import com.quanlyduan.project_manager_api.service.EmailService;
+import com.quanlyduan.project_manager_api.service.FileStorageService;
+import com.quanlyduan.project_manager_api.service.ProjectService;
+import com.quanlyduan.project_manager_api.service.TaskService;
+import com.quanlyduan.project_manager_api.util.SortUtils;
 import com.quanlyduan.project_manager_api.validation.ProjectHierarchyValidator;
 
 @Service
@@ -363,117 +361,117 @@ public class ProjectServiceImpl implements ProjectService {
     /**
      * LOGIC CẬP NHẬT DỰ ÁN (TICH HOP UPLOAD ẢNH).
      */
+    // ======================================================
+    // LOGIC CẬP NHẬT DỰ ÁN - FULL CODE
+    // ======================================================
     @Override
     @Transactional
     @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update project information")
     public ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request, MultipartFile coverImageFile) {
-
-        // 1. Tìm và Kiểm tra Workspace Hierarchy
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Workspace does not belong to the specified company.");
         }
 
-        // 2. Tìm Project Hierarchy
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found."));
         if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Project does not belong to the specified workspace.");
         }
 
-        // 3. Cập nhật các trường thông tin (Scalar)
-        if (isProvided(request.getName())) {
+        StringBuilder changes = new StringBuilder();
+
+        // 1. Name & Code
+        if (isProvided(request.getName()) && !request.getName().equals(project.getName())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", project.getName(), request.getName()));
             project.setName(request.getName());
         }
 
-        // Cập nhật Project Code (kiểm tra trùng lặp nếu code thay đổi)
-        if (isProvided(request.getProjectCode())) {
-            String newCode = request.getProjectCode();
-            String currentCode = project.getProjectCode();
-            if (!newCode.equalsIgnoreCase(currentCode)) {
-                if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, newCode)) {
-                    // Sửa thông báo sang tiếng Anh
-                    throw new BadRequestException("Project code already exists in this workspace.");
-                }
-                project.setProjectCode(newCode);
+        if (isProvided(request.getProjectCode()) && !request.getProjectCode().equals(project.getProjectCode())) {
+            if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, request.getProjectCode())) {
+                throw new BadRequestException("Project code already exists.");
             }
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("changed code from <strong>%s</strong> to <strong>%s</strong>", project.getProjectCode(), request.getProjectCode()));
+            project.setProjectCode(request.getProjectCode());
         }
 
-        if (isProvided(request.getDescription())) {
+        // 2. Description & Goal
+        if (isProvided(request.getDescription()) && !request.getDescription().equals(project.getDescription())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("updated description");
             project.setDescription(request.getDescription());
         }
-        if (isProvided(request.getGoal())) {
+        if (isProvided(request.getGoal()) && !request.getGoal().equals(project.getGoal())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("updated goal");
             project.setGoal(request.getGoal());
         }
 
-        if (request.getPriority() != null) {
+        // 3. Priority
+        if (request.getPriority() != null && request.getPriority() != project.getPriority()) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("changed priority to <strong>%s</strong>", request.getPriority()));
             project.setPriority(request.getPriority());
         }
-        if (request.getStartDate() != null) {
+
+        // 4. Dates
+        if (request.getStartDate() != null && !request.getStartDate().equals(project.getStartDate())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("changed start date");
             project.setStartDate(request.getStartDate());
         }
-        if (request.getDueDate() != null) {
+        if (request.getDueDate() != null && !request.getDueDate().equals(project.getDueDate())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("changed due date");
             project.setDueDate(request.getDueDate());
         }
-        if (request.getCompletedAt() != null) {
-            project.setCompletedAt(request.getCompletedAt());
+        if (request.getCompletedAt() != null && !request.getCompletedAt().equals(project.getCompletedAt())) {
+             // Logic riêng cho completed
+             project.setCompletedAt(request.getCompletedAt());
         }
 
-        // Cập nhật Manager
+        // 5. Manager
         if (request.getManagerId() != null) {
-            Integer managerId = request.getManagerId();
-            if (managerId == 0) { // Set null
-                project.setManager(null);
-            } else {
-                User manager = userRepository.findById(managerId)
-                        // Sửa thông báo sang tiếng Anh
-                        .orElseThrow(() -> new ResourceNotFoundException("Manager not found."));
-                project.setManager(manager);
+            Integer oldManagerId = project.getManager() != null ? project.getManager().getId() : 0;
+            if (!request.getManagerId().equals(oldManagerId)) {
+                if (request.getManagerId() == 0) {
+                     if (changes.length() > 0) changes.append(", ");
+                     changes.append("removed manager");
+                     project.setManager(null);
+                } else {
+                    User manager = userRepository.findById(request.getManagerId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Manager not found."));
+                    
+                    if (changes.length() > 0) changes.append(", ");
+                    changes.append(String.format("changed manager to <strong>%s</strong>", manager.getFullName()));
+                    project.setManager(manager);
+                }
             }
         }
 
-        // Cập nhật Project Type
-        if (request.getProjectTypeId() != null) {
-            Integer projectTypeId = request.getProjectTypeId();
-            if (projectTypeId == 0) { // Set null
-                project.setProjectType(null);
-            } else {
-                ProjectType type = projectTypeRepository.findById(projectTypeId)
-                        // Sửa thông báo sang tiếng Anh
-                        .orElseThrow(() -> new ResourceNotFoundException("Project type not found."));
-                project.setProjectType(type);
-            }
-        }
-
-        // Cập nhật Board Config (kiểm tra JSON hợp lệ)
-        if (isProvided(request.getBoardConfig())) {
-            try {
-                objectMapper.readTree(request.getBoardConfig());
-            } catch (Exception e) {
-                // Sửa thông báo sang tiếng Anh
-                throw new BadRequestException("boardConfig is not valid JSON.");
-            }
-            project.setBoardConfig(request.getBoardConfig());
-        }
-
-        // 4. XỬ LÝ UPLOAD ẢNH BÌA
+        // 6. Cover Image
         if (coverImageFile != null && !coverImageFile.isEmpty()) {
-            // Lưu file mới và cập nhật đường dẫn
             String coverPath = fileStorageService.storeFile(coverImageFile, "project-covers");
+            if (changes.length() > 0) changes.append(", ");
+            changes.append("updated cover image");
             project.setCoverImageUrl(coverPath);
-        }
-        // Nếu gửi link ảnh trực tiếp (String) hoặc muốn xóa ảnh bằng cách gửi chuỗi rỗng
-        else if (request.getCoverImageUrl() != null) {
-            // Cập nhật URL (bao gồm null hoặc rỗng nếu người dùng muốn xóa ảnh)
-            project.setCoverImageUrl(request.getCoverImageUrl().isBlank() ? null : request.getCoverImageUrl());
+        } else if (request.getCoverImageUrl() != null && !request.getCoverImageUrl().equals(project.getCoverImageUrl())) {
+             if (changes.length() > 0) changes.append(", ");
+             changes.append("updated cover image");
+             project.setCoverImageUrl(request.getCoverImageUrl().isBlank() ? null : request.getCoverImageUrl());
         }
 
-        // 5. Lưu và trả về
+        // Set log
+        if (changes.length() > 0) {
+            ActivityLogContext.setDetail(changes.toString());
+        } else {
+             // Nếu không có thay đổi gì (hoặc chỉ đổi field không quan trọng)
+            //  ActivityLogContext.setDetail("updated project details");
+        }
+
         Project saved = projectRepository.save(project);
         return toResponse(saved);
     }

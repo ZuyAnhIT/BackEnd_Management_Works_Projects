@@ -1,6 +1,13 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/SubTaskServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateSubTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateSubTaskRequest;
@@ -16,12 +23,6 @@ import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.SubTaskService;
 import com.quanlyduan.project_manager_api.validation.ProjectHierarchyValidator;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class SubTaskServiceImpl implements SubTaskService {
@@ -120,35 +121,66 @@ public class SubTaskServiceImpl implements SubTaskService {
     // ======================================================
     // 4. CẬP NHẬT SUBTASK (UPDATE SUBTASK)
     // ======================================================
-    @Override
+   @Override
     @Transactional
     @LogActivity(action = "UPDATE", entityType = "SUBTASK", description = "Update Subtask")
     public SubTaskResponse updateSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId, UpdateSubTaskRequest request) {
-        // 1. Validate SubTask và Lấy Entity
         SubTask subTask = validator.validateSubTask(companyId, workspaceId, projectId, taskId, subTaskId);
-        
-        // 2. Cập nhật các trường Scalar (chỉ cập nhật nếu request != null)
-        if (request.getTitle() != null) subTask.setTitle(request.getTitle());
-        if (request.getDescription() != null) subTask.setDescription(request.getDescription());
-        if (request.getStatus() != null) subTask.setStatus(request.getStatus());
-        if (request.getEstimatedHours() != null) subTask.setEstimatedHours(request.getEstimatedHours());
-        
-        // 3. Xử lý Assignee
-        if (request.getAssigneeId() != null) {
-            // Validate Assignee: Kiểm tra người được giao có thuộc Project không
-            validator.validateProjectMember(projectId, request.getAssigneeId());
 
-            // Tìm và gán Assignee
-            User assignee = userRepository.findById(request.getAssigneeId())
-                    // Sửa thông báo sang tiếng Anh
-                    .orElseThrow(() -> new ResourceNotFoundException("Assignee not found"));
-            subTask.setAssignee(assignee);
-        } else if (request.getAssigneeId() != null && request.getAssigneeId() == 0) {
-            // Tùy chọn: Nếu client gửi 0 hoặc tín hiệu null/clear, thì gỡ bỏ người được giao
-            subTask.setAssignee(null);
+        StringBuilder changes = new StringBuilder();
+
+        // 1. Title
+        if (request.getTitle() != null && !request.getTitle().equals(subTask.getTitle())) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", subTask.getTitle(), request.getTitle()));
+            subTask.setTitle(request.getTitle());
+        }
+
+        // 2. Description
+        if (request.getDescription() != null && !request.getDescription().equals(subTask.getDescription())) {
+             if (changes.length() > 0) changes.append(", ");
+             changes.append("updated description");
+             subTask.setDescription(request.getDescription());
+        }
+
+        // 3. Status
+        if (request.getStatus() != null && request.getStatus() != subTask.getStatus()) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("changed status from <strong>%s</strong> to <strong>%s</strong>", subTask.getStatus(), request.getStatus()));
+            subTask.setStatus(request.getStatus());
+        }
+
+        // 4. Estimate
+        if (request.getEstimatedHours() != null && !request.getEstimatedHours().equals(subTask.getEstimatedHours())) {
+             subTask.setEstimatedHours(request.getEstimatedHours());
         }
         
-        // 4. Lưu và trả về
+        // 5. Assignee
+        if (request.getAssigneeId() != null) {
+            Integer oldAssigneeId = subTask.getAssignee() != null ? subTask.getAssignee().getId() : 0;
+            if (!request.getAssigneeId().equals(oldAssigneeId)) {
+                if (request.getAssigneeId() == 0) {
+                     if (changes.length() > 0) changes.append(", ");
+                     changes.append("unassigned");
+                     subTask.setAssignee(null);
+                } else {
+                    validator.validateProjectMember(projectId, request.getAssigneeId());
+                    User assignee = userRepository.findById(request.getAssigneeId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Assignee not found"));
+                    
+                    if (changes.length() > 0) changes.append(", ");
+                    changes.append(String.format("assigned to <strong>%s</strong>", assignee.getFullName()));
+                    subTask.setAssignee(assignee);
+                }
+            }
+        }
+
+        if (changes.length() > 0) {
+            ActivityLogContext.setDetail(changes.toString());
+        } else {
+            //  ActivityLogContext.setDetail("updated details");
+        }
+
         SubTask saved = subTaskRepository.save(subTask);
         return mapToResponse(saved);
     }

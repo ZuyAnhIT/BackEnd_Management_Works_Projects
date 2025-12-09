@@ -1,6 +1,14 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/EpicServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateEpicRequest;
@@ -8,23 +16,16 @@ import com.quanlyduan.project_manager_api.dto.response.EpicResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Epic;
-import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.Project;
 import com.quanlyduan.project_manager_api.model.Task;
+import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.common.enums.EpicStatus;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.specification.EpicSpecification;
-import com.quanlyduan.project_manager_api.service.EpicService;
 import com.quanlyduan.project_manager_api.security.SecurityService;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.jpa.domain.Specification;
-
-
-import java.util.List;
-import java.util.stream.Collectors;
+import com.quanlyduan.project_manager_api.service.EpicService;
 
 @Service
 public class EpicServiceImpl implements EpicService {
@@ -123,63 +124,51 @@ public class EpicServiceImpl implements EpicService {
     @Transactional
     @LogActivity(action = "UPDATE", entityType = "EPIC", description = "Update Epic")
     public EpicResponse updateEpic(Integer projectId, Integer epicId, UpdateEpicRequest request) {
-        // 1. Tìm Epic
         Epic epic = epicRepository.findById(epicId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Epic not found."));
 
-        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo Epic thuộc đúng Project
         if (!epic.getProject().getId().equals(projectId)) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Mismatched project ID for this Epic.");
         }
 
-        // 3. Cập nhật Tên (kèm kiểm tra trùng tên nếu đổi tên)
+        StringBuilder changes = new StringBuilder();
+
+        // 1. Name
         if (request.getName() != null && !request.getName().trim().isEmpty() && !request.getName().equals(epic.getName())) {
-             // Nếu tên mới khác tên cũ, kiểm tra trùng lặp
              if (epicRepository.existsByProject_IdAndNameIgnoreCase(projectId, request.getName())) {
-                 // Sửa thông báo sang tiếng Anh
                  throw new BadRequestException("Epic name already exists.");
              }
+             if (changes.length() > 0) changes.append(", ");
+             changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", epic.getName(), request.getName()));
              epic.setName(request.getName());
         }
 
-        // (Logic trùng lặp: Nếu dòng trên đã xử lý tên, dòng dưới chỉ là redundant check cho trường hợp tên là null/empty, nhưng ta giữ nguyên code gốc)
-        if (request.getName() != null && !request.getName().trim().isEmpty()) {
-             // Mặc dù đã xử lý tên ở trên, nhưng giữ lại logic này để bảo toàn code gốc nếu tên có thể được set lại (redundant)
-             // epic.setName(request.getName());
-        }
-
-
-        // 4. Cập nhật các trường thông tin khác (Chỉ cập nhật nếu có dữ liệu gửi lên)
-        if (request.getDescription() != null) {
-            epic.setDescription(request.getDescription());
-        }
-
-        if (request.getColor() != null && !request.getColor().trim().isEmpty()) {
-            epic.setColor(request.getColor());
-        }
-
-        if (request.getStartDate() != null) {
-            epic.setStartDate(request.getStartDate());
-        }
-
-        if (request.getDueDate() != null) {
-            epic.setDueDate(request.getDueDate());
-        }
-
-        // 5. Cập nhật Trạng thái (Xử lý Enum an toàn)
+        // 2. Status
         if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
             try {
                 EpicStatus newStatus = EpicStatus.valueOf(request.getStatus().toUpperCase());
-                epic.setStatus(newStatus);
+                if (newStatus != epic.getStatus()) {
+                    if (changes.length() > 0) changes.append(", ");
+                    changes.append(String.format("changed status from <strong>%s</strong> to <strong>%s</strong>", epic.getStatus(), newStatus));
+                    epic.setStatus(newStatus);
+                }
             } catch (IllegalArgumentException e) {
-                // Sửa thông báo sang tiếng Anh
                 throw new BadRequestException("Invalid Epic status: " + request.getStatus());
             }
         }
 
-        // 6. Lưu và trả về
+        // 3. Other fields (Color, Dates, Description) - Update without logging specific details
+        if (request.getDescription() != null) epic.setDescription(request.getDescription());
+        if (request.getColor() != null && !request.getColor().trim().isEmpty()) epic.setColor(request.getColor());
+        if (request.getStartDate() != null) epic.setStartDate(request.getStartDate());
+        if (request.getDueDate() != null) epic.setDueDate(request.getDueDate());
+
+        if (changes.length() > 0) {
+            ActivityLogContext.setDetail(changes.toString());
+        } else {
+            //  ActivityLogContext.setDetail("updated details");
+        }
+
         Epic savedEpic = epicRepository.save(epic);
         return mapToEpicResponse(savedEpic);
     }
