@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/SprintServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateSprintRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateSprintRequest;
@@ -129,7 +130,7 @@ public class SprintServiceImpl implements SprintService {
             // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Sprint has already been started or completed.");
         }
-
+        ActivityLogContext.setDetail("started the sprint");
         // 3. Cập nhật
         sprint.setStatus(SprintStatus.IN_PROGRESS);
         // Tự động gán ngày bắt đầu nếu chưa có
@@ -138,7 +139,7 @@ public class SprintServiceImpl implements SprintService {
         }
 
         Sprint savedSprint = sprintRepository.save(sprint);
-
+        
         // 4. Lấy các task liên quan để trả về
         List<Task> tasks = taskRepository.findBySprintIdWithDetails(savedSprint.getId());
         return mapToSprintResponse(savedSprint, tasks);

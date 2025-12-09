@@ -2,6 +2,10 @@ package com.quanlyduan.project_manager_api.aop;
 
 import com.quanlyduan.project_manager_api.dto.response.*; // Import * cho gọn
 import com.quanlyduan.project_manager_api.model.ActivityLog;
+import com.quanlyduan.project_manager_api.model.CompanyInvitation;
+import com.quanlyduan.project_manager_api.model.ProjectInvitation;
+import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.ActivityLogService;
 
@@ -17,38 +21,47 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
+import java.util.Optional;
 
 @Aspect
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class ActivityLogAspect {
 
     private final ActivityLogService activityLogService;
     private final SecurityService securityService;
+    private final UserRepository userRepository;
+
+    public ActivityLogAspect(ActivityLogService activityLogService, SecurityService securityService, UserRepository userRepository){
+        this.activityLogService = activityLogService;
+        this.securityService = securityService;
+        this.userRepository = userRepository;
+    }
 
     @AfterReturning(pointcut = "@annotation(logActivity)", returning = "result")
     public void logAfterMethod(JoinPoint joinPoint, LogActivity logActivity, Object result) {
         try {
             Integer userId = 0;
-            try {
-                userId = securityService.getCurrentUserId();
-            } catch (Exception e) {}
+            try { userId = securityService.getCurrentUserId(); } catch (Exception e) {}
 
             String ipAddress = "Unknown";
             String userAgent = "Unknown";
-            
             try {
                 HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
                 if (request != null) {
                     ipAddress = request.getRemoteAddr();
-                    userAgent = request.getHeader("User-Agent"); 
+                    userAgent = request.getHeader("User-Agent");
                 }
             } catch (Exception ignored) {}
 
             Integer entityId = extractId(result);
-            ContextIds contextIds = extractContextIds(result); 
-            String description = generateJiraStyleDescription(logActivity, result, contextIds);
+            ContextIds contextIds = extractContextIds(result);
+            
+            // 1. LOG CHÍNH (Người gửi)
+            String description = ActivityLogContext.getDetail();
+            if (description == null || description.isEmpty()) {
+                description = generateDefaultDescription(logActivity, contextIds);
+            }
 
             ActivityLog logEntity = ActivityLog.builder()
                     .userId(userId)
@@ -60,13 +73,22 @@ public class ActivityLogAspect {
                     .projectId(contextIds.projectId)
                     .newValue(description)
                     .ipAddress(ipAddress)
-                    .userAgent(userAgent) 
+                    .userAgent(userAgent)
                     .build();
 
             activityLogService.saveLog(logEntity);
 
+            // 2. LOG PHỤ (Người nhận) - NẾU LÀ INVITE
+            if ("INVITE".equalsIgnoreCase(logActivity.action()) && contextIds.entityName != null) {
+                // entityName lúc này là Email người nhận
+                createLogForRecipient(contextIds.entityName, logActivity, entityId, contextIds, ipAddress, userAgent);
+            }
+            
+            ActivityLogContext.clear();
+
         } catch (Exception e) {
             log.error("Error saving activity log: {}", e.getMessage());
+            ActivityLogContext.clear();
         }
     }
 
@@ -76,6 +98,48 @@ public class ActivityLogAspect {
         Integer projectId;
         String entityName;
         String entityCode;
+        String targetName;
+    }
+
+    /**
+     * Hàm tạo log riêng cho người được mời
+     */
+    private void createLogForRecipient(String email, LogActivity logActivity, Integer entityId, ContextIds contextIds, String ip, String ua) {
+        try {
+            Optional<User> recipientOpt = userRepository.findByEmail(email);
+            
+            if (recipientOpt.isPresent()) {
+                User recipient = recipientOpt.get();
+                
+                // Xác định loại mời: "company", "project", "workspace"
+                String inviteType = logActivity.entityType().toLowerCase().replace("_member", "");
+                
+                // Lấy tên đích (TechVision, E-Commerce App...)
+                String targetName = (contextIds.targetName != null) ? contextIds.targetName : "the system";
+
+                // Tạo thông báo chi tiết
+                // VD: You have been invited to company <strong>TechVision Solutions</strong>.
+                String recipientMsg = String.format("You have been invited to join %s <strong>%s</strong>. Please check your email.", 
+                        inviteType, targetName);
+
+                ActivityLog recipientLog = ActivityLog.builder()
+                        .userId(recipient.getId()) 
+                        .action("RECEIVED_INVITE") 
+                        .entityType(logActivity.entityType())
+                        .entityId(entityId) // Lưu ID lời mời để Frontend xử lý nút Accept
+                        .companyId(contextIds.companyId)
+                        .workspaceId(contextIds.workspaceId)
+                        .projectId(contextIds.projectId)
+                        .newValue(recipientMsg)
+                        .ipAddress(ip)
+                        .userAgent(ua)
+                        .build();
+
+                activityLogService.saveLog(recipientLog);
+            }
+        } catch (Exception ex) {
+            log.warn("Could not create recipient log: " + ex.getMessage());
+        }
     }
 
     private ContextIds extractContextIds(Object result) {
@@ -94,8 +158,8 @@ public class ActivityLogAspect {
             if (data instanceof TaskSummaryResponse) {
                 TaskSummaryResponse t = (TaskSummaryResponse) data;
                 ids.projectId = t.getProjectId();
-                ids.workspaceId = t.getWorkspaceId();
-                ids.companyId = t.getCompanyId();
+                // ids.workspaceId = t.getWorkspaceId();
+                // ids.companyId = t.getCompanyId();
                 ids.entityName = t.getTitle();
                 ids.entityCode = t.getTaskCode();
             }
@@ -103,8 +167,8 @@ public class ActivityLogAspect {
             else if (data instanceof TaskResponse) {
                 TaskResponse t = (TaskResponse) data;
                 if (t.getProject() != null) ids.projectId = t.getProject().getId();
-                ids.workspaceId = t.getWorkspaceId();
-                ids.companyId = t.getCompanyId();
+                // ids.workspaceId = t.getWorkspaceId();
+                // ids.companyId = t.getCompanyId();
                 ids.entityName = t.getTitle();
                 ids.entityCode = t.getTaskCode();
             }
@@ -112,8 +176,8 @@ public class ActivityLogAspect {
             else if (data instanceof ProjectResponse) {
                 ProjectResponse p = (ProjectResponse) data;
                 ids.projectId = p.getId();
-                ids.workspaceId = p.getWorkspaceId();
-                ids.companyId = p.getCompanyId();
+                // ids.workspaceId = p.getWorkspaceId();
+                // ids.companyId = p.getCompanyId();
                 ids.entityName = p.getName();
                 ids.entityCode = p.getProjectCode();
             }
@@ -121,24 +185,50 @@ public class ActivityLogAspect {
             else if (data instanceof WorkspaceResponse) {
                 WorkspaceResponse w = (WorkspaceResponse) data;
                 ids.workspaceId = w.getWorkspaceId();
-                ids.companyId = w.getCompanyId();
+                // ids.companyId = w.getCompanyId();
                 ids.entityName = w.getWorkspaceName();
-                // ids.entityCode = w.getWorkspaceCode(); 
+            }
+            // --- PROJECT STATUS ---
+            else if (data instanceof ProjectStatusResponse) {
+                ProjectStatusResponse s = (ProjectStatusResponse) data;
+                ids.projectId = s.getProjectId();
+                // Nếu bạn đã thêm workspaceId/companyId vào DTO này thì uncomment:
+                // ids.workspaceId = s.getWorkspaceId();
+                // ids.companyId = s.getCompanyId();
+                ids.entityName = s.getName();
+                ids.entityCode = "COLUMN";
+            }
+            // --- INVITATION (Xử lý Email người được mời) ---
+            else if (data instanceof CompanyInvitation) {
+                CompanyInvitation inv = (CompanyInvitation) data;
+                ids.companyId = inv.getCompany().getId();
+                ids.entityName = inv.getEmail(); // Hiển thị email người được mời
+                ids.targetName = inv.getCompany().getName();
+            }
+            else if (data instanceof ProjectInvitation) {
+                ProjectInvitation inv = (ProjectInvitation) data;
+                ids.projectId = inv.getProject().getId();
+                 if(inv.getProject().getWorkspace() != null && inv.getProject().getWorkspace().getCompany() != null) {
+                    ids.companyId = inv.getProject().getWorkspace().getCompany().getId();
+                }
+                // ids.companyId = inv.getProject().getWorkspace().getCompany().getId();
+                ids.entityName = inv.getEmail();
+                ids.targetName = inv.getProject().getName();
             }
             // 5. COMMENT
             else if (data instanceof TaskCommentResponse) {
                 TaskCommentResponse c = (TaskCommentResponse) data;
                 ids.projectId = c.getProjectId();
-                ids.workspaceId = c.getWorkspaceId();
-                ids.companyId = c.getCompanyId();
+                // ids.workspaceId = c.getWorkspaceId();
+                // ids.companyId = c.getCompanyId();
                 ids.entityName = "Comment on Task";
             }
             // 6. ATTACHMENT
             else if (data instanceof TaskAttachmentResponse) {
                 TaskAttachmentResponse a = (TaskAttachmentResponse) data;
                 ids.projectId = a.getProjectId();
-                ids.workspaceId = a.getWorkspaceId();
-                ids.companyId = a.getCompanyId();
+                // ids.workspaceId = a.getWorkspaceId();
+                // ids.companyId = a.getCompanyId();
                 ids.entityName = a.getFileName();
             }
             // 7. SUBTASK
@@ -179,41 +269,13 @@ public class ActivityLogAspect {
         }
         return ids;
     }
-    private ContextIds extractContextIdsFromRequest() {
-    ContextIds ids = new ContextIds();
-    try {
-        HttpServletRequest req = ((ServletRequestAttributes)
-                RequestContextHolder.currentRequestAttributes()).getRequest();
-
-        String[] parts = req.getRequestURI().split("/");
-
-        for (int i = 0; i < parts.length; i++) {
-            if (parts[i].equals("companies")) {
-                ids.companyId = Integer.valueOf(parts[i + 1]);
-            }
-            if (parts[i].equals("workspaces")) {
-                ids.workspaceId = Integer.valueOf(parts[i + 1]);
-            }
-            if (parts[i].equals("projects")) {
-                ids.projectId = Integer.valueOf(parts[i + 1]);
-            }
-        }
-    } catch (Exception ignored) {}
-    return ids;
-}
 
     private Integer extractId(Object result) {
-        if (result == null) return null;
-        Object data = result;
-        if (result instanceof org.springframework.http.ResponseEntity) {
-            data = ((org.springframework.http.ResponseEntity<?>) result).getBody();
-        }
-        if (data instanceof com.quanlyduan.project_manager_api.dto.response.ApiResponse) {
-            data = ((com.quanlyduan.project_manager_api.dto.response.ApiResponse<?>) data).getData();
-        }
+        Object data = unwrapResult(result);
         if (data == null) return null;
 
         try {
+            // Ưu tiên tìm hàm getId()
             Method getIdMethod = data.getClass().getMethod("getId");
             Object idObj = getIdMethod.invoke(data);
             if (idObj instanceof Integer) return (Integer) idObj;
@@ -224,48 +286,46 @@ public class ActivityLogAspect {
     }
 
     private Integer tryAlternativeIds(Object data) {
-        // 1. Thử tìm getTaskId
-        try {
-            Method getTaskId = data.getClass().getMethod("getTaskId");
-            return (Integer) getTaskId.invoke(data);
-        } catch (Exception e) {}
-
-        // 2. Thử tìm getProjectId
-        try {
-            Method getProjectId = data.getClass().getMethod("getProjectId");
-            return (Integer) getProjectId.invoke(data);
-        } catch (Exception e) {}
-
-        // 3. Thử tìm getWorkspaceId (BỔ SUNG)
-        try {
-            Method getWorkspaceId = data.getClass().getMethod("getWorkspaceId");
-            return (Integer) getWorkspaceId.invoke(data);
-        } catch (Exception e) {}
-
-        // 4. Thử tìm getCompanyId (BỔ SUNG)
-        try {
-            Method getCompanyId = data.getClass().getMethod("getCompanyId");
-            return (Integer) getCompanyId.invoke(data);
-        } catch (Exception e) {}
-        
-        // 5. Thử tìm getCommentId (BỔ SUNG - Cho Comment)
-        try {
-            Method getCommentId = data.getClass().getMethod("getCommentId");
-            return (Integer) getCommentId.invoke(data);
-        } catch (Exception e) {}
-
-        return null; // Chịu thua
+        String[] possibleMethods = {"getTaskId", "getProjectId", "getWorkspaceId", "getCompanyId", "getCommentId"};
+        for (String methodName : possibleMethods) {
+            try {
+                Method method = data.getClass().getMethod(methodName);
+                Object val = method.invoke(data);
+                if (val instanceof Integer) return (Integer) val;
+            } catch (Exception ignored) {}
+        }
+        return null;
     }
 
-    private String generateJiraStyleDescription(LogActivity logActivity, Object result, ContextIds context) {
-        String action = logActivity.action().toLowerCase();
-        String type = logActivity.entityType().toLowerCase();
+    // Helper bóc tách ResponseEntity/ApiResponse
+    private Object unwrapResult(Object result) {
+        if (result == null) return null;
+        Object data = result;
+        if (result instanceof org.springframework.http.ResponseEntity) {
+            data = ((org.springframework.http.ResponseEntity<?>) result).getBody();
+        }
+        if (data instanceof com.quanlyduan.project_manager_api.dto.response.ApiResponse) {
+            data = ((com.quanlyduan.project_manager_api.dto.response.ApiResponse<?>) data).getData();
+        }
+        return data;
+    }
+     // Helper: Format phần đầu "create a task..."
+    private String formatActionHeader(LogActivity logActivity) {
+        String action = logActivity.action().toLowerCase().replace("_", " ");
+        String type = logActivity.entityType().toLowerCase().replace("_", " ");
+        return action + " a " + type;
+    }
 
+    // Helper: Tạo mô tả mặc định (khi Service không gửi chi tiết)
+    private String generateDefaultDescription(LogActivity logActivity, ContextIds context) {
         StringBuilder sb = new StringBuilder();
-        sb.append(action).append(" a ").append(type);
+        sb.append(formatActionHeader(logActivity));
 
         if (context.entityCode != null) {
             sb.append(" <strong>").append(context.entityCode).append("</strong>");
+            if (context.entityName != null) {
+                sb.append(" - ").append(context.entityName);
+            }
         } else if (context.entityName != null) {
             sb.append(" \"").append(context.entityName).append("\"");
         }

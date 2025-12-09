@@ -13,7 +13,8 @@ import com.quanlyduan.project_manager_api.dto.response.CompanyInvitationResponse
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
-import com.quanlyduan.project_manager_api.model.Company; 
+import com.quanlyduan.project_manager_api.model.Company;
+import com.quanlyduan.project_manager_api.model.CompanyInvitation;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 
@@ -55,12 +56,12 @@ public interface CompanyService {
      * @param companyId ID công ty
      * @param request DTO chứa email và roleCode
      */
-    void inviteMember(Integer companyId, InviteMemberRequest request); 
+    CompanyInvitation inviteMember(Integer companyId, InviteMemberRequest request); 
 
     /**
      * Chấp nhận lời mời tham gia Công ty (sau khi click link).
      */
-    void acceptInvitation(AcceptInvitationRequest request);
+    CompanyDetailsResponse acceptInvitation(AcceptInvitationRequest request);
 
     /**
      * Lấy thông tin chi tiết của một thành viên trong công ty.

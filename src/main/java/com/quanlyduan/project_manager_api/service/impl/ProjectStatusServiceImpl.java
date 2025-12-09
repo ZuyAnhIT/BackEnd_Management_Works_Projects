@@ -232,6 +232,8 @@ public class ProjectStatusServiceImpl implements ProjectStatusService {
         return ProjectStatusResponse.builder()
                 .id(s.getId())
                 .projectId(s.getProject().getId())
+                .workspaceId(s.getProject().getWorkspace().getId())
+                .companyId(s.getProject().getWorkspace().getCompany().getId())
                 .name(s.getName())
                 .color(s.getColor())
                 .sortOrder(s.getSortOrder())

@@ -14,6 +14,7 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
+import com.quanlyduan.project_manager_api.model.ProjectInvitation;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
@@ -93,7 +94,7 @@ public interface ProjectService {
         /**
          * Gửi lời mời tham gia dự án (Xử lý cả nội bộ và bên ngoài).
          */
-        void inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request);
+        ProjectInvitation inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request);
 
         /**
          * Lấy danh sách thành viên của dự án (Phân trang & Sắp xếp cơ bản).

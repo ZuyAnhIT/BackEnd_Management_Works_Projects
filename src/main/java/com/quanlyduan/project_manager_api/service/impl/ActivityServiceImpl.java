@@ -33,6 +33,76 @@ public class ActivityServiceImpl {
     private final ProjectMemberRepository projectMemberRepository;
     private final SecurityService securityService;
 
+    @Transactional(readOnly = true)
+    public List<ActivityLogResponse> getLogsByContext(String scope, Integer id, int page, int size) {
+        
+        Integer currentUserId = securityService.getCurrentUserId();
+        Pageable pageable = PageRequest.of(page, size);
+        List<ActivityLog> logs;
+
+        switch (scope.toUpperCase()) {
+            case "COMPANY":
+                // 1. Check quyền Member
+                if (!companyMemberRepository.existsByCompany_IdAndUser_Id(id, currentUserId)) {
+                    throw new AccessDeniedException("You are not a member of this company.");
+                }
+                
+                // 2. Query DB
+                logs = activityLogRepository.findByCompanyIdOrderByCreatedAtDesc(id, pageable);
+
+                // 3. 🔥 LỌC: Ẩn log INVITE và RECEIVED_INVITE khỏi bảng tin chung
+                // Chỉ hiện: CREATE, UPDATE, DELETE, JOIN, REMOVE...
+                logs = logs.stream()
+                        .filter(log -> !log.getAction().equals("INVITE") 
+                                    && !log.getAction().equals("RECEIVED_INVITE"))
+                        .collect(Collectors.toList());
+                break;
+                
+            case "WORKSPACE":
+                // 1. Check quyền
+                if (!workspaceMemberRepository.existsByWorkspace_IdAndUser_Id(id, currentUserId)) {
+                     throw new AccessDeniedException("You are not a member of this workspace.");
+                }
+                // 2. Query DB
+                logs = activityLogRepository.findByWorkspaceIdOrderByCreatedAtDesc(id, pageable);
+
+                // 3. 🔥 LỌC: Tương tự Company
+                logs = logs.stream()
+                        .filter(log -> !log.getAction().equals("INVITE") 
+                                    && !log.getAction().equals("RECEIVED_INVITE"))
+                        .collect(Collectors.toList());
+                break;
+                
+            case "PROJECT":
+                if (!projectMemberRepository.existsByProject_IdAndUser_Id(id, currentUserId)) {
+                    throw new AccessDeniedException("You are not a member of this project.");
+                }
+                logs = activityLogRepository.findByProjectIdOrderByCreatedAtDesc(id, pageable);
+                // Với Project, có thể bạn muốn giữ lại Invite để team lead theo dõi, 
+                // hoặc lọc bỏ tùy ý. Ở đây tôi lọc bỏ cho đồng bộ.
+                logs = logs.stream()
+                        .filter(log -> !log.getAction().equals("INVITE") 
+                                    && !log.getAction().equals("RECEIVED_INVITE"))
+                        .collect(Collectors.toList());
+                break;
+                
+            case "USER":
+                if (!currentUserId.equals(id)) {
+                    throw new AccessDeniedException("You can only view your own activity logs.");
+                }
+                // User xem log của chính mình thì CẦN THẤY RECEIVED_INVITE (để biết mình được mời)
+                // và INVITE (để biết mình đã mời ai) -> KHÔNG LỌC
+                logs = activityLogRepository.findByUserIdOrderByCreatedAtDesc(id, pageable);
+                break;
+
+            default:
+                throw new BadRequestException("Invalid scope: " + scope);
+        }
+
+        return logs.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+
     // Helper map Entity -> DTO
     private ActivityLogResponse mapToResponse(ActivityLog log) {
         User user = userRepository.findById(log.getUserId()).orElse(null);
@@ -50,68 +120,5 @@ public class ActivityServiceImpl {
                 .timestamp(log.getCreatedAt())
                 .timeAgo(TimeUtils.getRelativeTimeAgo(log.getCreatedAt()))
                 .build();
-    }
-
-    @Transactional(readOnly = true)
-    public List<ActivityLogResponse> getLogsByContext(String scope, Integer id, int page, int size) {
-        
-        // 1. Lấy User hiện tại
-        Integer currentUserId = securityService.getCurrentUserId();
-        
-        // 2. Chuẩn bị Pageable
-        Pageable pageable = PageRequest.of(page, size);
-        
-        // 3. Khai báo biến logs
-        List<ActivityLog> logs;
-
-        // 4. KIỂM TRA QUYỀN VÀ QUERY DB TRONG TỪNG CASE
-        switch (scope.toUpperCase()) {
-            case "COMPANY":
-                // Check quyền
-                boolean isCompanyMember = companyMemberRepository.existsByCompany_IdAndUser_Id(id, currentUserId);
-                if (!isCompanyMember) {
-                    throw new AccessDeniedException("You are not a member of this company.");
-                }
-                // Query DB (Gán giá trị cho logs)
-                logs = activityLogRepository.findByCompanyIdOrderByCreatedAtDesc(id, pageable);
-                break;
-                
-            case "WORKSPACE":
-                // Check quyền
-                boolean isWorkspaceMember = workspaceMemberRepository.existsByWorkspace_IdAndUser_Id(id, currentUserId);
-                // (Có thể mở rộng logic: Nếu là Company Admin thì vẫn được xem, tùy nghiệp vụ)
-                if (!isWorkspaceMember) {
-                     throw new AccessDeniedException("You are not a member of this workspace.");
-                }
-                // Query DB
-                logs = activityLogRepository.findByWorkspaceIdOrderByCreatedAtDesc(id, pageable);
-                break;
-                
-            case "PROJECT":
-                // Check quyền
-                boolean isProjectMember = projectMemberRepository.existsByProject_IdAndUser_Id(id, currentUserId);
-                if (!isProjectMember) {
-                    throw new AccessDeniedException("You are not a member of this project.");
-                }
-                // Query DB
-                logs = activityLogRepository.findByProjectIdOrderByCreatedAtDesc(id, pageable);
-                break;
-                
-            case "USER":
-                // Check quyền (Chỉ xem log của chính mình)
-                if (!currentUserId.equals(id)) {
-                    throw new AccessDeniedException("You can only view your own activity logs.");
-                }
-                // Query DB
-                logs = activityLogRepository.findByUserIdOrderByCreatedAtDesc(id, pageable);
-                break;
-
-            default:
-                throw new BadRequestException("Invalid scope: " + scope);
-        }
-
-        // 5. Map kết quả và trả về
-        // Lúc này biến 'logs' chắc chắn đã được gán giá trị ở một trong các case trên
-        return logs.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 }

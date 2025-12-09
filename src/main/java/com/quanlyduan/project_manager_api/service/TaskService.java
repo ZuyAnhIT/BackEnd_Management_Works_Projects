@@ -52,14 +52,14 @@ public interface TaskService {
      * @param sprintId ID của Sprint mới (hoặc null nếu về Backlog).
      * @param newSortOrder Vị trí sắp xếp mới của Task trong danh sách đích.
      */
-    void updateTaskSprint(Integer taskId, Integer sprintId, Integer newSortOrder);
+    TaskResponse updateTaskSprint(Integer taskId, Integer sprintId, Integer newSortOrder);
     
     /**
      * Di chuyển Task sang một trạng thái (cột) khác trên Board.
      * @param taskId ID của task cần di chuyển.
      * @param request DTO chứa ID trạng thái mới và vị trí sắp xếp mới (newSortOrder).
      */
-    void moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request);
+    TaskResponse moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request);
     
     /**
      * Gán hoặc gỡ Epic khỏi Task.
@@ -68,7 +68,7 @@ public interface TaskService {
      * @return TaskResponse sau khi cập nhật.
      */
     TaskResponse updateTaskEpic(Integer taskId, UpdateTaskEpicRequest request);
-    void deleteTask(Integer taskId);
+    TaskResponse deleteTask(Integer taskId);
     // ========================================================================
     // 3. HÀM HELPER
     // ========================================================================

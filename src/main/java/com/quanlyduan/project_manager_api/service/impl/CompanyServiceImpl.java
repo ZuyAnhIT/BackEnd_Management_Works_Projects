@@ -9,6 +9,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.service.CompanyService;
+import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.AcceptInvitationRequest;
 import com.quanlyduan.project_manager_api.dto.request.InviteMemberRequest;
@@ -146,10 +147,11 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     @Transactional
     @LogActivity(action = "INVITE", entityType = "COMPANY_MEMBER", description = "Invite member to Company") // <-- THÊM
-    public void inviteMember(Integer companyId, InviteMemberRequest request) {
+    public CompanyInvitation inviteMember(Integer companyId, InviteMemberRequest request) {
 
         // 1. Lấy thông tin cần thiết: Admin (người mời) và Công ty
         User admin = getCurrentAuthenticatedUser();
+        
         Company company = companyRepository.findById(companyId)
                 // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
@@ -200,8 +202,8 @@ public class CompanyServiceImpl implements CompanyService {
                 .expiresAt(expiryDate)
                 .build();
 
-        companyInvitationRepository.save(invitation);
-
+        CompanyInvitation companyInvitation = companyInvitationRepository.save(invitation);
+        
         // 6. Gửi Email (Nội dung email giữ nguyên tiếng Việt như logic cũ)
         String acceptUrl = frontendUrl + "/accept-invitation?token=" + token;
         String emailBody = String.format(
@@ -212,6 +214,7 @@ public class CompanyServiceImpl implements CompanyService {
         );
 
         emailService.sendEmail(invitedEmail, "Lời mời tham gia " + company.getName(), emailBody);
+        return companyInvitation;
     }
 
     // =================================================================================
@@ -219,7 +222,8 @@ public class CompanyServiceImpl implements CompanyService {
     // =================================================================================
     @Override
     @Transactional
-    public void acceptInvitation(AcceptInvitationRequest request) {
+    @LogActivity(action = "JOIN", entityType = "COMPANY_MEMBER", description = "Accept company invitation")
+    public CompanyDetailsResponse acceptInvitation(AcceptInvitationRequest request) {
         // 1. Xác thực token lời mời (SỬ DỤNG SERVICE CHUNG)
         // Hàm này đã xử lý các lỗi Token hết hạn/không tồn tại
         CompanyInvitation invitation = invitationService.validateInvitationToken(request.getInvitationToken());
@@ -246,6 +250,13 @@ public class CompanyServiceImpl implements CompanyService {
         // 6. Cập nhật lời mời
         invitation.setStatus(InvitationStatus.ACCEPTED);
         companyInvitationRepository.save(invitation);
+
+        String welcomeMsg = String.format("has joined the company <strong>%s</strong> as <strong>%s</strong> 🎉", 
+                invitation.getCompany().getName(), 
+                invitation.getRole().getRoleName());
+        
+        ActivityLogContext.setDetail(welcomeMsg);
+        return mapCompanyToDetailsDto(invitation.getCompany());
     }
 
     // =================================================================================
@@ -318,7 +329,7 @@ public class CompanyServiceImpl implements CompanyService {
             // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("The new role is the same as the current role — nothing to update.");
         }
-
+        
         // 8. Cập nhật vai trò
         member.setRole(newRole);
         return companyMemberRepository.save(member);
@@ -462,7 +473,14 @@ public class CompanyServiceImpl implements CompanyService {
         else if (request.getLogo() != null) {
             company.setLogoUrl(request.getLogo());
         }
+        StringBuilder changes = new StringBuilder();
 
+        if (request.getCompanyName() != null && !request.getCompanyName().equals(company.getName())) {
+             changes.append(String.format("changed name from \"Is\" to \"Is\"", company.getName(), request.getCompanyName()));
+        }
+        if (changes.length() > 0) {
+             ActivityLogContext.setDetail(changes.toString());
+        }
         // 4. Lưu và trả về
         Company savedCompany = companyRepository.save(company);
         return mapCompanyToDetailsDto(savedCompany);

@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/ProjectServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest;
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
@@ -1086,7 +1087,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional
     @LogActivity(action = "INVITE", entityType = "PROJECT_MEMBER", description = "Invite member to Project")
-    public void inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request) {
+    public ProjectInvitation inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request) {
         // 1. Tìm Project và lấy thông tin người mời/Công ty
         Project project = projectRepository.findById(projectId)
                 // Sửa thông báo sang tiếng Anh
@@ -1135,7 +1136,7 @@ public class ProjectServiceImpl implements ProjectService {
 
                 // Gửi mail thông báo
                 sendProjectNotificationEmail(inviter, existingUser, project, role);
-                return; // Kết thúc
+                return null; // Kết thúc
             }
         }
 
@@ -1160,10 +1161,11 @@ public class ProjectServiceImpl implements ProjectService {
                 .expiresAt(expiresAt)
                 .build();
 
-        projectInvitationRepository.save(invitation);
+        ProjectInvitation projectInvitation = projectInvitationRepository.save(invitation);
 
         // 6. Gửi Email Mời
         sendProjectInvitationEmail(inviter, email, project, role, token);
+        return projectInvitationRepository.save(projectInvitation);
     }
 
     /**
@@ -1202,6 +1204,7 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     @Transactional
+    @LogActivity(action = "JOIN", entityType = "PROJECT_MEMBER", description = "Accept project invitation")
     public void acceptProjectInvitation(String token) {
         User currentUser = securityService.getCurrentAuthenticatedUser();
 
@@ -1232,6 +1235,11 @@ public class ProjectServiceImpl implements ProjectService {
         // Cập nhật trạng thái lời mời
         invitation.setStatus(InvitationStatus.ACCEPTED);
         projectInvitationRepository.save(invitation);
+
+        String welcomeMsg = String.format("has joined the project <strong>%s</strong> 🎉", 
+                invitation.getProject().getName());
+        
+        ActivityLogContext.setDetail(welcomeMsg);
     }
 
     // ------------------------------------------------------------------------

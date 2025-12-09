@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/TaskServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
@@ -29,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TaskServiceImpl implements TaskService {
 
     private final TaskRepository taskRepository;
+    private final TaskCommentRepository taskCommentRepository;
     private final ProjectRepository projectRepository;
     private final SprintRepository sprintRepository;
     private final UserRepository userRepository;
@@ -40,6 +42,7 @@ public class TaskServiceImpl implements TaskService {
     // CONSTRUCTOR (Dependency Injection)
     // ======================================================
     public TaskServiceImpl(TaskRepository taskRepository,
+                            TaskCommentRepository taskCommentRepository,
                            ProjectRepository projectRepository,
                            SprintRepository sprintRepository,
                            UserRepository userRepository,
@@ -47,6 +50,7 @@ public class TaskServiceImpl implements TaskService {
                            SecurityService securityService,
                            ProjectStatusRepository projectStatusRepository) {
         this.taskRepository = taskRepository;
+        this.taskCommentRepository = taskCommentRepository;
         this.projectRepository = projectRepository;
         this.sprintRepository = sprintRepository;
         this.userRepository = userRepository;
@@ -61,7 +65,7 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     @LogActivity(action = "UPDATE", entityType = "TASK", description = "Drag and drop Task with Sprint")
-    public void updateTaskSprint(Integer taskId, Integer newSprintId, Integer newSortOrder) {
+    public TaskResponse updateTaskSprint(Integer taskId, Integer newSprintId, Integer newSortOrder) {
         // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
                 // Sửa thông báo sang tiếng Anh
@@ -107,7 +111,8 @@ public class TaskServiceImpl implements TaskService {
         task.setSprint(targetSprint);
         task.setSortOrder(newSortOrder);
 
-        taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+        return mapToTaskResponse(savedTask);
     }
 
     // ======================================================
@@ -201,7 +206,7 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     @LogActivity(action = "MOVE_STATUS", entityType = "TASK", description = "Change task status")
-    public void moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request) {
+    public TaskResponse moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request) {
         // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
                 // Sửa thông báo sang tiếng Anh
@@ -232,11 +237,17 @@ public class TaskServiceImpl implements TaskService {
             // Logic này sẽ đẩy các task khác có sortOrder >= newSortOrder trong cột MỚI lùi xuống
             taskRepository.shiftSortOrderInStatus(projectId, newStatusId, newSortOrder);
         }
-
+        String oldStatusName = task.getStatus() != null ? task.getStatus().getName() : "None";
+        String newStatusName = newStatus.getName();
+        ActivityLogContext.setDetail(String.format(
+            "changed status from <strong>%s</strong> to <strong>%s</strong>", 
+            oldStatusName, newStatusName
+        ));
         // 5. Cập nhật Task
         task.setStatus(newStatus);
         task.setSortOrder(newSortOrder);
 
+        
         // 6. Cập nhật cờ hoàn thành (completedAt)
         if (newStatus.getIsCompletedStatus()) {
             task.setCompletedAt(java.time.LocalDateTime.now());
@@ -244,7 +255,9 @@ public class TaskServiceImpl implements TaskService {
             task.setCompletedAt(null);
         }
 
-        taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+
+        return mapToTaskResponse(savedTask);
     }
 
     // ======================================================
@@ -260,7 +273,7 @@ public class TaskServiceImpl implements TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
 
         Integer projectId = task.getProject().getId();
-
+        
         // 2. Cập nhật các trường Scalar (Văn bản/Số)
         if (request.getTitle() != null && !request.getTitle().isEmpty()) {
             task.setTitle(request.getTitle());
@@ -286,7 +299,21 @@ public class TaskServiceImpl implements TaskService {
         if (request.getDueDate() != null) {
             task.setDueDate(request.getDueDate());
         }
+        // Tạo StringBuilder để ghi nhận các thay đổi
+        StringBuilder changes = new StringBuilder();
 
+        // Check thay đổi Title
+        if (request.getTitle() != null && !request.getTitle().equals(task.getTitle())) {
+            changes.append(String.format("renamed from \"Is\" to \"Is\"", task.getTitle(), request.getTitle())); 
+            // Hoặc ngắn gọn: "changed title"
+        }
+        
+        // Check thay đổi Priority
+        if (request.getPriority() != null && request.getPriority() != task.getPriority()) {
+            if (changes.length() > 0) changes.append(", ");
+            changes.append(String.format("changed priority from <strong>%s</strong> to <strong>%s</strong>", 
+                task.getPriority(), request.getPriority()));
+        }
         // 3. Cập nhật các Quan hệ (Cần validate)
 
         // A. Status (Cột)
@@ -345,7 +372,11 @@ public class TaskServiceImpl implements TaskService {
                 task.setAssignee(assignee);
             }
         }
-
+        if (changes.length() > 0) {
+            ActivityLogContext.setDetail(changes.toString());
+        } else {
+            ActivityLogContext.setDetail("updated details");
+        }
         // 4. Lưu và trả về
         Task updatedTask = taskRepository.save(task);
         return mapToTaskResponse(updatedTask);
@@ -410,18 +441,36 @@ public class TaskServiceImpl implements TaskService {
         return mapToTaskResponse(task);
     }
     // Delete Task
-    @Override
+     @Override
     @Transactional
     @LogActivity(action = "DELETE", entityType = "TASK", description = "Delete task")
-    public void deleteTask(Integer taskId) {
-        // 1. Kiểm tra Task có tồn tại không
-        if (!taskRepository.existsById(taskId)) {
-            throw new ResourceNotFoundException("Task not found with ID: " + taskId);
+    public TaskResponse deleteTask(Integer taskId) {
+        // BƯỚC 1: Tìm Task trước (Để lấy dữ liệu trả về và để xóa)
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+
+        // BƯỚC 2: Map sang Response DTO (Lưu lại thông tin trước khi xóa)
+        // Lưu ý: Phải map trước khi xóa các quan hệ con nếu cần thông tin con
+        TaskResponse response = mapToTaskResponse(task);
+
+        // BƯỚC 3: XỬ LÝ LỖI "Row was updated or deleted..." (Vấn đề cũ của bạn)
+        // Xóa thủ công comments trước để tránh xung đột Hibernate
+        if (task.getComments() != null && !task.getComments().isEmpty()) {
+            // Cần inject TaskCommentRepository ở trên Constructor
+             taskCommentRepository.deleteAll(task.getComments());
+             
+             // Xóa list trong memory để Hibernate không bị loạn
+             task.setComments(new ArrayList<>()); 
         }
 
-        // 2. Thực hiện Xóa Vĩnh Viễn
-        taskRepository.deleteById(taskId);
+        // BƯỚC 4: Xóa Task
+        // Dùng delete(entity) thay vì deleteById(id) để tận dụng object đã load
+        taskRepository.delete(task);
+
+        // BƯỚC 5: Trả về thông tin task vừa xóa
+        return response;
     }
+
     // ======================================================
     // ⚙️ HÀM HELPER MAPPING
     // ======================================================
