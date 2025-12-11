@@ -95,6 +95,8 @@ CREATE TABLE activity_logs (
     action VARCHAR(255) NOT NULL,
     entity_type VARCHAR(100),
     entity_id INT,
+    entity_name VARCHAR(500),
+    entity_code VARCHAR(50),
     company_id INT,
     workspace_id INT,
     project_id INT,
