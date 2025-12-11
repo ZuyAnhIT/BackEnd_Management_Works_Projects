@@ -1,7 +1,17 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.quanlyduan.project_manager_api.dto.response.ActivityLogResponse;
-import com.quanlyduan.project_manager_api.model.ActivityLog;
+import com.quanlyduan.project_manager_api.exception.AccessDeniedException;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.model.ActivityLog; // Đảm bảo import đúng Exception tùy chỉnh của bạn hoặc của Spring Security
 import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.repository.ActivityLogRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
@@ -9,18 +19,9 @@ import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
-import com.quanlyduan.project_manager_api.exception.AccessDeniedException; // Đảm bảo import đúng Exception tùy chỉnh của bạn hoặc của Spring Security
-import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.util.TimeUtils;
 
-import com.quanlyduan.project_manager_api.util.TimeUtils; 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -116,6 +117,8 @@ public class ActivityServiceImpl {
                 .action(log.getAction())
                 .entityType(log.getEntityType())
                 .entityId(log.getEntityId())
+                .entityName(log.getEntityName())
+                .entityCode(log.getEntityCode())
                 .description(log.getNewValue())
                 .timestamp(log.getCreatedAt())
                 .timeAgo(TimeUtils.getRelativeTimeAgo(log.getCreatedAt()))

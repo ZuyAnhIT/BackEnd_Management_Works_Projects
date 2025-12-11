@@ -1,12 +1,19 @@
 package com.quanlyduan.project_manager_api.model;
 
-import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+import org.hibernate.annotations.CreationTimestamp;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -30,6 +37,12 @@ public class ActivityLog {
 
     @Column(name = "entity_id")
     private Integer entityId;
+    
+    @Column(name = "entity_name")
+    private String entityName; // Lưu tên: "Fix Bug Login", "TechVision"
+
+    @Column(name = "entity_code")
+    private String entityCode; // Lưu mã: "ECOM-12", "CPW-11"
 
     // --- Nâng cấp để lọc 4 cấp độ ---
     @Column(name = "company_id")
