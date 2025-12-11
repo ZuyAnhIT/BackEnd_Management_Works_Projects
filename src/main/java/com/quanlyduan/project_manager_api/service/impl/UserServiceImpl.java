@@ -8,6 +8,7 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectMembershipDTO;
 import com.quanlyduan.project_manager_api.dto.response.UserProfileResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMembershipDTO;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.model.ProjectMember;
 import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.repository.AuthTokenRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
@@ -18,8 +19,9 @@ import com.quanlyduan.project_manager_api.repository.UserRoleRepository;
 import com.quanlyduan.project_manager_api.service.FileStorageService;
 import com.quanlyduan.project_manager_api.service.UserService;
 
-
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.security.core.Authentication;
@@ -95,7 +97,7 @@ public class UserServiceImpl implements UserService {
     }
 
     // ======================================================
-    // 2. LẤY THÔNG TIN PROFILE (GET USER PROFILE)
+    // 2. LẤY THÔNG TIN PROFILE (GET USER PROFILE) 
     // ======================================================
     @Override
     @Transactional(readOnly = true)
@@ -109,45 +111,94 @@ public class UserServiceImpl implements UserService {
                 .map(userRole -> userRole.getRole().getRoleCode())
                 .collect(Collectors.toList());
 
-        // 3. Lấy vai trò cấp Công ty
-        List<CompanyMembershipDTO> companyRoles = companyMemberRepository.findByUser_Id(currentUser.getId())
-                .stream()
-                .map(cm -> new CompanyMembershipDTO(
-                        cm.getCompany().getId(),
-                        cm.getCompany().getName(),
-                        cm.getRole().getRoleCode()
-                ))
-                .collect(Collectors.toList());
+        // 3. Lấy vai trò cấp Công ty (Thành viên chính thức)
+        // Dùng ArrayList để có thể add thêm Guest sau này
+        List<CompanyMembershipDTO> companyRoles = new ArrayList<>(
+                companyMemberRepository.findByUser_Id(currentUser.getId())
+                        .stream()
+                        .map(cm -> new CompanyMembershipDTO(
+                                cm.getCompany().getId(),
+                                cm.getCompany().getName(),
+                                cm.getRole().getRoleCode()
+                        ))
+                        .collect(Collectors.toList())
+        );
 
-        // 4. Lấy vai trò cấp Không gian làm việc
-        List<WorkspaceMembershipDTO> workspaceRoles = workspaceMemberRepository.findByUser_Id(currentUser.getId())
-                .stream()
-                .map(wm -> new WorkspaceMembershipDTO(
-                        wm.getWorkspace().getId(),
-                        wm.getWorkspace().getName(),
-                        wm.getWorkspace().getCompany().getId(),
-                        wm.getRole().getRoleCode()
-                ))
-                .collect(Collectors.toList());
+        // 4. Lấy vai trò cấp Không gian làm việc (Thành viên chính thức)
+        // Dùng ArrayList để có thể add thêm Guest sau này
+        List<WorkspaceMembershipDTO> workspaceRoles = new ArrayList<>(
+                workspaceMemberRepository.findByUser_Id(currentUser.getId())
+                        .stream()
+                        .map(wm -> new WorkspaceMembershipDTO(
+                                wm.getWorkspace().getId(),
+                                wm.getWorkspace().getName(),
+                                wm.getWorkspace().getCompany().getId(),
+                                wm.getRole().getRoleCode()
+                        ))
+                        .collect(Collectors.toList())
+        );
 
-        // 5. Lấy vai trò cấp Dự án
-        List<ProjectMembershipDTO> projectRoles = projectMemberRepository.findByUser_Id(currentUser.getId())
-                .stream()
+        // 5. Lấy danh sách thành viên Dự án (Raw Entities) để xử lý logic
+        List<ProjectMember> projectMembers = projectMemberRepository.findByUser_Id(currentUser.getId());
+
+        // Map sang DTO để trả về
+        List<ProjectMembershipDTO> projectRoles = projectMembers.stream()
                 .map(pm -> new ProjectMembershipDTO(
                         pm.getProject().getId(),
                         pm.getProject().getName(),
-                        pm.getProject().getWorkspace().getId(), // Lấy ID không gian cha
+                        pm.getProject().getWorkspace().getId(),
                         pm.getRole().getRoleCode()
                 ))
                 .collect(Collectors.toList());
+
+        // =================================================================================
+        // LOGIC thông tin cho GUEST (Suy diễn từ Project)
+        // =================================================================================
         
-        // 6. Xử lý đường dẫn Avatar (Nếu là đường dẫn cục bộ, chuyển sang đường dẫn API)
+        // Tạo Set chứa ID đã tồn tại để tránh trùng lặp (Performance O(1))
+        Set<Integer> existingCompanyIds = companyRoles.stream()
+                .map(CompanyMembershipDTO::getCompanyId)
+                .collect(Collectors.toSet());
+
+        Set<Integer> existingWorkspaceIds = workspaceRoles.stream()
+                .map(WorkspaceMembershipDTO::getWorkspaceId)
+                .collect(Collectors.toSet());
+
+        // Duyệt qua từng Project user tham gia để tìm cha/ông nội còn thiếu
+        for (ProjectMember pm : projectMembers) {
+            var project = pm.getProject();
+            var workspace = project.getWorkspace();
+            var company = workspace.getCompany();
+
+            // A. Xử lý Workspace còn thiếu (User là Guest trong Project thuộc Workspace này)
+            if (!existingWorkspaceIds.contains(workspace.getId())) {
+                workspaceRoles.add(new WorkspaceMembershipDTO(
+                        workspace.getId(),
+                        workspace.getName(),
+                        company.getId(),
+                        "GUEST" // Đánh dấu role là GUEST
+                ));
+                existingWorkspaceIds.add(workspace.getId()); // Đánh dấu đã xử lý
+            }
+
+            // B. Xử lý Company còn thiếu (User là Guest trong Project thuộc Company này)
+            if (!existingCompanyIds.contains(company.getId())) {
+                companyRoles.add(new CompanyMembershipDTO(
+                        company.getId(),
+                        company.getName(),
+                        "GUEST" // Đánh dấu role là GUEST
+                ));
+                existingCompanyIds.add(company.getId()); // Đánh dấu đã xử lý
+            }
+        }
+        // =================================================================================
+
+        // 6. Xử lý đường dẫn Avatar
         String avatarUrlFromDb = currentUser.getAvatarUrl();
         String finalAvatarUrl = avatarUrlFromDb;
 
         if (avatarUrlFromDb != null && !avatarUrlFromDb.isBlank() && !avatarUrlFromDb.startsWith("http")) {
-            // Nếu là đường dẫn cục bộ (ví dụ: /avatars/uuid.jpg), thêm prefix API để tải về
-            finalAvatarUrl = "/api/files" + avatarUrlFromDb; // Giả sử FileController mapping /api/files/**
+            finalAvatarUrl = "/api/files" + avatarUrlFromDb;
         }
 
         // 7. Xây dựng và trả về DTO
@@ -155,7 +206,7 @@ public class UserServiceImpl implements UserService {
                 .id(currentUser.getId())
                 .fullName(currentUser.getFullName())
                 .email(currentUser.getEmail())
-                .avatarUrl(finalAvatarUrl) // Sử dụng URL đã xử lý
+                .avatarUrl(finalAvatarUrl)
                 .phoneNumber(currentUser.getPhoneNumber())
                 .dateOfBirth(currentUser.getDateOfBirth())
                 .gender(currentUser.getGender())
@@ -164,8 +215,8 @@ public class UserServiceImpl implements UserService {
                 .createdAt(currentUser.getCreatedAt())
                 .lastLoginAt(currentUser.getLastLoginAt())
                 .systemRoles(systemRoles)
-                .companyMemberships(companyRoles)
-                .workspaceMemberships(workspaceRoles)
+                .companyMemberships(companyRoles)     
+                .workspaceMemberships(workspaceRoles) 
                 .projectMemberships(projectRoles)
                 .build();
     }
