@@ -79,6 +79,8 @@ public class ActivityLogAspect {
                     .action(logActivity.action())
                     .entityType(logActivity.entityType())
                     .entityId(entityId)
+                    .entityName(contextIds.entityName)
+                    .entityCode(contextIds.entityCode)
                     .companyId(contextIds.companyId)
                     .workspaceId(contextIds.workspaceId)
                     .projectId(contextIds.projectId)
