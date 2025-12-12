@@ -60,4 +60,6 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, In
      */
     Optional<ProjectMember> findByProject_IdAndUser_Id(Integer projectId, Integer userId);
 
+    // (Dùng cho Analytics/AI - Lấy tất cả danh sách để tính toán)
+    List<ProjectMember> findByProject_Id(Integer projectId);
 }
