@@ -1,35 +1,59 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/TaskServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
  
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
 import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.TaskImportCsvRow;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
+import com.quanlyduan.project_manager_api.dto.response.ImportResultResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskImportPreviewResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Epic;
 import com.quanlyduan.project_manager_api.model.Project;
+import com.quanlyduan.project_manager_api.model.ProjectMember;
 import com.quanlyduan.project_manager_api.model.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.Sprint;
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.Workspace;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.TaskCommentRepository;
@@ -44,6 +68,7 @@ public class TaskServiceImpl implements TaskService {
     private final TaskRepository taskRepository;
     private final TaskCommentRepository taskCommentRepository;
     private final ProjectRepository projectRepository;
+    private final ProjectMemberRepository projectMemberRepository;
     private final SprintRepository sprintRepository;
     private final UserRepository userRepository;
     private final SecurityService securityService;
@@ -56,6 +81,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskServiceImpl(TaskRepository taskRepository,
                             TaskCommentRepository taskCommentRepository,
                            ProjectRepository projectRepository,
+                           ProjectMemberRepository projectMemberRepository,
                            SprintRepository sprintRepository,
                            UserRepository userRepository,
                            EpicRepository epicRepository,
@@ -64,6 +90,7 @@ public class TaskServiceImpl implements TaskService {
         this.taskRepository = taskRepository;
         this.taskCommentRepository = taskCommentRepository;
         this.projectRepository = projectRepository;
+        this.projectMemberRepository = projectMemberRepository;
         this.sprintRepository = sprintRepository;
         this.userRepository = userRepository;
         this.securityService = securityService;
@@ -539,7 +566,370 @@ public class TaskServiceImpl implements TaskService {
         // BƯỚC 5: Trả về thông tin task vừa xóa
         return response;
     }
+    @Override
+    @Transactional
+    @LogActivity(action = "IMPORT", entityType = "TASK", description = "Bulk import tasks from CSV")
+    public ImportResultResponse importTasksFromCsv(Integer projectId, MultipartFile file) {
+        
+        // 1. TÌM PROJECT & VALIDATE HIERARCHY
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
+        
+        Integer workspaceId = project.getWorkspace().getId();
+        Integer companyId = project.getWorkspace().getCompany().getId();
+        // 2. PARSE CSV
+        List<TaskImportCsvRow> csvRows;
+        try (Reader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            // Sử dụng Reader có định dạng UTF-8 để tránh lỗi font hoặc BOM
+            CsvToBean<TaskImportCsvRow> csvToBean = new CsvToBeanBuilder<TaskImportCsvRow>(reader)
+                    .withType(TaskImportCsvRow.class)
+                    .withIgnoreLeadingWhiteSpace(true)
+                    .withIgnoreQuotations(false)
+                    .withSeparator(',') // Bắt buộc file phải ngăn cách bằng dấu phẩy
+                    .build();
+            csvRows = csvToBean.parse();
+        } catch (Exception e) {
+            // Log lỗi ra để debug
+            e.printStackTrace();
+            throw new BadRequestException("Failed to parse CSV file. Please ensure columns are separated by commas (,) and headers match exactly. Error: " + e.getMessage());
+        }
 
+        if (csvRows.isEmpty()) {
+            throw new BadRequestException("CSV file is empty.");
+        }
+
+        // =================================================================
+        // 3. PREPARE DATA (BULK FETCH)
+        // =================================================================
+        
+        Map<String, User> projectMembersMap = projectMemberRepository.findByProject_Id(projectId, Pageable.unpaged())
+                    .stream()
+                    .filter(pm -> pm.getStatus() == MemberStatus.ACTIVE)
+                    .map(ProjectMember::getUser)
+                    .collect(Collectors.toMap(
+                            (User u) -> u.getEmail().toLowerCase(),
+                            (User u) -> u
+                    ));
+
+        Map<String, ProjectStatus> statusMap = projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId)
+                .stream()
+                .collect(Collectors.toMap(
+                        s -> s.getName().toLowerCase().trim(),
+                        s -> s
+                ));
+
+        ProjectStatus defaultStatus = statusMap.values().stream()
+                .min(Comparator.comparingInt(ProjectStatus::getSortOrder))
+                .orElseThrow(() -> new ResourceNotFoundException("Project has no statuses configured."));
+
+        long currentSortOrder = taskRepository.countByProjectId(projectId);
+        User creator = securityService.getCurrentAuthenticatedUser();
+
+        // =================================================================
+        // 4. VALIDATE & MAP ROWS
+        // =================================================================
+        List<Task> validTasks = new ArrayList<>();
+        List<ImportResultResponse.ImportError> errors = new ArrayList<>();
+        int rowIndex = 1;
+
+        for (TaskImportCsvRow row : csvRows) {
+            rowIndex++; 
+            
+            // Validate Title
+            if (row.getTitle() == null || row.getTitle().trim().isEmpty()) {
+                errors.add(new ImportResultResponse.ImportError(rowIndex, "Title", "Task title is required."));
+                continue; 
+            }
+
+            // Map Assignee
+            User assignee = null;
+            if (row.getAssigneeEmail() != null && !row.getAssigneeEmail().trim().isEmpty()) {
+                String email = row.getAssigneeEmail().trim().toLowerCase();
+                assignee = projectMembersMap.get(email);
+                
+                if (assignee == null) {
+                    errors.add(new ImportResultResponse.ImportError(rowIndex, "Assignee Email", 
+                        "User with email '" + email + "' is not a member of this project."));
+                    continue; 
+                }
+            }
+
+            // Parse Date (NÂNG CẤP: Hỗ trợ nhiều định dạng)
+            LocalDateTime dueDate = null;
+            if (row.getDueDate() != null && !row.getDueDate().trim().isEmpty()) {
+                dueDate = parseDateFlexible(row.getDueDate().trim());
+                if (dueDate == null) {
+                    errors.add(new ImportResultResponse.ImportError(rowIndex, "Due Date", 
+                        "Invalid date format: '" + row.getDueDate() + "'. Supported: yyyy-MM-dd, MM/dd/yyyy, dd/MM/yyyy"));
+                    continue;
+                }
+            }
+
+            // Map Status
+            ProjectStatus status = defaultStatus;
+            if (row.getStatusName() != null && statusMap.containsKey(row.getStatusName().trim().toLowerCase())) {
+                status = statusMap.get(row.getStatusName().trim().toLowerCase());
+            }
+
+            // Map Priority
+            TaskPriority priority = TaskPriority.MEDIUM;
+            if (row.getPriority() != null && !row.getPriority().isBlank()) {
+                try {
+                    priority = TaskPriority.valueOf(row.getPriority().trim().toUpperCase());
+                } catch (IllegalArgumentException e) {
+                     errors.add(new ImportResultResponse.ImportError(rowIndex, "Priority", "Invalid priority. Use HIGH, MEDIUM, LOW, URGENT."));
+                     continue;
+                }
+            }
+
+            // Build Entity
+            if (errors.isEmpty()) {
+                 Task.TaskBuilder taskBuilder = Task.builder()
+                    .project(project)
+                    .title(row.getTitle())
+                    .description(row.getDescription())
+                    .assignee(assignee)
+                    .priority(priority)
+                    .status(status)
+                    .taskType(TaskType.TASK)
+                    .dueDate(dueDate)
+                    .storyPoints(row.getStoryPoints())
+                    .assigner(creator)
+                    .createdBy(creator);
+                 
+                 if (row.getEstimatedHours() != null) {
+                     taskBuilder.estimatedHours(BigDecimal.valueOf(row.getEstimatedHours()));
+                 }
+                 
+                 validTasks.add(taskBuilder.build());
+            }
+        }
+
+        // 5. SAVE OR RETURN ERRORS
+        if (!errors.isEmpty()) {
+            return ImportResultResponse.builder()
+                    .totalRows(csvRows.size())
+                    .successCount(0)
+                    .errorCount(errors.size())
+                    .errors(errors)
+                    .build();
+        }
+
+        // 6. FINAL SAVE
+        long finalSortOrder = currentSortOrder;
+        for (Task task : validTasks) {
+             finalSortOrder++;
+             task.setSortOrder((int) finalSortOrder);
+             task.setTaskCode(project.getProjectCode() + "-" + finalSortOrder);
+        }
+
+        taskRepository.saveAll(validTasks);
+
+        return ImportResultResponse.builder()
+                .totalRows(csvRows.size())
+                .successCount(validTasks.size())
+                .errorCount(0)
+                .errors(Collections.emptyList())
+                .build();
+    }
+
+    /**
+     * Hỗ trợ parse nhiều kiểu ngày tháng:
+     * 1. 2025-12-20 (Chuẩn ISO)
+     * 2. 12/20/2025 (Kiểu Mỹ - Excel hay dùng)
+     * 3. 20/12/2025 (Kiểu Việt Nam)
+     */
+    private LocalDateTime parseDateFlexible(String dateStr) {
+        String[] patterns = {
+            "yyyy-MM-dd", 
+            "M/d/yyyy",   // Xử lý 12/20/2025 hoặc 1/5/2026
+            "MM/dd/yyyy", 
+            "d/M/yyyy",   // Xử lý 20/12/2025
+            "dd/MM/yyyy"
+        };
+
+        for (String pattern : patterns) {
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+                return LocalDate.parse(dateStr, formatter).atStartOfDay();
+            } catch (DateTimeParseException ignored) {
+                // Thử pattern tiếp theo
+            }
+        }
+        return null; // Không parse được
+    }
+    @Override
+@Transactional(readOnly = true)
+public List<TaskImportPreviewResponse> previewImportTasks(Integer projectId, MultipartFile file) {
+    // 1. Parse CSV (Giống logic cũ)
+    List<TaskImportCsvRow> csvRows;
+    try (Reader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+        CsvToBean<TaskImportCsvRow> csvToBean = new CsvToBeanBuilder<TaskImportCsvRow>(reader)
+                .withType(TaskImportCsvRow.class)
+                .withIgnoreLeadingWhiteSpace(true)
+                .withIgnoreQuotations(false)
+                .build();
+        csvRows = csvToBean.parse();
+    } catch (Exception e) {
+        throw new BadRequestException("Failed to parse CSV: " + e.getMessage());
+    }
+
+    // 2. Prepare Data (Bulk Fetch) - Tái sử dụng logic cũ
+    // Lấy Map Members và Map Statuses ở đây... (Code giống bài trước)
+    Map<String, User> projectMembersMap = projectMemberRepository.findByProject_Id(projectId, Pageable.unpaged())
+            .stream().filter(pm -> pm.getStatus() == MemberStatus.ACTIVE).map(ProjectMember::getUser)
+            .collect(Collectors.toMap(u -> u.getEmail().toLowerCase(), u -> u));
+    
+    // 3. Validate từng dòng và map sang Preview DTO
+    List<TaskImportPreviewResponse> previewList = new ArrayList<>();
+    int index = 0;
+
+    for (TaskImportCsvRow row : csvRows) {
+        index++;
+        List<String> errors = new ArrayList<>();
+
+        // Validate Title
+        if (row.getTitle() == null || row.getTitle().trim().isEmpty()) {
+            errors.add("Title is required.");
+        }
+
+        // Validate Email
+        if (row.getAssigneeEmail() != null && !row.getAssigneeEmail().isBlank()) {
+            if (!projectMembersMap.containsKey(row.getAssigneeEmail().trim().toLowerCase())) {
+                errors.add("User '" + row.getAssigneeEmail() + "' is not in project.");
+            }
+        }
+
+        // Validate Date Format (Check sơ bộ)
+        if (row.getDueDate() != null && !row.getDueDate().isBlank()) {
+            try {
+                LocalDate.parse(row.getDueDate().trim());
+            } catch (DateTimeParseException e) {
+                errors.add("Invalid date (yyyy-MM-dd).");
+            }
+        }
+        
+        // ... Các validate khác (Priority, Status) nếu cần ...
+
+        previewList.add(TaskImportPreviewResponse.builder()
+                .rowIndex(index)
+                .title(row.getTitle())
+                .description(row.getDescription())
+                .assigneeEmail(row.getAssigneeEmail())
+                .priority(row.getPriority())
+                .statusName(row.getStatusName())
+                .dueDate(row.getDueDate())
+                .storyPoints(row.getStoryPoints())
+                .estimatedHours(row.getEstimatedHours())
+                .isValid(errors.isEmpty())
+                .errors(errors)
+                .build());
+    }
+    return previewList;
+}
+
+// =================================================================
+// LOGIC SAVE (BƯỚC 2 - Nhận JSON đã sửa từ FE)
+// =================================================================
+@Override
+@Transactional
+@LogActivity(action = "IMPORT", entityType = "TASK", description = "Import tasks from JSON")
+public ImportResultResponse saveImportedTasks(Integer projectId, List<TaskImportPreviewResponse> rows) {
+    // 1. Prepare Data Maps (Cache for performance)
+    Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+            
+    Map<String, User> memberMap = projectMemberRepository.findByProject_Id(projectId, Pageable.unpaged())
+            .stream()
+            .filter(pm -> pm.getStatus() == MemberStatus.ACTIVE)
+            .map(ProjectMember::getUser)
+            .collect(Collectors.toMap(u -> u.getEmail().toLowerCase(), u -> u));
+    
+    Map<String, ProjectStatus> statusMap = projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId)
+            .stream().collect(Collectors.toMap(s -> s.getName().toLowerCase(), s -> s));
+            
+    // Fallback default status
+    ProjectStatus defaultStatus = statusMap.values().stream()
+            .min(Comparator.comparingInt(ProjectStatus::getSortOrder))
+            .orElseThrow(() -> new ResourceNotFoundException("No status found"));
+
+    User creator = securityService.getCurrentAuthenticatedUser();
+    long currentSort = taskRepository.countByProjectId(projectId);
+    List<Task> tasksToSave = new ArrayList<>();
+
+    // 2. Processing Rows (Lenient Mode)
+    for (TaskImportPreviewResponse row : rows) {
+        // Skip only if Title is missing (Mandatory field)
+        if (row.getTitle() == null || row.getTitle().trim().isEmpty()) {
+            continue; 
+        }
+
+        // --- LENIENT MAPPING LOGIC ---
+
+        // 1. Assignee: Map if exists, else NULL
+        User assignee = null;
+        if (row.getAssigneeEmail() != null && !row.getAssigneeEmail().isBlank()) {
+            // Try to find user. If map returns null (not found), assignee remains null.
+            assignee = memberMap.get(row.getAssigneeEmail().trim().toLowerCase());
+        }
+
+        // 2. Status: Map if exists, else DEFAULT
+        ProjectStatus status = defaultStatus;
+        if (row.getStatusName() != null && statusMap.containsKey(row.getStatusName().trim().toLowerCase())) {
+            status = statusMap.get(row.getStatusName().trim().toLowerCase());
+        }
+
+        // 3. Priority: Map if valid, else MEDIUM
+        TaskPriority priority = TaskPriority.MEDIUM;
+        try {
+            if (row.getPriority() != null) {
+                priority = TaskPriority.valueOf(row.getPriority().toUpperCase());
+            }
+        } catch (Exception ignored) {
+            // Invalid priority -> Fallback to MEDIUM (or NULL if your DB allows)
+        }
+
+        // 4. Date: Map if valid, else NULL
+        LocalDateTime dueDate = null;
+        try {
+            if (row.getDueDate() != null && !row.getDueDate().isBlank()) {
+                dueDate = LocalDate.parse(row.getDueDate()).atStartOfDay();
+            }
+        } catch (Exception ignored) {
+            // Invalid date format -> Set to NULL (Safe)
+        }
+
+        // --- BUILD ENTITY ---
+        Task task = Task.builder()
+                .project(project)
+                .taskCode(project.getProjectCode() + "-" + (++currentSort))
+                .title(row.getTitle())
+                .description(row.getDescription())
+                .assignee(assignee) // Will be User or Null
+                .status(status)     // Will be Selected or Default
+                .priority(priority) // Will be Selected or Medium
+                .taskType(TaskType.TASK)
+                .dueDate(dueDate)   // Will be Date or Null
+                .storyPoints(row.getStoryPoints())
+                .estimatedHours(row.getEstimatedHours() != null ? BigDecimal.valueOf(row.getEstimatedHours()) : null)
+                .sortOrder((int)currentSort)
+                .createdBy(creator)
+                .assigner(creator)
+                .build();
+        
+        tasksToSave.add(task);
+    }
+
+    // 3. Batch Save
+    taskRepository.saveAll(tasksToSave);
+    
+    return ImportResultResponse.builder()
+            .successCount(tasksToSave.size())
+            .totalRows(rows.size())
+            .errorCount(0)
+            .errors(Collections.emptyList())
+            .build();
+}
     // ======================================================
     // 7. LƯU TRỮ TASK
     // ======================================================
@@ -685,7 +1075,7 @@ public class TaskServiceImpl implements TaskService {
                 .updatedAt(task.getUpdatedAt())
                 .build();
     }
-
+    
     /**
      * Helper: Map Task Entity sang TaskSummaryResponse DTO (Cấu trúc Nested).
      */

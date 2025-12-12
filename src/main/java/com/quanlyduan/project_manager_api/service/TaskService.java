@@ -1,10 +1,16 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/TaskService.java
 package com.quanlyduan.project_manager_api.service;
 
+import java.util.List;
+
+import org.springframework.web.multipart.MultipartFile;
+
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
+import com.quanlyduan.project_manager_api.dto.response.ImportResultResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskImportPreviewResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.Task;
@@ -86,4 +92,7 @@ public interface TaskService {
      * @return TaskResponse DTO.
      */
     TaskResponse mapToTaskResponse(Task task);
+    List<TaskImportPreviewResponse> previewImportTasks(Integer projectId, MultipartFile file);
+    ImportResultResponse saveImportedTasks(Integer projectId, List<TaskImportPreviewResponse> validatedRows);
+    ImportResultResponse importTasksFromCsv(Integer projectId, MultipartFile file);
 }
