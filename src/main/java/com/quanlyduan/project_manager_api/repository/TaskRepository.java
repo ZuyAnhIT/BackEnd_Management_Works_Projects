@@ -310,7 +310,6 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
         List<Object[]> countTasksByPriorityGroup(@Param("projectId") Integer projectId,
                         @Param("assigneeId") Integer assigneeId);
 
-                        
         /**
          * Thống kê số lượng Task theo Loại công việc (GROUP BY TaskType).
          * Kết quả trả về List<Object[]>: [TaskType enum, Long count]
@@ -322,4 +321,37 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
                         "GROUP BY t.taskType")
         List<Object[]> countTasksByTypeGroup(@Param("projectId") Integer projectId,
                         @Param("assigneeId") Integer assigneeId);
+
+        // ======================================================
+        // QUERY CHO ANALYTICS (AI FEATURES)
+        // ======================================================
+
+        /**
+         * Đếm số task đã hoàn thành của một User trong Project mà có chứa từ khóa
+         * (Tìm trong Title hoặc Description).
+         */
+        @Query("SELECT COUNT(t) FROM Task t " +
+                        "WHERE t.assignee.id = :userId " +
+                        "AND t.project.id = :projectId " +
+                        "AND t.status.isCompletedStatus = true " +
+                        "AND (LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+                        "OR LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+        int countCompletedTasksByKeyword(
+                        @Param("projectId") Integer projectId,
+                        @Param("userId") Integer userId,
+                        @Param("keyword") String keyword);
+
+        /**
+         * Tính tổng Story Points mà User đang gánh trong các Sprint đang chạy
+         * (IN_PROGRESS).
+         * Dùng COALESCE để trả về 0 nếu không có task nào.
+         */
+        @Query("SELECT COALESCE(SUM(t.storyPoints), 0) FROM Task t " +
+                        "WHERE t.assignee.id = :userId " +
+                        "AND t.project.id = :projectId " +
+                        "AND t.sprint.status = 'IN_PROGRESS' " +
+                        "AND (t.status.isCompletedStatus = false OR t.status.isCompletedStatus IS NULL)")
+        int getCurrentSprintWorkload(
+                        @Param("projectId") Integer projectId,
+                        @Param("userId") Integer userId);
 }
