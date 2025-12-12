@@ -17,9 +17,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
- 
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.util.CellRangeAddressList;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,7 +36,7 @@ import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.TaskImportCsvRow;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
-import com.quanlyduan.project_manager_api.dto.response.ImportResultResponse;
+import com.quanlyduan.project_manager_api.dto.response.ImportTaskResultResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskImportPreviewResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
@@ -46,14 +49,13 @@ import com.quanlyduan.project_manager_api.model.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.Sprint;
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.model.User;
-import com.quanlyduan.project_manager_api.model.Workspace;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
-import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.TaskCommentRepository;
@@ -566,267 +568,164 @@ public class TaskServiceImpl implements TaskService {
         // BƯỚC 5: Trả về thông tin task vừa xóa
         return response;
     }
+    // =================================================================
+    // 1. TẠO FILE EXCEL MẪU
+    // =================================================================
     @Override
-    @Transactional
-    @LogActivity(action = "IMPORT", entityType = "TASK", description = "Bulk import tasks from CSV")
-    public ImportResultResponse importTasksFromCsv(Integer projectId, MultipartFile file) {
-        
-        // 1. TÌM PROJECT & VALIDATE HIERARCHY
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
-        
-        Integer workspaceId = project.getWorkspace().getId();
-        Integer companyId = project.getWorkspace().getCompany().getId();
-        // 2. PARSE CSV
-        List<TaskImportCsvRow> csvRows;
-        try (Reader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-            // Sử dụng Reader có định dạng UTF-8 để tránh lỗi font hoặc BOM
-            CsvToBean<TaskImportCsvRow> csvToBean = new CsvToBeanBuilder<TaskImportCsvRow>(reader)
-                    .withType(TaskImportCsvRow.class)
-                    .withIgnoreLeadingWhiteSpace(true)
-                    .withIgnoreQuotations(false)
-                    .withSeparator(',') // Bắt buộc file phải ngăn cách bằng dấu phẩy
-                    .build();
-            csvRows = csvToBean.parse();
-        } catch (Exception e) {
-            // Log lỗi ra để debug
-            e.printStackTrace();
-            throw new BadRequestException("Failed to parse CSV file. Please ensure columns are separated by commas (,) and headers match exactly. Error: " + e.getMessage());
-        }
+    public byte[] generateImportTemplate() {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Tasks Import");
 
-        if (csvRows.isEmpty()) {
-            throw new BadRequestException("CSV file is empty.");
-        }
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
-        // =================================================================
-        // 3. PREPARE DATA (BULK FETCH)
-        // =================================================================
-        
-        Map<String, User> projectMembersMap = projectMemberRepository.findByProject_Id(projectId, Pageable.unpaged())
-                    .stream()
-                    .filter(pm -> pm.getStatus() == MemberStatus.ACTIVE)
-                    .map(ProjectMember::getUser)
-                    .collect(Collectors.toMap(
-                            (User u) -> u.getEmail().toLowerCase(),
-                            (User u) -> u
-                    ));
+            Row headerRow = sheet.createRow(0);
+            String[] columns = {"Title", "Description", "Assignee Email", "Priority", "Status", "Start Date", "Due Date", "Story Points", "Estimated Hours"};
 
-        Map<String, ProjectStatus> statusMap = projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId)
-                .stream()
-                .collect(Collectors.toMap(
-                        s -> s.getName().toLowerCase().trim(),
-                        s -> s
-                ));
+            for (int i = 0; i < columns.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(columns[i]);
+                cell.setCellStyle(headerStyle);
+                // Set độ rộng cột (Đơn vị 1/256)
+                if (i == 1) sheet.setColumnWidth(i, 50 * 256); // Desc
+                else if (i == 5 || i == 6) sheet.setColumnWidth(i, 20 * 256); // Dates (Hết lỗi ####)
+                else sheet.setColumnWidth(i, 25 * 256);
+            }
 
-        ProjectStatus defaultStatus = statusMap.values().stream()
-                .min(Comparator.comparingInt(ProjectStatus::getSortOrder))
-                .orElseThrow(() -> new ResourceNotFoundException("Project has no statuses configured."));
-
-        long currentSortOrder = taskRepository.countByProjectId(projectId);
-        User creator = securityService.getCurrentAuthenticatedUser();
-
-        // =================================================================
-        // 4. VALIDATE & MAP ROWS
-        // =================================================================
-        List<Task> validTasks = new ArrayList<>();
-        List<ImportResultResponse.ImportError> errors = new ArrayList<>();
-        int rowIndex = 1;
-
-        for (TaskImportCsvRow row : csvRows) {
-            rowIndex++; 
+            Row row = sheet.createRow(1);
+            row.createCell(0).setCellValue("Fix Login Bug");
+            row.createCell(1).setCellValue("Fix error 401 on login");
+            row.createCell(2).setCellValue("dev1@techvision.com");
+            row.createCell(3).setCellValue("HIGH");
+            row.createCell(4).setCellValue("To Do");
+            row.createCell(5).setCellValue("2025-12-01"); // Định dạng chuỗi YYYY-MM-DD
+            row.createCell(6).setCellValue("2025-12-31");
+            row.createCell(7).setCellValue(5);
+            row.createCell(8).setCellValue(8.0);
             
-            // Validate Title
-            if (row.getTitle() == null || row.getTitle().trim().isEmpty()) {
-                errors.add(new ImportResultResponse.ImportError(rowIndex, "Title", "Task title is required."));
-                continue; 
-            }
+            // Dropdowns
+            DataValidationHelper helper = sheet.getDataValidationHelper();
+            // Priority
+            DataValidationConstraint priorityConstraint = helper.createExplicitListConstraint(new String[]{"LOW", "MEDIUM", "HIGH", "URGENT"});
+            sheet.addValidationData(helper.createValidation(priorityConstraint, new CellRangeAddressList(1, 1000, 3, 3)));
+            // Status
+            DataValidationConstraint statusConstraint = helper.createExplicitListConstraint(new String[]{"To Do", "In Progress", "Done", "Backlog"});
+            sheet.addValidationData(helper.createValidation(statusConstraint, new CellRangeAddressList(1, 1000, 4, 4)));
 
-            // Map Assignee
-            User assignee = null;
-            if (row.getAssigneeEmail() != null && !row.getAssigneeEmail().trim().isEmpty()) {
-                String email = row.getAssigneeEmail().trim().toLowerCase();
-                assignee = projectMembersMap.get(email);
-                
-                if (assignee == null) {
-                    errors.add(new ImportResultResponse.ImportError(rowIndex, "Assignee Email", 
-                        "User with email '" + email + "' is not a member of this project."));
-                    continue; 
-                }
-            }
-
-            // Parse Date (NÂNG CẤP: Hỗ trợ nhiều định dạng)
-            LocalDateTime dueDate = null;
-            if (row.getDueDate() != null && !row.getDueDate().trim().isEmpty()) {
-                dueDate = parseDateFlexible(row.getDueDate().trim());
-                if (dueDate == null) {
-                    errors.add(new ImportResultResponse.ImportError(rowIndex, "Due Date", 
-                        "Invalid date format: '" + row.getDueDate() + "'. Supported: yyyy-MM-dd, MM/dd/yyyy, dd/MM/yyyy"));
-                    continue;
-                }
-            }
-
-            // Map Status
-            ProjectStatus status = defaultStatus;
-            if (row.getStatusName() != null && statusMap.containsKey(row.getStatusName().trim().toLowerCase())) {
-                status = statusMap.get(row.getStatusName().trim().toLowerCase());
-            }
-
-            // Map Priority
-            TaskPriority priority = TaskPriority.MEDIUM;
-            if (row.getPriority() != null && !row.getPriority().isBlank()) {
-                try {
-                    priority = TaskPriority.valueOf(row.getPriority().trim().toUpperCase());
-                } catch (IllegalArgumentException e) {
-                     errors.add(new ImportResultResponse.ImportError(rowIndex, "Priority", "Invalid priority. Use HIGH, MEDIUM, LOW, URGENT."));
-                     continue;
-                }
-            }
-
-            // Build Entity
-            if (errors.isEmpty()) {
-                 Task.TaskBuilder taskBuilder = Task.builder()
-                    .project(project)
-                    .title(row.getTitle())
-                    .description(row.getDescription())
-                    .assignee(assignee)
-                    .priority(priority)
-                    .status(status)
-                    .taskType(TaskType.TASK)
-                    .dueDate(dueDate)
-                    .storyPoints(row.getStoryPoints())
-                    .assigner(creator)
-                    .createdBy(creator);
-                 
-                 if (row.getEstimatedHours() != null) {
-                     taskBuilder.estimatedHours(BigDecimal.valueOf(row.getEstimatedHours()));
-                 }
-                 
-                 validTasks.add(taskBuilder.build());
-            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new BadRequestException("Fail to generate template: " + e.getMessage());
         }
-
-        // 5. SAVE OR RETURN ERRORS
-        if (!errors.isEmpty()) {
-            return ImportResultResponse.builder()
-                    .totalRows(csvRows.size())
-                    .successCount(0)
-                    .errorCount(errors.size())
-                    .errors(errors)
-                    .build();
-        }
-
-        // 6. FINAL SAVE
-        long finalSortOrder = currentSortOrder;
-        for (Task task : validTasks) {
-             finalSortOrder++;
-             task.setSortOrder((int) finalSortOrder);
-             task.setTaskCode(project.getProjectCode() + "-" + finalSortOrder);
-        }
-
-        taskRepository.saveAll(validTasks);
-
-        return ImportResultResponse.builder()
-                .totalRows(csvRows.size())
-                .successCount(validTasks.size())
-                .errorCount(0)
-                .errors(Collections.emptyList())
-                .build();
     }
 
-    /**
-     * Hỗ trợ parse nhiều kiểu ngày tháng:
-     * 1. 2025-12-20 (Chuẩn ISO)
-     * 2. 12/20/2025 (Kiểu Mỹ - Excel hay dùng)
-     * 3. 20/12/2025 (Kiểu Việt Nam)
-     */
-    private LocalDateTime parseDateFlexible(String dateStr) {
-        String[] patterns = {
-            "yyyy-MM-dd", 
-            "M/d/yyyy",   // Xử lý 12/20/2025 hoặc 1/5/2026
-            "MM/dd/yyyy", 
-            "d/M/yyyy",   // Xử lý 20/12/2025
-            "dd/MM/yyyy"
-        };
-
-        for (String pattern : patterns) {
-            try {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
-                return LocalDate.parse(dateStr, formatter).atStartOfDay();
-            } catch (DateTimeParseException ignored) {
-                // Thử pattern tiếp theo
-            }
-        }
-        return null; // Không parse được
-    }
+    // =================================================================
+    // 2. PREVIEW IMPORT (CORE LOGIC SỬA LỖI)
+    // =================================================================
     @Override
-@Transactional(readOnly = true)
-public List<TaskImportPreviewResponse> previewImportTasks(Integer projectId, MultipartFile file) {
-    // 1. Parse CSV (Giống logic cũ)
-    List<TaskImportCsvRow> csvRows;
-    try (Reader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
-        CsvToBean<TaskImportCsvRow> csvToBean = new CsvToBeanBuilder<TaskImportCsvRow>(reader)
-                .withType(TaskImportCsvRow.class)
-                .withIgnoreLeadingWhiteSpace(true)
-                .withIgnoreQuotations(false)
-                .build();
-        csvRows = csvToBean.parse();
-    } catch (Exception e) {
-        throw new BadRequestException("Failed to parse CSV: " + e.getMessage());
-    }
-
-    // 2. Prepare Data (Bulk Fetch) - Tái sử dụng logic cũ
-    // Lấy Map Members và Map Statuses ở đây... (Code giống bài trước)
-    Map<String, User> projectMembersMap = projectMemberRepository.findByProject_Id(projectId, Pageable.unpaged())
-            .stream().filter(pm -> pm.getStatus() == MemberStatus.ACTIVE).map(ProjectMember::getUser)
-            .collect(Collectors.toMap(u -> u.getEmail().toLowerCase(), u -> u));
-    
-    // 3. Validate từng dòng và map sang Preview DTO
-    List<TaskImportPreviewResponse> previewList = new ArrayList<>();
-    int index = 0;
-
-    for (TaskImportCsvRow row : csvRows) {
-        index++;
-        List<String> errors = new ArrayList<>();
-
-        // Validate Title
-        if (row.getTitle() == null || row.getTitle().trim().isEmpty()) {
-            errors.add("Title is required.");
+    @Transactional(readOnly = true)
+    public List<TaskImportPreviewResponse> previewImportTasks(Integer projectId, MultipartFile file) {
+        // Check định dạng file
+        String fileName = file.getOriginalFilename();
+        if (fileName == null || (!fileName.endsWith(".xlsx") && !fileName.endsWith(".xls"))) {
+             // Nếu muốn hỗ trợ cả CSV thì cần logic if/else riêng, nhưng ở đây ta ưu tiên Excel
+             throw new BadRequestException("Please upload a valid Excel file (.xlsx)");
         }
 
-        // Validate Email
-        if (row.getAssigneeEmail() != null && !row.getAssigneeEmail().isBlank()) {
-            if (!projectMembersMap.containsKey(row.getAssigneeEmail().trim().toLowerCase())) {
-                errors.add("User '" + row.getAssigneeEmail() + "' is not in project.");
+        Map<String, User> projectMembersMap = projectMemberRepository.findByProject_Id(projectId, Pageable.unpaged())
+                .stream().filter(pm -> pm.getStatus() == MemberStatus.ACTIVE).map(ProjectMember::getUser)
+                .collect(Collectors.toMap(u -> u.getEmail().toLowerCase(), u -> u));
+
+        List<TaskImportPreviewResponse> previewList = new ArrayList<>();
+        DataFormatter dataFormatter = new DataFormatter(); // Helper định dạng của POI
+
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            int rowIndex = 0;
+
+            for (Row row : sheet) {
+                if (rowIndex == 0) { rowIndex++; continue; } // Bỏ qua Header
+
+                // 1. Đọc dữ liệu (Dùng Helper getCellValue để tránh lỗi)
+                String title = getCellValue(row.getCell(0), dataFormatter);
+                if (title.isEmpty()) break; // Hết dữ liệu -> Dừng
+
+                String description = getCellValue(row.getCell(1), dataFormatter);
+                String assigneeEmail = getCellValue(row.getCell(2), dataFormatter);
+                String priority = getCellValue(row.getCell(3), dataFormatter);
+                String status = getCellValue(row.getCell(4), dataFormatter);
+                
+                // 🔥 Đọc Date thông minh: Thử đọc Object Date trước, nếu không được thì đọc String
+                LocalDateTime startDt = parseExcelDate(row.getCell(5));
+                String startDateStr = getCellValue(row.getCell(5), dataFormatter);
+                if (startDt == null && !startDateStr.isEmpty()) startDt = parseDateFlexible(startDateStr);
+
+                LocalDateTime dueDt = parseExcelDate(row.getCell(6));
+                String dueDateStr = getCellValue(row.getCell(6), dataFormatter);
+                if (dueDt == null && !dueDateStr.isEmpty()) dueDt = parseDateFlexible(dueDateStr);
+
+                String pointsStr = getCellValue(row.getCell(7), dataFormatter);
+                String hoursStr = getCellValue(row.getCell(8), dataFormatter);
+
+                // 2. Validate
+                List<String> errors = new ArrayList<>();
+
+                if (title.isEmpty()) errors.add("Title is required");
+
+                if (!assigneeEmail.isEmpty()) {
+                    if (!projectMembersMap.containsKey(assigneeEmail.toLowerCase())) {
+                        errors.add("User '" + assigneeEmail + "' is not in project");
+                    }
+                }
+
+                if (!startDateStr.isEmpty() && startDt == null) errors.add("Invalid Start Date");
+                if (!dueDateStr.isEmpty() && dueDt == null) errors.add("Invalid Due Date");
+
+                if (startDt != null && dueDt != null && startDt.isAfter(dueDt)) {
+                    errors.add("Start Date must be before Due Date");
+                }
+                
+                if (!priority.isEmpty()) {
+                    try { TaskPriority.valueOf(priority.toUpperCase()); } 
+                    catch (Exception e) { errors.add("Invalid Priority"); }
+                }
+
+                Integer points = null;
+                try { if(!pointsStr.isEmpty()) points = (int) Double.parseDouble(pointsStr); } catch(Exception e) { errors.add("Points must be number"); }
+                
+                Double hours = null;
+                try { if(!hoursStr.isEmpty()) hours = Double.parseDouble(hoursStr); } catch(Exception e) { errors.add("Hours must be number"); }
+
+                // Chuẩn hóa String ngày tháng để trả về Frontend
+                String startDisplay = startDt != null ? startDt.toLocalDate().toString() : startDateStr;
+                String dueDisplay = dueDt != null ? dueDt.toLocalDate().toString() : dueDateStr;
+
+                previewList.add(TaskImportPreviewResponse.builder()
+                        .rowIndex(rowIndex + 1)
+                        .title(title)
+                        .description(description)
+                        .assigneeEmail(assigneeEmail)
+                        .priority(priority)
+                        .statusName(status)
+                        .startDate(startDisplay)
+                        .dueDate(dueDisplay)
+                        .storyPoints(points)
+                        .estimatedHours(hours)
+                        .isValid(errors.isEmpty())
+                        .errors(errors)
+                        .build());
+                rowIndex++;
             }
+        } catch (Exception e) {
+            throw new BadRequestException("Error reading Excel: " + e.getMessage());
         }
-
-        // Validate Date Format (Check sơ bộ)
-        if (row.getDueDate() != null && !row.getDueDate().isBlank()) {
-            try {
-                LocalDate.parse(row.getDueDate().trim());
-            } catch (DateTimeParseException e) {
-                errors.add("Invalid date (yyyy-MM-dd).");
-            }
-        }
-        
-        // ... Các validate khác (Priority, Status) nếu cần ...
-
-        previewList.add(TaskImportPreviewResponse.builder()
-                .rowIndex(index)
-                .title(row.getTitle())
-                .description(row.getDescription())
-                .assigneeEmail(row.getAssigneeEmail())
-                .priority(row.getPriority())
-                .statusName(row.getStatusName())
-                .dueDate(row.getDueDate())
-                .storyPoints(row.getStoryPoints())
-                .estimatedHours(row.getEstimatedHours())
-                .isValid(errors.isEmpty())
-                .errors(errors)
-                .build());
+        return previewList;
     }
-    return previewList;
-}
 
 // =================================================================
 // LOGIC SAVE (BƯỚC 2 - Nhận JSON đã sửa từ FE)
@@ -834,7 +733,7 @@ public List<TaskImportPreviewResponse> previewImportTasks(Integer projectId, Mul
 @Override
 @Transactional
 @LogActivity(action = "IMPORT", entityType = "TASK", description = "Import tasks from JSON")
-public ImportResultResponse saveImportedTasks(Integer projectId, List<TaskImportPreviewResponse> rows) {
+public ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskImportPreviewResponse> rows) {
     // 1. Prepare Data Maps (Cache for performance)
     Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
@@ -889,6 +788,13 @@ public ImportResultResponse saveImportedTasks(Integer projectId, List<TaskImport
             // Invalid priority -> Fallback to MEDIUM (or NULL if your DB allows)
         }
 
+        LocalDateTime startDate = null;
+        try {
+            if (row.getStartDate() != null && !row.getStartDate().isBlank()) {
+                startDate = LocalDate.parse(row.getStartDate()).atStartOfDay();
+            }
+        } catch (Exception ignored) {}
+
         // 4. Date: Map if valid, else NULL
         LocalDateTime dueDate = null;
         try {
@@ -909,6 +815,7 @@ public ImportResultResponse saveImportedTasks(Integer projectId, List<TaskImport
                 .status(status)     // Will be Selected or Default
                 .priority(priority) // Will be Selected or Medium
                 .taskType(TaskType.TASK)
+                .startDate(startDate)
                 .dueDate(dueDate)   // Will be Date or Null
                 .storyPoints(row.getStoryPoints())
                 .estimatedHours(row.getEstimatedHours() != null ? BigDecimal.valueOf(row.getEstimatedHours()) : null)
@@ -923,13 +830,43 @@ public ImportResultResponse saveImportedTasks(Integer projectId, List<TaskImport
     // 3. Batch Save
     taskRepository.saveAll(tasksToSave);
     
-    return ImportResultResponse.builder()
+    return ImportTaskResultResponse.builder()
             .successCount(tasksToSave.size())
             .totalRows(rows.size())
             .errorCount(0)
             .errors(Collections.emptyList())
             .build();
-}
+    }
+    // --- HELPER 1: Đọc giá trị Cell an toàn & Trim ---
+    private String getCellValue(Cell cell, DataFormatter formatter) {
+        if (cell == null) return "";
+        String val = formatter.formatCellValue(cell);
+        return val.replace("\u00A0", " ").trim();
+    }
+
+    // --- HELPER 2: Parse Date từ Cell Excel (Xử lý vụ Ctrl+S) ---
+    private LocalDateTime parseExcelDate(Cell cell) {
+        if (cell == null) return null;
+        try {
+            // Nếu là ô Date thực sự, lấy giá trị gốc
+            if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+                return cell.getLocalDateTimeCellValue();
+            }
+        } catch (Exception e) { return null; }
+        return null;
+    }
+        // Parse Date từ String (Flexible)
+        private LocalDateTime parseDateFlexible(String dateStr) {
+            if (dateStr == null || dateStr.isBlank()) return null;
+            String[] patterns = {"yyyy-MM-dd", "M/d/yyyy", "MM/dd/yyyy", "d/M/yyyy", "dd/MM/yyyy"};
+            for (String pattern : patterns) {
+                try {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+                    return LocalDate.parse(dateStr, formatter).atStartOfDay();
+                } catch (Exception e) {}
+            }
+            return null;
+        }
     // ======================================================
     // 7. LƯU TRỮ TASK
     // ======================================================

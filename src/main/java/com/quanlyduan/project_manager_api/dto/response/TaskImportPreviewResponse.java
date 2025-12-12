@@ -1,9 +1,10 @@
 // src/main/java/com/quanlyduan/project_manager_api/dto/response/TaskImportPreviewResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
+import java.util.List;
+
 import lombok.Builder;
 import lombok.Data;
-import java.util.List;
 
 @Data
 @Builder
@@ -15,6 +16,7 @@ public class TaskImportPreviewResponse {
     private String assigneeEmail;
     private String priority;
     private String statusName;
+    private String startDate;
     private String dueDate;
     private Integer storyPoints;
     private Double estimatedHours;

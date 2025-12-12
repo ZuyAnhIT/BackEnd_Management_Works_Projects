@@ -9,7 +9,7 @@ import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
-import com.quanlyduan.project_manager_api.dto.response.ImportResultResponse;
+import com.quanlyduan.project_manager_api.dto.response.ImportTaskResultResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskImportPreviewResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
@@ -92,7 +92,8 @@ public interface TaskService {
      * @return TaskResponse DTO.
      */
     TaskResponse mapToTaskResponse(Task task);
+    byte[] generateImportTemplate();
+    
     List<TaskImportPreviewResponse> previewImportTasks(Integer projectId, MultipartFile file);
-    ImportResultResponse saveImportedTasks(Integer projectId, List<TaskImportPreviewResponse> validatedRows);
-    ImportResultResponse importTasksFromCsv(Integer projectId, MultipartFile file);
+    ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskImportPreviewResponse> validatedRows);
 }

@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
 import com.opencsv.bean.CsvBindByName;
+
 import lombok.Data;
 
 @Data
@@ -20,6 +21,9 @@ public class TaskImportCsvRow {
 
     @CsvBindByName(column = "Status") 
     private String statusName;
+    
+    @CsvBindByName(column = "Start Date") 
+    private String startDate;
 
     @CsvBindByName(column = "Due Date") 
     private String dueDate;

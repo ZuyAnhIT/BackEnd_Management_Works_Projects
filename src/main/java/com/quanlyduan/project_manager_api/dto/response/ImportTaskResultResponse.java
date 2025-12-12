@@ -11,7 +11,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ImportResultResponse {
+public class ImportTaskResultResponse {
     private int totalRows;
     private int successCount;
     private int errorCount;
