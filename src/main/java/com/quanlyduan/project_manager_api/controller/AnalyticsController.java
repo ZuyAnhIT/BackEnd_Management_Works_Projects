@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.controller;
 import com.quanlyduan.project_manager_api.dto.request.AssigneeRecommendationRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.AssigneeRecommendationResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectForecastResponse;
 import com.quanlyduan.project_manager_api.service.AnalyticsService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -40,6 +41,22 @@ public class AnalyticsController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Assignee recommendations calculated successfully.", 
                 recommendations
+        ));
+    }
+
+    // ======================================================
+    // 2. DỰ BÁO TIẾN ĐỘ & RỦI RO (PROJECT FORECAST)
+    // ======================================================
+    @GetMapping("/projects/{projectId}/forecast")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<ProjectForecastResponse>> getProjectForecast(
+            @PathVariable Integer projectId
+    ) {
+        ProjectForecastResponse forecast = analyticsService.getProjectForecast(projectId);
+        
+        return ResponseEntity.ok(ApiResponse.success(
+                "Project forecast calculated successfully.", 
+                forecast
         ));
     }
 

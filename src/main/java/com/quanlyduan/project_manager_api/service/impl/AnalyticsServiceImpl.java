@@ -3,16 +3,22 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.AssigneeRecommendationRequest;
 import com.quanlyduan.project_manager_api.dto.response.AssigneeRecommendationResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectForecastResponse;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.Project;
 import com.quanlyduan.project_manager_api.model.ProjectMember;
+import com.quanlyduan.project_manager_api.model.Sprint;
 import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
+import com.quanlyduan.project_manager_api.repository.SprintRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.service.AnalyticsService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -22,13 +28,16 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
-
+    private final SprintRepository sprintRepository; 
+    
     public AnalyticsServiceImpl(ProjectRepository projectRepository,
                                 ProjectMemberRepository projectMemberRepository,
+                                SprintRepository sprintRepository,
                                 TaskRepository taskRepository) {
         this.projectRepository = projectRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.taskRepository = taskRepository;
+        this.sprintRepository = sprintRepository;
     }
 
     @Override
@@ -121,6 +130,111 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public ProjectForecastResponse getProjectForecast(Integer projectId) {
+        // 1. Lấy thông tin dự án
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
+        // 2. Tính toán Velocity Lịch sử (Dựa trên 5 Sprint gần nhất)
+        List<Sprint> completedSprints = sprintRepository.findTop5ByProject_IdAndStatusOrderByEndDateDesc(
+                projectId, SprintStatus.COMPLETED
+        );
+
+        List<Integer> velocities = new ArrayList<>();
+        double avgSprintDurationDays = 14.0; // Mặc định 2 tuần nếu chưa có dữ liệu
+
+        if (!completedSprints.isEmpty()) {
+            long totalDays = 0;
+            for (Sprint s : completedSprints) {
+                // Lấy tổng point hoàn thành của từng sprint
+                int points = taskRepository.sumCompletedPointsBySprintId(s.getId());
+                velocities.add(points);
+                
+                // Tính độ dài trung bình sprint thực tế
+                if (s.getStartDate() != null && s.getEndDate() != null) {
+                    totalDays += java.time.temporal.ChronoUnit.DAYS.between(s.getStartDate(), s.getEndDate());
+                }
+            }
+            if (totalDays > 0) {
+                avgSprintDurationDays = (double) totalDays / completedSprints.size();
+            }
+        }
+
+        // Xử lý trường hợp dự án mới chưa có sprint nào xong -> Giả định velocity mặc định
+        if (velocities.isEmpty()) {
+            velocities.add(10); // Giả định 10 point/sprint cho dự án mới
+        }
+
+        // 3. Xác định 3 chỉ số Velocity: Min, Max, Avg
+        double minVelocity = velocities.stream().mapToInt(v -> v).min().orElse(10);
+        double maxVelocity = velocities.stream().mapToInt(v -> v).max().orElse(10);
+        double avgVelocity = velocities.stream().mapToInt(v -> v).average().orElse(10.0);
+        
+        // Tránh chia cho 0
+        if (minVelocity == 0) minVelocity = 1; 
+        if (avgVelocity == 0) avgVelocity = 1;
+
+        // 4. Lấy khối lượng công việc còn lại (Remaining Backlog)
+        int remainingPoints = taskRepository.sumRemainingPoints(projectId);
+        
+        // Nếu backlog trống, dự án coi như xong
+        if (remainingPoints == 0) {
+            return ProjectForecastResponse.builder()
+                    .riskLevel("NONE")
+                    .riskMessage("Dự án đã hoàn thành hết công việc.")
+                    .build();
+        }
+
+        // 5. Tính toán 3 Kịch bản
+        LocalDate now = LocalDate.now();
+        LocalDate deadline = project.getDueDate(); // Có thể null
+
+        // A. Kịch bản TỐT NHẤT (Optimistic) - Dùng Max Velocity
+        var optimistic = calculateScenario("Optimistic", maxVelocity, remainingPoints, avgSprintDurationDays, now, deadline);
+
+        // B. Kịch bản KHẢ THI (Likely) - Dùng Avg Velocity
+        var likely = calculateScenario("Likely", avgVelocity, remainingPoints, avgSprintDurationDays, now, deadline);
+
+        // C. Kịch bản XẤU NHẤT (Pessimistic) - Dùng Min Velocity
+        var pessimistic = calculateScenario("Pessimistic", minVelocity, remainingPoints, avgSprintDurationDays, now, deadline);
+
+        // 6. Đánh giá rủi ro tổng quan (Dựa trên kịch bản Khả thi)
+        String riskLevel = "LOW";
+        String riskMsg = "Dự án đang đi đúng tiến độ.";
+
+        if (deadline != null) {
+            if (likely.isLate()) {
+                riskLevel = "HIGH";
+                riskMsg = "Dự án có nguy cơ trễ hạn khoảng " + likely.getDaysLate() + " ngày.";
+            } else if (pessimistic.isLate()) {
+                riskLevel = "MEDIUM";
+                riskMsg = "Tiến độ ổn, nhưng nếu gặp rủi ro (tốc độ thấp nhất) thì sẽ trễ hạn.";
+            }
+            
+            // Nếu trễ quá 30% thời gian
+            if (likely.isLate() && likely.getDaysLate() > 30) {
+                riskLevel = "CRITICAL";
+                riskMsg = "CẢNH BÁO: Dự án trễ hạn nghiêm trọng (" + likely.getDaysLate() + " ngày). Cần cắt giảm scope hoặc thêm nguồn lực.";
+            }
+        } else {
+            riskMsg = "Dự án chưa thiết lập Deadline.";
+        }
+
+        return ProjectForecastResponse.builder()
+                .totalBacklogPoints(remainingPoints)
+                .averageVelocity(Math.round(avgVelocity * 100.0) / 100.0)
+                .projectDueDate(deadline)
+                .riskLevel(riskLevel)
+                .riskMessage(riskMsg)
+                .optimistic(optimistic)
+                .likely(likely)
+                .pessimistic(pessimistic)
+                .build();
+    }
+
+    // METHOD HEPLER
     private String extractMainKeyword(String text) {
         if (text == null || text.trim().isEmpty()) return "";
         String cleanText = text.replaceAll("[^a-zA-Z0-9\\s]", "");
@@ -128,5 +242,31 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 .filter(w -> w.length() > 3)
                 .max(Comparator.comparingInt(String::length))
                 .orElse("");
+    }
+
+    // Helper tính toán kịch bản
+    private ProjectForecastResponse.ForecastScenario calculateScenario(
+            String name, double velocity, int remainingPoints, double sprintDuration, LocalDate now, LocalDate deadline) {
+        
+        double sprintsNeeded = remainingPoints / velocity;
+        long daysNeeded = (long) Math.ceil(sprintsNeeded * sprintDuration);
+        LocalDate completionDate = now.plusDays(daysNeeded);
+        
+        boolean isLate = false;
+        int daysLate = 0;
+        
+        if (deadline != null && completionDate.isAfter(deadline)) {
+            isLate = true;
+            daysLate = (int) java.time.temporal.ChronoUnit.DAYS.between(deadline, completionDate);
+        }
+
+        return ProjectForecastResponse.ForecastScenario.builder()
+                .name(name)
+                .velocityUsed(Math.round(velocity * 100.0) / 100.0)
+                .sprintsNeeded(Math.round(sprintsNeeded * 10.0) / 10.0)
+                .completionDate(completionDate)
+                .isLate(isLate)
+                .daysLate(daysLate)
+                .build();
     }
 }
