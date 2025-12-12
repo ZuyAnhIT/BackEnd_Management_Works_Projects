@@ -1,34 +1,60 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/TaskServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
- 
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.util.CellRangeAddressList;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
 import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
+import com.quanlyduan.project_manager_api.dto.request.TaskImportCsvRow;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
+import com.quanlyduan.project_manager_api.dto.response.ImportTaskResultResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskImportPreviewResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Epic;
 import com.quanlyduan.project_manager_api.model.Project;
+import com.quanlyduan.project_manager_api.model.ProjectMember;
 import com.quanlyduan.project_manager_api.model.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.Sprint;
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectStatusRepository;
 import com.quanlyduan.project_manager_api.repository.SprintRepository;
@@ -44,6 +70,7 @@ public class TaskServiceImpl implements TaskService {
     private final TaskRepository taskRepository;
     private final TaskCommentRepository taskCommentRepository;
     private final ProjectRepository projectRepository;
+    private final ProjectMemberRepository projectMemberRepository;
     private final SprintRepository sprintRepository;
     private final UserRepository userRepository;
     private final SecurityService securityService;
@@ -56,6 +83,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskServiceImpl(TaskRepository taskRepository,
                             TaskCommentRepository taskCommentRepository,
                            ProjectRepository projectRepository,
+                           ProjectMemberRepository projectMemberRepository,
                            SprintRepository sprintRepository,
                            UserRepository userRepository,
                            EpicRepository epicRepository,
@@ -64,6 +92,7 @@ public class TaskServiceImpl implements TaskService {
         this.taskRepository = taskRepository;
         this.taskCommentRepository = taskCommentRepository;
         this.projectRepository = projectRepository;
+        this.projectMemberRepository = projectMemberRepository;
         this.sprintRepository = sprintRepository;
         this.userRepository = userRepository;
         this.securityService = securityService;
@@ -539,7 +568,305 @@ public class TaskServiceImpl implements TaskService {
         // BƯỚC 5: Trả về thông tin task vừa xóa
         return response;
     }
+    // =================================================================
+    // 1. TẠO FILE EXCEL MẪU
+    // =================================================================
+    @Override
+    public byte[] generateImportTemplate() {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Tasks Import");
 
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+            Row headerRow = sheet.createRow(0);
+            String[] columns = {"Title", "Description", "Assignee Email", "Priority", "Status", "Start Date", "Due Date", "Story Points", "Estimated Hours"};
+
+            for (int i = 0; i < columns.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(columns[i]);
+                cell.setCellStyle(headerStyle);
+                // Set độ rộng cột (Đơn vị 1/256)
+                if (i == 1) sheet.setColumnWidth(i, 50 * 256); // Desc
+                else if (i == 5 || i == 6) sheet.setColumnWidth(i, 20 * 256); // Dates (Hết lỗi ####)
+                else sheet.setColumnWidth(i, 25 * 256);
+            }
+
+            Row row = sheet.createRow(1);
+            row.createCell(0).setCellValue("Fix Login Bug");
+            row.createCell(1).setCellValue("Fix error 401 on login");
+            row.createCell(2).setCellValue("dev1@techvision.com");
+            row.createCell(3).setCellValue("HIGH");
+            row.createCell(4).setCellValue("To Do");
+            row.createCell(5).setCellValue("2025-12-01"); // Định dạng chuỗi YYYY-MM-DD
+            row.createCell(6).setCellValue("2025-12-31");
+            row.createCell(7).setCellValue(5);
+            row.createCell(8).setCellValue(8.0);
+            
+            // Dropdowns
+            DataValidationHelper helper = sheet.getDataValidationHelper();
+            // Priority
+            DataValidationConstraint priorityConstraint = helper.createExplicitListConstraint(new String[]{"LOW", "MEDIUM", "HIGH", "URGENT"});
+            sheet.addValidationData(helper.createValidation(priorityConstraint, new CellRangeAddressList(1, 1000, 3, 3)));
+            // Status
+            DataValidationConstraint statusConstraint = helper.createExplicitListConstraint(new String[]{"To Do", "In Progress", "Done", "Backlog"});
+            sheet.addValidationData(helper.createValidation(statusConstraint, new CellRangeAddressList(1, 1000, 4, 4)));
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new BadRequestException("Fail to generate template: " + e.getMessage());
+        }
+    }
+
+    // =================================================================
+    // 2. PREVIEW IMPORT (CORE LOGIC SỬA LỖI)
+    // =================================================================
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskImportPreviewResponse> previewImportTasks(Integer projectId, MultipartFile file) {
+        // Check định dạng file
+        String fileName = file.getOriginalFilename();
+        if (fileName == null || (!fileName.endsWith(".xlsx") && !fileName.endsWith(".xls"))) {
+             // Nếu muốn hỗ trợ cả CSV thì cần logic if/else riêng, nhưng ở đây ta ưu tiên Excel
+             throw new BadRequestException("Please upload a valid Excel file (.xlsx)");
+        }
+
+        Map<String, User> projectMembersMap = projectMemberRepository.findByProject_Id(projectId, Pageable.unpaged())
+                .stream().filter(pm -> pm.getStatus() == MemberStatus.ACTIVE).map(ProjectMember::getUser)
+                .collect(Collectors.toMap(u -> u.getEmail().toLowerCase(), u -> u));
+
+        List<TaskImportPreviewResponse> previewList = new ArrayList<>();
+        DataFormatter dataFormatter = new DataFormatter(); // Helper định dạng của POI
+
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            int rowIndex = 0;
+
+            for (Row row : sheet) {
+                if (rowIndex == 0) { rowIndex++; continue; } // Bỏ qua Header
+
+                // 1. Đọc dữ liệu (Dùng Helper getCellValue để tránh lỗi)
+                String title = getCellValue(row.getCell(0), dataFormatter);
+                if (title.isEmpty()) break; // Hết dữ liệu -> Dừng
+
+                String description = getCellValue(row.getCell(1), dataFormatter);
+                String assigneeEmail = getCellValue(row.getCell(2), dataFormatter);
+                String priority = getCellValue(row.getCell(3), dataFormatter);
+                String status = getCellValue(row.getCell(4), dataFormatter);
+                
+                // 🔥 Đọc Date thông minh: Thử đọc Object Date trước, nếu không được thì đọc String
+                LocalDateTime startDt = parseExcelDate(row.getCell(5));
+                String startDateStr = getCellValue(row.getCell(5), dataFormatter);
+                if (startDt == null && !startDateStr.isEmpty()) startDt = parseDateFlexible(startDateStr);
+
+                LocalDateTime dueDt = parseExcelDate(row.getCell(6));
+                String dueDateStr = getCellValue(row.getCell(6), dataFormatter);
+                if (dueDt == null && !dueDateStr.isEmpty()) dueDt = parseDateFlexible(dueDateStr);
+
+                String pointsStr = getCellValue(row.getCell(7), dataFormatter);
+                String hoursStr = getCellValue(row.getCell(8), dataFormatter);
+
+                // 2. Validate
+                List<String> errors = new ArrayList<>();
+
+                if (title.isEmpty()) errors.add("Title is required");
+
+                if (!assigneeEmail.isEmpty()) {
+                    if (!projectMembersMap.containsKey(assigneeEmail.toLowerCase())) {
+                        errors.add("User '" + assigneeEmail + "' is not in project");
+                    }
+                }
+
+                if (!startDateStr.isEmpty() && startDt == null) errors.add("Invalid Start Date");
+                if (!dueDateStr.isEmpty() && dueDt == null) errors.add("Invalid Due Date");
+
+                if (startDt != null && dueDt != null && startDt.isAfter(dueDt)) {
+                    errors.add("Start Date must be before Due Date");
+                }
+                
+                if (!priority.isEmpty()) {
+                    try { TaskPriority.valueOf(priority.toUpperCase()); } 
+                    catch (Exception e) { errors.add("Invalid Priority"); }
+                }
+
+                Integer points = null;
+                try { if(!pointsStr.isEmpty()) points = (int) Double.parseDouble(pointsStr); } catch(Exception e) { errors.add("Points must be number"); }
+                
+                Double hours = null;
+                try { if(!hoursStr.isEmpty()) hours = Double.parseDouble(hoursStr); } catch(Exception e) { errors.add("Hours must be number"); }
+
+                // Chuẩn hóa String ngày tháng để trả về Frontend
+                String startDisplay = startDt != null ? startDt.toLocalDate().toString() : startDateStr;
+                String dueDisplay = dueDt != null ? dueDt.toLocalDate().toString() : dueDateStr;
+
+                previewList.add(TaskImportPreviewResponse.builder()
+                        .rowIndex(rowIndex + 1)
+                        .title(title)
+                        .description(description)
+                        .assigneeEmail(assigneeEmail)
+                        .priority(priority)
+                        .statusName(status)
+                        .startDate(startDisplay)
+                        .dueDate(dueDisplay)
+                        .storyPoints(points)
+                        .estimatedHours(hours)
+                        .isValid(errors.isEmpty())
+                        .errors(errors)
+                        .build());
+                rowIndex++;
+            }
+        } catch (Exception e) {
+            throw new BadRequestException("Error reading Excel: " + e.getMessage());
+        }
+        return previewList;
+    }
+
+// =================================================================
+// LOGIC SAVE (BƯỚC 2 - Nhận JSON đã sửa từ FE)
+// =================================================================
+@Override
+@Transactional
+@LogActivity(action = "IMPORT", entityType = "TASK", description = "Import tasks from JSON")
+public ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskImportPreviewResponse> rows) {
+    // 1. Prepare Data Maps (Cache for performance)
+    Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+            
+    Map<String, User> memberMap = projectMemberRepository.findByProject_Id(projectId, Pageable.unpaged())
+            .stream()
+            .filter(pm -> pm.getStatus() == MemberStatus.ACTIVE)
+            .map(ProjectMember::getUser)
+            .collect(Collectors.toMap(u -> u.getEmail().toLowerCase(), u -> u));
+    
+    Map<String, ProjectStatus> statusMap = projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId)
+            .stream().collect(Collectors.toMap(s -> s.getName().toLowerCase(), s -> s));
+            
+    // Fallback default status
+    ProjectStatus defaultStatus = statusMap.values().stream()
+            .min(Comparator.comparingInt(ProjectStatus::getSortOrder))
+            .orElseThrow(() -> new ResourceNotFoundException("No status found"));
+
+    User creator = securityService.getCurrentAuthenticatedUser();
+    long currentSort = taskRepository.countByProjectId(projectId);
+    List<Task> tasksToSave = new ArrayList<>();
+
+    // 2. Processing Rows (Lenient Mode)
+    for (TaskImportPreviewResponse row : rows) {
+        // Skip only if Title is missing (Mandatory field)
+        if (row.getTitle() == null || row.getTitle().trim().isEmpty()) {
+            continue; 
+        }
+
+        // --- LENIENT MAPPING LOGIC ---
+
+        // 1. Assignee: Map if exists, else NULL
+        User assignee = null;
+        if (row.getAssigneeEmail() != null && !row.getAssigneeEmail().isBlank()) {
+            // Try to find user. If map returns null (not found), assignee remains null.
+            assignee = memberMap.get(row.getAssigneeEmail().trim().toLowerCase());
+        }
+
+        // 2. Status: Map if exists, else DEFAULT
+        ProjectStatus status = defaultStatus;
+        if (row.getStatusName() != null && statusMap.containsKey(row.getStatusName().trim().toLowerCase())) {
+            status = statusMap.get(row.getStatusName().trim().toLowerCase());
+        }
+
+        // 3. Priority: Map if valid, else MEDIUM
+        TaskPriority priority = TaskPriority.MEDIUM;
+        try {
+            if (row.getPriority() != null) {
+                priority = TaskPriority.valueOf(row.getPriority().toUpperCase());
+            }
+        } catch (Exception ignored) {
+            // Invalid priority -> Fallback to MEDIUM (or NULL if your DB allows)
+        }
+
+        LocalDateTime startDate = null;
+        try {
+            if (row.getStartDate() != null && !row.getStartDate().isBlank()) {
+                startDate = LocalDate.parse(row.getStartDate()).atStartOfDay();
+            }
+        } catch (Exception ignored) {}
+
+        // 4. Date: Map if valid, else NULL
+        LocalDateTime dueDate = null;
+        try {
+            if (row.getDueDate() != null && !row.getDueDate().isBlank()) {
+                dueDate = LocalDate.parse(row.getDueDate()).atStartOfDay();
+            }
+        } catch (Exception ignored) {
+            // Invalid date format -> Set to NULL (Safe)
+        }
+
+        // --- BUILD ENTITY ---
+        Task task = Task.builder()
+                .project(project)
+                .taskCode(project.getProjectCode() + "-" + (++currentSort))
+                .title(row.getTitle())
+                .description(row.getDescription())
+                .assignee(assignee) // Will be User or Null
+                .status(status)     // Will be Selected or Default
+                .priority(priority) // Will be Selected or Medium
+                .taskType(TaskType.TASK)
+                .startDate(startDate)
+                .dueDate(dueDate)   // Will be Date or Null
+                .storyPoints(row.getStoryPoints())
+                .estimatedHours(row.getEstimatedHours() != null ? BigDecimal.valueOf(row.getEstimatedHours()) : null)
+                .sortOrder((int)currentSort)
+                .createdBy(creator)
+                .assigner(creator)
+                .build();
+        
+        tasksToSave.add(task);
+    }
+
+    // 3. Batch Save
+    taskRepository.saveAll(tasksToSave);
+    
+    return ImportTaskResultResponse.builder()
+            .successCount(tasksToSave.size())
+            .totalRows(rows.size())
+            .errorCount(0)
+            .errors(Collections.emptyList())
+            .build();
+    }
+    // --- HELPER 1: Đọc giá trị Cell an toàn & Trim ---
+    private String getCellValue(Cell cell, DataFormatter formatter) {
+        if (cell == null) return "";
+        String val = formatter.formatCellValue(cell);
+        return val.replace("\u00A0", " ").trim();
+    }
+
+    // --- HELPER 2: Parse Date từ Cell Excel (Xử lý vụ Ctrl+S) ---
+    private LocalDateTime parseExcelDate(Cell cell) {
+        if (cell == null) return null;
+        try {
+            // Nếu là ô Date thực sự, lấy giá trị gốc
+            if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+                return cell.getLocalDateTimeCellValue();
+            }
+        } catch (Exception e) { return null; }
+        return null;
+    }
+        // Parse Date từ String (Flexible)
+        private LocalDateTime parseDateFlexible(String dateStr) {
+            if (dateStr == null || dateStr.isBlank()) return null;
+            String[] patterns = {"yyyy-MM-dd", "M/d/yyyy", "MM/dd/yyyy", "d/M/yyyy", "dd/MM/yyyy"};
+            for (String pattern : patterns) {
+                try {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+                    return LocalDate.parse(dateStr, formatter).atStartOfDay();
+                } catch (Exception e) {}
+            }
+            return null;
+        }
     // ======================================================
     // 7. LƯU TRỮ TASK
     // ======================================================
@@ -685,7 +1012,7 @@ public class TaskServiceImpl implements TaskService {
                 .updatedAt(task.getUpdatedAt())
                 .build();
     }
-
+    
     /**
      * Helper: Map Task Entity sang TaskSummaryResponse DTO (Cấu trúc Nested).
      */

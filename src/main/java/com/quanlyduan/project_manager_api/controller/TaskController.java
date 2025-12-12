@@ -1,28 +1,47 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/controller/TaskController.java
 package com.quanlyduan.project_manager_api.controller;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.quanlyduan.project_manager_api.dto.request.CommentRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskSprintRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.ImportTaskResultResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskAttachmentResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskCommentResponse;
+import com.quanlyduan.project_manager_api.dto.response.TaskImportPreviewResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
+import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.TaskAttachmentService;
 import com.quanlyduan.project_manager_api.service.TaskCommentService;
 import com.quanlyduan.project_manager_api.service.TaskService;
+
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import java.io.IOException;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import com.quanlyduan.project_manager_api.security.SecurityService;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/tasks") // Tất cả API liên quan đến Task sẽ bắt đầu bằng /api/tasks
@@ -220,5 +239,40 @@ public class TaskController {
 
         List<TaskAttachmentResponse> attachments = attachmentService.getAttachmentsForTask(taskId);
         return ResponseEntity.ok(ApiResponse.success("Task attachments retrieved successfully.", attachments));
+    }
+
+    // API 1: Tải file mẫu CSV
+   @GetMapping("/import-template")
+    public ResponseEntity<Resource> downloadImportTemplate() {
+        String filename = "tasks_import_template.xlsx"; // Đổi đuôi file
+        byte[] excelContent = taskService.generateImportTemplate();
+        
+        ByteArrayResource resource = new ByteArrayResource(excelContent);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+                // Content Type cho .xlsx
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(resource);
+    }
+
+    // API 2: Xem trước dữ liệu import từ file CSV
+    @PostMapping(value = "/{projectId}/import/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:create')")
+    public ResponseEntity<ApiResponse<List<TaskImportPreviewResponse>>> previewImport(
+            @PathVariable Integer projectId,
+            @RequestParam("file") MultipartFile file) {
+        List<TaskImportPreviewResponse> preview = taskService.previewImportTasks(projectId, file);
+        return ResponseEntity.ok(ApiResponse.success("Preview generated", preview));
+    }
+
+    // API 2: Save (Gửi JSON đã sửa -> Lưu DB)
+    @PostMapping("/{projectId}/import/save")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:create')")
+    public ResponseEntity<ApiResponse<ImportTaskResultResponse>> saveImport(
+            @PathVariable Integer projectId,
+            @RequestBody List<TaskImportPreviewResponse> rows) {
+        ImportTaskResultResponse result = taskService.saveImportedTasks(projectId, rows);
+        return ResponseEntity.ok(ApiResponse.success("Tasks imported successfully", result));
     }
 }
