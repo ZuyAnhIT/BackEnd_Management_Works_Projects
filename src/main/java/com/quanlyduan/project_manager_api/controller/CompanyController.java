@@ -19,7 +19,6 @@ import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.service.CompanyService;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -236,22 +235,36 @@ public class CompanyController {
         return ResponseEntity.ok(ApiResponse.success("Invitation sent successfully.", null));
     }
 
-    // API LẤY DANH SÁCH LỜI MỜI ĐANG CHỜ (PENDING) - CÓ PHÂN TRANG
-    @PreAuthorize("@securityService.hasPermission('company', #companyId, 'company:view')")
-    @GetMapping("/{companyId}/invitations/pending")
-    public ResponseEntity<ApiResponse<PageResponseDTO<CompanyInvitationResponse>>> getPendingInvitations(
+    @GetMapping("/{companyId}/invitations")
+    @PreAuthorize("@securityService.hasCompanyPermission(#companyId, 'company:view')") // Hoặc company:edit tùy logic
+    public ResponseEntity<ApiResponse<PageResponseDTO<CompanyInvitationResponse>>> getCompanyInvitations(
             @PathVariable Integer companyId,
-
-            // Các tham số phân trang (Optional)
+            
+            // Thêm các tham số lọc mới
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "PENDING") String status,
+            
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
+        
+        PageResponseDTO<CompanyInvitationResponse> response = companyService.getCompanyInvitations(
+                companyId, keyword, status, page, size, sortBy, sortDir
+        );
+        
+        return ResponseEntity.ok(ApiResponse.success("Company invitations retrieved successfully.", response));
+    }
 
-        PageResponseDTO<CompanyInvitationResponse> invitations = companyService.getPendingInvitations(companyId, page, size, sortBy, sortDir);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Pending invitation list retrieved successfully.", invitations));
+    // HỦY LỜI MỜI CÔNG TY
+    @DeleteMapping("/{companyId}/invitations/{invitationId}")
+    @PreAuthorize("@securityService.hasCompanyPermission(#companyId, 'company:edit')") 
+    public ResponseEntity<ApiResponse<Object>> cancelCompanyInvitation(
+            @PathVariable Integer companyId,
+            @PathVariable Integer invitationId
+    ) {
+        companyService.cancelCompanyInvitation(companyId, invitationId);
+        return ResponseEntity.ok(ApiResponse.success("Company invitation cancelled successfully.", null));
     }
 }

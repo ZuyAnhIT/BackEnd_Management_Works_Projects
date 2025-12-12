@@ -28,20 +28,18 @@ public interface CompanyInvitationRepository extends JpaRepository<CompanyInvita
         Integer companyId, String email, InvitationStatus status
     );
 
-    /**
-     * Lấy tất cả lời mời theo ID Công ty và Trạng thái (Không phân trang).
-     */
-    List<CompanyInvitation> findByCompany_IdAndStatus(
-        Integer companyId, InvitationStatus status
-    );
 
     /**
      * Đếm số lượng lời mời theo trạng thái (dùng để tính lại phân trang/thống kê).
      */
     long countByCompany_IdAndStatus(Integer companyId, InvitationStatus status);
 
-    /**
-     * Lấy danh sách lời mời theo trạng thái (Có phân trang).
-     */
-    Page<CompanyInvitation> findByCompany_IdAndStatus(Integer companyId, InvitationStatus status, Pageable pageable);
+    
+    // Tìm kiếm lời mời theo Company + Status + Email (có phân trang)
+    Page<CompanyInvitation> findByCompany_IdAndStatusAndEmailContainingIgnoreCase(
+            Integer companyId, 
+            InvitationStatus status, 
+            String email, 
+            Pageable pageable
+    );
 }

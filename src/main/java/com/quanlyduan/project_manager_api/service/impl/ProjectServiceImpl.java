@@ -36,6 +36,7 @@ import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationDetailsResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
@@ -1273,6 +1274,79 @@ public class ProjectServiceImpl implements ProjectService {
         ActivityLogContext.setDetail(welcomeMsg);
     }
 
+    // =================================================================================
+    // ⏳ LOGIC LẤY DANH SÁCH LỜI MỜI DỰ ÁN (NÂNG CẤP: PHÂN TRANG & TÌM KIẾM)
+    // =================================================================================
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<ProjectInvitationResponse> getProjectInvitations(
+            Integer projectId, 
+            String keyword, 
+            String statusStr, 
+            int page, int size, String sortBy, String sortDir
+    ) {
+        // 1. Kiểm tra Project tồn tại
+        if (!projectRepository.existsById(projectId)) {
+            throw new ResourceNotFoundException("Project not found.");
+        }
+
+        // 2. Cấu hình Map ánh xạ cho việc sắp xếp (Sort)
+        Map<String, String> sortMapping = Map.of(
+            "createdAt", "createdAt",       
+            "email", "email",              
+            "role", "role.roleCode", // Role dự án thường dùng roleCode       
+            "status", "status"        
+        );
+
+        // 3. Tạo Pageable (Sử dụng hàm helper createPageable có sẵn hoặc tự tạo)
+        // Nếu bạn chưa có hàm createPageable chung, hãy dùng code thủ công bên dưới:
+        org.springframework.data.domain.Sort sort = sortDir.equalsIgnoreCase("asc") 
+                ? org.springframework.data.domain.Sort.by(sortBy).ascending() 
+                : org.springframework.data.domain.Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // 4. Xử lý bộ lọc
+        // - Keyword: Nếu null thì gán rỗng để tìm tất cả
+        String searchKeyword = (keyword != null) ? keyword.trim() : "";
+        
+        // - Status: Mặc định là PENDING
+        InvitationStatus status = InvitationStatus.PENDING;
+        if (statusStr != null && !statusStr.isEmpty()) {
+            try {
+                status = InvitationStatus.valueOf(statusStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Nếu sai format, giữ mặc định PENDING
+            }
+        }
+
+        // 5. Gọi Repository
+        Page<ProjectInvitation> invitationPage = projectInvitationRepository
+                .findByProject_IdAndStatusAndEmailContainingIgnoreCase(projectId, status, searchKeyword, pageable);
+
+        // 6. Map sang DTO (Dùng hàm helper mapToInvitationResponse đã tạo trước đó)
+        Page<ProjectInvitationResponse> dtoPage = invitationPage.map(this::mapToInvitationResponse);
+
+        // 7. Trả về kết quả
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+
+    // HỦY LỜI MỜI 
+    @Override
+    @Transactional
+    public void cancelProjectInvitation(Integer projectId, Integer invitationId) {
+        ProjectInvitation invitation = projectInvitationRepository.findById(invitationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invitation not found."));
+
+        if (!invitation.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("Invitation does not belong to this project.");
+        }
+
+        // Xóa cứng (Hard Delete) hoặc chuyển trạng thái sang CANCELLED
+        // Ở đây mình chọn xóa luôn cho sạch Database vì là lời mời chưa dùng
+        projectInvitationRepository.delete(invitation);
+    }
+
     // ------------------------------------------------------------------------
     // PRIVATE HELPER METHODS (MAPPERS & UTILS)
     // ------------------------------------------------------------------------
@@ -1334,9 +1408,25 @@ public class ProjectServiceImpl implements ProjectService {
                 .build();
     }
 
-    /**
-     * Helper: Map Task Entity sang TaskSummaryResponse DTO.
-     */
+     // --- HELPER METHOD: Chuyển đổi Entity sang DTO ---
+    private ProjectInvitationResponse mapToInvitationResponse(ProjectInvitation inv) {
+        return ProjectInvitationResponse.builder()
+                .id(inv.getId())
+                .email(inv.getEmail())
+                
+                // 1. Sửa .getCode() -> .getRoleCode()
+                // (Giả sử Entity Role của bạn có trường roleCode, nếu tên khác hãy đổi tương ứng)
+                .roleCode(inv.getRole() != null ? inv.getRole().getRoleCode() : "UNKNOWN") 
+                
+                .status(inv.getStatus().name())
+                .invitedAt(inv.getCreatedAt())
+                
+                // 2. Sửa .getInviter() -> .getInvitedBy() (Theo đúng Model bạn gửi)
+                .inviterName(inv.getInvitedBy() != null ? inv.getInvitedBy().getFullName() : "System")
+                .inviterAvatar(inv.getInvitedBy() != null ? inv.getInvitedBy().getAvatarUrl() : null)
+                
+                .build();
+    }
     /**
      * Helper: Map Task Entity sang TaskSummaryResponse DTO (Cấu trúc Nested).
      */

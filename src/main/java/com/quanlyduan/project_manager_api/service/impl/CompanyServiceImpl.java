@@ -574,44 +574,52 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     // =================================================================================
-    // ⏳ LOGIC LẤY DANH SÁCH LỜI MỜI ĐANG CHỜ (PENDING INVITATIONS)
+    // ⏳ LOGIC LẤY DANH SÁCH LỜI MỜI (CÓ LỌC & TÌM KIẾM) - ĐÃ NÂNG CẤP
     // =================================================================================
     @Override
     @Transactional(readOnly = true)
-    public PageResponseDTO<CompanyInvitationResponse> getPendingInvitations(Integer companyId, int page, int size, String sortBy, String sortDir) {
-
+    public PageResponseDTO<CompanyInvitationResponse> getCompanyInvitations(
+            Integer companyId, 
+            String keyword, 
+            String statusStr, 
+            int page, int size, String sortBy, String sortDir
+    ) {
         // 1. Cấu hình Map ánh xạ cho việc sắp xếp
         Map<String, String> sortMapping = Map.of(
-            "createdAt", "createdAt",       // Ngày mời (Mặc định)
-            "email", "email",               // Email người được mời
-            "role", "role.roleName",        // Vai trò
-            "expiresAt", "expiresAt"        // Ngày hết hạn
+            "createdAt", "createdAt",       
+            "email", "email",              
+            "role", "role.roleName",        
+            "expiresAt", "expiresAt"        
         );
 
         // 2. Tạo Pageable
         Pageable pageable = createPageable(page, size, sortBy, sortDir, "createdAt", sortMapping);
 
-        // 3. Gọi Repository lấy dữ liệu phân trang (Chỉ lấy lời mời đang PENDING)
+        // 3. Xử lý bộ lọc
+        // - Keyword: Nếu null thì gán rỗng để tìm tất cả
+        String searchKeyword = (keyword != null) ? keyword.trim() : "";
+        
+        // - Status: Mặc định là PENDING nếu không truyền hoặc truyền sai
+        InvitationStatus status = InvitationStatus.PENDING;
+        if (statusStr != null && !statusStr.isEmpty()) {
+            try {
+                status = InvitationStatus.valueOf(statusStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Nếu status sai, giữ mặc định PENDING
+            }
+        }
+
+        // 4. Gọi Repository lấy dữ liệu
         Page<CompanyInvitation> invitationPage = companyInvitationRepository
-                .findByCompany_IdAndStatus(companyId, InvitationStatus.PENDING, pageable);
+                .findByCompany_IdAndStatusAndEmailContainingIgnoreCase(companyId, status, searchKeyword, pageable);
 
-        // 4. Map sang DTO và tạo link lời mời
-        Page<CompanyInvitationResponse> dtoPage = invitationPage.map(inv -> {
-            String link = frontendUrl + "/accept-invitation?token=" + inv.getToken();
-            return CompanyInvitationResponse.builder()
-                    .id(inv.getId())
-                    .email(inv.getEmail())
-                    .roleName(inv.getRole().getRoleName())
-                    .invitedByName(inv.getInvitedBy().getFullName())
-                    .status(inv.getStatus().name())
-                    .expiresAt(inv.getExpiresAt())
-                    .invitationLink(link)
-                    .build();
-        });
+        // 5. Map sang DTO (Dùng hàm helper để code gọn hơn)
+        Page<CompanyInvitationResponse> dtoPage = invitationPage.map(this::mapToCompanyInvitationResponse);
 
-        // 5. Trả về kết quả
+        // 6. Trả về kết quả
         return new PageResponseDTO<>(dtoPage);
     }
+
 
     // =================================================================================
     // 🔗 LOGIC LẤY CHI TIẾT LỜI MỜI (PUBLIC) - Dùng cho trang chấp nhận
@@ -636,6 +644,25 @@ public class CompanyServiceImpl implements CompanyService {
                 .companyName(companyName)
                 .accountExists(accountExists)
                 .build();
+    }
+
+    // =================================================================================
+    // ❌ HỦY LỜI MỜI CÔNG TY (CANCEL INVITATION)
+    // =================================================================================
+    @Override
+    @Transactional
+    public void cancelCompanyInvitation(Integer companyId, Integer invitationId) {
+        // 1. Tìm lời mời
+        CompanyInvitation invitation = companyInvitationRepository.findById(invitationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invitation not found with ID: " + invitationId));
+
+        // 2. Validate: Lời mời phải thuộc đúng Company này
+        if (!invitation.getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Invitation does not belong to the specified company.");
+        }
+
+        // 3. Xóa (Xóa cứng vì lời mời chưa được dùng coi như rác)
+        companyInvitationRepository.delete(invitation);
     }
 
 
@@ -712,6 +739,23 @@ public class CompanyServiceImpl implements CompanyService {
                 .phoneNumber(company.getPhoneNumber())
                 .email(company.getEmail())
                 .website(company.getWebsite())
+                .build();
+    }
+
+     // --- HELPER METHOD: Chuyển đổi Entity sang DTO ---
+    private CompanyInvitationResponse mapToCompanyInvitationResponse(CompanyInvitation inv) {
+        String link = frontendUrl + "/accept-invitation?token=" + inv.getToken();
+        
+        return CompanyInvitationResponse.builder()
+                .id(inv.getId())
+                .email(inv.getEmail())
+                // Null-safe check cho Role
+                .roleName(inv.getRole() != null ? inv.getRole().getRoleName() : "UNKNOWN")
+                // Null-safe check cho Người mời
+                .invitedByName(inv.getInvitedBy() != null ? inv.getInvitedBy().getFullName() : "System")
+                .status(inv.getStatus().name())
+                .expiresAt(inv.getExpiresAt())
+                .invitationLink(link)
                 .build();
     }
 }

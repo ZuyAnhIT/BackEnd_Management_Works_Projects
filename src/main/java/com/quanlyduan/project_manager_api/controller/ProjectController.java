@@ -14,6 +14,7 @@ import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
@@ -505,6 +506,47 @@ public class ProjectController {
 
         // Sửa thông báo trả về sang tiếng Anh
         return ResponseEntity.ok(ApiResponse.success("Operation successful.", null));
+    }
+
+    // 1. LẤY DANH SÁCH LỜI MỜI (CÓ PHÂN TRANG & TÌM KIẾM)
+    @GetMapping("/{projectId}/invitations")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<ProjectInvitationResponse>>> getProjectInvitations(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            
+            // Các bộ lọc
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "PENDING") String status,
+            
+            // Phân trang
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
+    ) {
+        
+        PageResponseDTO<ProjectInvitationResponse> data = projectService.getProjectInvitations(
+                projectId, keyword, status, page, size, sortBy, sortDir
+        );
+        
+        return ResponseEntity.ok(ApiResponse.success("Project invitations retrieved successfully.", data));
+    }
+
+    // 2. HỦY LỜI MỜI
+    @DeleteMapping("/{projectId}/invitations/{invitationId}")
+    // Sửa 'project:admin' thành 'project:edit'
+    // Logic: Thay đổi danh sách thành viên là hành động chỉnh sửa dự án
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+    public ResponseEntity<ApiResponse<Object>> cancelInvitation(
+            @PathVariable Integer companyId,
+            @PathVariable Integer workspaceId,
+            @PathVariable Integer projectId,
+            @PathVariable Integer invitationId
+    ) {
+        projectService.cancelProjectInvitation(projectId, invitationId);
+        return ResponseEntity.ok(ApiResponse.success("Invitation cancelled successfully.", null));
     }
 
 }

@@ -3,8 +3,12 @@ package com.quanlyduan.project_manager_api.repository;
 
 import com.quanlyduan.project_manager_api.model.ProjectInvitation; // Entity Lời mời Dự án
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
+
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
 
 import java.util.Optional;
 
@@ -23,4 +27,12 @@ public interface ProjectInvitationRepository extends JpaRepository<ProjectInvita
      * Kiểm tra xem Lời mời có trạng thái PENDING cho một Email cụ thể trong Dự án đã tồn tại chưa (tránh spam).
      */
     boolean existsByProject_IdAndEmailAndStatus(Integer projectId, String email, InvitationStatus status);
+
+    // Tìm kiếm lời mời theo Project + Status + Email (keyword) + Phân trang
+    Page<ProjectInvitation> findByProject_IdAndStatusAndEmailContainingIgnoreCase(
+            Integer projectId, 
+            InvitationStatus status, 
+            String email, 
+            Pageable pageable
+    );
 }
