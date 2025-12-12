@@ -115,17 +115,24 @@ public interface CompanyService {
     );
 
     /**
-     * Lấy danh sách các lời mời đang chờ (Pending) của một công ty (Phân trang & Sắp xếp).
+     * Lấy danh sách lời mời công ty có lọc và phân trang.
      */
-    PageResponseDTO<CompanyInvitationResponse> getPendingInvitations(Integer companyId, int page, int size, String sortBy, String sortDir);
-    
+    PageResponseDTO<CompanyInvitationResponse> getCompanyInvitations(
+            Integer companyId, 
+            String keyword, // Tìm theo email
+            String status,  // Lọc theo trạng thái
+            int page, int size, String sortBy, String sortDir
+    );
+
     /**
      * Lấy chi tiết lời mời (public) để frontend quyết định luồng (Login/Register).
      */
     InvitationDetailsResponse getInvitationDetails(String token);
     
     /**
-     * Lấy danh sách Project thuộc Công ty (Giả định hàm này tồn tại từ logic cũ).
+     * Hủy lời mời tham gia công ty.
+     * @param companyId ID công ty
+     * @param invitationId ID lời mời cần hủy
      */
-    // List<ProjectResponse> getCompanyProjects(Integer companyId);
+    void cancelCompanyInvitation(Integer companyId, Integer invitationId);
 }

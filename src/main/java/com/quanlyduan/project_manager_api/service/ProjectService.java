@@ -10,6 +10,7 @@ import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationDetailsResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
@@ -196,4 +197,17 @@ public interface ProjectService {
          */
         void acceptProjectInvitation(String token);
 
+        /**
+         * Lấy danh sách lời mời dự án có lọc (keyword, status) và phân trang.
+         */
+        PageResponseDTO<ProjectInvitationResponse> getProjectInvitations(
+                        Integer projectId,
+                        String keyword,
+                        String status,
+                        int page, int size, String sortBy, String sortDir);
+
+        /**
+         * Hủy lời mời tham gia dự án.
+         */
+        void cancelProjectInvitation(Integer projectId, Integer invitationId);
 }
