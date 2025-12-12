@@ -583,6 +583,7 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
     'project:view',
     'task:view',
+    'task:comment',
     'task:comment:view'
 ) WHERE r.role_code = 'GUEST_PROJECT';
 
