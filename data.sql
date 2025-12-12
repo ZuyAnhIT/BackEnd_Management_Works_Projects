@@ -584,6 +584,7 @@ SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_code IN (
     'project:view',
     'task:view',
     'task:comment',
+    'task:attach_file',
     'task:comment:view'
 ) WHERE r.role_code = 'GUEST_PROJECT';
 
@@ -624,7 +625,7 @@ INSERT INTO users (id, email, password, full_name, avatar_url, phone_number, dat
 INSERT INTO user_roles (user_id, role_id) VALUES 
 (1, (SELECT id FROM roles WHERE role_code = 'SYSTEM_ADMIN')),
 (2, (SELECT id FROM roles WHERE role_code = 'USER'));
-
+SELECT * FROM tasks;
 -- =============================================
 -- COMPANIES (5 công ty)
 -- =============================================
