@@ -354,4 +354,15 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
         int getCurrentSprintWorkload(
                         @Param("projectId") Integer projectId,
                         @Param("userId") Integer userId);
+
+        // Tính tổng Story Points đã hoàn thành trong một Sprint cụ thể
+        @Query("SELECT COALESCE(SUM(t.storyPoints), 0) FROM Task t " +
+                        "WHERE t.sprint.id = :sprintId AND t.status.isCompletedStatus = true")
+        Integer sumCompletedPointsBySprintId(@Param("sprintId") Integer sprintId);
+
+        // Tính tổng Story Points còn lại (Backlog + Active Sprint chưa xong)
+        @Query("SELECT COALESCE(SUM(t.storyPoints), 0) FROM Task t " +
+                        "WHERE t.project.id = :projectId " +
+                        "AND (t.status.isCompletedStatus = false OR t.status.isCompletedStatus IS NULL)")
+        Integer sumRemainingPoints(@Param("projectId") Integer projectId);
 }

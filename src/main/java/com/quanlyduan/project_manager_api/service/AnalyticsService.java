@@ -3,6 +3,7 @@ package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.AssigneeRecommendationRequest;
 import com.quanlyduan.project_manager_api.dto.response.AssigneeRecommendationResponse;
+import com.quanlyduan.project_manager_api.dto.response.ProjectForecastResponse;
 
 import java.util.List;
 
@@ -21,4 +22,10 @@ public interface AnalyticsService {
      * @return Danh sách các ứng viên được xếp hạng theo điểm số phù hợp
      */
     List<AssigneeRecommendationResponse> getAssigneeRecommendations(Integer projectId, AssigneeRecommendationRequest request);
+
+    /**
+     * Dự báo tiến độ dự án theo 3 kịch bản: Tốt nhất, Khả thi, Xấu nhất.
+     */
+    ProjectForecastResponse getProjectForecast(Integer projectId);
+    
 }
