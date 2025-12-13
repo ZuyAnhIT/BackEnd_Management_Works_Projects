@@ -135,4 +135,14 @@ public interface StatisticsService {
             String keyword, Integer assigneeId, TaskPriority priority, TaskType taskType,
             boolean showSprints
     );
+
+    // Cập nhật thêm các tham số lọc vào hàm này
+    byte[] exportWorkloadDistributionToExcel(
+        List<WorkloadResponse> data, 
+        String viewType, 
+        String groupBy,
+        Integer sprintId,
+        LocalDate from,
+        LocalDate to
+    );
 }
