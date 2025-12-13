@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/service/impl/StatisticsServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+
 import com.quanlyduan.project_manager_api.dto.response.CalendarEventResponse;
 import com.quanlyduan.project_manager_api.dto.response.EpicProgressResponse;
 import com.quanlyduan.project_manager_api.dto.response.PriorityDistributionResponse;
@@ -26,7 +27,14 @@ import com.quanlyduan.project_manager_api.repository.specification.EpicSpecifica
 import com.quanlyduan.project_manager_api.repository.specification.SprintSpecification;
 import com.quanlyduan.project_manager_api.repository.specification.TaskSpecification;
 import com.quanlyduan.project_manager_api.service.StatisticsService;
+import com.quanlyduan.project_manager_api.util.ExcelHelper;
 
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -38,14 +46,18 @@ import com.quanlyduan.project_manager_api.model.Epic;
 import com.quanlyduan.project_manager_api.model.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.Sprint;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -661,6 +673,130 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
 
         return events;
+    }
+
+    // EXPORT
+    @Override
+    public byte[] exportWorkloadDistributionToExcel(
+            List<WorkloadResponse> data, 
+            String viewType, 
+            String groupBy,
+            Integer sprintId,
+            LocalDate from,
+            LocalDate to
+    ) {
+        try (Workbook workbook = ExcelHelper.createWorkbook()) {
+            Sheet sheet = workbook.createSheet("Phân bổ công việc");
+
+            // =================================================================
+            // PHẦN 1: THÔNG TIN BÁO CÁO (REPORT METADATA)
+            // =================================================================
+            int rowIdx = 0;
+
+            // Dòng 0: Tiêu đề lớn
+            Row titleRow = sheet.createRow(rowIdx++);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("BÁO CÁO PHÂN BỔ CÔNG VIỆC (WORKLOAD)");
+            
+            // Style cho tiêu đề lớn (In đậm, to)
+            CellStyle titleStyle = workbook.createCellStyle();
+            Font titleFont = workbook.createFont();
+            titleFont.setBold(true);
+            titleFont.setFontHeightInPoints((short) 16);
+            titleStyle.setFont(titleFont);
+            titleCell.setCellStyle(titleStyle);
+
+            // Dòng 1: Ngày xuất báo cáo
+            Row dateRow = sheet.createRow(rowIdx++);
+            dateRow.createCell(0).setCellValue("Ngày xuất: " + LocalDate.now().toString());
+
+            // Dòng 2: Cấu hình xem (View Type & Group By)
+            Row configRow = sheet.createRow(rowIdx++);
+            String unitText = "HOURS".equalsIgnoreCase(viewType) ? "Giờ làm việc (Hours)" : "Điểm (Story Points)";
+            String groupText = "PRIORITY".equalsIgnoreCase(groupBy) ? "Độ ưu tiên" : "Trạng thái";
+            configRow.createCell(0).setCellValue("Đơn vị tính: " + unitText);
+            configRow.createCell(3).setCellValue("Gom nhóm theo: " + groupText);
+
+            // Dòng 3: Bộ lọc thời gian & Sprint
+            Row filterRow = sheet.createRow(rowIdx++);
+            String timeRange = (from != null ? from.toString() : "N/A") + " đến " + (to != null ? to.toString() : "N/A");
+            filterRow.createCell(0).setCellValue("Khoảng thời gian: " + timeRange);
+            
+            if (sprintId != null) {
+                filterRow.createCell(3).setCellValue("Sprint ID: " + sprintId);
+            } else {
+                filterRow.createCell(3).setCellValue("Sprint: Tất cả");
+            }
+
+            // Dòng 4: Dòng trống ngăn cách
+            rowIdx++; 
+
+            // =================================================================
+            // PHẦN 2: BẢNG DỮ LIỆU (DATA TABLE)
+            // =================================================================
+            
+            // A. Chuẩn bị Tiêu đề động (Logic cũ)
+            String unit = "HOURS".equalsIgnoreCase(viewType) ? "Hours" : "Points";
+            Set<String> dynamicHeaders = new LinkedHashSet<>();
+            for (WorkloadResponse userRes : data) {
+                if (userRes.getBreakdowns() != null) {
+                    for (WorkloadResponse.WorkloadBreakdown bd : userRes.getBreakdowns()) {
+                        dynamicHeaders.add(bd.getStackName());
+                    }
+                }
+            }
+            List<String> headerList = new ArrayList<>(dynamicHeaders);
+            Collections.sort(headerList);
+
+            // B. Tạo Header Bảng (Bắt đầu từ rowIdx hiện tại)
+            Row headerRow = sheet.createRow(rowIdx++);
+            CellStyle headerStyle = ExcelHelper.createHeaderStyle(workbook);
+
+            int colIdx = 0;
+            createCell(headerRow, colIdx++, "ID NV", headerStyle);
+            createCell(headerRow, colIdx++, "Thành viên", headerStyle);
+            createCell(headerRow, colIdx++, "Tổng (" + unit + ")", headerStyle);
+
+            for (String colName : headerList) {
+                createCell(headerRow, colIdx++, colName + " (" + unit + ")", headerStyle);
+            }
+
+            // C. Đổ dữ liệu
+            for (WorkloadResponse item : data) {
+                Row row = sheet.createRow(rowIdx++);
+                int cellIdx = 0;
+
+                row.createCell(cellIdx++).setCellValue(item.getUserId());
+                row.createCell(cellIdx++).setCellValue(item.getUserName());
+                row.createCell(cellIdx++).setCellValue(item.getTotalLoad());
+
+                Map<String, Double> breakdownMap = new HashMap<>();
+                if (item.getBreakdowns() != null) {
+                    breakdownMap = item.getBreakdowns().stream()
+                            .collect(Collectors.toMap(WorkloadResponse.WorkloadBreakdown::getStackName, WorkloadResponse.WorkloadBreakdown::getValue));
+                }
+
+                for (String headerKey : headerList) {
+                    Double val = breakdownMap.getOrDefault(headerKey, 0.0);
+                    row.createCell(cellIdx++).setCellValue(val);
+                }
+            }
+
+            // D. Auto size
+            for (int i = 0; i < colIdx; i++) sheet.autoSizeColumn(i);
+
+            return ExcelHelper.workbookToBytes(workbook);
+
+        } catch (IOException e) {
+            throw new RuntimeException("Export Error: " + e.getMessage());
+        }
+    }
+
+    // Helper nhỏ để tạo cell nhanh
+    private void createCell(Row row, int colIndex, String value, CellStyle style) {
+        Cell cell = row.createCell(colIndex);
+        cell.setCellValue(value);
+        cell.setCellStyle(style);
     }
     
 

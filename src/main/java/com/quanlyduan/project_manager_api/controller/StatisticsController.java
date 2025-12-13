@@ -1,6 +1,7 @@
 // File: src/main/java/com/quanlyduan/project_manager_api/controller/StatisticsController.java
 package com.quanlyduan.project_manager_api.controller;
 
+
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.CalendarEventResponse;
 import com.quanlyduan.project_manager_api.dto.response.EpicProgressResponse;
@@ -21,6 +22,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -179,29 +182,40 @@ public class StatisticsController {
     }
 
     // ======================================================
-    // API PHÂN BỔ CÔNG VIỆC (WORKLOAD - STACKED BAR CHART)
+    // API PHÂN BỔ CÔNG VIỆC (WORKLOAD - CHART & EXPORT)
     // ======================================================
-    @GetMapping("/projects/{projectId}/workload")
+    @GetMapping("/{projectId}/workload")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
-    public ResponseEntity<ApiResponse<List<WorkloadResponse>>> getProjectWorkload(
+    public ResponseEntity<?> getProjectWorkload(
             @PathVariable Integer projectId,
-            
-            // View Options
-            @RequestParam(defaultValue = "POINTS") String viewType, // POINTS | HOURS
-            @RequestParam(defaultValue = "STATUS") String groupBy,  // STATUS | PRIORITY
-            
-            // Filters
+            @RequestParam(defaultValue = "POINTS") String viewType,
+            @RequestParam(defaultValue = "STATUS") String groupBy,
             @RequestParam(required = false) Integer sprintId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) List<Integer> statusIds
+            @RequestParam(required = false) List<Integer> statusIds, // Tham số này có thể bỏ qua trong export header cho gọn hoặc thêm vào nếu muốn
+            @RequestParam(defaultValue = "false") boolean export
     ) {
         
         List<WorkloadResponse> workload = statisticsService.getWorkloadDistribution(
             projectId, viewType, groupBy, sprintId, from, to, statusIds
         );
         
-        return ResponseEntity.ok(ApiResponse.success("Workload distribution retrieved successfully.", workload));
+        if (export) {
+            // --- CẬP NHẬT: TRUYỀN THÊM CÁC BIẾN LỌC VÀO ---
+            byte[] excelContent = statisticsService.exportWorkloadDistributionToExcel(
+                workload, viewType, groupBy, sprintId, from, to
+            );
+            
+            String fileName = String.format("Workload_%s_%s.xlsx", groupBy, viewType);
+            
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(excelContent);
+        } else {
+            return ResponseEntity.ok(ApiResponse.success("Success", workload));
+        }
     }
 
     // ======================================================
