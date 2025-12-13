@@ -4,10 +4,12 @@ package com.quanlyduan.project_manager_api.service.impl;
 import com.quanlyduan.project_manager_api.dto.request.AssigneeRecommendationRequest;
 import com.quanlyduan.project_manager_api.dto.response.AssigneeRecommendationResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectForecastResponse;
+import com.quanlyduan.project_manager_api.dto.response.StandupReportResponse;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Project;
 import com.quanlyduan.project_manager_api.model.ProjectMember;
 import com.quanlyduan.project_manager_api.model.Sprint;
+import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -231,6 +234,72 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 .optimistic(optimistic)
                 .likely(likely)
                 .pessimistic(pessimistic)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StandupReportResponse getDailyStandupReport(Integer projectId) {
+        // 1. Tìm Active Sprint
+        Sprint activeSprint = sprintRepository.findActiveSprintByProjectId(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("No active sprint found for this project."));
+
+        // 2. Lấy tất cả task trong Sprint này (bao gồm cả task đã xong)
+        // Chúng ta dùng taskRepository.findBySprint_Id (đã có sẵn hoặc tạo thêm)
+        List<Task> tasks = taskRepository.findBySprint_Id(activeSprint.getId());
+
+        // 3. Nhóm Task theo User (Assignee)
+        Map<User, List<Task>> tasksByUser = tasks.stream()
+                .filter(t -> t.getAssignee() != null) // Bỏ qua task chưa gán ai
+                .collect(Collectors.groupingBy(Task::getAssignee));
+
+        List<StandupReportResponse.MemberUpdate> memberUpdates = new ArrayList<>();
+        LocalDateTime yesterday = LocalDateTime.now().minusHours(24); // Mốc 24h trước
+
+        // 4. Duyệt qua từng User để phân loại công việc
+        for (Map.Entry<User, List<Task>> entry : tasksByUser.entrySet()) {
+            User user = entry.getKey();
+            List<Task> userTasks = entry.getValue();
+
+            List<String> completed = new ArrayList<>();
+            List<String> inProgress = new ArrayList<>();
+            List<String> todo = new ArrayList<>();
+
+            for (Task t : userTasks) {
+                // A. ĐÃ XONG (Done trong 24h qua)
+                if (Boolean.TRUE.equals(t.getStatus().getIsCompletedStatus())) {
+                    if (t.getCompletedAt() != null && t.getCompletedAt().isAfter(yesterday)) {
+                        completed.add(t.getTaskCode() + " " + t.getTitle());
+                    }
+                    // Nếu xong lâu rồi thì bỏ qua, không báo cáo lại
+                } 
+                // B. ĐANG LÀM
+                else if ("In Progress".equalsIgnoreCase(t.getStatus().getName()) 
+                        || "Doing".equalsIgnoreCase(t.getStatus().getName())) {
+                    inProgress.add(t.getTaskCode() + " " + t.getTitle());
+                }
+                // C. SẼ LÀM (To Do)
+                else {
+                    todo.add(t.getTaskCode() + " " + t.getTitle());
+                }
+            }
+
+            // Chỉ thêm vào báo cáo nếu user có hoạt động
+            if (!completed.isEmpty() || !inProgress.isEmpty()) {
+                memberUpdates.add(StandupReportResponse.MemberUpdate.builder()
+                        .fullName(user.getFullName())
+                        .avatarUrl(user.getAvatarUrl())
+                        .completedTasks(completed)
+                        .inProgressTasks(inProgress)
+                        .todoTasks(todo)
+                        .build());
+            }
+        }
+
+        return StandupReportResponse.builder()
+                .sprintName(activeSprint.getName())
+                .reportDate(LocalDate.now())
+                .members(memberUpdates)
                 .build();
     }
 

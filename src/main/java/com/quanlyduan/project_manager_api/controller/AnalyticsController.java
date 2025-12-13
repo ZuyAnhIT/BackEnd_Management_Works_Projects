@@ -5,6 +5,7 @@ import com.quanlyduan.project_manager_api.dto.request.AssigneeRecommendationRequ
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.AssigneeRecommendationResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectForecastResponse;
+import com.quanlyduan.project_manager_api.dto.response.StandupReportResponse;
 import com.quanlyduan.project_manager_api.service.AnalyticsService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -57,6 +58,22 @@ public class AnalyticsController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Project forecast calculated successfully.", 
                 forecast
+        ));
+    }
+
+    // ======================================================
+    // 3. DỮ LIỆU HỌP NHANH (DAILY STANDUP)
+    // ======================================================
+    @GetMapping("/projects/{projectId}/daily-standup")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
+    public ResponseEntity<ApiResponse<StandupReportResponse>> getDailyStandup(
+            @PathVariable Integer projectId
+    ) {
+        StandupReportResponse data = analyticsService.getDailyStandupReport(projectId);
+        
+        return ResponseEntity.ok(ApiResponse.success(
+                "Daily standup data retrieved.", 
+                data
         ));
     }
 

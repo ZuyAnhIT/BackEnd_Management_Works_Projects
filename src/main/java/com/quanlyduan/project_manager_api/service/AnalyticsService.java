@@ -4,6 +4,7 @@ package com.quanlyduan.project_manager_api.service;
 import com.quanlyduan.project_manager_api.dto.request.AssigneeRecommendationRequest;
 import com.quanlyduan.project_manager_api.dto.response.AssigneeRecommendationResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectForecastResponse;
+import com.quanlyduan.project_manager_api.dto.response.StandupReportResponse;
 
 import java.util.List;
 
@@ -28,4 +29,8 @@ public interface AnalyticsService {
      */
     ProjectForecastResponse getProjectForecast(Integer projectId);
     
+    /**
+     * Lấy dữ liệu họp Daily Standup (Ai làm gì hôm qua, Ai làm gì hôm nay).
+     */
+    StandupReportResponse getDailyStandupReport(Integer projectId);
 }
