@@ -218,22 +218,50 @@ public class StatisticsController {
         }
     }
 
+    // File: src/main/java/com/quanlyduan/project_manager_api/controller/StatisticsController.java
+
     // ======================================================
-    // API TIẾN ĐỘ EPIC (EPIC PROGRESS BAR)
+    // API: TIẾN ĐỘ EPIC (CHART & EXPORT)
     // ======================================================
     @GetMapping("/projects/{projectId}/epic-progress")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
-    public ResponseEntity<ApiResponse<List<EpicProgressResponse>>> getEpicProgress(
+    public ResponseEntity<?> getEpicProgress(
             @PathVariable Integer projectId,
+            
+            // Các bộ lọc y hệt logic tính toán
             @RequestParam(required = false) Integer sprintId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) List<Integer> statusIds
+            @RequestParam(required = false) List<Integer> statusIds,
+            
+            // Cờ Export
+            @RequestParam(defaultValue = "false") boolean export
     ) {
         
-        List<EpicProgressResponse> data = statisticsService.getEpicProgress(projectId, sprintId, from, to, statusIds);
-        
-        return ResponseEntity.ok(ApiResponse.success("Epic progress retrieved successfully.", data));
+        // 1. LẤY DỮ LIỆU (Logic tính toán của bạn)
+        List<EpicProgressResponse> data = statisticsService.getEpicProgress(
+            projectId, sprintId, from, to, statusIds
+        );
+
+        // 2. XỬ LÝ EXPORT
+        if (export) {
+            // Gọi hàm export mới, truyền kèm các tham số lọc để ghi vào Header
+            byte[] excelContent = statisticsService.exportEpicProgressToExcel(
+                data, projectId, sprintId, from, to
+            );
+            
+            // Tên file động
+            String fileName = "Epic_Progress_Project" + projectId + ".xlsx";
+            if (sprintId != null) fileName = "Epic_Progress_Sprint" + sprintId + ".xlsx";
+            
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(excelContent);
+        } else {
+            // 3. TRẢ VỀ JSON MẶC ĐỊNH
+            return ResponseEntity.ok(ApiResponse.success("Epic progress retrieved successfully.", data));
+        }
     }
 
     @GetMapping("/projects/{projectId}/roadmap")

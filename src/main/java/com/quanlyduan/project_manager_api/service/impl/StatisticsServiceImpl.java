@@ -475,6 +475,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         return response;
     }
 
+
     // ======================================================
     // API ROADMAP / TIMELINE (GANTT CHART)
     // ======================================================
@@ -797,6 +798,126 @@ public class StatisticsServiceImpl implements StatisticsService {
         Cell cell = row.createCell(colIndex);
         cell.setCellValue(value);
         cell.setCellStyle(style);
+    }
+
+
+    @Override
+    public byte[] exportEpicProgressToExcel(
+            List<EpicProgressResponse> data, 
+            Integer projectId, 
+            Integer sprintId, 
+            LocalDate from, 
+            LocalDate to
+    ) {
+        try (Workbook workbook = ExcelHelper.createWorkbook()) {
+            Sheet sheet = workbook.createSheet("Tiến độ Epic");
+
+            // =================================================================
+            // PHẦN 1: THÔNG TIN BÁO CÁO (METADATA - ĐẦU VÀO)
+            // =================================================================
+            int rowIdx = 0;
+
+            // Dòng 0: Tiêu đề lớn
+            Row titleRow = sheet.createRow(rowIdx++);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("BÁO CÁO TIẾN ĐỘ EPIC (EPIC PROGRESS)");
+            
+            // Style tiêu đề (In đậm, to)
+            CellStyle titleStyle = workbook.createCellStyle();
+            Font titleFont = workbook.createFont();
+            titleFont.setBold(true);
+            titleFont.setFontHeightInPoints((short) 16);
+            titleStyle.setFont(titleFont);
+            titleCell.setCellStyle(titleStyle);
+
+            // Dòng 1: Ngày xuất
+            Row dateRow = sheet.createRow(rowIdx++);
+            dateRow.createCell(0).setCellValue("Ngày xuất báo cáo: " + LocalDate.now().toString());
+
+            // Dòng 2: Thông tin Dự án & Sprint
+            Row contextRow = sheet.createRow(rowIdx++);
+            contextRow.createCell(0).setCellValue("Dự án ID: " + projectId);
+            if (sprintId != null) {
+                contextRow.createCell(3).setCellValue("Lọc theo Sprint ID: " + sprintId);
+            } else {
+                contextRow.createCell(3).setCellValue("Sprint: Tất cả");
+            }
+
+            // Dòng 3: Khoảng thời gian
+            Row timeRow = sheet.createRow(rowIdx++);
+            String timeRange = (from != null ? from.toString() : "N/A") + " đến " + (to != null ? to.toString() : "N/A");
+            timeRow.createCell(0).setCellValue("Khoảng thời gian: " + timeRange);
+
+            // Dòng 4: Tổng quan
+            Row summaryRow = sheet.createRow(rowIdx++);
+            summaryRow.createCell(0).setCellValue("Tổng số Epic tìm thấy: " + data.size());
+
+            // Dòng 5: Khoảng trống
+            rowIdx++;
+
+            // =================================================================
+            // PHẦN 2: BẢNG DỮ LIỆU CHI TIẾT
+            // =================================================================
+            
+            // A. Tạo Header Bảng
+            Row headerRow = sheet.createRow(rowIdx++);
+            // Các cột khớp với logic tính toán của bạn (Task & Point)
+            String[] columns = {
+                "Mã Epic", "Tên Epic", 
+                "Tổng Task", "Xong (Task)", "% Task", 
+                "Tổng Points", "Xong (Points)", "% Points"
+            };
+            
+            CellStyle headerStyle = ExcelHelper.createHeaderStyle(workbook);
+
+            for (int i = 0; i < columns.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(columns[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            // B. Chuẩn bị Style cho số % (Hiển thị dạng 75.50%)
+            CellStyle percentStyle = workbook.createCellStyle();
+            percentStyle.setDataFormat(workbook.createDataFormat().getFormat("0.00%"));
+
+            // C. Đổ dữ liệu
+            for (EpicProgressResponse epic : data) {
+                Row row = sheet.createRow(rowIdx++);
+                int col = 0;
+
+                // Thông tin Epic
+                row.createCell(col++).setCellValue(epic.getEpicCode());
+                row.createCell(col++).setCellValue(epic.getEpicName());
+                
+                // --- NHÓM TASK ---
+                row.createCell(col++).setCellValue(epic.getTotalTasks());
+                row.createCell(col++).setCellValue(epic.getCompletedTasks());
+                
+                // % Task (Chia cho 100 vì Excel lưu % dạng 0.xx)
+                Cell taskPerCell = row.createCell(col++);
+                taskPerCell.setCellValue(epic.getTaskProgressPercent() / 100.0); 
+                taskPerCell.setCellStyle(percentStyle);
+
+                // --- NHÓM POINT ---
+                row.createCell(col++).setCellValue(epic.getTotalPoints());
+                row.createCell(col++).setCellValue(epic.getCompletedPoints());
+                
+                // % Point
+                Cell pointPerCell = row.createCell(col++);
+                pointPerCell.setCellValue(epic.getPointProgressPercent() / 100.0);
+                pointPerCell.setCellStyle(percentStyle);
+            }
+
+            // D. Auto size columns
+            for (int i = 0; i < columns.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            return ExcelHelper.workbookToBytes(workbook);
+
+        } catch (IOException e) {
+            throw new RuntimeException("Export Epic Error: " + e.getMessage());
+        }
     }
     
 

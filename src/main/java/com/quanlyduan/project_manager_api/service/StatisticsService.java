@@ -145,4 +145,13 @@ public interface StatisticsService {
         LocalDate from,
         LocalDate to
     );
+
+
+    byte[] exportEpicProgressToExcel(
+        List<EpicProgressResponse> data, 
+        Integer projectId, 
+        Integer sprintId, 
+        LocalDate from, 
+        LocalDate to
+    );
 }
