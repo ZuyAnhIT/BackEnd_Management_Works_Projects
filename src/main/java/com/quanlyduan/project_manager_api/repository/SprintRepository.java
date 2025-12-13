@@ -55,4 +55,9 @@ public interface SprintRepository extends JpaRepository<Sprint, Integer>, JpaSpe
 
     // Lấy 5 Sprint gần nhất đã hoàn thành để tính Velocity
     List<Sprint> findTop5ByProject_IdAndStatusOrderByEndDateDesc(Integer projectId, SprintStatus status);
+
+    // Tìm Sprint đang chạy của dự án
+    @Query("SELECT s FROM Sprint s WHERE s.project.id = :projectId AND s.status = 'IN_PROGRESS'")
+    
+    Optional<Sprint> findActiveSprintByProjectId(@Param("projectId") Integer projectId);
 }

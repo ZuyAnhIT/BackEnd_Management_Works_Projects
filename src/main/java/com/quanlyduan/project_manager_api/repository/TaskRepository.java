@@ -159,6 +159,9 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
          */
         long countBySprint_Id(Integer sprintId);
 
+        // Lấy tất cả task trong một Sprint cụ thể
+        List<Task> findBySprint_Id(Integer sprintId);
+
         // --- HÀM HỖ TRỢ KÉO THẢ (SORT ORDER) ---
 
         // 1. Tìm vị trí lớn nhất trong Sprint (để thêm vào cuối)
@@ -365,4 +368,5 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
                         "WHERE t.project.id = :projectId " +
                         "AND (t.status.isCompletedStatus = false OR t.status.isCompletedStatus IS NULL)")
         Integer sumRemainingPoints(@Param("projectId") Integer projectId);
+
 }
