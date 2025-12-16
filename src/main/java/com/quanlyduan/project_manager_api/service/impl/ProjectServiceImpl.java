@@ -1275,59 +1275,84 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     // =================================================================================
-    // ⏳ LOGIC LẤY DANH SÁCH LỜI MỜI DỰ ÁN (NÂNG CẤP: PHÂN TRANG & TÌM KIẾM)
+    // ⏳ LOGIC LẤY DANH SÁCH LỜI MỜI DỰ ÁN (CÓ LỌC, TÌM KIẾM & TẠO LINK)
     // =================================================================================
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<ProjectInvitationResponse> getProjectInvitations(
-            Integer projectId, 
-            String keyword, 
-            String statusStr, 
+            Integer projectId,
+            String keyword,
+            String statusStr,
             int page, int size, String sortBy, String sortDir
     ) {
         // 1. Kiểm tra Project tồn tại
         if (!projectRepository.existsById(projectId)) {
-            throw new ResourceNotFoundException("Project not found.");
+            throw new ResourceNotFoundException("Project not found with id: " + projectId);
         }
 
         // 2. Cấu hình Map ánh xạ cho việc sắp xếp (Sort)
+        // Lưu ý: Key là tên field FE gửi lên, Value là tên field trong Entity (JPA path)
         Map<String, String> sortMapping = Map.of(
-            "createdAt", "createdAt",       
-            "email", "email",              
-            "role", "role.roleCode", // Role dự án thường dùng roleCode       
-            "status", "status"        
+            "createdAt", "createdAt",
+            "email", "email",
+            "role", "role.roleCode",
+            "status", "status"
         );
 
-        // 3. Tạo Pageable (Sử dụng hàm helper createPageable có sẵn hoặc tự tạo)
-        // Nếu bạn chưa có hàm createPageable chung, hãy dùng code thủ công bên dưới:
-        org.springframework.data.domain.Sort sort = sortDir.equalsIgnoreCase("asc") 
-                ? org.springframework.data.domain.Sort.by(sortBy).ascending() 
-                : org.springframework.data.domain.Sort.by(sortBy).descending();
+        // 3. Tạo Pageable
+        // (Giả sử bạn xử lý logic sort thủ công tại chỗ như code mẫu bạn gửi)
+        org.springframework.data.domain.Sort sort = sortDir.equalsIgnoreCase("asc")
+                ? org.springframework.data.domain.Sort.by(sortMapping.getOrDefault(sortBy, "createdAt")).ascending()
+                : org.springframework.data.domain.Sort.by(sortMapping.getOrDefault(sortBy, "createdAt")).descending();
+        
         Pageable pageable = PageRequest.of(page, size, sort);
 
         // 4. Xử lý bộ lọc
-        // - Keyword: Nếu null thì gán rỗng để tìm tất cả
         String searchKeyword = (keyword != null) ? keyword.trim() : "";
-        
-        // - Status: Mặc định là PENDING
+
+        // Status: Mặc định là PENDING nếu không truyền
         InvitationStatus status = InvitationStatus.PENDING;
         if (statusStr != null && !statusStr.isEmpty()) {
             try {
                 status = InvitationStatus.valueOf(statusStr.toUpperCase());
             } catch (IllegalArgumentException e) {
-                // Nếu sai format, giữ mặc định PENDING
+                // Nếu sai format, giữ mặc định PENDING hoặc xử lý tùy ý
+                status = InvitationStatus.PENDING;
             }
         }
 
-        // 5. Gọi Repository
+        // 5. Gọi Repository (Đảm bảo Repository đã có hàm này)
         Page<ProjectInvitation> invitationPage = projectInvitationRepository
                 .findByProject_IdAndStatusAndEmailContainingIgnoreCase(projectId, status, searchKeyword, pageable);
 
-        // 6. Map sang DTO (Dùng hàm helper mapToInvitationResponse đã tạo trước đó)
+        // 6. Map sang DTO
         Page<ProjectInvitationResponse> dtoPage = invitationPage.map(this::mapToInvitationResponse);
 
         // 7. Trả về kết quả
         return new PageResponseDTO<>(dtoPage);
+    }
+
+    private ProjectInvitationResponse mapToInvitationResponse(ProjectInvitation invitation) {
+        String fullLink = "";
+
+        // Chỉ tạo link nếu trạng thái là PENDING
+        if (invitation.getStatus() == InvitationStatus.PENDING) {
+            // Cấu trúc: [FRONTEND_URL]/accept-project-invitation?token=[TOKEN]
+            fullLink = frontendUrl + "/accept-project-invitation?token=" + invitation.getToken();
+        }
+
+        return ProjectInvitationResponse.builder()
+                .id(invitation.getId())
+                .email(invitation.getEmail())
+                .roleCode(invitation.getRole().getRoleCode()) // Code của Role
+                .status(invitation.getStatus().name())
+                .invitedAt(invitation.getCreatedAt())
+                .invitationLink(fullLink) // <--- Trường mới quan trọng
+                
+                // Mapping thông tin người mời (Kiểm tra null để tránh lỗi)
+                .inviterName(invitation.getInvitedBy() != null ? invitation.getInvitedBy().getFullName() : "System")
+                .inviterAvatar(invitation.getInvitedBy() != null ? invitation.getInvitedBy().getAvatarUrl() : null)
+                .build();
     }
 
 
@@ -1408,25 +1433,6 @@ public class ProjectServiceImpl implements ProjectService {
                 .build();
     }
 
-     // --- HELPER METHOD: Chuyển đổi Entity sang DTO ---
-    private ProjectInvitationResponse mapToInvitationResponse(ProjectInvitation inv) {
-        return ProjectInvitationResponse.builder()
-                .id(inv.getId())
-                .email(inv.getEmail())
-                
-                // 1. Sửa .getCode() -> .getRoleCode()
-                // (Giả sử Entity Role của bạn có trường roleCode, nếu tên khác hãy đổi tương ứng)
-                .roleCode(inv.getRole() != null ? inv.getRole().getRoleCode() : "UNKNOWN") 
-                
-                .status(inv.getStatus().name())
-                .invitedAt(inv.getCreatedAt())
-                
-                // 2. Sửa .getInviter() -> .getInvitedBy() (Theo đúng Model bạn gửi)
-                .inviterName(inv.getInvitedBy() != null ? inv.getInvitedBy().getFullName() : "System")
-                .inviterAvatar(inv.getInvitedBy() != null ? inv.getInvitedBy().getAvatarUrl() : null)
-                
-                .build();
-    }
     /**
      * Helper: Map Task Entity sang TaskSummaryResponse DTO (Cấu trúc Nested).
      */

@@ -13,8 +13,10 @@ public class ProjectInvitationResponse {
     private String roleCode;        // Vai trò dự kiến (MEMBER, GUEST...)
     private String status;          // PENDING, EXPIRED...
     private LocalDateTime invitedAt; // Thời gian mời
+    private String invitationLink;
     
     // Thông tin người mời (Optional - để biết ai là người gửi)
     private String inviterName;
     private String inviterAvatar;
+
 }
