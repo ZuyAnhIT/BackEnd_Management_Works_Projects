@@ -42,8 +42,10 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.exception.QuotaExceededException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.ActivityLog;
+import com.quanlyduan.project_manager_api.model.CompanySubscription;
 import com.quanlyduan.project_manager_api.model.Epic;
 import com.quanlyduan.project_manager_api.model.Project;
 import com.quanlyduan.project_manager_api.model.ProjectInvitation;
@@ -66,6 +68,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 import com.quanlyduan.project_manager_api.repository.ActivityLogRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
+import com.quanlyduan.project_manager_api.repository.CompanySubscriptionRepository;
 import com.quanlyduan.project_manager_api.repository.EpicRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectInvitationRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
@@ -110,6 +113,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final CompanyMemberRepository companyMemberRepository;
     private final ProjectInvitationRepository projectInvitationRepository;
     private final ProjectHierarchyValidator hierarchyValidator;
+    private final CompanySubscriptionRepository companySubscriptionRepository;
 
 
     private final EmailService emailService;
@@ -139,7 +143,9 @@ public class ProjectServiceImpl implements ProjectService {
                               EmailService emailService,
                               CompanyMemberRepository companyMemberRepository,
                               ProjectInvitationRepository projectInvitationRepository,
-                              ProjectHierarchyValidator hierarchyValidator
+                              ProjectHierarchyValidator hierarchyValidator,
+                              CompanySubscriptionRepository companySubscriptionRepository
+
                               ) {
         this.projectRepository = projectRepository;
         this.workspaceRepository = workspaceRepository;
@@ -160,6 +166,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.companyMemberRepository = companyMemberRepository;
         this.projectInvitationRepository = projectInvitationRepository;
         this.hierarchyValidator = hierarchyValidator;
+        this.companySubscriptionRepository = companySubscriptionRepository;
     }
 
     /**
@@ -172,41 +179,58 @@ public class ProjectServiceImpl implements ProjectService {
     // ------------------------------------------------------------------------
     // NHÓM CHỨC NĂNG: CRUD & DETAIL PROJECT
     // ------------------------------------------------------------------------
-
-    /**
-     * US7: Tạo Project mới trong Workspace (TICH HOP UPLOAD).
-     */
+    
+    // 📂 LOGIC TẠO DỰ ÁN (KÈM UPLOAD ẢNH BÌA & SAAS QUOTA GUARD)
     @Override
     @Transactional
     @LogActivity(action = "CREATE", entityType = "PROJECT", description = "Create new Project")
     public ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId, MultipartFile coverImageFile) {
+        
         // (1) Kiểm tra workspace tồn tại và thuộc đúng companyId
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
 
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Workspace does not belong to the specified company.");
         }
 
+        // =====================================================================
+        // 🚀 BƯỚC 1.5: QUOTA GUARD (Kiểm tra giới hạn Dự án của TOÀN BỘ CÔNG TY)
+        // =====================================================================
+        CompanySubscription currentSubscription = companySubscriptionRepository.findByCompany_Id(companyId)
+                .orElseThrow(() -> new BadRequestException("System Error: Company does not have an active subscription."));
+
+        // Đếm TỔNG số dự án đang tồn tại trong TOÀN BỘ các Workspace của Công ty
+        long currentProjectCount = projectRepository.countByCompanyId(companyId);
+        
+        Integer maxAllowedProjects = currentSubscription.getPlan().getMaxProjects();
+
+        // Kiểm tra giới hạn (Bỏ qua nếu max = -1 tức là Gói Enterprise / Không giới hạn)
+        if (maxAllowedProjects != null && maxAllowedProjects != -1) {
+            if (currentProjectCount >= maxAllowedProjects) {
+                throw new QuotaExceededException(
+                    String.format("Upgrade required! Your current '%s' plan allows a maximum of %d projects. " +
+                                  "Your company currently has %d projects across all workspaces. Please upgrade your plan to create more.", 
+                    currentSubscription.getPlan().getName(), maxAllowedProjects, currentProjectCount)
+                );
+            }
+        }
+        // =====================================================================
+
         // (2) Kiểm tra unique projectCode
         if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, request.getProjectCode())) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Project code already exists in this workspace.");
         }
 
         // (3) Lấy createdBy
         User createdBy = userRepository.findById(creatorId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("User not found."));
 
-        // (4) Khởi tạo Project
+        // (4) Khởi tạo Project (Giữ nguyên toàn bộ logic cũ của bạn)
         Project project = new Project();
         project.setWorkspace(workspace);
         project.setCreatedBy(createdBy);
 
-        // Map các trường Scalar từ request
         project.setName(request.getName());
         project.setProjectCode(request.getProjectCode());
         project.setDescription(request.getDescription());
@@ -214,50 +238,41 @@ public class ProjectServiceImpl implements ProjectService {
 
         // XỬ LÝ UPLOAD ẢNH BÌA
         if (coverImageFile != null && !coverImageFile.isEmpty()) {
-            // Lưu vào thư mục "project-covers"
             String coverPath = fileStorageService.storeFile(coverImageFile, "project-covers");
             project.setCoverImageUrl(coverPath);
         } else if (request.getCoverImageUrl() != null) {
-            // Nếu người dùng gửi link ảnh (URL string)
             project.setCoverImageUrl(request.getCoverImageUrl());
         }
 
-        // boardConfig (Chuyển đối tượng JSON thành String)
+        // boardConfig
         if (request.getBoardConfig() != null) {
             try {
                 project.setBoardConfig(objectMapper.writeValueAsString(request.getBoardConfig()));
             } catch (JsonProcessingException e) {
-                // Sửa thông báo sang tiếng Anh
                 throw new BadRequestException("Invalid JSON boardConfig.");
             }
         }
         project.setStartDate(request.getStartDate());
         project.setDueDate(request.getDueDate());
 
-        // Priority
         if (request.getPriority() != null) {
             project.setPriority(request.getPriority());
         } else {
             project.setPriority(ProjectPriority.MEDIUM);
         }
 
-        // Manager
         if (request.getManagerId() != null && request.getManagerId() > 0) {
             User manager = userRepository.findById(request.getManagerId())
-                    // Sửa thông báo sang tiếng Anh
                     .orElseThrow(() -> new ResourceNotFoundException("Manager user not found."));
             project.setManager(manager);
         }
 
-        // Project Type
         if (request.getProjectTypeId() != null && request.getProjectTypeId() > 0) {
             ProjectType type = projectTypeRepository.findById(request.getProjectTypeId())
-                    // Sửa thông báo sang tiếng Anh
                     .orElseThrow(() -> new ResourceNotFoundException("Project type not found."));
             project.setProjectType(type);
         }
 
-        // Mặc định progress là 0
         if (project.getProgress() == null) {
             project.setProgress(BigDecimal.ZERO);
         }
@@ -268,7 +283,6 @@ public class ProjectServiceImpl implements ProjectService {
         // (6) Gán người tạo làm Project Admin
         Role projectAdminRole = roleRepository.findFirstByRoleCode(RoleCode.PROJECT_ADMIN.name())
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        // Sửa thông báo sang tiếng Anh
                         "Role not found: " + RoleCode.PROJECT_ADMIN.name() + ". Please configure in the database."
                 ));
 
@@ -281,7 +295,7 @@ public class ProjectServiceImpl implements ProjectService {
 
         projectMemberRepository.save(projectMember);
 
-        // (7) KHỞI TẠO TRẠNG THÁI MẶC ĐỊNH ***
+        // (7) KHỞI TẠO TRẠNG THÁI MẶC ĐỊNH
         initDefaultStatuses(saved); 
 
         // (8) Trả response

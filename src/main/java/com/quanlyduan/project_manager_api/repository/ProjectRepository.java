@@ -25,6 +25,13 @@ public interface ProjectRepository extends JpaRepository<Project, Integer>, JpaS
     boolean existsByWorkspace_IdAndProjectCodeIgnoreCase(Integer workspaceId, String projectCode);
 
     /**
+     * Đếm tổng số lượng Dự án của toàn bộ Công ty (Xuyên qua tất cả các Workspace).
+     * Dùng để kiểm tra giới hạn (Quota Guard) của gói cước SaaS.
+     */
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.workspace.company.id = :companyId")
+    long countByCompanyId(@Param("companyId") Integer companyId);
+
+    /**
      * Lấy danh sách dự án thuộc về một Workspace (Có phân trang).
      * Spring Data JPA tự động xử lý LIMIT/OFFSET.
      */

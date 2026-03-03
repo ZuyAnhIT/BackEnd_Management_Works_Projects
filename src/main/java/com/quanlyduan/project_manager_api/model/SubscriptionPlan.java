@@ -36,9 +36,13 @@ public class SubscriptionPlan {
     @Column(name = "max_workspaces")
     private Integer maxWorkspaces;
 
+    @Column(name = "max_projects")
+    private Integer maxProjects;
+
     @Column(name = "max_storage_gb")
     private Integer maxStorageGb;
 
     @Column(name = "is_active")
     private Boolean isActive;
+
 }
