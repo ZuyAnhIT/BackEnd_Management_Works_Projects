@@ -54,17 +54,26 @@ public class CompanyController {
     // ========================================================================
 
     // API TẠO CÔNG TY
+    // ========================================================================
+    // A. QUẢN LÝ CÔNG TY (CRUD)
+    // ========================================================================
+
+    /**
+     * API TẠO CÔNG TY (Kèm tự động cấp phát gói cước SaaS)
+     */
     @PostMapping
-    @PreAuthorize("@securityService.hasSystemPermission('company:create')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Company>> createCompany(
             @Valid @RequestBody CreateCompanyRequest request) {
 
         Company newCompany = companyService.createCompany(request);
 
         return ResponseEntity
-                // Sửa thông báo trả về sang tiếng Anh
                 .status(HttpStatus.CREATED) // Dùng 201 Created cho việc tạo mới
-                .body(ApiResponse.success("Company created successfully.", newCompany));
+                .body(ApiResponse.success(
+                    "Company and default subscription plan created successfully.", 
+                    newCompany
+                ));
     }
 
     // API HIỂN THỊ THÔNG TIN CHI TIẾT CÔNG TY

@@ -1,12 +1,26 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/model/common/enums/WorkspaceStatus.java
 package com.quanlyduan.project_manager_api.model.common.enums;
 
 /**
  * Trạng thái của một Workspace (Không gian làm việc).
- * Dựa trên ENUM('Hoạt động', 'Lưu trữ', 'Đã xóa') của bảng KhongGian.
+ * Tương ứng với ENUM('Hoạt động', 'Lưu trữ', 'Đã xóa') trong cấu hình bảng workspaces.
  */
 public enum WorkspaceStatus {
-    ACTIVE,     // 'Hoạt động' (Workspace đang được sử dụng bình thường)
-    ARCHIVED,   // 'Lưu trữ' (Workspace không còn được sử dụng tích cực nhưng vẫn giữ lại dữ liệu)
-    DELETED     // 'Đã xóa' (Xóa mềm - Soft Delete)
+
+    // ==========================================
+    // ENUM VALUES (Giá trị trạng thái Workspace)
+    // ==========================================
+
+    /** 'Hoạt động' - Workspace đang được sử dụng và có thể thao tác bình thường */
+    ACTIVE,
+
+    /** * 'Lưu trữ' - Workspace không còn hoạt động tích cực.
+     * Dữ liệu vẫn được giữ lại để tra cứu nhưng bị hạn chế quyền chỉnh sửa.
+     */
+    ARCHIVED,
+
+    /** * 'Đã xóa' - Workspace không còn tồn tại trong logic nghiệp vụ (Soft Delete).
+     * Dữ liệu vẫn được lưu trong DB để đảm bảo tính toàn vẹn của hệ thống.
+     */
+    DELETED
+
 }

@@ -1,46 +1,75 @@
-// File: src/main/java/com/quanlyduan.project_manager_api/model/Task.java
 package com.quanlyduan.project_manager_api.model;
-
-import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
-import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashSet; // Nhớ import HashSet
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+// JPA & Hibernate
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+// Lombok
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+// Project Enums
+import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
+
+/**
+ * Entity đại diện cho một Công việc/Task (có thể là Story, Bug, Task thường).
+ */
 @Getter 
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-// Đặt tên bảng là tasks
-@Table(name = "tasks", uniqueConstraints = {
-    // Đảm bảo task_code là duy nhất trong phạm vi một project
-    @UniqueConstraint(columnNames = {"task_code", "project_id"})
-})
-// 2. QUAN TRỌNG: Chỉ tính hashCode/equals dựa trên ID
+@Table(
+    name = "tasks", 
+    uniqueConstraints = {
+        // Đảm bảo task_code là duy nhất trong phạm vi một project
+        @UniqueConstraint(columnNames = {"task_code", "project_id"})
+    }
+)
+// QUAN TRỌNG: Chỉ tính hashCode/equals dựa trên ID để tránh đệ quy vô hạn
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-/**
- * Entity đại diện cho một Công việc/Task (có thể là Story, Bug, Task thường).
- */
 public class Task {
 
+    // ==========================================
+    // PRIMARY KEY
+    // ==========================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @EqualsAndHashCode.Include // 3. Chỉ dùng ID để so sánh và tính hash
+    @EqualsAndHashCode.Include // Chỉ dùng ID để so sánh và tính hash
     private Integer id; // ID định danh
 
-    // ======================================================
-    // QUAN HỆ VỚI CÁC CẤP CHA
-    // ======================================================
-
+    // ==========================================
+    // HIERARCHY & RELATIONSHIPS (Quan hệ cấp bậc)
+    // ==========================================
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
     @ToString.Exclude // Ngắt vòng lặp log
@@ -58,10 +87,9 @@ public class Task {
     @JoinColumn(name = "parent_task_id")
     private Task parentTask; // Tham chiếu đến Task cha (nếu là Task con)
 
-    // ======================================================
-    // THÔNG TIN CƠ BẢN
-    // ======================================================
-
+    // ==========================================
+    // BASIC INFORMATION (Thông tin cơ bản)
+    // ==========================================
     @Column(name = "task_code", nullable = false, length = 50)
     private String taskCode; // Mã Task (Ví dụ: PROJ-123)
 
@@ -71,6 +99,13 @@ public class Task {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description; // Mô tả Task
 
+    @Builder.Default
+    @Column(name = "is_archived", nullable = false)
+    private Boolean isArchived = false; // Trạng thái lưu trữ
+
+    // ==========================================
+    // CLASSIFICATION & STATUS (Phân loại & Trạng thái)
+    // ==========================================
     @Enumerated(EnumType.STRING)
     @Column(name = "task_type")
     private TaskType taskType; // Loại Task (STORY, BUG, TASK)
@@ -83,17 +118,12 @@ public class Task {
     @Column(name = "priority")
     private TaskPriority priority; // Độ ưu tiên
 
-    // ======================================================
-    // THÔNG TIN NGƯỜI DÙNG & METRICS
-    // ======================================================
-
+    // ==========================================
+    // PEOPLE & METRICS (Nhân sự & Chỉ số)
+    // ==========================================
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigner_id")
     private User assigner; // Người giao việc
-
-    @Builder.Default
-    @Column(name = "is_archived", nullable = false)
-    private Boolean isArchived = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")
@@ -104,14 +134,17 @@ public class Task {
     private User reviewer; // Người đánh giá/Review
 
     @Column(name = "story_points")
-    private Integer storyPoints; // Story Points (độ phức tạp)
+    private Integer storyPoints; // Story Points (độ phức tạp trong Agile)
 
     @Column(name = "estimated_hours", precision = 10, scale = 2)
     private BigDecimal estimatedHours; // Số giờ ước tính
 
     @Column(name = "logged_hours", precision = 10, scale = 2)
-    private BigDecimal loggedHours; // Số giờ đã ghi nhận
+    private BigDecimal loggedHours; // Số giờ đã ghi nhận (Time tracking)
 
+    // ==========================================
+    // TIMELINE & TRACKING (Dòng thời gian & Theo dõi)
+    // ==========================================
     @Column(name = "start_date")
     private LocalDateTime startDate; // Ngày bắt đầu
 
@@ -124,6 +157,9 @@ public class Task {
     @Column(name = "sort_order")
     private Integer sortOrder; // Thứ tự sắp xếp (trên Board/Backlog)
 
+    // ==========================================
+    // TIMESTAMPS & AUDIT (Hệ thống)
+    // ==========================================
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
     @ToString.Exclude
@@ -137,16 +173,15 @@ public class Task {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
 
-    // ======================================================
-    // QUAN HỆ NGHỊCH ĐẢO (INVERSE RELATIONSHIPS)
-    // ======================================================
-
+    // ==========================================
+    // INVERSE RELATIONSHIPS (Quan hệ nghịch đảo)
+    // ==========================================
     // List các Task con (nếu đây là Task cha)
     @OneToMany(mappedBy = "parentTask")
     @ToString.Exclude
     private List<Task> childTasks;
 
-    // List các SubTask (công việc con)
+    // List các SubTask (công việc con nhẹ hơn Task)
     @OneToMany(mappedBy = "parentTask", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     private List<SubTask> subTasks;
@@ -171,4 +206,5 @@ public class Task {
     @ToString.Exclude // Ngắt vòng lặp log
     @Builder.Default // Khởi tạo HashSet để tránh NullPointerException khi add tag
     private Set<Tag> tags = new HashSet<>();
+
 }

@@ -1,7 +1,9 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/CommentRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
+// Validation
 import jakarta.validation.constraints.NotBlank;
+
+// Lombok
 import lombok.Data;
 
 /**
@@ -10,7 +12,15 @@ import lombok.Data;
 @Data
 public class CommentRequest {
 
-    // Nội dung bình luận (Bắt buộc, không được để trống hoặc chỉ chứa khoảng trắng)
+    // ==========================================
+    // REQUEST DATA
+    // ==========================================
+
+    /**
+     * Nội dung bình luận.
+     * Bắt buộc phải có, không được để trống hoặc chỉ chứa các ký tự khoảng trắng.
+     */
     @NotBlank(message = "Comment content must not be blank")
     private String content;
+
 }

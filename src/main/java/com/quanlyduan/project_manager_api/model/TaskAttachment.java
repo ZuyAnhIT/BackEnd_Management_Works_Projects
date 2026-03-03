@@ -1,32 +1,57 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/model/TaskAttachment.java
 package com.quanlyduan.project_manager_api.model;
 
-import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+// JPA & Hibernate
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import org.hibernate.annotations.CreationTimestamp;
+
+// Lombok
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import java.time.LocalDateTime;
 
+/**
+ * Entity lưu trữ thông tin về một Tệp đính kèm (Attachment) cho Task.
+ */
 @Entity
 @Table(name = "task_attachments")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-/**
- * Entity lưu trữ thông tin về một Tệp đính kèm (Attachment) cho Task.
- */
 public class TaskAttachment {
+
+    // ==========================================
+    // PRIMARY KEY
+    // ==========================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id; // ID định danh
 
+    // ==========================================
+    // RELATIONSHIPS (Quan hệ Entity)
+    // ==========================================
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id", nullable = false)
     private Task task; // Task mà tệp này được đính kèm vào
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uploaded_by_id", nullable = false, updatable = false)
+    private User uploadedBy; // Người dùng đã tải tệp lên
+
+    // ==========================================
+    // FILE INFORMATION (Thông tin tệp)
+    // ==========================================
     @Column(name = "file_name", nullable = false)
     private String fileName; // Tên gốc của tệp
 
@@ -39,11 +64,11 @@ public class TaskAttachment {
     @Column(name = "file_size")
     private Long fileSize; // Kích thước tệp (theo bytes)
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uploaded_by_id", nullable = false, updatable = false)
-    private User uploadedBy; // Người dùng đã tải tệp lên
-
+    // ==========================================
+    // TIMESTAMPS (Thời gian hệ thống)
+    // ==========================================
     @CreationTimestamp
     @Column(name = "uploaded_at", updatable = false)
     private LocalDateTime uploadedAt; // Thời điểm tệp được tải lên
+
 }

@@ -1,13 +1,25 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/model/common/enums/RoleLevel.java
 package com.quanlyduan.project_manager_api.model.common.enums;
 
 /**
  * Định nghĩa cấp độ phân cấp của một vai trò (Role).
- * Cấp độ này xác định phạm vi quyền hạn của một người dùng trong hệ thống.
+ * Cấp độ này xác định phạm vi quyền hạn (Scope) của một người dùng trong hệ thống.
  */
 public enum RoleLevel {
-    SYSTEM,     // Cấp Hệ thống (Phạm vi toàn bộ ứng dụng)
-    COMPANY,    // Cấp Công ty (Phạm vi trong một Công ty cụ thể)
-    WORKSPACE,  // Cấp Workspace (Phạm vi trong một Không gian làm việc cụ thể)
-    PROJECT     // Cấp Dự án (Phạm vi trong một Dự án cụ thể)
+
+    // ==========================================
+    // ROLE LEVELS (Cấp độ phân cấp)
+    // ==========================================
+
+    /** Cấp Hệ thống: Có hiệu lực trên toàn bộ ứng dụng (ví dụ: System Admin) */
+    SYSTEM,
+
+    /** Cấp Công ty: Có hiệu lực trong phạm vi một Công ty cụ thể */
+    COMPANY,
+
+    /** Cấp Workspace: Có hiệu lực trong một Không gian làm việc cụ thể */
+    WORKSPACE,
+
+    /** Cấp Dự án: Có hiệu lực hẹp nhất, chỉ trong một Dự án cụ thể */
+    PROJECT
+
 }

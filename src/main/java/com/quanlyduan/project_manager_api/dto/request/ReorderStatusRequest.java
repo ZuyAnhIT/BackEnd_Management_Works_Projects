@@ -1,19 +1,31 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/ReorderStatusRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
+// Validation
 import jakarta.validation.constraints.NotEmpty;
-import lombok.Data;
+
+// Java Utils
 import java.util.List;
 
+// Lombok
+import lombok.Data;
+
 /**
- * DTO nhận dữ liệu cho hành động sắp xếp lại vị trí các cột trạng thái (Kéo thả cột).
- * Client sẽ gửi lên một danh sách chứa toàn bộ ID của các status trong dự án theo thứ tự mới mong muốn.
+ * DTO nhận dữ liệu cho hành động sắp xếp lại vị trí của các cột trạng thái (Status Columns).
+ * Thường được sử dụng khi người dùng thực hiện thao tác kéo thả toàn bộ cột trên bảng công việc (Board).
  */
 @Data
 public class ReorderStatusRequest {
 
-    // Danh sách ID trạng thái đã được sắp xếp theo thứ tự mới (Bắt buộc)
-    // Ví dụ: [3, 1, 2, 4] nghĩa là cột có ID=3 nằm đầu tiên, sau đó đến 1, 2, và 4.
+    // ==========================================
+    // REQUEST DATA (Thông tin sắp xếp cột)
+    // ==========================================
+
+    /**
+     * Danh sách ID của các trạng thái đã được sắp xếp theo thứ tự mới mong muốn.
+     * Ví dụ: Gửi lên [10, 5, 8] nghĩa là cột có ID=10 sẽ nằm vị trí đầu tiên (Index 0), sau đó đến 5 và 8.
+     * Bắt buộc phải có ít nhất một ID trong danh sách.
+     */
     @NotEmpty(message = "Ordered status IDs list must not be empty")
     private List<Integer> orderedStatusIds; 
+
 }

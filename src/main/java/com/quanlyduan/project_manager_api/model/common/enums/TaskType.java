@@ -1,14 +1,31 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/model/common/enums/TaskType.java
 package com.quanlyduan.project_manager_api.model.common.enums;
 
 /**
- * Các loại công việc (issue types) khác nhau trong quản lý dự án (Agile/Scrum).
+ * Các loại công việc (Issue Types) khác nhau trong quản lý dự án (Agile/Scrum).
+ * Phân loại giúp xác định quy trình xử lý và hiển thị biểu tượng tương ứng trên UI.
  */
 public enum TaskType {
-    STORY,   // Yêu cầu tính năng từ góc nhìn người dùng (User Story)
-    TASK,    // Công việc kỹ thuật/triển khai nhỏ
-    BUG,     // Lỗi hoặc vấn đề cần sửa chữa
-    EPIC,    // Nhóm các Story lớn (cần quản lý ở cấp độ cao hơn, mặc dù TaskType có thể chứa nó,
-             // nhưng thường Epic là Entity cha riêng biệt)
-    SUBTASK  // Công việc con của một Task hoặc Story
+
+    // ==========================================
+    // ENUM VALUES (Giá trị loại công việc)
+    // ==========================================
+
+    /** Yêu cầu tính năng từ góc nhìn người dùng (User Story) */
+    STORY,
+
+    /** Công việc kỹ thuật hoặc các đầu mục triển khai nhỏ */
+    TASK,
+
+    /** Lỗi phát sinh hoặc các vấn đề cần sửa chữa (Defect) */
+    BUG,
+
+    /** * Nhóm các Story lớn. 
+     * Lưu ý: Thường được quản lý bởi Entity Epic riêng biệt, 
+     * nhưng có thể dùng làm type để hiển thị đồng nhất. 
+     */
+    EPIC,
+
+    /** Công việc con cấp nhỏ nhất của một Task hoặc Story */
+    SUBTASK
+
 }

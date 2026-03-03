@@ -1,12 +1,24 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/model/common/enums/InvitationStatus.java
 package com.quanlyduan.project_manager_api.model.common.enums;
 
 /**
- * Trạng thái của một lời mời tham gia (Công ty, Dự án, v.v.).
+ * Trạng thái của một lời mời tham gia (Công ty, Dự án, Workspace, v.v.).
  */
 public enum InvitationStatus {
-    PENDING,    // Đang chờ phản hồi
-    ACCEPTED,   // Đã chấp nhận lời mời
-    EXPIRED,    // Đã hết thời hạn chấp nhận
-    CANCELLED   // Đã bị hủy bỏ bởi người gửi
+
+    // ==========================================
+    // ENUM VALUES (Giá trị trạng thái)
+    // ==========================================
+
+    /** Đang chờ phản hồi từ người được mời */
+    PENDING,
+
+    /** Người dùng đã đồng ý tham gia */
+    ACCEPTED,
+
+    /** Đã quá thời hạn hiệu lực của Token lời mời */
+    EXPIRED,
+
+    /** Lời mời đã bị người gửi (Admin/Manager) thu hồi */
+    CANCELLED
+
 }

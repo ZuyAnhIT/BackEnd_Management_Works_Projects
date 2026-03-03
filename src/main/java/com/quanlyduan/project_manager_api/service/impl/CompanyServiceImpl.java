@@ -35,7 +35,9 @@ import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyInvitation;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
+import com.quanlyduan.project_manager_api.model.CompanySubscription;
 import com.quanlyduan.project_manager_api.model.Role;
+import com.quanlyduan.project_manager_api.model.SubscriptionPlan;
 import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.common.enums.CombinedMemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
@@ -43,11 +45,14 @@ import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
+import com.quanlyduan.project_manager_api.model.common.enums.SubscriptionStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyInvitationRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyRepository;
+import com.quanlyduan.project_manager_api.repository.CompanySubscriptionRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.RoleRepository;
+import com.quanlyduan.project_manager_api.repository.SubscriptionPlanRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.specification.CompanyMemberSpecification;
 import com.quanlyduan.project_manager_api.security.SecurityService;
@@ -69,6 +74,8 @@ public class CompanyServiceImpl implements CompanyService {
     private final SecurityService securityService;
     private final InvitationService invitationService;
     private final FileStorageService fileStorageService;
+    private final SubscriptionPlanRepository subscriptionPlanRepository;
+    private final CompanySubscriptionRepository companySubscriptionRepository;
 
     private final ProjectRepository projectRepository;
 
@@ -84,7 +91,10 @@ public class CompanyServiceImpl implements CompanyService {
                               SecurityService securityService,
                               InvitationService invitationService,
                               ProjectRepository projectRepository,
-                            FileStorageService fileStorageService) {
+                              FileStorageService fileStorageService,
+                              CompanySubscriptionRepository companySubscriptionRepository,
+                            SubscriptionPlanRepository subscriptionPlanRepository
+                    ) {
         this.companyRepository = companyRepository;
         this.companyMemberRepository = companyMemberRepository;
         this.userRepository = userRepository;
@@ -95,53 +105,70 @@ public class CompanyServiceImpl implements CompanyService {
         this.invitationService = invitationService;
         this.projectRepository = projectRepository;
         this.fileStorageService = fileStorageService;
+        this.subscriptionPlanRepository = subscriptionPlanRepository;
+        this.companySubscriptionRepository = companySubscriptionRepository;
     }
 
     // =================================================================================
     // 🏢 LOGIC TẠO CÔNG TY (CREATE COMPANY)
     // =================================================================================
     @Override
-    @Transactional
-    @LogActivity(action = "CREATE", entityType = "COMPANY", description = "Create new Company") 
+    @Transactional // Đảm bảo tính toàn vẹn dữ liệu: 1 lỗi là rollback toàn bộ
+    @LogActivity(action = "CREATE", entityType = "COMPANY", description = "Create new Company with default SaaS plan") 
     public Company createCompany(CreateCompanyRequest request) {
-        // 1. Lấy người dùng đang đăng nhập (người tạo)
+        
+        // 1. Lấy thông tin người đang thao tác
         User creator = getCurrentAuthenticatedUser();
 
-        // 2. Kiểm tra tên công ty đã tồn tại chưa
+        // 2. Validate dữ liệu đầu vào
         if (companyRepository.existsByName(request.getCompanyName())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Company name already exists.");
+            throw new BadRequestException("Company name already exists. Please choose another name.");
         }
 
-        // 3. Tìm Role "COMPANY_ADMIN" trong CSDL
-        Role adminRole = roleRepository.findFirstByRoleCode(RoleCode.COMPANY_ADMIN.name()) // SỬ DỤNG ENUM
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        // Sửa thông báo sang tiếng Anh
-                        "Role not found: " + RoleCode.COMPANY_ADMIN.name() + ". Please configure in the database."
-                ));
+        // 3. Chuẩn bị dữ liệu hệ thống (Role & Default Plan)
+        Role adminRole = roleRepository.findFirstByRoleCode(RoleCode.COMPANY_ADMIN.name())
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found: COMPANY_ADMIN."));
 
-        // 4. Tạo công ty mới
+        // LUỒNG MỚI: Lấy gói cước mặc định cho người dùng mới (Gói FREE)
+        SubscriptionPlan defaultPlan = subscriptionPlanRepository.findByPlanCode("FREE")
+                .orElseThrow(() -> new ResourceNotFoundException("System Error: Default subscription plan 'FREE' is missing."));
+
+        // 4. Tạo bản ghi Company
         Company newCompany = Company.builder()
                 .name(request.getCompanyName())
+                // .companyCode(generateCompanyCode(request.getCompanyName())) // Bạn có thể viết thêm hàm gen mã nếu muốn
                 .description(request.getDescription())
                 .address(request.getAddress())
                 .phoneNumber(request.getPhoneNumber())
                 .email(request.getEmail())
                 .website(request.getWebsite())
+                .currentStorageBytes(0L) // Khởi tạo dung lượng ban đầu là 0
+                .isVerifiedTenant(false)
                 .createdById(creator.getId())
                 .status(CompanyStatus.ACTIVE)
                 .build();
-
+        
         Company savedCompany = companyRepository.save(newCompany);
 
-        // 5. Thêm người tạo làm thành viên đầu tiên với vai trò Admin
+        // 5. LUỒNG MỚI: Cấp phát gói cước (Provisioning Subscription)
+        CompanySubscription subscription = CompanySubscription.builder()
+                .company(savedCompany)
+                .plan(defaultPlan)
+                .status(SubscriptionStatus.TRIAL) // Gán trạng thái dùng thử
+                .trialStartsAt(LocalDateTime.now())
+                .trialEndsAt(LocalDateTime.now().plusDays(14)) // Cấu hình 14 ngày dùng thử (có thể cấu hình trong properties)
+                .build();
+                
+        companySubscriptionRepository.save(subscription);
+
+        // 6. Cấp quyền sở hữu (Admin) cho người tạo ra Công ty
         CompanyMember membership = CompanyMember.builder()
                 .company(savedCompany)
                 .user(creator)
                 .role(adminRole)
                 .status(MemberStatus.ACTIVE)
                 .build();
-
+                
         companyMemberRepository.save(membership);
 
         return savedCompany;

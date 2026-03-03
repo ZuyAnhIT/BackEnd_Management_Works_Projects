@@ -1,32 +1,51 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/model/Company.java
 package com.quanlyduan.project_manager_api.model;
 
-import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
-import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+// JPA & Hibernate
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+// Lombok
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-import java.time.LocalDateTime;
 
+// Project Enums
+import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
+
+/**
+ * Entity đại diện cho một Công ty (Tenant) trong hệ thống SaaS Worknet.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-// Đặt tên bảng là companies
 @Table(name = "companies")
-/**
- * Entity đại diện cho một Công ty trong hệ thống.
- */
 public class Company {
 
+    // ==========================================
+    // PRIMARY KEY
+    // ==========================================
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id; // ID định danh Công ty
 
+    // ==========================================
+    // BASIC INFORMATION (Thông tin cơ bản)
+    // ==========================================
+    
     @Column(nullable = false)
     private String name; // Tên công ty
 
@@ -39,6 +58,10 @@ public class Company {
     @Column(name = "logo_url")
     private String logoUrl; // URL logo công ty
 
+    // ==========================================
+    // CONTACT INFORMATION (Thông tin liên hệ)
+    // ==========================================
+    
     @Column(name = "address")
     private String address; // Địa chỉ công ty
 
@@ -51,6 +74,29 @@ public class Company {
     @Column(name = "website")
     private String website; // Website công ty
 
+    // ==========================================
+    // SAAS & RESOURCE TRACKING (Quản lý tài nguyên SaaS)
+    // ==========================================
+    
+    /**
+     * Tổng dung lượng lưu trữ hiện tại mà công ty đang sử dụng (tính bằng Bytes).
+     * Phục vụ việc đối chiếu với giới hạn (max_storage_gb) của Gói cước (Subscription Plan).
+     */
+    @Builder.Default
+    @Column(name = "current_storage_bytes")
+    private Long currentStorageBytes = 0L;
+
+    /**
+     * Cờ đánh dấu công ty đã được xác thực danh tính (Tích xanh/Verified Tenant).
+     */
+    @Builder.Default
+    @Column(name = "is_verified_tenant")
+    private Boolean isVerifiedTenant = false;
+
+    // ==========================================
+    // SYSTEM & STATUS INFORMATION (Hệ thống & Trạng thái)
+    // ==========================================
+    
     @Column(name = "created_by_id", nullable = false)
     private Integer createdById; // ID của người dùng đã tạo công ty này (Audit field)
 
@@ -59,6 +105,10 @@ public class Company {
     @Column(name = "status", nullable = false)
     private CompanyStatus status = CompanyStatus.ACTIVE; // Trạng thái công ty (ACTIVE, SUSPENDED, DELETED)
 
+    // ==========================================
+    // TIMESTAMPS (Thời gian)
+    // ==========================================
+    
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt; // Thời điểm tạo
@@ -66,4 +116,5 @@ public class Company {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
+
 }

@@ -1,7 +1,9 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/CreateWorkspaceRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
+// Validation
 import jakarta.validation.constraints.NotBlank;
+
+// Lombok
 import lombok.Data;
 
 /**
@@ -10,16 +12,33 @@ import lombok.Data;
 @Data
 public class CreateWorkspaceRequest {
 
-    // Tên không gian làm việc (Bắt buộc, không được để trống)
+    // ==========================================
+    // REQUEST DATA (Thông tin Workspace)
+    // ==========================================
+
+    /**
+     * Tên không gian làm việc.
+     * Bắt buộc phải có, không được để trống.
+     */
     @NotBlank(message = "Workspace name must not be blank")
     private String workspaceName;
 
-    // Mô tả chi tiết về không gian làm việc (Tùy chọn)
+    /**
+     * Mô tả chi tiết về mục đích hoặc nội dung của không gian làm việc.
+     * (Tùy chọn)
+     */
     private String description;
 
-    // Đường dẫn URL của ảnh bìa (Tùy chọn - thường là link ảnh đã upload hoặc ảnh mẫu)
+    /**
+     * Đường dẫn URL của ảnh bìa (Cover Image).
+     * (Tùy chọn - Thường là link ảnh đã upload lên cloud storage hoặc ảnh mẫu có sẵn do hệ thống cung cấp).
+     */
     private String coverImage;
 
-    // Mã màu đại diện cho không gian làm việc (Tùy chọn - ví dụ: #3498db)
+    /**
+     * Mã màu HEX đại diện cho không gian làm việc để hiển thị trên UI.
+     * (Tùy chọn - Ví dụ: #3498db, #e74c3c).
+     */
     private String color;
+
 }

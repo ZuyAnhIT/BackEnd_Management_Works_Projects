@@ -1,4 +1,3 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/model/common/enums/CombinedMemberStatus.java
 package com.quanlyduan.project_manager_api.model.common.enums;
 
 /**
@@ -7,8 +6,21 @@ package com.quanlyduan.project_manager_api.model.common.enums;
  * và trạng thái lời mời (PENDING).
  */
 public enum CombinedMemberStatus {
-    ACTIVE,     // Là thành viên và đang "Hoạt động"
-    SUSPENDED,  // Là thành viên nhưng bị "Tạm dừng"
-    REMOVED,    // Là thành viên nhưng bị "Xóa/Rời khỏi"
-    PENDING     // Chưa là thành viên, lời mời đang "Chờ"
+
+    // ==========================================
+    // ENUM VALUES (Giá trị trạng thái)
+    // ==========================================
+    
+    /** Là thành viên và đang "Hoạt động" */
+    ACTIVE,
+
+    /** Là thành viên nhưng bị "Tạm dừng" */
+    SUSPENDED,
+
+    /** Là thành viên nhưng bị "Xóa/Rời khỏi" */
+    REMOVED,
+
+    /** Chưa là thành viên, lời mời đang "Chờ" */
+    PENDING
+
 }
