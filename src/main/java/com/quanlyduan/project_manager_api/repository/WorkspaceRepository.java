@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.repository;
 
 import com.quanlyduan.project_manager_api.model.Workspace; // Entity Workspace
+import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +27,12 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, Integer>, 
      * Dùng cho logic tạo mới.
      */
     boolean existsByCompany_IdAndName(Integer companyId, String workspaceName);
+
+    /**
+     * Đếm số lượng Workspace của Công ty, NGOẠI TRỪ những cái đã bị Xóa (DELETED).
+     * Dùng để check Quota Guard.
+     */
+    long countByCompany_IdAndStatusNot(Integer companyId, WorkspaceStatus status);
 
     /**
      * Lấy danh sách không gian làm việc theo ID công ty (Có phân trang).
