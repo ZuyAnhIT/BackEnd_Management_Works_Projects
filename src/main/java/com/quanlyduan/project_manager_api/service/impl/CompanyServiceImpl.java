@@ -31,6 +31,7 @@ import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.exception.QuotaExceededException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyInvitation;
@@ -150,13 +151,12 @@ public class CompanyServiceImpl implements CompanyService {
         
         Company savedCompany = companyRepository.save(newCompany);
 
-        // 5. LUỒNG MỚI: Cấp phát gói cước (Provisioning Subscription)
+        // 5. Cấp phát gói cước (Gói FREE trọn đời)
         CompanySubscription subscription = CompanySubscription.builder()
                 .company(savedCompany)
-                .plan(defaultPlan)
-                .status(SubscriptionStatus.TRIAL) // Gán trạng thái dùng thử
-                .trialStartsAt(LocalDateTime.now())
-                .trialEndsAt(LocalDateTime.now().plusDays(14)) // Cấu hình 14 ngày dùng thử (có thể cấu hình trong properties)
+                .plan(defaultPlan) // Đây đang là gói "FREE"
+                .status(SubscriptionStatus.ACTIVE) // ĐỔI TỪ TRIAL THÀNH ACTIVE
+                // Xóa bỏ 2 dòng trialStartsAt và trialEndsAt vì gói Free không có khái niệm hết hạn dùng thử
                 .build();
                 
         companySubscriptionRepository.save(subscription);
@@ -175,55 +175,75 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     // =================================================================================
-    // ✉️ LOGIC TẠO LỜI MỜI THÀNH VIÊN VÀO CÔNG TY (INVITE MEMBER)
+    // ✉️ LOGIC TẠO LỜI MỜI THÀNH VIÊN KÈM QUOTA GUARD (SAAS)
     // =================================================================================
     @Override
     @Transactional
-    @LogActivity(action = "INVITE", entityType = "COMPANY_MEMBER", description = "Invite member to Company") // <-- THÊM
+    @LogActivity(action = "INVITE", entityType = "COMPANY_MEMBER", description = "Invite new member to Company")
     public CompanyInvitation inviteMember(Integer companyId, InviteMemberRequest request) {
 
-        // 1. Lấy thông tin cần thiết: Admin (người mời) và Công ty
+        // 1. Lấy thông tin người mời và Công ty
         User admin = getCurrentAuthenticatedUser();
-        
         Company company = companyRepository.findById(companyId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
 
-        // Tìm Role bằng roleCode (từ DTO)
+        // =====================================================================
+        // 🚀 BƯỚC 2: QUOTA GUARD (Chiến lược 1: Đặt chỗ trước - Reservation)
+        // =====================================================================
+        CompanySubscription currentSubscription = companySubscriptionRepository.findByCompany_Id(companyId)
+                .orElseThrow(() -> new BadRequestException("System Error: Company does not have an active subscription."));
+
+        // 1. Đếm số thành viên đang chính thức làm việc (ACTIVE)
+        long currentActiveMembers = companyMemberRepository.countByCompany_IdAndStatus(companyId, MemberStatus.ACTIVE);
+        
+        // 2. Đếm số lời mời đang treo chưa ai phản hồi (PENDING)
+        long currentPendingInvitations = companyInvitationRepository.countByCompany_IdAndStatus(companyId, InvitationStatus.PENDING);
+        
+        // 3. TỔNG SỐ SLOT ĐÃ BỊ CHIẾM DỤNG
+        long totalReservedSlots = currentActiveMembers + currentPendingInvitations;
+
+        // Lấy giới hạn của gói cước hiện tại
+        Integer maxAllowedUsers = currentSubscription.getPlan().getMaxUsers();
+
+        // Chặn lại nếu tổng Slot chiếm dụng >= Giới hạn (Bỏ qua nếu max = -1 tức là Unlimited)
+        if (maxAllowedUsers != null && maxAllowedUsers != -1) {
+            if (totalReservedSlots >= maxAllowedUsers) {
+                // Tách thông báo lỗi rõ ràng để Admin biết tại sao bị chặn dù nhìn vào cty mới có 4 người
+                throw new QuotaExceededException(
+                    String.format("Cannot send invitation! Your '%s' plan allows a maximum of %d members. " +
+                                  "You currently have %d active members and %d pending invitations. " +
+                                  "Please cancel some pending invitations or upgrade your plan.", 
+                    currentSubscription.getPlan().getName(), maxAllowedUsers, currentActiveMembers, currentPendingInvitations)
+                );
+            }
+        }
+        // =====================================================================
+
+        // 3. Validate Role và Thông tin cơ bản
         Role role = roleRepository.findFirstByRoleCode(request.getRoleCode())
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found for code: " + request.getRoleCode()));
 
-        // 2. Validate
-        // Kiểm tra xem vai trò có phải là vai trò cấp CÔNG TY không
         if (role.getLevel() != RoleLevel.COMPANY) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Invalid role (Not a COMPANY level role).");
+            throw new BadRequestException("Invalid role configuration: Provided role is not a COMPANY level role.");
         }
 
         String invitedEmail = request.getEmail();
-        // Không cho phép tự mời chính mình
         if (admin.getEmail().equals(invitedEmail)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("You cannot invite yourself.");
+            throw new BadRequestException("You cannot invite yourself to the company.");
         }
 
-        // 3. Kiểm tra xem đã là thành viên chưa
+        // 4. Kiểm tra trùng lặp dữ liệu (Đã là thành viên hoặc Đã mời)
         if (companyMemberRepository.existsByCompany_IdAndUser_Email(companyId, invitedEmail)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("This user is already a member of the company.");
+            throw new BadRequestException("This user is already an active member of the company.");
         }
 
-        // 4. Kiểm tra xem đã có lời mời PENDING chưa
-        if (companyInvitationRepository.existsByCompany_IdAndEmailAndStatus(companyId, invitedEmail,
-                InvitationStatus.PENDING)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("An invitation has already been sent and is awaiting response.");
+        if (companyInvitationRepository.existsByCompany_IdAndEmailAndStatus(companyId, invitedEmail, InvitationStatus.PENDING)) {
+            throw new BadRequestException("An invitation has already been sent to this email and is awaiting response.");
         }
 
-        // 5. Tạo lời mời (Token, Ngày hết hạn)
+        // 5. Tạo và Lưu lời mời (Token hết hạn sau 3 ngày)
         String token = UUID.randomUUID().toString();
-        LocalDateTime expiryDate = LocalDateTime.now().plusDays(3); // Lời mời hết hạn sau 3 ngày
+        LocalDateTime expiryDate = LocalDateTime.now().plusDays(3); 
 
         CompanyInvitation invitation = CompanyInvitation.builder()
                 .company(company)
@@ -235,19 +255,20 @@ public class CompanyServiceImpl implements CompanyService {
                 .expiresAt(expiryDate)
                 .build();
 
-        CompanyInvitation companyInvitation = companyInvitationRepository.save(invitation);
+        CompanyInvitation savedInvitation = companyInvitationRepository.save(invitation);
         
-        // 6. Gửi Email (Nội dung email giữ nguyên tiếng Việt như logic cũ)
+        // 6. Gửi Email (Bất đồng bộ)
         String acceptUrl = frontendUrl + "/accept-invitation?token=" + token;
         String emailBody = String.format(
-            "Xin chào,<br><br>%s đã mời bạn tham gia công ty %s với vai trò %s.<br>" +
-            "Vui lòng nhấp vào <a href=\"%s\">đây</a> để chấp nhận lời mời.<br><br>" +
-            "Liên kết này sẽ hết hạn sau 3 ngày.",
+            "Xin chào,<br><br><b>%s</b> đã mời bạn tham gia hệ thống quản trị dự án tại công ty <b>%s</b> với vai trò %s.<br><br>" +
+            "Vui lòng nhấp vào <a href=\"%s\" style=\"color: #3498db; font-weight: bold;\">ĐÂY</a> để chấp nhận lời mời và thiết lập tài khoản của bạn.<br><br>" +
+            "<i>Lưu ý: Liên kết bảo mật này sẽ hết hạn sau 3 ngày kể từ khi nhận email.</i>",
             admin.getFullName(), company.getName(), role.getRoleName(), acceptUrl
         );
 
-        emailService.sendEmail(invitedEmail, "Lời mời tham gia " + company.getName(), emailBody);
-        return companyInvitation;
+        emailService.sendEmail(invitedEmail, "Lời mời tham gia không gian làm việc " + company.getName(), emailBody);
+        
+        return savedInvitation;
     }
 
     // =================================================================================

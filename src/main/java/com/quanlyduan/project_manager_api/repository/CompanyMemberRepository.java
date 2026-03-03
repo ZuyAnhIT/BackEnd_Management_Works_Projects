@@ -26,6 +26,12 @@ import org.springframework.stereotype.Repository;
  */
 public interface CompanyMemberRepository extends JpaRepository<CompanyMember, Integer>, JpaSpecificationExecutor<CompanyMember> {
 
+     /**
+     * Đếm tổng số lượng thành viên đang HOẠT ĐỘNG trong một Công ty.
+     * Dùng để check giới hạn (Quota) của Gói cước.
+     */
+    long countByCompany_IdAndStatus(Integer companyId, MemberStatus status);
+    
     /**
      * Kiểm tra xem đã có thành viên nào với Email này trong Công ty chưa.
      */
