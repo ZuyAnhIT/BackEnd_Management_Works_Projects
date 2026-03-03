@@ -24,8 +24,10 @@ import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.WorkspaceResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.exception.QuotaExceededException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Company;
+import com.quanlyduan.project_manager_api.model.CompanySubscription;
 import com.quanlyduan.project_manager_api.model.Role;
 import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.Workspace;
@@ -36,6 +38,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyRepository;
+import com.quanlyduan.project_manager_api.repository.CompanySubscriptionRepository;
 import com.quanlyduan.project_manager_api.repository.RoleRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository;
@@ -60,6 +63,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     private final CompanyMemberRepository companyMemberRepository;
     private final EmailService emailService;
     private final FileStorageService fileStorageService;
+    private final CompanySubscriptionRepository companySubscriptionRepository;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -75,7 +79,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                                  UserRepository userRepository,
                                  CompanyMemberRepository companyMemberRepository,
                                  EmailService emailService,
-                                 FileStorageService fileStorageService) {
+                                 FileStorageService fileStorageService,
+                                 CompanySubscriptionRepository companySubscriptionRepository) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.companyRepository = companyRepository;
@@ -85,13 +90,16 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         this.companyMemberRepository = companyMemberRepository;
         this.emailService = emailService;
         this.fileStorageService = fileStorageService;
+        this.companySubscriptionRepository = companySubscriptionRepository;
     }
 
     // ========================================================================
     // NHÓM 1: QUẢN LÝ WORKSPACE (Create, Update, Details, List)
     // ========================================================================
 
-    // LOGIC TẠO WORKSPACE (KÈM UPLOAD ẢNH BÌA)
+    // =================================================================================
+    // 🏢 LOGIC TẠO WORKSPACE (KÈM UPLOAD ẢNH BÌA & SAAS QUOTA GUARD)
+    // =================================================================================
     @Override
     @Transactional
     @LogActivity(action = "CREATE", entityType = "WORKSPACE", description = "Create new Workspace")
@@ -100,23 +108,43 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         // 1. Kiểm tra tồn tại Công ty và User tạo
         User creator = securityService.getCurrentAuthenticatedUser();
         Company company = companyRepository.findById(companyId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
 
         // 2. Kiểm tra trùng tên Workspace trong cùng Công ty
         if (workspaceRepository.existsByCompany_IdAndName(companyId, request.getWorkspaceName())) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Workspace name already exists in this company.");
         }
 
         // 3. Tìm Role Admin Workspace
         Role workspaceAdminRole = roleRepository.findFirstByRoleCode(RoleCode.WORKSPACE_ADMIN.name())
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        // Sửa thông báo sang tiếng Anh
                         "Role not found: WORKSPACE_ADMIN. Please configure the database."
                 ));
 
-        // 4. Tạo Workspace Entity
+        // =====================================================================
+        // 🚀 BƯỚC 4: QUOTA GUARD (Kiểm tra giới hạn Workspace của Gói cước)
+        // =====================================================================
+        CompanySubscription currentSubscription = companySubscriptionRepository.findByCompany_Id(companyId)
+                .orElseThrow(() -> new BadRequestException("System Error: Company does not have an active subscription."));
+
+        // Đếm số Workspace đang tồn tại (bỏ qua những cái đã DELETED để trả lại slot cho user)
+        long currentWorkspaceCount = workspaceRepository.countByCompany_IdAndStatusNot(companyId, WorkspaceStatus.DELETED);
+        
+        Integer maxAllowedWorkspaces = currentSubscription.getPlan().getMaxWorkspaces();
+
+        // Kiểm tra giới hạn (Bỏ qua nếu max = -1 tức là Gói Enterprise / Không giới hạn)
+        if (maxAllowedWorkspaces != null && maxAllowedWorkspaces != -1) {
+            if (currentWorkspaceCount >= maxAllowedWorkspaces) {
+                throw new QuotaExceededException(
+                    String.format("Upgrade required! Your current '%s' plan allows a maximum of %d workspaces. " +
+                                  "You currently have %d active workspaces. Please delete an unused workspace or upgrade your plan.", 
+                    currentSubscription.getPlan().getName(), maxAllowedWorkspaces, currentWorkspaceCount)
+                );
+            }
+        }
+        // =====================================================================
+
+        // 5. Tạo Workspace Entity
         Workspace newWorkspace = Workspace.builder()
                 .company(company)
                 .name(request.getWorkspaceName())
@@ -126,7 +154,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 .status(WorkspaceStatus.ACTIVE)
                 .build();
 
-        // 5. Xử lý Upload/Link Ảnh Bìa
+        // 6. Xử lý Upload/Link Ảnh Bìa
         if (coverImageFile != null && !coverImageFile.isEmpty()) {
             // Lưu file và gán đường dẫn cục bộ
             String coverPath = fileStorageService.storeFile(coverImageFile, "workspace-covers");
@@ -138,7 +166,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
         Workspace savedWorkspace = workspaceRepository.save(newWorkspace);
 
-        // 6. Gán người tạo làm thành viên Admin Workspace đầu tiên
+        // 7. Gán người tạo làm thành viên Admin Workspace đầu tiên
         WorkspaceMember membership = WorkspaceMember.builder()
                 .workspace(savedWorkspace)
                 .user(creator)
@@ -148,7 +176,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
         workspaceMemberRepository.save(membership);
 
-        // 7. Map và trả về
+        // 8. Map và trả về
         return mapToWorkspaceResponse(savedWorkspace);
     }
 

@@ -33,6 +33,9 @@ public class SubscriptionPlan {
     @Column(name = "max_users")
     private Integer maxUsers;
 
+    @Column(name = "max_workspaces")
+    private Integer maxWorkspaces;
+
     @Column(name = "max_storage_gb")
     private Integer maxStorageGb;
 
