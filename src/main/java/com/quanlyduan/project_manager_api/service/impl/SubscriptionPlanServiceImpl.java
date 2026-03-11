@@ -16,6 +16,13 @@ import com.quanlyduan.project_manager_api.service.SubscriptionPlanService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import com.quanlyduan.project_manager_api.repository.specification.SubscriptionPlanSpecification;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 
 @Service
 @RequiredArgsConstructor
@@ -163,10 +170,74 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
 
     // Hàm tiện ích nhỏ để parse String từ DB về JsonNode cho Response (nếu cần)
     private JsonNode parseJsonString(String json) {
+        // 👉 THÊM DÒNG NÀY: Chặn ngay nếu json là null hoặc rỗng
+        if (json == null || json.trim().isEmpty()) {
+            return null; 
+        }
+        
         try {
             return objectMapper.readTree(json);
         } catch (JsonProcessingException e) {
-            return null;
+            return null; // Hoặc bạn có thể throw Exception tùy logic
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<PlanResponse> getPlans(int page, int size, String sortBy, String sortDir) {
+        // 1. Tạo đối tượng Pageable (Có Sort)
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // 2. Gọi Repository lấy dữ liệu
+        Page<SubscriptionPlan> plansPage = planRepository.findAll(pageable);
+
+        // 3. Map sang DTO và trả về
+        Page<PlanResponse> dtoPage = plansPage.map(this::mapToPlanResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<PlanResponse> searchPlans(
+            String searchName, String searchPlanCode, Boolean searchStatus, 
+            int page, int size, String sortBy, String sortDir) {
+
+        // 1. Tạo đối tượng Pageable
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // 2. Tạo Specification
+        Specification<SubscriptionPlan> spec = SubscriptionPlanSpecification.filterPlans(searchName, searchPlanCode, searchStatus);
+
+        // 3. Lọc qua Repository
+        Page<SubscriptionPlan> plansPage = planRepository.findAll(spec, pageable);
+
+        // 4. Map sang DTO và trả về
+        Page<PlanResponse> dtoPage = plansPage.map(this::mapToPlanResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // ==========================================
+    // Hàm Helper để tái sử dụng việc Map Entity -> Response
+    // ==========================================
+    private PlanResponse mapToPlanResponse(SubscriptionPlan plan) {
+        return PlanResponse.builder()
+                .id(plan.getId())
+                .planCode(plan.getPlanCode())
+                .name(plan.getName())
+                .description(plan.getDescription())
+                .monthlyPrice(plan.getMonthlyPrice())
+                .yearlyPrice(plan.getYearlyPrice())
+                .maxUsers(plan.getMaxUsers())
+                .maxWorkspaces(plan.getMaxWorkspaces())
+                .maxProjects(plan.getMaxProjects())
+                .maxStorageGb(plan.getMaxStorageGb())
+                .features(parseJsonString(plan.getFeatures()))
+                .isActive(plan.getIsActive())
+                .sortOrder(plan.getSortOrder())
+                .createdAt(plan.getCreatedAt())
+                .updatedAt(plan.getUpdatedAt())
+                .build();
     }
 }

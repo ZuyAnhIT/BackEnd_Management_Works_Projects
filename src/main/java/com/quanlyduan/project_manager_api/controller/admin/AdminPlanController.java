@@ -2,6 +2,7 @@ package com.quanlyduan.project_manager_api.controller.admin;
 import com.quanlyduan.project_manager_api.dto.request.plan.CreatePlanRequest;
 import com.quanlyduan.project_manager_api.dto.request.plan.UpdatePlanRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.plan.PlanResponse;
 import com.quanlyduan.project_manager_api.service.SubscriptionPlanService;
 import jakarta.validation.Valid;
@@ -39,5 +40,34 @@ public class AdminPlanController {
         PlanResponse response = planService.updatePlan(planId, request);
 
         return ResponseEntity.ok(ApiResponse.success("Subscription plan updated successfully.", response));
+    }
+
+    @GetMapping
+    @PreAuthorize("@securityService.hasSystemPermission('plan:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<PlanResponse>>> getPlans(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "sortOrder") String sortBy, // Ưu tiên sắp xếp theo sortOrder
+            @RequestParam(defaultValue = "asc") String sortDir) {
+
+        PageResponseDTO<PlanResponse> response = planService.getPlans(page, size, sortBy, sortDir);
+        return ResponseEntity.ok(ApiResponse.success("Fetched plans successfully.", response));
+    }
+
+    @GetMapping("/search")
+    @PreAuthorize("@securityService.hasSystemPermission('plan:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<PlanResponse>>> searchPlans(
+            @RequestParam(required = false) String searchName,
+            @RequestParam(required = false) String searchPlanCode,
+            @RequestParam(required = false) Boolean searchStatus,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        PageResponseDTO<PlanResponse> response = planService.searchPlans(
+                searchName, searchPlanCode, searchStatus, page, size, sortBy, sortDir);
+        
+        return ResponseEntity.ok(ApiResponse.success("Search plans successfully.", response));
     }
 }
