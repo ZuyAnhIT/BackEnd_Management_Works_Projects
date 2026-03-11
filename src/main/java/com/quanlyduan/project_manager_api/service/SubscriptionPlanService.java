@@ -2,6 +2,7 @@ package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.plan.CreatePlanRequest;
 import com.quanlyduan.project_manager_api.dto.request.plan.UpdatePlanRequest;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.plan.PlanResponse;
 
 /**
@@ -27,4 +28,9 @@ public interface SubscriptionPlanService {
      */
     PlanResponse updatePlan(Integer planId, UpdatePlanRequest request);
 
+    // Lấy danh sách phân trang cơ bản
+    PageResponseDTO<PlanResponse> getPlans(int page, int size, String sortBy, String sortDir);
+
+    // Lấy danh sách có tìm kiếm, lọc
+    PageResponseDTO<PlanResponse> searchPlans(String searchName, String searchPlanCode, Boolean searchStatus, int page, int size, String sortBy, String sortDir);
 }
