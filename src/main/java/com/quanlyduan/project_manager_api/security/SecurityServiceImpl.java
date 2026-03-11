@@ -1,4 +1,3 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/security/SecurityServiceImpl.java
 package com.quanlyduan.project_manager_api.security;
 
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -31,7 +30,7 @@ public class SecurityServiceImpl implements SecurityService {
     private final ProjectRepository projectRepository;
     private final SprintRepository sprintRepository;
 
-    // === CONSTRUCTOR THỦ CÔNG (THEO YÊU CẦU) ===
+    // === CONSTRUCTOR THỦ CÔNG ===
     public SecurityServiceImpl(CompanyMemberRepository companyMemberRepository,
                                WorkspaceMemberRepository workspaceMemberRepository,
                                ProjectMemberRepository projectMemberRepository,
@@ -56,14 +55,10 @@ public class SecurityServiceImpl implements SecurityService {
     // KHỐI 1: LẤY THÔNG TIN NGƯỜI DÙNG HIỆN TẠI (IDENTITY)
     // ========================================================================
 
-    /**
-     * Helper: Lấy UserPrincipal (chứa ID, Email) từ Context bảo mật.
-     */
     private UserPrincipal getCurrentUserPrincipal() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || !(authentication.getPrincipal() instanceof UserPrincipal)) {
-            // Trả về null nếu user chưa đăng nhập hoặc là anonymousUser
             return null;
         }
         return (UserPrincipal) authentication.getPrincipal();
@@ -81,9 +76,6 @@ public class SecurityServiceImpl implements SecurityService {
         return (user != null) ? user.getId() : null;
     }
     
-    /**
-     * Lấy toàn bộ Entity User từ CSDL.
-     */
     @Override
     public User getCurrentAuthenticatedUser() {
         Integer userId = getCurrentUserId();
@@ -98,18 +90,12 @@ public class SecurityServiceImpl implements SecurityService {
     // KHỐI 2: HÀM TIỆN ÍCH TRUY VẤN NGƯỢC (HIERARCHY HELPERS)
     // ========================================================================
 
-    /**
-     * Helper: Tìm CompanyID từ WorkspaceID.
-     */
     private Integer getCompanyIdFromWorkspace(Integer workspaceId) {
         return workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."))
                 .getCompany().getId();
     }
 
-    /**
-     * Helper: Tìm WorkspaceID từ ProjectID.
-     */
     private Integer getWorkspaceIdFromProject(Integer projectId) {
         return projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found."))
@@ -122,10 +108,18 @@ public class SecurityServiceImpl implements SecurityService {
 
     @Override
     public boolean hasSystemPermission(String permissionCode) {
-        Integer userId = getCurrentUserId();
-        if (userId == null)
-            return false;
-        return userRoleRepository.checkSystemPermission(userId, permissionCode);
+        // 1. Lấy ID người dùng đang đăng nhập từ Context
+        Integer currentUserId = getCurrentUserId();
+        
+        // Bắt lỗi an toàn nếu chưa đăng nhập
+        if (currentUserId == null) {
+            return false; 
+        }
+
+        // 2. Gọi xuống Database để kiểm tra (Trả về > 0 nghĩa là có quyền)
+        int permissionCount = userRepository.countSystemPermission(currentUserId, permissionCode);
+        
+        return permissionCount > 0;
     }
     
     @Override
@@ -161,7 +155,6 @@ public class SecurityServiceImpl implements SecurityService {
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found for permission check."));
         
         Integer projectId = task.getProject().getId();
-        // Gọi hàm hasPermission để kiểm tra theo tầng (Project > Workspace > Company)
         return hasPermission("project", projectId, permissionCode);
     }
 
@@ -174,14 +167,9 @@ public class SecurityServiceImpl implements SecurityService {
                 .orElseThrow(() -> new ResourceNotFoundException("Sprint not found for permission check."));
         
         Integer projectId = sprint.getProject().getId();
-        
-        // Gọi kiểm tra quyền của Project
         return hasPermission("project", projectId, permissionCode);
     }
 
-    /**
-     * LOGIC KIỂM TRA THỪA KẾ QUYỀN (MASTER CHECKER)
-     */
     @Override
     public boolean hasPermission(String scope, Integer targetId, String permissionCode) {
         Integer userId = getCurrentUserId();
@@ -193,37 +181,30 @@ public class SecurityServiceImpl implements SecurityService {
                 return companyMemberRepository.checkCompanyPermission(userId, targetId, permissionCode);
 
             case "workspace":
-                // 1. Kiểm tra quyền trực tiếp
                 boolean hasWorkspacePerm = workspaceMemberRepository.checkWorkspacePermission(userId, targetId, permissionCode);
                 if (hasWorkspacePerm) return true;
 
-                // 2. (Thừa kế) Kiểm tra quyền trên Company cha
                 Integer companyId = getCompanyIdFromWorkspace(targetId);
                 return companyMemberRepository.checkCompanyPermission(userId, companyId, permissionCode);
 
             case "project":
-                // 1. Kiểm tra quyền trực tiếp
                 boolean hasProjectPerm = projectMemberRepository.checkProjectPermission(userId, targetId, permissionCode);
                 if (hasProjectPerm) return true;
 
-                // 2. (Thừa kế) Kiểm tra quyền trên Workspace cha
                 Integer workspaceId = getWorkspaceIdFromProject(targetId);
                 boolean hasWorkspacePermFromProject = workspaceMemberRepository.checkWorkspacePermission(userId, workspaceId, permissionCode);
                 if (hasWorkspacePermFromProject) return true;
 
-                // 3. (Thừa kế) Kiểm tra quyền trên Company cha
                 Integer companyIdFromProject = getCompanyIdFromWorkspace(workspaceId);
                 return companyMemberRepository.checkCompanyPermission(userId, companyIdFromProject, permissionCode);
 
             case "task":
-                // Tái sử dụng: Gọi lại chính hàm này ở cấp Project
                 Task task = taskRepository.findById(targetId)
                         .orElseThrow(() -> new ResourceNotFoundException("Task not found for permission check."));
                 Integer projectId = task.getProject().getId();
                 return hasPermission("project", projectId, permissionCode);
             
             case "sprint":
-                // Tái sử dụng: Gọi lại chính hàm này ở cấp Project
                 Sprint sprint = sprintRepository.findById(targetId)
                         .orElseThrow(() -> new ResourceNotFoundException("Sprint not found for permission check."));
                 Integer projectIdS = sprint.getProject().getId();
@@ -240,38 +221,32 @@ public class SecurityServiceImpl implements SecurityService {
     
     @Override
     public boolean isCompanyAdmin(Integer companyId) {
-        // Admin Cty là người có quyền 'company:manage_roles'
         return hasCompanyPermission(companyId, "company:manage_roles");
     }
 
     @Override
     public boolean isCompanyMember(Integer companyId) {
-        // Member Cty là người có quyền 'company:view'
         return hasCompanyPermission(companyId, "company:view");
     }
 
     @Override
     public boolean isWorkspaceAdmin(Integer companyId, Integer workspaceId) {
-        // Admin Workspace là người có quyền 'workspace:edit'
         if (!getCompanyIdFromWorkspace(workspaceId).equals(companyId)) {
-            return false; // Chống lỗi IDOR
+            return false;
         }
         return hasPermission("workspace", workspaceId, "workspace:edit");
     }
 
     @Override
     public boolean isWorkspaceMember(Integer companyId, Integer workspaceId) {
-        // Member Workspace là người có quyền 'workspace:view'
         if (!getCompanyIdFromWorkspace(workspaceId).equals(companyId)) {
-            return false; // Chống lỗi IDOR
+            return false;
         }
         return hasPermission("workspace", workspaceId, "workspace:view");
     }
 
     @Override
     public boolean canManageWorkspaceMembers(Integer companyId, Integer workspaceId) {
-        // Người quản lý là người có quyền 'workspace:invite_member'
         return hasPermission("workspace", workspaceId, "workspace:invite_member");
     }
-
 }

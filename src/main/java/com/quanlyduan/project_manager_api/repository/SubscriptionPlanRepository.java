@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPlan, Integer> {
     // Tìm gói cước theo mã (VD: "FREE")
     Optional<SubscriptionPlan> findByPlanCode(String planCode);
+    boolean existsByPlanCode(String planCode);
 }

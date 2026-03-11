@@ -1,4 +1,3 @@
-// File: src/main/java/com.quanlyduan.project_manager_api/security/SecurityService.java
 package com.quanlyduan.project_manager_api.security;
 
 import com.quanlyduan.project_manager_api.model.User;
@@ -35,8 +34,8 @@ public interface SecurityService {
 
     /**
      * Kiểm tra user có quyền <permissionCode> ở cấp độ HỆ THỐNG (SYSTEM) không.
-     * @param permissionCode Mã quyền (ví dụ: 'company:create').
-     * @PreAuthorize("@securityService.hasSystemPermission('company:create')")
+     * @param permissionCode Mã quyền (ví dụ: 'plan:create').
+     * @PreAuthorize("@securityService.hasSystemPermission('plan:create')")
      */
     boolean hasSystemPermission(String permissionCode);
     
@@ -93,7 +92,6 @@ public interface SecurityService {
      */
     boolean hasPermission(String scope, Integer targetId, String permissionCode);
 
-
     // ========================================================================
     // 3. CÁC HÀM TIỆN ÍCH (LEGACY/UTILITY ROLE CHECKERS)
     // ========================================================================
@@ -122,4 +120,5 @@ public interface SecurityService {
      * [ĐÃ NÂNG CẤP] Kiểm tra user có quyền quản lý Workspace Member không (thêm/xóa/đổi role).
      */
     boolean canManageWorkspaceMembers(Integer companyId, Integer workspaceId);
+
 }
