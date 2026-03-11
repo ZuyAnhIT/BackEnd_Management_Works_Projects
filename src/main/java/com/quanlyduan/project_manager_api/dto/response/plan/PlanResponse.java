@@ -1,4 +1,4 @@
-package com.quanlyduan.project_manager_api.dto.response;
+package com.quanlyduan.project_manager_api.dto.response.plan;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Builder;

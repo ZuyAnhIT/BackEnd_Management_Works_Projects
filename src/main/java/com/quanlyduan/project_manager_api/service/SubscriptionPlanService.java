@@ -1,7 +1,8 @@
 package com.quanlyduan.project_manager_api.service;
 
-import com.quanlyduan.project_manager_api.dto.request.CreatePlanRequest;
-import com.quanlyduan.project_manager_api.dto.response.PlanResponse;
+import com.quanlyduan.project_manager_api.dto.request.plan.CreatePlanRequest;
+import com.quanlyduan.project_manager_api.dto.request.plan.UpdatePlanRequest;
+import com.quanlyduan.project_manager_api.dto.response.plan.PlanResponse;
 
 /**
  * Giao diện Service xử lý các nghiệp vụ liên quan đến Gói cước SaaS (Subscription Plan).
@@ -16,5 +17,14 @@ public interface SubscriptionPlanService {
      * @return PlanResponse DTO chứa thông tin gói cước sau khi đã lưu thành công
      */
     PlanResponse createPlan(CreatePlanRequest request);
+
+    /**
+     * Cập nhật thông tin một Gói cước đã có.
+     *
+     * @param planId ID của gói cước cần sửa
+     * @param request DTO chứa thông tin mới của gói cước
+     * @return PlanResponse DTO chứa thông tin gói cước sau khi cập nhật
+     */
+    PlanResponse updatePlan(Integer planId, UpdatePlanRequest request);
 
 }

@@ -1,7 +1,8 @@
 package com.quanlyduan.project_manager_api.controller.admin;
-import com.quanlyduan.project_manager_api.dto.request.CreatePlanRequest;
+import com.quanlyduan.project_manager_api.dto.request.plan.CreatePlanRequest;
+import com.quanlyduan.project_manager_api.dto.request.plan.UpdatePlanRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
-import com.quanlyduan.project_manager_api.dto.response.PlanResponse;
+import com.quanlyduan.project_manager_api.dto.response.plan.PlanResponse;
 import com.quanlyduan.project_manager_api.service.SubscriptionPlanService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,5 +28,16 @@ public class AdminPlanController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Subscription plan created successfully.", response));
+    }
+
+    @PutMapping("/{planId}")
+    @PreAuthorize("@securityService.hasSystemPermission('plan:edit')") 
+    public ResponseEntity<ApiResponse<PlanResponse>> updatePlan(
+            @PathVariable Integer planId,
+            @Valid @RequestBody UpdatePlanRequest request) {
+
+        PlanResponse response = planService.updatePlan(planId, request);
+
+        return ResponseEntity.ok(ApiResponse.success("Subscription plan updated successfully.", response));
     }
 }
