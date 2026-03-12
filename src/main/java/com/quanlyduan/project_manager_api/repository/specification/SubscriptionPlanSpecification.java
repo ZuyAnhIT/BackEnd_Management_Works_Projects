@@ -44,4 +44,22 @@ public class SubscriptionPlanSpecification {
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
     }
+
+    public static Specification<SubscriptionPlan> filterPublicPlans(String searchName) {
+        
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("isActive"), true));
+
+            // Tìm theo Tên gói (Nếu khách hàng có gõ tìm kiếm)
+            if (searchName != null && !searchName.trim().isEmpty()) {
+                predicates.add(criteriaBuilder.like(
+                        criteriaBuilder.lower(root.get("name")), 
+                        "%" + searchName.toLowerCase() + "%"
+                ));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
 }

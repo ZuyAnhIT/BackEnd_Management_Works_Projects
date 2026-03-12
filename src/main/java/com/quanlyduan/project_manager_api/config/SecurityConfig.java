@@ -45,7 +45,9 @@ public class SecurityConfig {
             "/swagger-ui.html",
             "/api/invitations/**",
             "/api/files/**",
-            "/uploads/**"
+            "/uploads/**",
+            "/api/plans",
+            "/api/plans/**"
     };
 
     /**
@@ -80,6 +82,7 @@ public class SecurityConfig {
                 .requestMatchers(PUBLIC_URLS).permitAll()
                 // Tất cả các request còn lại BẮT BUỘC phải có Token xác thực
                 .anyRequest().authenticated()
+                
             )
 
             // 4. Quản lý Session

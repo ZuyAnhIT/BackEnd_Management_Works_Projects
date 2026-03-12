@@ -4,6 +4,7 @@ import com.quanlyduan.project_manager_api.dto.request.plan.CreatePlanRequest;
 import com.quanlyduan.project_manager_api.dto.request.plan.UpdatePlanRequest;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.plan.PlanResponse;
+import com.quanlyduan.project_manager_api.dto.response.plan.PublicPlanResponse;
 
 /**
  * Giao diện Service xử lý các nghiệp vụ liên quan đến Gói cước SaaS (Subscription Plan).
@@ -33,4 +34,11 @@ public interface SubscriptionPlanService {
 
     // Lấy danh sách có tìm kiếm, lọc
     PageResponseDTO<PlanResponse> searchPlans(String searchName, String searchPlanCode, Boolean searchStatus, int page, int size, String sortBy, String sortDir);
+
+    // Lấy danh sách gói cước (Dành cho Khách hàng)
+    PageResponseDTO<PublicPlanResponse> getPublicPlans(int page, int size, String sortBy, String sortDir);
+
+    // Tìm kiếm gói cước (Dành cho Khách hàng)
+    PageResponseDTO<PublicPlanResponse> searchPublicPlans(String searchName, int page, int size, String sortBy, String sortDir);
+
 }
