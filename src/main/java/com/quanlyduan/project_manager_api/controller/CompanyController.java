@@ -13,9 +13,11 @@ import com.quanlyduan.project_manager_api.dto.response.CompanyDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyInvitationResponse;
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.dto.response.company.Tenant360Response;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import com.quanlyduan.project_manager_api.service.CompanyAdminService;
 import com.quanlyduan.project_manager_api.service.CompanyService;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import org.springframework.http.MediaType;
@@ -43,16 +45,26 @@ public class CompanyController {
 
     private final CompanyService companyService;
     private final ObjectMapper objectMapper;
+    private final CompanyAdminService companyAdminService;
 
-    public CompanyController(CompanyService companyService, ObjectMapper objectMapper) {
+    public CompanyController(CompanyService companyService, ObjectMapper objectMapper,CompanyAdminService companyAdminService) {
         this.companyService = companyService;
         this.objectMapper = objectMapper;
+        this.companyAdminService = companyAdminService;
     }
 
     // ========================================================================
     // A. QUẢN LÝ CÔNG TY (CRUD)
     // ========================================================================
 
+    @GetMapping("/{companyId}/billing-info")
+    @PreAuthorize("@securityService.hasCompanyPermission(#companyId, 'company:view')")
+    public ResponseEntity<ApiResponse<Tenant360Response>> getMyBillingInfo(
+            @PathVariable Integer companyId) {
+            
+        Tenant360Response response = companyAdminService.getTenant360View(companyId);
+        return ResponseEntity.ok(ApiResponse.success("Fetched your billing info successfully.", response));
+    }
     // API TẠO CÔNG TY
     // ========================================================================
     // A. QUẢN LÝ CÔNG TY (CRUD)

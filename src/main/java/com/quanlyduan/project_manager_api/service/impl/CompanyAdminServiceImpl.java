@@ -1,14 +1,22 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.response.company.AdminCompanyResponse;
+import com.quanlyduan.project_manager_api.dto.response.company.Tenant360Response;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanySubscription;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus; 
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus; 
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; 
 import com.quanlyduan.project_manager_api.repository.CompanyRepository;
-import com.quanlyduan.project_manager_api.service.CompanyAdminService;
+import com.quanlyduan.project_manager_api.repository.ProjectRepository; 
 import com.quanlyduan.project_manager_api.repository.specification.CompanySpecification;
+import com.quanlyduan.project_manager_api.service.CompanyAdminService;
 import lombok.RequiredArgsConstructor;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 import org.springframework.data.domain.Page;
@@ -24,6 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompanyAdminServiceImpl implements CompanyAdminService {
 
     private final CompanyRepository companyRepository;
+    
+    private final CompanyMemberRepository companyMemberRepository;
+    private final ProjectRepository projectRepository;
 
     // =================================================================================
     // 1. HIỂN THỊ DANH SÁCH (GET ALL)
@@ -32,7 +43,6 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
     @Transactional(readOnly = true)
     public PageResponseDTO<AdminCompanyResponse> getCompanies(int page, int size, String sortBy, String sortDir) {
         
-        // 1. Cấu hình Map ánh xạ cho việc sắp xếp
         Map<String, String> sortMapping = Map.of(
                 "createdAt", "createdAt",
                 "name", "name",
@@ -42,15 +52,12 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
                 "storage", "currentStorageBytes"
         );
 
-        // 2. Lấy field thật để sort (Nếu truyền sai thì mặc định là createdAt)
         String actualSortField = sortMapping.getOrDefault(sortBy, "createdAt");
         Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(actualSortField).ascending() : Sort.by(actualSortField).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        // 3. Gọi Repository
         Page<Company> companiesPage = companyRepository.findAll(pageable);
 
-        // 4. Map sang DTO và trả về
         Page<AdminCompanyResponse> dtoPage = companiesPage.map(this::mapToAdminResponse);
         return new PageResponseDTO<>(dtoPage);
     }
@@ -65,7 +72,6 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
             String searchStatus, String searchPlanCode, 
             int page, int size, String sortBy, String sortDir) {
 
-        // 1. Cấu hình Map ánh xạ
         Map<String, String> sortMapping = Map.of(
                 "createdAt", "createdAt",
                 "name", "name",
@@ -75,19 +81,15 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
                 "storage", "currentStorageBytes"
         );
 
-        // 2. Tạo Pageable
         String actualSortField = sortMapping.getOrDefault(sortBy, "createdAt");
         Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(actualSortField).ascending() : Sort.by(actualSortField).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        // 3. Tạo Specification (Bộ lọc động)
         Specification<Company> spec = CompanySpecification.filterCompaniesForAdmin(
                 searchName, searchCode, searchEmail, searchStatus, searchPlanCode);
 
-        // 4. Gọi Repository với Specification
         Page<Company> companiesPage = companyRepository.findAll(spec, pageable);
 
-        // 5. Map sang DTO và trả về
         Page<AdminCompanyResponse> dtoPage = companiesPage.map(this::mapToAdminResponse);
         return new PageResponseDTO<>(dtoPage);
     }
@@ -119,5 +121,68 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
         }
 
         return builder.build();
+    }
+
+    // =================================================================================
+    // 3. TENANT 360-DEGREE VIEW (XEM CHI TIẾT)
+    // =================================================================================
+    @Override
+    @Transactional(readOnly = true)
+    public Tenant360Response getTenant360View(Integer companyId) {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
+
+        CompanySubscription sub = company.getSubscription();
+        String planCode = "N/A", planName = "No Plan", subStatus = "NONE";
+        Integer maxUsers = 0, maxProjects = 0;
+        long maxStorageBytes = 0;
+        BigDecimal price = BigDecimal.ZERO; 
+        LocalDateTime start = null, end = null;
+
+        if (sub != null && sub.getPlan() != null) {
+            planCode = sub.getPlan().getPlanCode();
+            planName = sub.getPlan().getName();
+            // 👉 Đã sửa biến monthlyPrice thành price để gán đúng
+            price = sub.getPlan().getMonthlyPrice();
+            subStatus = sub.getStatus().toString();
+            start = sub.getCurrentPeriodStart();
+            end = sub.getCurrentPeriodEnd();
+            
+            maxUsers = sub.getPlan().getMaxUsers();
+            maxProjects = sub.getPlan().getMaxProjects();
+            
+            if (sub.getPlan().getMaxStorageGb() != -1) {
+                maxStorageBytes = sub.getPlan().getMaxStorageGb() * 1073741824L;
+            } else {
+                maxStorageBytes = -1; 
+            }
+        }
+
+        long currentMembers = companyMemberRepository.countByCompany_IdAndStatusNot(companyId, MemberStatus.REMOVED);
+        long currentProjects = projectRepository.countByWorkspace_Company_IdAndStatusNot(companyId, ProjectStatus.CANCELLED); 
+
+        return Tenant360Response.builder()
+                .companyId(company.getId())
+                .companyName(company.getName())
+                .email(company.getEmail())
+                .status(company.getStatus().toString())
+                .createdAt(company.getCreatedAt())
+                
+                .planCode(planCode)
+                .planName(planName)
+                .monthlyPrice(price)
+                .subscriptionStatus(subStatus)
+                .currentPeriodStart(start)
+                .currentPeriodEnd(end)
+                
+                .totalMembers(currentMembers)
+                .maxUsers(maxUsers)
+                
+                .totalProjects(currentProjects)
+                .maxProjects(maxProjects)
+                
+                .currentStorageBytes(company.getCurrentStorageBytes() != null ? company.getCurrentStorageBytes() : 0)
+                .maxStorageBytes(maxStorageBytes)
+                .build();
     }
 }

@@ -53,4 +53,10 @@ public interface ProjectRepository extends JpaRepository<Project, Integer>, JpaS
      * Tìm kiếm Project theo ID.
      */
     Optional<Project> findById(Integer id);
+
+    /**
+     * Đếm tổng số dự án của toàn bộ công ty (xuyên qua Workspace) 
+     * và loại trừ trạng thái cụ thể (ví dụ: CANCELLED)
+     */
+    long countByWorkspace_Company_IdAndStatusNot(Integer companyId, ProjectStatus status);
 }
