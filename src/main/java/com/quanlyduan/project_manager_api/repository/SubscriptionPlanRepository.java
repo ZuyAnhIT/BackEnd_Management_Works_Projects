@@ -2,6 +2,9 @@
 package com.quanlyduan.project_manager_api.repository;
 
 import com.quanlyduan.project_manager_api.model.SubscriptionPlan;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.util.Optional;
@@ -16,5 +19,7 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
      * Dùng cho luồng Update.
      */
     boolean existsByPlanCodeAndIdNot(String planCode, Integer id);
+
+    Page<SubscriptionPlan> findByIsActiveTrue(Pageable pageable);
     
 }

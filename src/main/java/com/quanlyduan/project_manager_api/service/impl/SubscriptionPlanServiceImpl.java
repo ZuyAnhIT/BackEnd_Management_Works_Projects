@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanlyduan.project_manager_api.dto.request.plan.CreatePlanRequest;
 import com.quanlyduan.project_manager_api.dto.request.plan.UpdatePlanRequest;
 import com.quanlyduan.project_manager_api.dto.response.plan.PlanResponse;
+import com.quanlyduan.project_manager_api.dto.response.plan.PublicPlanResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.SubscriptionPlan;
@@ -238,6 +239,52 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
                 .sortOrder(plan.getSortOrder())
                 .createdAt(plan.getCreatedAt())
                 .updatedAt(plan.getUpdatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<PublicPlanResponse> getPublicPlans(int page, int size, String sortBy, String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Gọi hàm chỉ lấy gói Active
+        Page<SubscriptionPlan> plansPage = planRepository.findByIsActiveTrue(pageable);
+
+        Page<PublicPlanResponse> dtoPage = plansPage.map(this::mapToPublicPlanResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<PublicPlanResponse> searchPublicPlans(String searchName, int page, int size, String sortBy, String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Gọi Specification đã ép cứng isActive = true
+        Specification<SubscriptionPlan> spec = SubscriptionPlanSpecification.filterPublicPlans(searchName);
+        Page<SubscriptionPlan> plansPage = planRepository.findAll(spec, pageable);
+
+        Page<PublicPlanResponse> dtoPage = plansPage.map(this::mapToPublicPlanResponse);
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // ==========================================
+    // Hàm Helper ánh xạ sang Public DTO
+    // ==========================================
+    private PublicPlanResponse mapToPublicPlanResponse(SubscriptionPlan plan) {
+        return PublicPlanResponse.builder()
+                .id(plan.getId())
+                .planCode(plan.getPlanCode())
+                .name(plan.getName())
+                .description(plan.getDescription())
+                .monthlyPrice(plan.getMonthlyPrice())
+                .yearlyPrice(plan.getYearlyPrice())
+                .maxUsers(plan.getMaxUsers())
+                .maxWorkspaces(plan.getMaxWorkspaces())
+                .maxProjects(plan.getMaxProjects())
+                .maxStorageGb(plan.getMaxStorageGb())
+                .features(parseJsonString(plan.getFeatures())) // Dùng lại hàm parse JSON cũ đã fix lỗi
                 .build();
     }
 }
