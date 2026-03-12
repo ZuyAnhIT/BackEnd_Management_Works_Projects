@@ -287,4 +287,25 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
                 .features(parseJsonString(plan.getFeatures())) // Dùng lại hàm parse JSON cũ đã fix lỗi
                 .build();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PlanResponse getPlanById(Integer planId) {
+        // Admin: Lấy ra mọi gói, kể cả gói isActive = false
+        SubscriptionPlan plan = planRepository.findById(planId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subscription plan not found with ID: " + planId));
+        
+        return mapToPlanResponse(plan); // Dùng lại hàm map của Admin
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PublicPlanResponse getPublicPlanById(Integer planId) {
+        // Khách hàng: Chỉ lấy được gói đang mở bán. 
+        // Nếu truyền ID của một gói đã khóa, hệ thống sẽ báo 404 Not Found như thể nó không tồn tại.
+        SubscriptionPlan plan = planRepository.findByIdAndIsActiveTrue(planId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subscription plan not found or no longer active."));
+        
+        return mapToPublicPlanResponse(plan); // Dùng lại hàm map của Public
+    }
 }
