@@ -1,6 +1,7 @@
 package com.quanlyduan.project_manager_api.controller.admin;
 
 import com.quanlyduan.project_manager_api.dto.response.company.AdminCompanyResponse;
+import com.quanlyduan.project_manager_api.dto.response.company.Tenant360Response;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.service.CompanyAdminService;
@@ -49,4 +50,14 @@ public class AdminCompanyController {
         
         return ResponseEntity.ok(ApiResponse.success("Search companies successfully.", response));
     }
+
+    @GetMapping("/{companyId}/detail")
+    @PreAuthorize("@securityService.hasSystemPermission('tenant:view')")
+    public ResponseEntity<ApiResponse<Tenant360Response>> getCompany360ViewForAdmin(
+            @PathVariable Integer companyId) {
+            
+        Tenant360Response response = companyAdminService.getTenant360View(companyId);
+        return ResponseEntity.ok(ApiResponse.success("Fetched tenant 360 view successfully.", response));
+    }
+    
 }

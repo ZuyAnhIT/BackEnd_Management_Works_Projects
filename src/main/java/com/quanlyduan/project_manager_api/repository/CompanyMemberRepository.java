@@ -124,4 +124,9 @@ public interface CompanyMemberRepository extends JpaRepository<CompanyMember, In
             @Param("keyword") String keyword,
             Pageable pageable
     );
+
+    /**
+     * Đếm tổng số lượng nhân viên của một công ty (loại trừ một trạng thái cụ thể, ví dụ: REMOVED)
+     */
+    long countByCompany_IdAndStatusNot(Integer companyId, MemberStatus status);
 }

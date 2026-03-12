@@ -13,6 +13,7 @@ import com.quanlyduan.project_manager_api.dto.response.CompanyInvitationResponse
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.dto.response.company.Tenant360Response;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyInvitation;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
@@ -135,4 +136,7 @@ public interface CompanyService {
      * @param invitationId ID lời mời cần hủy
      */
     void cancelCompanyInvitation(Integer companyId, Integer invitationId);
+
+
+
 }
