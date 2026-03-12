@@ -70,4 +70,13 @@ public class AdminPlanController {
         
         return ResponseEntity.ok(ApiResponse.success("Search plans successfully.", response));
     }
+
+    @GetMapping("/{planId}")
+    @PreAuthorize("@securityService.hasSystemPermission('plan:view')")
+    public ResponseEntity<ApiResponse<PlanResponse>> getPlanById(@PathVariable Integer planId) {
+        
+        PlanResponse response = planService.getPlanById(planId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Fetched plan details successfully.", response));
+    }
 }

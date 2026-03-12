@@ -2,14 +2,16 @@ package com.quanlyduan.project_manager_api.model;
 
 import java.time.LocalDateTime;
 
-// JPA & Hibernate
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -116,5 +118,8 @@ public class Company {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
+
+    @OneToOne(mappedBy = "company", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private CompanySubscription subscription;
 
 }

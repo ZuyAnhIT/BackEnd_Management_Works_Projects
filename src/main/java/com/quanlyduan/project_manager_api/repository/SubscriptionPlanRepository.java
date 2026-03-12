@@ -22,4 +22,6 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
 
     Page<SubscriptionPlan> findByIsActiveTrue(Pageable pageable);
     
+    // Dành cho Khách hàng: Chỉ tìm gói cước theo ID VÀ gói đó phải đang mở bán
+    Optional<SubscriptionPlan> findByIdAndIsActiveTrue(Integer id);
 }

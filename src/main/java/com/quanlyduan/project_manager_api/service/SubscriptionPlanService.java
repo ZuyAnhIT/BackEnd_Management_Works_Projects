@@ -41,4 +41,9 @@ public interface SubscriptionPlanService {
     // Tìm kiếm gói cước (Dành cho Khách hàng)
     PageResponseDTO<PublicPlanResponse> searchPublicPlans(String searchName, int page, int size, String sortBy, String sortDir);
 
+    // Lấy chi tiết gói cước cho Admin (Trả về toàn bộ thông tin)
+    PlanResponse getPlanById(Integer planId);
+
+    // Lấy chi tiết gói cước cho Khách hàng (Chỉ trả về gói đang Active, ẩn thông tin nhạy cảm)
+    PublicPlanResponse getPublicPlanById(Integer planId);
 }

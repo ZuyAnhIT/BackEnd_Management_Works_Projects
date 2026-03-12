@@ -44,4 +44,12 @@ public class PublicPlanController {
         PageResponseDTO<PublicPlanResponse> response = planService.searchPublicPlans(searchName, page, size, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success("Search pricing plans successfully.", response));
     }
+
+    @GetMapping("/{planId}")
+    public ResponseEntity<ApiResponse<PublicPlanResponse>> getPlanById(@PathVariable Integer planId) {
+        
+        PublicPlanResponse response = planService.getPublicPlanById(planId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Fetched pricing plan details successfully.", response));
+    }
 }
