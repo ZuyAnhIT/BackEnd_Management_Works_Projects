@@ -114,7 +114,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectInvitationRepository projectInvitationRepository;
     private final ProjectHierarchyValidator hierarchyValidator;
     private final CompanySubscriptionRepository companySubscriptionRepository;
-
+    private final QuotaValidationServiceImpl quotaValidationService;
 
     private final EmailService emailService;
 
@@ -144,7 +144,8 @@ public class ProjectServiceImpl implements ProjectService {
                               CompanyMemberRepository companyMemberRepository,
                               ProjectInvitationRepository projectInvitationRepository,
                               ProjectHierarchyValidator hierarchyValidator,
-                              CompanySubscriptionRepository companySubscriptionRepository
+                              CompanySubscriptionRepository companySubscriptionRepository,
+                              QuotaValidationServiceImpl quotaValidationService
 
                               ) {
         this.projectRepository = projectRepository;
@@ -167,6 +168,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.projectInvitationRepository = projectInvitationRepository;
         this.hierarchyValidator = hierarchyValidator;
         this.companySubscriptionRepository = companySubscriptionRepository;
+        this.quotaValidationService = quotaValidationService;
     }
 
     /**
@@ -186,6 +188,8 @@ public class ProjectServiceImpl implements ProjectService {
     @LogActivity(action = "CREATE", entityType = "PROJECT", description = "Create new Project")
     public ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId, MultipartFile coverImageFile) {
         
+        // BỨC TƯỜNG LỬA: Kiểm tra hạn mức trước khi làm bất cứ điều gì
+        quotaValidationService.validateProjectCreationQuota(companyId);
         // (1) Kiểm tra workspace tồn tại và thuộc đúng companyId
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));

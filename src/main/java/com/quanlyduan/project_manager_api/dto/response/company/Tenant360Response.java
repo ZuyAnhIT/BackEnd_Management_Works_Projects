@@ -32,4 +32,18 @@ public class Tenant360Response {
 
     private long currentStorageBytes;
     private long maxStorageBytes; // Tính từ maxStorageGb * 1024^3
+
+    
+    // 4. CỜ BÁO HIỆU CHO FRONTEND (FLAGS)
+    // Đánh dấu công ty đang trong những ngày ân hạn (Grace Period) chờ cắt gói
+    private Boolean isGracePeriod; 
+    
+    // Đánh dấu đã đạt (hoặc vượt) giới hạn nhân sự -> Frontend làm mờ nút "Thêm nhân viên"
+    private Boolean isUserLimitExceeded; 
+    
+    // Đánh dấu đã đạt (hoặc vượt) giới hạn dự án -> Frontend làm mờ nút "Tạo dự án"
+    private Boolean isProjectLimitExceeded; 
+    
+    // Đánh dấu đã đầy bộ nhớ -> Frontend làm mờ nút "Tải file lên"
+    private Boolean isStorageLimitExceeded;
 }

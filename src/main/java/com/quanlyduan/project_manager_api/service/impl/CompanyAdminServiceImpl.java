@@ -141,10 +141,10 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
         BigDecimal price = BigDecimal.ZERO; 
         LocalDateTime start = null, end = null;
 
+        // 1. Lấy thông số từ Gói cước (Plan)
         if (sub != null && sub.getPlan() != null) {
             planCode = sub.getPlan().getPlanCode();
             planName = sub.getPlan().getName();
-            // 👉 Đã sửa biến monthlyPrice thành price để gán đúng
             price = sub.getPlan().getMonthlyPrice();
             subStatus = sub.getStatus().toString();
             start = sub.getCurrentPeriodStart();
@@ -154,15 +154,33 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
             maxProjects = sub.getPlan().getMaxProjects();
             
             if (sub.getPlan().getMaxStorageGb() != -1) {
-                maxStorageBytes = sub.getPlan().getMaxStorageGb() * 1073741824L;
+                maxStorageBytes = sub.getPlan().getMaxStorageGb() * 1073741824L; // 1GB = 1024^3 Bytes
             } else {
                 maxStorageBytes = -1; 
             }
         }
 
+        // 2. Lấy thông số sử dụng thực tế (Usage)
         long currentMembers = companyMemberRepository.countByCompany_IdAndStatusNot(companyId, MemberStatus.REMOVED);
         long currentProjects = projectRepository.countByWorkspace_Company_IdAndStatusNot(companyId, ProjectStatus.CANCELLED); 
+        long currentStorage = company.getCurrentStorageBytes() != null ? company.getCurrentStorageBytes() : 0;
 
+        // ========================================================================
+        // 3. TÍNH TOÁN CÁC CỜ BÁO HIỆU (FLAGS) DÀNH CHO FRONTEND
+        // ========================================================================
+        
+        // Cờ ân hạn: Nếu thời gian hết hạn đã qua (< NOW) nhưng trạng thái vẫn chưa bị chuyển thành EXPIRED/CANCELED
+        // Hoặc trạng thái hiện tại đang được đánh dấu rõ là PAST_DUE
+        boolean isGracePeriod = (end != null && end.isBefore(LocalDateTime.now())) 
+                             || "PAST_DUE".equalsIgnoreCase(subStatus);
+
+        // Các cờ giới hạn: Bật (true) nếu chạm ngưỡng hoặc vượt ngưỡng. 
+        // Bỏ qua (false) nếu max = -1 (tức là không giới hạn)
+        boolean isUserLimitExceeded = (maxUsers != -1) && (currentMembers >= maxUsers);
+        boolean isProjectLimitExceeded = (maxProjects != -1) && (currentProjects >= maxProjects);
+        boolean isStorageLimitExceeded = (maxStorageBytes != -1) && (currentStorage >= maxStorageBytes);
+
+        // 4. Trả về DTO tổng hợp
         return Tenant360Response.builder()
                 .companyId(company.getId())
                 .companyName(company.getName())
@@ -183,8 +201,13 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
                 .totalProjects(currentProjects)
                 .maxProjects(maxProjects)
                 
-                .currentStorageBytes(company.getCurrentStorageBytes() != null ? company.getCurrentStorageBytes() : 0)
+                .currentStorageBytes(currentStorage)
                 .maxStorageBytes(maxStorageBytes)
+                
+                .isGracePeriod(isGracePeriod)
+                .isUserLimitExceeded(isUserLimitExceeded)
+                .isProjectLimitExceeded(isProjectLimitExceeded)
+                .isStorageLimitExceeded(isStorageLimitExceeded)
                 .build();
     }
 
