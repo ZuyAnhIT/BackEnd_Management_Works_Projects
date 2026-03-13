@@ -2,6 +2,7 @@ package com.quanlyduan.project_manager_api.security;
 
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.Sprint;
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.model.User;
@@ -29,6 +30,7 @@ public class SecurityServiceImpl implements SecurityService {
     private final WorkspaceRepository workspaceRepository;
     private final ProjectRepository projectRepository;
     private final SprintRepository sprintRepository;
+    private final CompanyRepository companyRepository;
 
     // === CONSTRUCTOR THỦ CÔNG ===
     public SecurityServiceImpl(CompanyMemberRepository companyMemberRepository,
@@ -39,7 +41,8 @@ public class SecurityServiceImpl implements SecurityService {
                                TaskRepository taskRepository,
                                WorkspaceRepository workspaceRepository,
                                ProjectRepository projectRepository,
-                               SprintRepository sprintRepository) {
+                               SprintRepository sprintRepository,
+                               CompanyRepository companyRepository) {
         this.companyMemberRepository = companyMemberRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.projectMemberRepository = projectMemberRepository;
@@ -49,6 +52,7 @@ public class SecurityServiceImpl implements SecurityService {
         this.workspaceRepository = workspaceRepository;
         this.projectRepository = projectRepository;
         this.sprintRepository = sprintRepository;
+        this.companyRepository = companyRepository;
     }
 
     // ========================================================================
@@ -175,6 +179,29 @@ public class SecurityServiceImpl implements SecurityService {
         Integer userId = getCurrentUserId();
         if (userId == null || targetId == null || scope == null || permissionCode == null)
             return false;
+
+        // BƯỚC CHẶN TENANT SUSPENDED
+        Integer companyIdToCheck = null;
+        switch (scope.toLowerCase()) {
+            case "company": companyIdToCheck = targetId; break;
+            case "workspace": companyIdToCheck = getCompanyIdFromWorkspace(targetId); break;
+            case "project": 
+            case "task": 
+            case "sprint":
+                Integer workspaceId = getWorkspaceIdFromProject(scope.equals("project") ? targetId : /* logic lấy projectId từ task/sprint */ targetId); 
+                companyIdToCheck = getCompanyIdFromWorkspace(workspaceId);
+                break;
+        }
+
+        if (companyIdToCheck != null) {
+            Company company = companyRepository.findById(companyIdToCheck)
+                    .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
+            
+            if ("SUSPENDED".equalsIgnoreCase(company.getStatus().toString())) {
+                // Ném ra Exception cụ thể để Frontend hiện Popup: "Tài khoản doanh nghiệp của bạn đã bị tạm khóa"
+                throw new BadRequestException("Your business account has been temporarily suspended. Please contact the system administrator.");
+            }
+        }
 
         switch (scope.toLowerCase()) {
             case "company":

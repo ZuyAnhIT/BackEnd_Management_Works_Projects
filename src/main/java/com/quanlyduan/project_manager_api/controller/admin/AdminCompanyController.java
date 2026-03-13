@@ -60,4 +60,17 @@ public class AdminCompanyController {
         return ResponseEntity.ok(ApiResponse.success("Fetched tenant 360 view successfully.", response));
     }
     
+    @PutMapping("/{companyId}/suspend")
+    @PreAuthorize("@securityService.hasSystemPermission('tenant:suspend')")
+    public ResponseEntity<ApiResponse<Void>> suspendCompany(@PathVariable Integer companyId) {
+        companyAdminService.changeCompanyStatus(companyId, "SUSPENDED");
+        return ResponseEntity.ok(ApiResponse.success("Company has been suspended successfully.", null));
+    }
+
+    @PutMapping("/{companyId}/activate")
+    @PreAuthorize("@securityService.hasSystemPermission('tenant:suspend')")
+    public ResponseEntity<ApiResponse<Void>> activateCompany(@PathVariable Integer companyId) {
+        companyAdminService.changeCompanyStatus(companyId, "ACTIVE");
+        return ResponseEntity.ok(ApiResponse.success("Company has been activated successfully.", null));
+    }
 }
