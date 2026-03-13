@@ -198,29 +198,6 @@ public class ProjectServiceImpl implements ProjectService {
             throw new BadRequestException("Workspace does not belong to the specified company.");
         }
 
-        // =====================================================================
-        // 🚀 BƯỚC 1.5: QUOTA GUARD (Kiểm tra giới hạn Dự án của TOÀN BỘ CÔNG TY)
-        // =====================================================================
-        CompanySubscription currentSubscription = companySubscriptionRepository.findByCompany_Id(companyId)
-                .orElseThrow(() -> new BadRequestException("System Error: Company does not have an active subscription."));
-
-        // Đếm TỔNG số dự án đang tồn tại trong TOÀN BỘ các Workspace của Công ty
-        long currentProjectCount = projectRepository.countByCompanyId(companyId);
-        
-        Integer maxAllowedProjects = currentSubscription.getPlan().getMaxProjects();
-
-        // Kiểm tra giới hạn (Bỏ qua nếu max = -1 tức là Gói Enterprise / Không giới hạn)
-        if (maxAllowedProjects != null && maxAllowedProjects != -1) {
-            if (currentProjectCount >= maxAllowedProjects) {
-                throw new QuotaExceededException(
-                    String.format("Upgrade required! Your current '%s' plan allows a maximum of %d projects. " +
-                                  "Your company currently has %d projects across all workspaces. Please upgrade your plan to create more.", 
-                    currentSubscription.getPlan().getName(), maxAllowedProjects, currentProjectCount)
-                );
-            }
-        }
-        // =====================================================================
-
         // (2) Kiểm tra unique projectCode
         if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, request.getProjectCode())) {
             throw new BadRequestException("Project code already exists in this workspace.");

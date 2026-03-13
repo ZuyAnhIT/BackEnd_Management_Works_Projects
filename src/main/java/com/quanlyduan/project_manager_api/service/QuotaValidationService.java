@@ -15,6 +15,14 @@ public interface QuotaValidationService {
      */
     void validateProjectCreationQuota(Integer companyId);
 
+    /**
+     * Kiểm tra xem Công ty có được phép tạo thêm Không gian làm việc (Workspace) mới không.
+     * Dựa trên số lượng Workspace hiện tại so với max_workspaces của Gói cước.
+     *
+     * @param companyId ID của Công ty cần kiểm tra
+     */
+    void validateWorkspaceCreationQuota(Integer companyId);
+    
     // /**
     //  * Kiểm tra xem Công ty có được phép mời thêm Nhân viên mới không.
     //  * Dựa trên số lượng Member hiện tại so với max_users của Gói cước.

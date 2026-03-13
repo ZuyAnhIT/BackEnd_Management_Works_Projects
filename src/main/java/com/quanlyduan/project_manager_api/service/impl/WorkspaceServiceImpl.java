@@ -64,6 +64,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     private final EmailService emailService;
     private final FileStorageService fileStorageService;
     private final CompanySubscriptionRepository companySubscriptionRepository;
+    private final QuotaValidationServiceImpl quotaValidationService;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -80,7 +81,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                                  CompanyMemberRepository companyMemberRepository,
                                  EmailService emailService,
                                  FileStorageService fileStorageService,
-                                 CompanySubscriptionRepository companySubscriptionRepository) {
+                                 CompanySubscriptionRepository companySubscriptionRepository,
+                                 QuotaValidationServiceImpl quotaValidationService) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.companyRepository = companyRepository;
@@ -91,6 +93,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         this.emailService = emailService;
         this.fileStorageService = fileStorageService;
         this.companySubscriptionRepository = companySubscriptionRepository;
+        this.quotaValidationService = quotaValidationService;
     }
 
     // ========================================================================
@@ -105,6 +108,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     @LogActivity(action = "CREATE", entityType = "WORKSPACE", description = "Create new Workspace")
     public WorkspaceResponse createWorkspace(Integer companyId, CreateWorkspaceRequest request, MultipartFile coverImageFile) {
 
+        //BỨC TƯỜNG LỬA: Kiểm tra hạn mức Workspace
+        quotaValidationService.validateWorkspaceCreationQuota(companyId);
         // 1. Kiểm tra tồn tại Công ty và User tạo
         User creator = securityService.getCurrentAuthenticatedUser();
         Company company = companyRepository.findById(companyId)
@@ -120,29 +125,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Role not found: WORKSPACE_ADMIN. Please configure the database."
                 ));
-
-        // =====================================================================
-        // 🚀 BƯỚC 4: QUOTA GUARD (Kiểm tra giới hạn Workspace của Gói cước)
-        // =====================================================================
-        CompanySubscription currentSubscription = companySubscriptionRepository.findByCompany_Id(companyId)
-                .orElseThrow(() -> new BadRequestException("System Error: Company does not have an active subscription."));
-
-        // Đếm số Workspace đang tồn tại (bỏ qua những cái đã DELETED để trả lại slot cho user)
-        long currentWorkspaceCount = workspaceRepository.countByCompany_IdAndStatusNot(companyId, WorkspaceStatus.DELETED);
-        
-        Integer maxAllowedWorkspaces = currentSubscription.getPlan().getMaxWorkspaces();
-
-        // Kiểm tra giới hạn (Bỏ qua nếu max = -1 tức là Gói Enterprise / Không giới hạn)
-        if (maxAllowedWorkspaces != null && maxAllowedWorkspaces != -1) {
-            if (currentWorkspaceCount >= maxAllowedWorkspaces) {
-                throw new QuotaExceededException(
-                    String.format("Upgrade required! Your current '%s' plan allows a maximum of %d workspaces. " +
-                                  "You currently have %d active workspaces. Please delete an unused workspace or upgrade your plan.", 
-                    currentSubscription.getPlan().getName(), maxAllowedWorkspaces, currentWorkspaceCount)
-                );
-            }
-        }
-        // =====================================================================
 
         // 5. Tạo Workspace Entity
         Workspace newWorkspace = Workspace.builder()

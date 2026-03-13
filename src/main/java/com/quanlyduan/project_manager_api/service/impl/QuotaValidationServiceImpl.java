@@ -5,8 +5,12 @@ import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanySubscription;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
+import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
+import com.quanlyduan.project_manager_api.service.QuotaValidationService;
+
 // Bạn có thể inject thêm CompanyMemberRepository để làm hàm check User Quota sau này
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,15 +18,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class QuotaValidationServiceImpl { // Nếu có Interface thì bạn implements vào nhé
+public class QuotaValidationServiceImpl implements QuotaValidationService  { // Nếu có Interface thì bạn implements vào nhé
 
     private final CompanyRepository companyRepository;
     private final ProjectRepository projectRepository;
+    private final WorkspaceRepository workspaceRepository;
 
     /**
      * Kiểm tra xem Công ty có được phép tạo thêm Dự án không.
      * Nếu vượt quá hoặc bằng giới hạn -> Ném lỗi 402 Payment Required.
      */
+    @Override
     @Transactional(readOnly = true)
     public void validateProjectCreationQuota(Integer companyId) {
         Company company = companyRepository.findById(companyId)
@@ -50,6 +56,39 @@ public class QuotaValidationServiceImpl { // Nếu có Interface thì bạn impl
             throw new OverageException(
                 "Bạn đã đạt giới hạn tối đa " + maxProjects + " dự án của gói " + sub.getPlan().getName() + 
                 ". Vui lòng nâng cấp gói cước để tạo thêm dự án mới."
+            );
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void validateWorkspaceCreationQuota(Integer companyId) {
+        // 1. Lấy thông tin công ty và gói cước
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
+
+        CompanySubscription sub = company.getSubscription();
+        
+        // 2. Kiểm tra an toàn
+        if (sub == null || sub.getPlan() == null) {
+            throw new OverageException("Không tìm thấy thông tin gói cước. Vui lòng liên hệ Admin.");
+        }
+
+        Integer maxWorkspaces = sub.getPlan().getMaxWorkspaces();
+
+        // 3. Nếu maxWorkspaces = -1 (Gói Enterprise / Không giới hạn) -> Cho qua luôn
+        if (maxWorkspaces == null || maxWorkspaces == -1) {
+            return;
+        }
+
+        // 4. Đếm số Workspace đang tồn tại (bỏ qua những cái đã DELETED)
+        long currentWorkspaceCount = workspaceRepository.countByCompany_IdAndStatusNot(companyId, WorkspaceStatus.DELETED);
+
+        // 5. Chặn đứng nếu chạm hoặc vượt ngưỡng
+        if (currentWorkspaceCount >= maxWorkspaces) {
+            throw new OverageException(
+                "Bạn đã đạt giới hạn tối đa " + maxWorkspaces + " không gian làm việc (workspace) của gói " + sub.getPlan().getName() + 
+                ". Vui lòng nâng cấp gói cước hoặc xóa bớt không gian làm việc cũ để tạo mới."
             );
         }
     }
