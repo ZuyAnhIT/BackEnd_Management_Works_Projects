@@ -119,7 +119,8 @@ public class UserServiceImpl implements UserService {
                         .map(cm -> new CompanyMembershipDTO(
                                 cm.getCompany().getId(),
                                 cm.getCompany().getName(),
-                                cm.getRole().getRoleCode()
+                                cm.getRole().getRoleCode(),
+                                cm.getCompany().getStatus() != null ? cm.getCompany().getStatus().toString() : "ACTIVE"
                         ))
                         .collect(Collectors.toList())
         );
@@ -186,9 +187,11 @@ public class UserServiceImpl implements UserService {
                 companyRoles.add(new CompanyMembershipDTO(
                         company.getId(),
                         company.getName(),
-                        "GUEST" // Đánh dấu role là GUEST
+                        "GUEST",// Đánh dấu role là GUEST
+                        company.getStatus() != null ? company.getStatus().toString() : "ACTIVE"
                 ));
                 existingCompanyIds.add(company.getId()); // Đánh dấu đã xử lý
+                
             }
         }
         // =================================================================================

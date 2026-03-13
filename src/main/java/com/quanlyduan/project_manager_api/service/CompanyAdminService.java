@@ -16,4 +16,7 @@ public interface CompanyAdminService {
     
     // Lấy chi tiết thông số tài nguyên của 1 công ty
     Tenant360Response getTenant360View(Integer companyId);
+
+    // Thay đổi trạng thái công ty (ACTIVE, SUSPENDED, DELETED)
+    void changeCompanyStatus(Integer companyId, String newStatus);
 }

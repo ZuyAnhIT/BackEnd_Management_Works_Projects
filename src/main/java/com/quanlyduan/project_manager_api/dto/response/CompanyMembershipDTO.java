@@ -26,4 +26,6 @@ public class CompanyMembershipDTO {
     // Ví dụ: "COMPANY_ADMIN" (Quản trị viên) hoặc "COMPANY_MEMBER" (Thành viên).
     // Frontend dùng trường này để quyết định có hiển thị nút "Cài đặt công ty" hay không.
     private String roleCode; 
+
+    private String companyStatus;
 }

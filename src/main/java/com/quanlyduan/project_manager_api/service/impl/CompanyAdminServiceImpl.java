@@ -3,9 +3,11 @@ package com.quanlyduan.project_manager_api.service.impl;
 import com.quanlyduan.project_manager_api.dto.response.company.AdminCompanyResponse;
 import com.quanlyduan.project_manager_api.dto.response.company.Tenant360Response;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanySubscription;
+import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus; 
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus; 
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; 
@@ -184,5 +186,23 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
                 .currentStorageBytes(company.getCurrentStorageBytes() != null ? company.getCurrentStorageBytes() : 0)
                 .maxStorageBytes(maxStorageBytes)
                 .build();
+    }
+
+
+    @Override
+    @Transactional
+    public void changeCompanyStatus(Integer companyId, String newStatus) {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
+
+        try {
+            CompanyStatus statusEnum = CompanyStatus.valueOf(newStatus.toUpperCase());
+            company.setStatus(statusEnum);
+        } catch (IllegalArgumentException e) {
+            // Bắt lỗi nếu lỡ truyền vào một status tào lao không có trong Enum
+            throw new BadRequestException("Invalid status value: " + newStatus);
+        }
+        
+        companyRepository.save(company);
     }
 }
