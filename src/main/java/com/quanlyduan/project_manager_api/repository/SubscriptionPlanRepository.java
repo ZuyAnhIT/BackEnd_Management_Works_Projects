@@ -24,4 +24,6 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
     
     // Dành cho Khách hàng: Chỉ tìm gói cước theo ID VÀ gói đó phải đang mở bán
     Optional<SubscriptionPlan> findByIdAndIsActiveTrue(Integer id);
+    // Tìm gói cước theo mã (ví dụ: "FREE")
+    Optional<SubscriptionPlan> findByPlanCodeIgnoreCase(String planCode);
 }
