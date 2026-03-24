@@ -9,8 +9,12 @@ import com.quanlyduan.project_manager_api.dto.response.plan.PlanResponse;
 import com.quanlyduan.project_manager_api.dto.response.plan.PublicPlanResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.Company;
+import com.quanlyduan.project_manager_api.model.CompanySubscription;
 import com.quanlyduan.project_manager_api.model.SubscriptionPlan;
 import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.common.enums.SubscriptionStatus;
+import com.quanlyduan.project_manager_api.repository.CompanyRepository;
 import com.quanlyduan.project_manager_api.repository.SubscriptionPlanRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.SubscriptionPlanService;
@@ -24,14 +28,17 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import com.quanlyduan.project_manager_api.repository.specification.SubscriptionPlanSpecification;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
 
     private final SubscriptionPlanRepository planRepository;
     private final SecurityService securityService;
-    private final ObjectMapper objectMapper; // Dùng để parse JSON
+    private final ObjectMapper objectMapper; 
+    private final CompanyRepository companyRepository;
 
     @Override
     @Transactional
@@ -307,5 +314,34 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
                 .orElseThrow(() -> new ResourceNotFoundException("Subscription plan not found or no longer active."));
         
         return mapToPublicPlanResponse(plan); // Dùng lại hàm map của Public
+    }
+
+    @Override
+    @Transactional
+    public void cancelActiveSubscription(Integer companyId) {
+        // 1. Tìm công ty
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Công ty."));
+
+        // 2. Lấy gói cước đang ACTIVE (Đang sử dụng) của công ty
+        CompanySubscription activeSub = company.getSubscriptions().stream()
+                .filter(sub -> sub.getStatus() == SubscriptionStatus.ACTIVE)
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("Công ty hiện không có gói cước nào đang hoạt động để hủy."));
+
+        // 3. Kiểm tra xem khách đã bấm hủy trước đó chưa
+        if (Boolean.TRUE.equals(activeSub.getCancelAtPeriodEnd())) {
+            throw new BadRequestException("Gói cước này đã được yêu cầu hủy vào cuối kỳ từ trước rồi.");
+        }
+
+        // 4. BẬT CỜ HỦY VÀO CUỐI KỲ (Chuẩn SaaS)
+        activeSub.setCancelAtPeriodEnd(true);
+
+        // 5. Lưu xuống Database
+        // (Do Entity Company đã map cascade = CascadeType.ALL với danh sách Subscriptions nên chỉ cần save Company)
+        companyRepository.save(company);
+
+        log.info("Khách hàng đã yêu cầu hủy gói [{}]. Gói sẽ tự động kết thúc vào ngày: {}", 
+                 activeSub.getPlan().getName(), activeSub.getCurrentPeriodEnd());
     }
 }

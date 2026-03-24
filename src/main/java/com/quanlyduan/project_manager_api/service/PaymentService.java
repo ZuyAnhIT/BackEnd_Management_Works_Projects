@@ -22,4 +22,5 @@ public interface PaymentService {
     void processWebhook(Webhook webhookBody);
 
     void cancelPendingTransaction(String transactionCode, Integer companyId, String reason);
+
 }

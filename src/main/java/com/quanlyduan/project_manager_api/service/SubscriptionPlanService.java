@@ -46,4 +46,7 @@ public interface SubscriptionPlanService {
 
     // Lấy chi tiết gói cước cho Khách hàng (Chỉ trả về gói đang Active, ẩn thông tin nhạy cảm)
     PublicPlanResponse getPublicPlanById(Integer planId);
+
+    // Khách hàng yêu cầu hủy gói (Không gia hạn nữa)
+    void cancelActiveSubscription(Integer companyId);
 }
