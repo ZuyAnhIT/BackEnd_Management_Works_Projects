@@ -20,4 +20,6 @@ public interface PaymentService {
      * Hàm xử lý Webhook khi PayOS gọi về thông báo giao dịch thành công.
      */
     void processWebhook(Webhook webhookBody);
+
+    void cancelPendingTransaction(String transactionCode, Integer companyId, String reason);
 }

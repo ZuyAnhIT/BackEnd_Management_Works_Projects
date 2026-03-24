@@ -14,6 +14,7 @@ import com.quanlyduan.project_manager_api.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -314,6 +315,75 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (Exception e) {
             log.error("Lỗi xử lý Webhook hoặc Chữ ký không hợp lệ: ", e);
             throw new BadRequestException("Webhook verification failed.");
+        }
+    }
+
+    // =================================================================================
+    // 🔴 API: KHÁCH CHỦ ĐỘNG HỦY ĐƠN HÀNG (TRƯỜNG HỢP A)
+    // =================================================================================
+    @Override
+    @Transactional
+    public void cancelPendingTransaction(String transactionCode, Integer companyId, String reason) {
+        
+        // 1. Tìm giao dịch trong Database
+        Transaction transaction = transactionRepository.findByTransactionCode(transactionCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giao dịch: " + transactionCode));
+
+        // 2. Bảo mật: Chặn đứng nếu người dùng cố tình hủy đơn của công ty khác
+        if (!transaction.getCompany().getId().equals(companyId)) {
+            throw new BadRequestException("Access Denied: Bạn không có quyền hủy giao dịch này.");
+        }
+
+        // 3. Chỉ cho phép hủy nếu đơn đang ở trạng thái PENDING
+        if (transaction.getStatus() != TransactionStatus.PENDING) {
+            throw new BadRequestException("Giao dịch này không ở trạng thái chờ thanh toán nên không thể hủy.");
+        }
+
+        // 4. Cập nhật Database: Chuyển PENDING -> CANCELLED
+        transaction.setStatus(TransactionStatus.CANCELLED);
+        transactionRepository.save(transaction);
+
+        // 5. Gọi sang PayOS để HỦY MÃ QR TRÊN HỆ THỐNG CỦA HỌ
+        try {
+            long orderCode = Long.parseLong(transactionCode);
+            
+            // Báo PayOS hủy đơn. (Tránh việc khách lưu ảnh QR về máy, hôm sau mang ra quét vẫn bị trừ tiền)
+            // Lưu ý: Tuỳ thuộc phiên bản PayOS SDK, tham số thứ 2 có thể là String hoặc Object
+            payOS.paymentRequests().cancel(orderCode, reason);
+            
+            log.info("🚫 Đã hủy đơn hàng [{}] thành công trên cả Local và PayOS.", transactionCode);
+            
+        } catch (Exception e) {
+            // Đôi khi mã QR đã tự hết hạn trên PayOS trước đó, API của PayOS sẽ báo lỗi.
+            // Chúng ta CATCH lỗi này để KHÔNG quăng lỗi 500 ra Frontend, vì ở Local (DB) chúng ta đã hủy thành công rồi.
+            log.warn("Đã hủy đơn [{}] ở Local, nhưng PayOS báo lỗi (có thể QR đã hết hạn từ trước): {}", 
+                     transactionCode, e.getMessage());
+        }
+    }
+
+    // Chạy ngầm định kỳ mỗi 5 phút (300.000 ms)
+    @Scheduled(fixedRate = 300000)
+    @Transactional
+    public void cleanupExpiredTransactions() {
+        
+        // 1. Xác định mốc thời gian: 15 phút trước so với thời điểm hiện tại
+        LocalDateTime fifteenMinutesAgo = LocalDateTime.now().minusMinutes(15);
+        
+        // 2. Lên Database tìm tất cả các đơn PENDING tạo trước mốc 15 phút đó
+        List<Transaction> expiredTransactions = transactionRepository
+                .findByStatusAndCreatedAtBefore(TransactionStatus.PENDING, fifteenMinutesAgo);
+
+        // 3. Nếu tìm thấy rác thì dọn dẹp
+        if (!expiredTransactions.isEmpty()) {
+            
+            // Chuyển toàn bộ sang trạng thái CANCELLED
+            expiredTransactions.forEach(tx -> tx.setStatus(TransactionStatus.CANCELLED));
+            
+            // Lưu lại vào DB một lượt (Batch Update) cho tối ưu hiệu suất
+            transactionRepository.saveAll(expiredTransactions);
+            
+            log.info("🧹 Cron Job: Đã quét và tự động HỦY {} đơn hàng PENDING do quá hạn 15 phút không thanh toán.", 
+                     expiredTransactions.size());
         }
     }
 }
