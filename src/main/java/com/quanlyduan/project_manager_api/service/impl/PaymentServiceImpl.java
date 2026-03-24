@@ -2,6 +2,9 @@ package com.quanlyduan.project_manager_api.service.impl;
 
 import com.quanlyduan.project_manager_api.dto.request.CheckoutRequest;
 import com.quanlyduan.project_manager_api.dto.response.CheckoutResponse;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.dto.response.TransactionDetailResponse;
+import com.quanlyduan.project_manager_api.dto.response.TransactionListResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.*;
@@ -14,6 +17,10 @@ import com.quanlyduan.project_manager_api.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -385,5 +392,87 @@ public class PaymentServiceImpl implements PaymentService {
             log.info("🧹 Cron Job: Đã quét và tự động HỦY {} đơn hàng PENDING do quá hạn 15 phút không thanh toán.", 
                      expiredTransactions.size());
         }
+    }
+
+    // =========================================================================
+    // API 1: LẤY DANH SÁCH GIAO DỊCH (CÓ PHÂN TRANG & LỌC)
+    // =========================================================================
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<TransactionListResponse> getTransactionHistory(
+            Integer companyId, int page, int size, String status, LocalDateTime startDate, LocalDateTime endDate) {
+
+        // Luôn sắp xếp mới nhất lên đầu
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        TransactionStatus txStatus = (status != null && !status.equalsIgnoreCase("ALL")) 
+                                     ? TransactionStatus.valueOf(status.toUpperCase()) : null;
+
+        Page<Transaction> transactions = transactionRepository.filterTransactions(
+                companyId, txStatus, startDate, endDate, pageable);
+
+        Page<TransactionListResponse> dtoPage = transactions.map(tx -> TransactionListResponse.builder()
+                .transactionCode(tx.getTransactionCode())
+                .planName(tx.getPlan().getName())
+                .amount(tx.getAmount())
+                .status(tx.getStatus().toString())
+                .createdAt(tx.getCreatedAt())
+                .build());
+
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // =========================================================================
+    // API 3: XEM CHI TIẾT GIAO DỊCH (KÈM BÓC TÁCH DÒNG TIỀN & TRẠNG THÁI GÓI)
+    // =========================================================================
+    @Override
+    @Transactional(readOnly = true)
+    public TransactionDetailResponse getTransactionDetail(String transactionCode, Integer companyId) {
+        
+        // 1. Lấy giao dịch (Bảo mật: Phải đúng của công ty đó)
+        Transaction tx = transactionRepository.findByTransactionCodeAndCompanyId(transactionCode, companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giao dịch hoặc bạn không có quyền xem."));
+
+        // 2. Tính toán lại logic Proration (Khấu trừ)
+        // Giá gốc phụ thuộc vào việc khách mua tháng hay mua năm ở giao dịch đó
+        BigDecimal originalPrice = tx.getBillingCycle() == BillingCycle.YEARLY 
+                                   ? tx.getPlan().getYearlyPrice() 
+                                   : tx.getPlan().getMonthlyPrice();
+                                   
+        // Số tiền được giảm (Do dư gói cũ) = Giá gốc - Số tiền thực thu (Đảm bảo >= 0)
+        BigDecimal deducted = originalPrice.subtract(tx.getAmount());
+        if (deducted.compareTo(BigDecimal.ZERO) < 0) deducted = BigDecimal.ZERO;
+
+        // 3. Lấy Tình trạng sử dụng hiện tại của Công ty
+        Company company = tx.getCompany();
+        CompanySubscription activeSub = company.getSubscriptions().stream()
+                .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE || s.getStatus() == SubscriptionStatus.PAST_DUE)
+                .findFirst()
+                .orElse(null);
+
+        // 4. Build dữ liệu trả về
+        TransactionDetailResponse.TransactionDetailResponseBuilder builder = TransactionDetailResponse.builder()
+                // Cơ bản
+                .transactionCode(tx.getTransactionCode())
+                .createdAt(tx.getCreatedAt())
+                .paidAt(tx.getPaidAt())
+                .status(tx.getStatus().toString())
+                .paymentMethod(tx.getPaymentMethod())
+                // Dòng tiền
+                .originalPrice(originalPrice)
+                .deductedAmount(deducted)
+                .finalPaidAmount(tx.getAmount())
+                // Đối soát
+                .gatewayReferenceCode(tx.getGatewayTransactionId());
+
+        // Nếu công ty đang có gói cước, đính kèm thông tin sử dụng vào
+        if (activeSub != null) {
+            builder.currentPlanName(activeSub.getPlan().getName())
+                   .subscriptionStatus(activeSub.getStatus().toString())
+                   .currentPeriodStart(activeSub.getCurrentPeriodStart())
+                   .currentPeriodEnd(activeSub.getCurrentPeriodEnd())
+                   .isPendingCancel(Boolean.TRUE.equals(activeSub.getCancelAtPeriodEnd()));
+        }
+
+        return builder.build();
     }
 }
