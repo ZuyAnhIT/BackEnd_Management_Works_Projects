@@ -4,6 +4,9 @@ import com.quanlyduan.project_manager_api.dto.request.CancelPaymentRequest;
 import com.quanlyduan.project_manager_api.dto.request.CheckoutRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.CheckoutResponse;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.dto.response.TransactionDetailResponse;
+import com.quanlyduan.project_manager_api.dto.response.TransactionListResponse;
 import com.quanlyduan.project_manager_api.security.UserPrincipal;
 import com.quanlyduan.project_manager_api.service.PaymentService;
 
@@ -13,12 +16,16 @@ import vn.payos.model.webhooks.Webhook;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -92,5 +99,39 @@ public class PaymentController {
         paymentService.cancelPendingTransaction(transactionCode, request.getCompanyId(), request.getCancellationReason());
 
         return ResponseEntity.ok(ApiResponse.success("Hủy giao dịch thành công.", null));
+    }
+
+    /**
+     * API 1: Lấy danh sách giao dịch (Có phân trang, bộ lọc)
+     */
+    @GetMapping("/checkout/history")
+    @PreAuthorize("@securityService.hasCompanyPermission(#companyId, 'company:manage_billing')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<TransactionListResponse>>> getTransactionHistory(
+            @RequestParam Integer companyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false, defaultValue = "ALL") String status,
+            // Cho phép Frontend truyền ngày dạng yyyy-MM-dd'T'HH:mm:ss
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+
+        PageResponseDTO<TransactionListResponse> history = paymentService.getTransactionHistory(
+                companyId, page, size, status, startDate, endDate);
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử giao dịch thành công.", history));
+    }
+
+    /**
+     * API 3: Xem chi tiết 1 giao dịch cụ thể
+     */
+    @GetMapping("/checkout/history/{transactionCode}")
+    @PreAuthorize("@securityService.hasCompanyPermission(#companyId, 'company:manage_billing')")
+    public ResponseEntity<ApiResponse<TransactionDetailResponse>> getTransactionDetail(
+            @PathVariable String transactionCode,
+            @RequestParam Integer companyId) {
+
+        TransactionDetailResponse detail = paymentService.getTransactionDetail(transactionCode, companyId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết giao dịch thành công.", detail));
     }
 }
