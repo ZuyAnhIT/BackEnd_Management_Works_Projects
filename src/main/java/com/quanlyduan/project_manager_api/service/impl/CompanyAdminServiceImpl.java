@@ -9,7 +9,8 @@ import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanySubscription;
 import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus; 
-import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus; 
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.SubscriptionStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; 
 import com.quanlyduan.project_manager_api.repository.CompanyRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository; 
@@ -34,7 +35,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompanyAdminServiceImpl implements CompanyAdminService {
 
     private final CompanyRepository companyRepository;
-    
     private final CompanyMemberRepository companyMemberRepository;
     private final ProjectRepository projectRepository;
 
@@ -111,7 +111,11 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
                 .status(company.getStatus().toString())
                 .createdAt(company.getCreatedAt());
 
-        CompanySubscription sub = company.getSubscription(); 
+        CompanySubscription sub = company.getSubscriptions().stream()
+                .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
+                .findFirst()
+                .orElse(null);
+
         if (sub != null) {
             builder.subscriptionStatus(sub.getStatus().toString())
                    .currentPeriodEnd(sub.getCurrentPeriodEnd());
@@ -134,7 +138,12 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
 
-        CompanySubscription sub = company.getSubscription();
+        // Tìm gói cước đang ACTIVE trong danh sách lịch sử
+        CompanySubscription sub = company.getSubscriptions().stream()
+                .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
+                .findFirst()
+                .orElse(null);
+
         String planCode = "N/A", planName = "No Plan", subStatus = "NONE";
         Integer maxUsers = 0, maxProjects = 0;
         long maxStorageBytes = 0;

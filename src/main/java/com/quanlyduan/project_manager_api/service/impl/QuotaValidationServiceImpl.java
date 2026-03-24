@@ -5,28 +5,38 @@ import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanySubscription;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.SubscriptionStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
 import com.quanlyduan.project_manager_api.service.QuotaValidationService;
 
-// Bạn có thể inject thêm CompanyMemberRepository để làm hàm check User Quota sau này
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class QuotaValidationServiceImpl implements QuotaValidationService  { // Nếu có Interface thì bạn implements vào nhé
+public class QuotaValidationServiceImpl implements QuotaValidationService {
 
     private final CompanyRepository companyRepository;
     private final ProjectRepository projectRepository;
     private final WorkspaceRepository workspaceRepository;
 
+    // ========================================================================
+    // HÀM HELPER: Lấy gói cước ĐANG HOẠT ĐỘNG của công ty
+    // ========================================================================
+    private CompanySubscription getActiveSubscription(Company company) {
+        return company.getSubscriptions().stream()
+                .filter(sub -> sub.getStatus() == SubscriptionStatus.ACTIVE)
+                .findFirst()
+                .orElseThrow(() -> new OverageException("Không tìm thấy thông tin gói cước đang hoạt động. Vui lòng liên hệ Admin."));
+    }
+
     /**
      * Kiểm tra xem Công ty có được phép tạo thêm Dự án không.
-     * Nếu vượt quá hoặc bằng giới hạn -> Ném lỗi 402 Payment Required.
+     * Nếu vượt quá hoặc bằng giới hạn -> Ném lỗi OverageException (402).
      */
     @Override
     @Transactional(readOnly = true)
@@ -34,11 +44,11 @@ public class QuotaValidationServiceImpl implements QuotaValidationService  { // 
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
 
-        CompanySubscription sub = company.getSubscription();
-        
-        // Nếu không có gói cước (trường hợp lỗi data), mặc định không cho tạo để an toàn
-        if (sub == null || sub.getPlan() == null) {
-            throw new OverageException("Không tìm thấy thông tin gói cước. Vui lòng liên hệ Admin.");
+        // Dùng hàm helper để lấy gói ACTIVE
+        CompanySubscription sub = getActiveSubscription(company);
+
+        if (sub.getPlan() == null) {
+            throw new OverageException("Gói cước bị lỗi dữ liệu Plan. Vui lòng liên hệ Admin.");
         }
 
         int maxProjects = sub.getPlan().getMaxProjects();
@@ -63,28 +73,27 @@ public class QuotaValidationServiceImpl implements QuotaValidationService  { // 
     @Override
     @Transactional(readOnly = true)
     public void validateWorkspaceCreationQuota(Integer companyId) {
-        // 1. Lấy thông tin công ty và gói cước
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
 
-        CompanySubscription sub = company.getSubscription();
-        
-        // 2. Kiểm tra an toàn
-        if (sub == null || sub.getPlan() == null) {
-            throw new OverageException("Không tìm thấy thông tin gói cước. Vui lòng liên hệ Admin.");
+        // Dùng hàm helper để lấy gói ACTIVE
+        CompanySubscription sub = getActiveSubscription(company);
+
+        if (sub.getPlan() == null) {
+            throw new OverageException("Gói cước bị lỗi dữ liệu Plan. Vui lòng liên hệ Admin.");
         }
 
         Integer maxWorkspaces = sub.getPlan().getMaxWorkspaces();
 
-        // 3. Nếu maxWorkspaces = -1 (Gói Enterprise / Không giới hạn) -> Cho qua luôn
+        // Nếu maxWorkspaces = -1 (Gói Enterprise / Không giới hạn) -> Cho qua luôn
         if (maxWorkspaces == null || maxWorkspaces == -1) {
             return;
         }
 
-        // 4. Đếm số Workspace đang tồn tại (bỏ qua những cái đã DELETED)
+        // Đếm số Workspace đang tồn tại (bỏ qua những cái đã DELETED)
         long currentWorkspaceCount = workspaceRepository.countByCompany_IdAndStatusNot(companyId, WorkspaceStatus.DELETED);
 
-        // 5. Chặn đứng nếu chạm hoặc vượt ngưỡng
+        // Chặn đứng nếu chạm hoặc vượt ngưỡng
         if (currentWorkspaceCount >= maxWorkspaces) {
             throw new OverageException(
                 "Bạn đã đạt giới hạn tối đa " + maxWorkspaces + " không gian làm việc (workspace) của gói " + sub.getPlan().getName() + 
