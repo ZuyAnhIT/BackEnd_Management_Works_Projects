@@ -1,5 +1,6 @@
 package com.quanlyduan.project_manager_api.controller;
 
+import com.quanlyduan.project_manager_api.dto.request.CancelPaymentRequest;
 import com.quanlyduan.project_manager_api.dto.request.CheckoutRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.CheckoutResponse;
@@ -77,5 +78,19 @@ public class PaymentController {
             response.put("message", "Error but ignored");
             return ResponseEntity.ok(response);
         }
+    }
+
+    /**
+     * API 2: Khách hàng chủ động hủy đơn hàng (Cancel PENDING Transaction)
+     */
+    @PostMapping("/checkout/{transactionCode}/cancel")
+    @PreAuthorize("@securityService.hasCompanyPermission(#request.companyId, 'company:manage_billing')")
+    public ResponseEntity<ApiResponse<String>> cancelPaymentLink(
+            @PathVariable String transactionCode,
+            @Valid @RequestBody CancelPaymentRequest request) {
+
+        paymentService.cancelPendingTransaction(transactionCode, request.getCompanyId(), request.getCancellationReason());
+
+        return ResponseEntity.ok(ApiResponse.success("Hủy giao dịch thành công.", null));
     }
 }
