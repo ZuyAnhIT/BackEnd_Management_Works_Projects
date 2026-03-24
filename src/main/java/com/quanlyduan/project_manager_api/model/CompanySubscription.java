@@ -22,9 +22,8 @@ public class CompanySubscription {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    // Sử dụng LAZY fetch để tối ưu hiệu suất truy vấn
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "company_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY) // Đổi OneToOne thành ManyToOne
+    @JoinColumn(name = "company_id", nullable = false) 
     private Company company;
 
     @ManyToOne(fetch = FetchType.LAZY)

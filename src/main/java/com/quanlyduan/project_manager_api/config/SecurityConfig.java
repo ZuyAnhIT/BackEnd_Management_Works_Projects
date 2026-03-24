@@ -80,6 +80,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Các URL trong PUBLIC_URLS được phép truy cập tự do
                 .requestMatchers(PUBLIC_URLS).permitAll()
+                .requestMatchers("/api/payments/webhook").permitAll()
                 // Tất cả các request còn lại BẮT BUỘC phải có Token xác thực
                 .anyRequest().authenticated()
                 

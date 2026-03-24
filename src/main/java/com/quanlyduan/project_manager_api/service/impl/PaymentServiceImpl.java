@@ -1,0 +1,319 @@
+package com.quanlyduan.project_manager_api.service.impl;
+
+import com.quanlyduan.project_manager_api.dto.request.CheckoutRequest;
+import com.quanlyduan.project_manager_api.dto.response.CheckoutResponse;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.*;
+import com.quanlyduan.project_manager_api.model.common.enums.BillingCycle;
+import com.quanlyduan.project_manager_api.model.common.enums.SubscriptionStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.TransactionStatus;
+import com.quanlyduan.project_manager_api.repository.*;
+import com.quanlyduan.project_manager_api.service.PaymentService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import vn.payos.PayOS;
+import vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest;
+import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
+import vn.payos.model.webhooks.Webhook;
+import vn.payos.model.webhooks.WebhookData;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class PaymentServiceImpl implements PaymentService {
+
+    private final TransactionRepository transactionRepository;
+    private final SubscriptionPlanRepository planRepository;
+    private final CompanyRepository companyRepository;
+    private final UserRepository userRepository;
+    
+    private final PayOS payOS;
+
+    @Value("${payos.return-url}")
+    private String defaultReturnUrl;
+
+    @Value("${payos.cancel-url}")
+    private String defaultCancelUrl;
+
+    @Override
+    @Transactional
+    public CheckoutResponse createPaymentLink(Integer companyId, Integer userId, CheckoutRequest request) {
+        
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Công ty."));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy User."));
+        SubscriptionPlan plan = planRepository.findById(request.getPlanId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Gói cước."));
+
+        BillingCycle cycle = BillingCycle.valueOf(request.getBillingCycle().toUpperCase());
+
+        // 1. Tính giá gốc của gói muốn mua
+        BigDecimal originalAmount = (cycle == BillingCycle.YEARLY) ? plan.getYearlyPrice() : plan.getMonthlyPrice();
+        if (originalAmount == null || originalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            if (cycle == BillingCycle.YEARLY && plan.getMonthlyPrice() != null) {
+                originalAmount = plan.getMonthlyPrice().multiply(new BigDecimal(12));
+            } else {
+                throw new BadRequestException("Gói cước này không yêu cầu thanh toán.");
+            }
+        }
+
+        CompanySubscription currentSub = company.getSubscriptions().stream()
+                .filter(sub -> sub.getStatus() == SubscriptionStatus.ACTIVE)
+                .findFirst()
+                .orElse(null);
+
+        // ========================================================
+        // 🚀 2. LOGIC PRORATION: KHẤU TRỪ VÀ QUY ĐỔI NGÀY
+        // ========================================================
+        LocalDateTime now = LocalDateTime.now();
+        BigDecimal remainingValue = BigDecimal.ZERO;
+        
+        // Nếu khác gói và gói cũ CÒN HẠN
+        if (currentSub != null && !currentSub.getPlan().getId().equals(plan.getId()) 
+            && currentSub.getCurrentPeriodEnd() != null 
+            && currentSub.getCurrentPeriodEnd().isAfter(now)) {
+            
+            long remainingDays = ChronoUnit.DAYS.between(now, currentSub.getCurrentPeriodEnd());
+            if (remainingDays > 0) {
+                // Sửa lỗi: Luôn ưu tiên dùng giá NĂM để tính giá 1 ngày cho chuẩn, tránh lỗi Monthly = 0
+                BigDecimal oldYearlyPrice = currentSub.getPlan().getYearlyPrice();
+                if (oldYearlyPrice == null || oldYearlyPrice.compareTo(BigDecimal.ZERO) == 0) {
+                    oldYearlyPrice = currentSub.getPlan().getMonthlyPrice().multiply(new BigDecimal(12));
+                }
+                
+                BigDecimal dailyRate = oldYearlyPrice.divide(new BigDecimal(365), 2, RoundingMode.HALF_UP);
+                remainingValue = dailyRate.multiply(new BigDecimal(remainingDays));
+                
+                log.info("🔄 Chuyển gói: Công ty [{}] còn dư {} ngày gói [{}]. Giá trị: {} VNĐ", 
+                        company.getName(), remainingDays, currentSub.getPlan().getName(), remainingValue);
+            }
+        }
+
+        // Số tiền thực tế phải trả = Giá gốc - Tiền dư
+        BigDecimal finalAmountToPay = originalAmount.subtract(remainingValue);
+        long orderCode = System.currentTimeMillis(); 
+        String transactionCode = String.valueOf(orderCode);
+        String returnUrl = request.getReturnUrl() != null ? request.getReturnUrl() : defaultReturnUrl;
+
+        // ========================================================
+        // KỊCH BẢN ĐẶC BIỆT: KHÁCH CÒN QUÁ NHIỀU TIỀN DƯ (Thu < 2000đ)
+        // ========================================================
+        if (finalAmountToPay.compareTo(new BigDecimal(2000)) < 0) {
+            
+            // 1. Tạo giao dịch thành công ngay lập tức (Thanh toán bằng Tiền dư)
+            Transaction transaction = Transaction.builder()
+                    .company(company)
+                    .plan(plan)
+                    .subscription(currentSub) 
+                    .transactionCode(transactionCode)
+                    .amount(BigDecimal.ZERO) 
+                    .currency("VND")
+                    .billingCycle(cycle)
+                    .paymentMethod("SYSTEM_CREDIT") // Đánh dấu là thanh toán nội bộ
+                    .status(TransactionStatus.SUCCESS)
+                    .createdBy(user)
+                    .build();
+            transactionRepository.save(transaction);
+            
+            // 2. Đóng gói cũ
+            if (currentSub != null) currentSub.setStatus(SubscriptionStatus.EXPIRED);
+            
+            // 3. Tính ngày kết thúc mới
+            LocalDateTime newEndDate = (cycle == BillingCycle.YEARLY) ? now.plusYears(1) : now.plusMonths(1);
+            
+            // 4. NẾU TIỀN DƯ > GIÁ GÓI MỚI -> QUY ĐỔI THÀNH NGÀY TẶNG THÊM
+            if (remainingValue.compareTo(originalAmount) > 0) {
+                BigDecimal extraValue = remainingValue.subtract(originalAmount);
+                BigDecimal newYearlyPrice = plan.getYearlyPrice() != null ? plan.getYearlyPrice() : plan.getMonthlyPrice().multiply(new BigDecimal(12));
+                BigDecimal newDailyRate = newYearlyPrice.divide(new BigDecimal(365), 2, RoundingMode.HALF_UP);
+                
+                if (newDailyRate.compareTo(BigDecimal.ZERO) > 0) {
+                    long bonusDays = extraValue.divide(newDailyRate, 0, RoundingMode.DOWN).longValue();
+                    newEndDate = newEndDate.plusDays(bonusDays);
+                    log.info("Tặng thêm {} ngày sử dụng gói mới từ phần tiền dư thừa.", bonusDays);
+                }
+            }
+            
+            // 5. Lưu gói mới
+            CompanySubscription newSub = new CompanySubscription();
+            newSub.setCompany(company);
+            newSub.setPlan(plan);
+            newSub.setStatus(SubscriptionStatus.ACTIVE);
+            newSub.setCurrentPeriodStart(now);
+            newSub.setCurrentPeriodEnd(newEndDate);
+            company.getSubscriptions().add(newSub);
+            companyRepository.save(company);
+
+            // Bỏ qua PayOS, điều hướng Frontend thẳng về trang Thành công!
+            return CheckoutResponse.builder()
+                    .transactionCode(transactionCode)
+                    .checkoutUrl(returnUrl) 
+                    .build();
+        }
+
+        // ========================================================
+        // 💳 KỊCH BẢN BÌNH THƯỜNG: CẦN GỌI PAYOS THANH TOÁN
+        // ========================================================
+        Transaction transaction = Transaction.builder()
+                .company(company)
+                .plan(plan)
+                .subscription(currentSub) 
+                .transactionCode(transactionCode)
+                .amount(finalAmountToPay) // Thu số tiền chênh lệch
+                .currency("VND")
+                .billingCycle(cycle)
+                .paymentMethod("PAYOS")
+                .status(TransactionStatus.PENDING)
+                .createdBy(user)
+                .build();
+        transactionRepository.save(transaction);
+
+        try {
+            String cancelUrl = request.getCancelUrl() != null ? request.getCancelUrl() : defaultCancelUrl;
+            String description = "Nang cap goi " + plan.getName();
+            if (description.length() > 25) description = description.substring(0, 25);
+
+            CreatePaymentLinkRequest paymentData = CreatePaymentLinkRequest.builder()
+                    .orderCode(orderCode)
+                    .amount(finalAmountToPay.longValue())
+                    .description(description) 
+                    .returnUrl(returnUrl)
+                    .cancelUrl(cancelUrl)
+                    .build();
+
+            CreatePaymentLinkResponse data = payOS.paymentRequests().create(paymentData);
+
+            return CheckoutResponse.builder()
+                    .transactionCode(transactionCode)
+                    .checkoutUrl(data.getCheckoutUrl())
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Lỗi khi gọi API PayOS: ", e); 
+            throw new BadRequestException("Không thể tạo link thanh toán lúc này.");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void processWebhook(Webhook webhookBody) {
+        try {
+            // 1. Chặn các request test (ping) không có chữ ký từ PayOS
+            if (webhookBody.getSignature() == null || webhookBody.getSignature().isEmpty()) {
+                log.warn("Bỏ qua Webhook do không có chữ ký (signature). Đây là ping test từ PayOS.");
+                return; 
+            }
+
+            // 2. Xác thực chữ ký
+            WebhookData data = payOS.webhooks().verify(webhookBody);
+            log.info("Nhận được Webhook từ PayOS. Mã đơn hàng: {}", data.getOrderCode());
+
+            // 3. Xử lý khi giao dịch thành công ("00")
+            if ("00".equals(data.getCode())) {
+                String transactionCode = String.valueOf(data.getOrderCode());
+
+                Transaction transaction = transactionRepository.findByTransactionCode(transactionCode)
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giao dịch: " + transactionCode));
+
+                // 4. Nếu đơn đang PENDING thì cập nhật trạng thái đơn và nâng cấp gói
+                if (transaction.getStatus() == TransactionStatus.PENDING) {
+                    
+                    transaction.setStatus(TransactionStatus.SUCCESS);
+                    transactionRepository.save(transaction);
+                    log.info("Giao dịch {} thanh toán THÀNH CÔNG. Đã cập nhật trạng thái đơn!", transactionCode);
+                    
+                    // ==========================================
+                    // HỦY CÁC MÃ QR PENDING CŨ CỦA CÔNG TY
+                    // ==========================================
+                    List<Transaction> oldPendingTransactions = transactionRepository
+                            .findByCompanyIdAndStatusAndIdNot(
+                                    transaction.getCompany().getId(), 
+                                    TransactionStatus.PENDING, 
+                                    transaction.getId()
+                            );
+                            
+                    if (!oldPendingTransactions.isEmpty()) {
+                        oldPendingTransactions.forEach(tx -> tx.setStatus(TransactionStatus.CANCELLED));
+                        transactionRepository.saveAll(oldPendingTransactions);
+                        log.info("🚫 Đã tự động hủy {} giao dịch PENDING cũ của Công ty [{}] để tránh thanh toán trùng lặp.", 
+                                oldPendingTransactions.size(), transaction.getCompany().getName());
+                    }
+
+                    // ==========================================
+                    // 🚀 5. LOGIC NÂNG CẤP: LƯU VẾT LỊCH SỬ CHUẨN SAAS
+                    // ==========================================
+                    Company company = transaction.getCompany();
+                    SubscriptionPlan purchasedPlan = transaction.getPlan();
+                    BillingCycle cycle = transaction.getBillingCycle();
+
+                    LocalDateTime now = LocalDateTime.now();
+                    LocalDateTime baseDate = now;
+
+                    // 5.1 Tìm gói cước đang ACTIVE hiện tại của công ty (nếu có)
+                    CompanySubscription currentSub = company.getSubscriptions().stream()
+                            .filter(sub -> sub.getStatus() == SubscriptionStatus.ACTIVE)
+                            .findFirst()
+                            .orElse(null);
+
+                    // 5.2 Tính toán ngày tháng và Đóng gói cũ
+                    if (currentSub != null) {
+                        boolean isSamePlan = currentSub.getPlan().getId().equals(purchasedPlan.getId());
+                        boolean isNotExpired = currentSub.getCurrentPeriodEnd() != null && 
+                                               currentSub.getCurrentPeriodEnd().isAfter(now);
+
+                        if (isSamePlan && isNotExpired) {
+                            // Cùng gói, còn hạn -> Lấy mốc cũ để cộng dồn
+                            baseDate = currentSub.getCurrentPeriodEnd();
+                        }
+                        
+                        // ĐÓNG SỔ GÓI CŨ: Chuyển thành EXPIRED
+                        currentSub.setStatus(SubscriptionStatus.EXPIRED);
+                    }
+
+                    // 5.3 Tính ngày hết hạn cho gói mới
+                    LocalDateTime newEndDate;
+                    if (cycle == BillingCycle.YEARLY) {
+                        newEndDate = baseDate.plusYears(1);
+                    } else {
+                        newEndDate = baseDate.plusMonths(1);
+                    }
+
+                    // 5.4 TẠO GÓI CƯỚC MỚI TINH (Lưu lại lịch sử)
+                    CompanySubscription newSubscription = new CompanySubscription();
+                    newSubscription.setCompany(company);
+                    newSubscription.setPlan(purchasedPlan);
+                    newSubscription.setStatus(SubscriptionStatus.ACTIVE);
+                    newSubscription.setCurrentPeriodStart(now);
+                    newSubscription.setCurrentPeriodEnd(newEndDate);
+                    // (Tuỳ chọn) Lưu kỳ thanh toán vào gói nếu bạn có trường này
+                    // newSubscription.setCancelAtPeriodEnd(false); 
+                    
+                    // Thêm bản ghi mới vào danh sách của công ty
+                    company.getSubscriptions().add(newSubscription);
+
+                    // 5.5 Lưu toàn bộ thay đổi
+                    companyRepository.save(company);
+
+                    log.info("🎉 HOÀN TẤT: Công ty [{}] đã chuyển sang gói [{}] mới. Gói cũ đã được đóng lại. Hết hạn mới: {}", 
+                             company.getName(), purchasedPlan.getName(), newEndDate);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Lỗi xử lý Webhook hoặc Chữ ký không hợp lệ: ", e);
+            throw new BadRequestException("Webhook verification failed.");
+        }
+    }
+}
