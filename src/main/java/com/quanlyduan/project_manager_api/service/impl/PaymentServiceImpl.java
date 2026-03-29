@@ -13,6 +13,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.SubscriptionStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TransactionStatus;
 import com.quanlyduan.project_manager_api.repository.*;
 import com.quanlyduan.project_manager_api.service.PaymentService;
+import com.quanlyduan.project_manager_api.service.EmailService; // THÊM IMPORT EMAIL
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,14 +29,17 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.payos.PayOS;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
-import vn.payos.model.webhooks.Webhook;
-import vn.payos.model.webhooks.WebhookData;
+import vn.payos.model.webhooks.Webhook;       // IMPORT CHUẨN
+import vn.payos.model.webhooks.WebhookData;   // IMPORT CHUẨN
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -46,8 +50,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final SubscriptionPlanRepository planRepository;
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
-    
     private final PayOS payOS;
+    private final EmailService emailService; // INJECT EMAIL SERVICE
 
     @Value("${payos.return-url}")
     private String defaultReturnUrl;
@@ -55,6 +59,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Value("${payos.cancel-url}")
     private String defaultCancelUrl;
 
+    // =================================================================================
+    // 1. TẠO LINK THANH TOÁN (KÈM PRORATION)
+    // =================================================================================
     @Override
     @Transactional
     public CheckoutResponse createPaymentLink(Integer companyId, Integer userId, CheckoutRequest request) {
@@ -83,20 +90,16 @@ public class PaymentServiceImpl implements PaymentService {
                 .findFirst()
                 .orElse(null);
 
-        // ========================================================
-        // 🚀 2. LOGIC PRORATION: KHẤU TRỪ VÀ QUY ĐỔI NGÀY
-        // ========================================================
+        // 2. LOGIC PRORATION: KHẤU TRỪ VÀ QUY ĐỔI NGÀY
         LocalDateTime now = LocalDateTime.now();
         BigDecimal remainingValue = BigDecimal.ZERO;
         
-        // Nếu khác gói và gói cũ CÒN HẠN
         if (currentSub != null && !currentSub.getPlan().getId().equals(plan.getId()) 
             && currentSub.getCurrentPeriodEnd() != null 
             && currentSub.getCurrentPeriodEnd().isAfter(now)) {
             
             long remainingDays = ChronoUnit.DAYS.between(now, currentSub.getCurrentPeriodEnd());
             if (remainingDays > 0) {
-                // Sửa lỗi: Luôn ưu tiên dùng giá NĂM để tính giá 1 ngày cho chuẩn, tránh lỗi Monthly = 0
                 BigDecimal oldYearlyPrice = currentSub.getPlan().getYearlyPrice();
                 if (oldYearlyPrice == null || oldYearlyPrice.compareTo(BigDecimal.ZERO) == 0) {
                     oldYearlyPrice = currentSub.getPlan().getMonthlyPrice().multiply(new BigDecimal(12));
@@ -110,18 +113,13 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        // Số tiền thực tế phải trả = Giá gốc - Tiền dư
         BigDecimal finalAmountToPay = originalAmount.subtract(remainingValue);
         long orderCode = System.currentTimeMillis(); 
         String transactionCode = String.valueOf(orderCode);
         String returnUrl = request.getReturnUrl() != null ? request.getReturnUrl() : defaultReturnUrl;
 
-        // ========================================================
         // KỊCH BẢN ĐẶC BIỆT: KHÁCH CÒN QUÁ NHIỀU TIỀN DƯ (Thu < 2000đ)
-        // ========================================================
         if (finalAmountToPay.compareTo(new BigDecimal(2000)) < 0) {
-            
-            // 1. Tạo giao dịch thành công ngay lập tức (Thanh toán bằng Tiền dư)
             Transaction transaction = Transaction.builder()
                     .company(company)
                     .plan(plan)
@@ -130,19 +128,16 @@ public class PaymentServiceImpl implements PaymentService {
                     .amount(BigDecimal.ZERO) 
                     .currency("VND")
                     .billingCycle(cycle)
-                    .paymentMethod("SYSTEM_CREDIT") // Đánh dấu là thanh toán nội bộ
+                    .paymentMethod("SYSTEM_CREDIT") 
                     .status(TransactionStatus.SUCCESS)
                     .createdBy(user)
                     .build();
             transactionRepository.save(transaction);
             
-            // 2. Đóng gói cũ
             if (currentSub != null) currentSub.setStatus(SubscriptionStatus.EXPIRED);
             
-            // 3. Tính ngày kết thúc mới
             LocalDateTime newEndDate = (cycle == BillingCycle.YEARLY) ? now.plusYears(1) : now.plusMonths(1);
             
-            // 4. NẾU TIỀN DƯ > GIÁ GÓI MỚI -> QUY ĐỔI THÀNH NGÀY TẶNG THÊM
             if (remainingValue.compareTo(originalAmount) > 0) {
                 BigDecimal extraValue = remainingValue.subtract(originalAmount);
                 BigDecimal newYearlyPrice = plan.getYearlyPrice() != null ? plan.getYearlyPrice() : plan.getMonthlyPrice().multiply(new BigDecimal(12));
@@ -151,11 +146,9 @@ public class PaymentServiceImpl implements PaymentService {
                 if (newDailyRate.compareTo(BigDecimal.ZERO) > 0) {
                     long bonusDays = extraValue.divide(newDailyRate, 0, RoundingMode.DOWN).longValue();
                     newEndDate = newEndDate.plusDays(bonusDays);
-                    log.info("Tặng thêm {} ngày sử dụng gói mới từ phần tiền dư thừa.", bonusDays);
                 }
             }
             
-            // 5. Lưu gói mới
             CompanySubscription newSub = new CompanySubscription();
             newSub.setCompany(company);
             newSub.setPlan(plan);
@@ -165,22 +158,22 @@ public class PaymentServiceImpl implements PaymentService {
             company.getSubscriptions().add(newSub);
             companyRepository.save(company);
 
-            // Bỏ qua PayOS, điều hướng Frontend thẳng về trang Thành công!
+            // GỬI BIÊN LAI NỘI BỘ
+            sendReceiptEmail(transaction, company, newSub);
+
             return CheckoutResponse.builder()
                     .transactionCode(transactionCode)
                     .checkoutUrl(returnUrl) 
                     .build();
         }
 
-        // ========================================================
-        // 💳 KỊCH BẢN BÌNH THƯỜNG: CẦN GỌI PAYOS THANH TOÁN
-        // ========================================================
+        // KỊCH BẢN BÌNH THƯỜNG: CẦN GỌI PAYOS THANH TOÁN
         Transaction transaction = Transaction.builder()
                 .company(company)
                 .plan(plan)
                 .subscription(currentSub) 
                 .transactionCode(transactionCode)
-                .amount(finalAmountToPay) // Thu số tiền chênh lệch
+                .amount(finalAmountToPay) 
                 .currency("VND")
                 .billingCycle(cycle)
                 .paymentMethod("PAYOS")
@@ -215,37 +208,33 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    // =================================================================================
+    // 2. XỬ LÝ WEBHOOK TỪ PAYOS (VÀ GỬI EMAIL BIÊN LAI)
+    // =================================================================================
     @Override
     @Transactional
     public void processWebhook(Webhook webhookBody) {
         try {
-            // 1. Chặn các request test (ping) không có chữ ký từ PayOS
             if (webhookBody.getSignature() == null || webhookBody.getSignature().isEmpty()) {
-                log.warn("Bỏ qua Webhook do không có chữ ký (signature). Đây là ping test từ PayOS.");
+                log.warn("Bỏ qua Webhook do không có chữ ký (signature).");
                 return; 
             }
 
-            // 2. Xác thực chữ ký
             WebhookData data = payOS.webhooks().verify(webhookBody);
             log.info("Nhận được Webhook từ PayOS. Mã đơn hàng: {}", data.getOrderCode());
 
-            // 3. Xử lý khi giao dịch thành công ("00")
             if ("00".equals(data.getCode())) {
                 String transactionCode = String.valueOf(data.getOrderCode());
 
                 Transaction transaction = transactionRepository.findByTransactionCode(transactionCode)
                         .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giao dịch: " + transactionCode));
 
-                // 4. Nếu đơn đang PENDING thì cập nhật trạng thái đơn và nâng cấp gói
                 if (transaction.getStatus() == TransactionStatus.PENDING) {
                     
                     transaction.setStatus(TransactionStatus.SUCCESS);
                     transactionRepository.save(transaction);
-                    log.info("Giao dịch {} thanh toán THÀNH CÔNG. Đã cập nhật trạng thái đơn!", transactionCode);
                     
-                    // ==========================================
                     // HỦY CÁC MÃ QR PENDING CŨ CỦA CÔNG TY
-                    // ==========================================
                     List<Transaction> oldPendingTransactions = transactionRepository
                             .findByCompanyIdAndStatusAndIdNot(
                                     transaction.getCompany().getId(), 
@@ -256,13 +245,9 @@ public class PaymentServiceImpl implements PaymentService {
                     if (!oldPendingTransactions.isEmpty()) {
                         oldPendingTransactions.forEach(tx -> tx.setStatus(TransactionStatus.CANCELLED));
                         transactionRepository.saveAll(oldPendingTransactions);
-                        log.info("🚫 Đã tự động hủy {} giao dịch PENDING cũ của Công ty [{}] để tránh thanh toán trùng lặp.", 
-                                oldPendingTransactions.size(), transaction.getCompany().getName());
                     }
 
-                    // ==========================================
-                    // 🚀 5. LOGIC NÂNG CẤP: LƯU VẾT LỊCH SỬ CHUẨN SAAS
-                    // ==========================================
+                    // LOGIC NÂNG CẤP GÓI
                     Company company = transaction.getCompany();
                     SubscriptionPlan purchasedPlan = transaction.getPlan();
                     BillingCycle cycle = transaction.getBillingCycle();
@@ -270,28 +255,22 @@ public class PaymentServiceImpl implements PaymentService {
                     LocalDateTime now = LocalDateTime.now();
                     LocalDateTime baseDate = now;
 
-                    // 5.1 Tìm gói cước đang ACTIVE hiện tại của công ty (nếu có)
                     CompanySubscription currentSub = company.getSubscriptions().stream()
                             .filter(sub -> sub.getStatus() == SubscriptionStatus.ACTIVE)
                             .findFirst()
                             .orElse(null);
 
-                    // 5.2 Tính toán ngày tháng và Đóng gói cũ
                     if (currentSub != null) {
                         boolean isSamePlan = currentSub.getPlan().getId().equals(purchasedPlan.getId());
                         boolean isNotExpired = currentSub.getCurrentPeriodEnd() != null && 
                                                currentSub.getCurrentPeriodEnd().isAfter(now);
 
                         if (isSamePlan && isNotExpired) {
-                            // Cùng gói, còn hạn -> Lấy mốc cũ để cộng dồn
                             baseDate = currentSub.getCurrentPeriodEnd();
                         }
-                        
-                        // ĐÓNG SỔ GÓI CŨ: Chuyển thành EXPIRED
                         currentSub.setStatus(SubscriptionStatus.EXPIRED);
                     }
 
-                    // 5.3 Tính ngày hết hạn cho gói mới
                     LocalDateTime newEndDate;
                     if (cycle == BillingCycle.YEARLY) {
                         newEndDate = baseDate.plusYears(1);
@@ -299,24 +278,20 @@ public class PaymentServiceImpl implements PaymentService {
                         newEndDate = baseDate.plusMonths(1);
                     }
 
-                    // 5.4 TẠO GÓI CƯỚC MỚI TINH (Lưu lại lịch sử)
                     CompanySubscription newSubscription = new CompanySubscription();
                     newSubscription.setCompany(company);
                     newSubscription.setPlan(purchasedPlan);
                     newSubscription.setStatus(SubscriptionStatus.ACTIVE);
                     newSubscription.setCurrentPeriodStart(now);
                     newSubscription.setCurrentPeriodEnd(newEndDate);
-                    // (Tuỳ chọn) Lưu kỳ thanh toán vào gói nếu bạn có trường này
-                    // newSubscription.setCancelAtPeriodEnd(false); 
                     
-                    // Thêm bản ghi mới vào danh sách của công ty
                     company.getSubscriptions().add(newSubscription);
-
-                    // 5.5 Lưu toàn bộ thay đổi
                     companyRepository.save(company);
 
-                    log.info("🎉 HOÀN TẤT: Công ty [{}] đã chuyển sang gói [{}] mới. Gói cũ đã được đóng lại. Hết hạn mới: {}", 
-                             company.getName(), purchasedPlan.getName(), newEndDate);
+                    log.info("🎉 HOÀN TẤT: Công ty [{}] đã chuyển sang gói [{}] mới.", company.getName(), purchasedPlan.getName());
+
+                    // 🚀 GỬI EMAIL BIÊN LAI (BẤT ĐỒNG BỘ) CHẠY Ở ĐÂY
+                    sendReceiptEmail(transaction, company, newSubscription);
                 }
             }
         } catch (Exception e) {
@@ -326,83 +301,57 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     // =================================================================================
-    // 🔴 API: KHÁCH CHỦ ĐỘNG HỦY ĐƠN HÀNG (TRƯỜNG HỢP A)
+    // 3. API KHÁCH CHỦ ĐỘNG HỦY ĐƠN HÀNG
     // =================================================================================
     @Override
     @Transactional
     public void cancelPendingTransaction(String transactionCode, Integer companyId, String reason) {
-        
-        // 1. Tìm giao dịch trong Database
         Transaction transaction = transactionRepository.findByTransactionCode(transactionCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giao dịch: " + transactionCode));
 
-        // 2. Bảo mật: Chặn đứng nếu người dùng cố tình hủy đơn của công ty khác
         if (!transaction.getCompany().getId().equals(companyId)) {
             throw new BadRequestException("Access Denied: Bạn không có quyền hủy giao dịch này.");
         }
 
-        // 3. Chỉ cho phép hủy nếu đơn đang ở trạng thái PENDING
         if (transaction.getStatus() != TransactionStatus.PENDING) {
             throw new BadRequestException("Giao dịch này không ở trạng thái chờ thanh toán nên không thể hủy.");
         }
 
-        // 4. Cập nhật Database: Chuyển PENDING -> CANCELLED
         transaction.setStatus(TransactionStatus.CANCELLED);
         transactionRepository.save(transaction);
 
-        // 5. Gọi sang PayOS để HỦY MÃ QR TRÊN HỆ THỐNG CỦA HỌ
         try {
-            long orderCode = Long.parseLong(transactionCode);
-            
-            // Báo PayOS hủy đơn. (Tránh việc khách lưu ảnh QR về máy, hôm sau mang ra quét vẫn bị trừ tiền)
-            // Lưu ý: Tuỳ thuộc phiên bản PayOS SDK, tham số thứ 2 có thể là String hoặc Object
-            payOS.paymentRequests().cancel(orderCode, reason);
-            
-            log.info("🚫 Đã hủy đơn hàng [{}] thành công trên cả Local và PayOS.", transactionCode);
-            
+            payOS.paymentRequests().cancel(Long.parseLong(transactionCode), reason);
         } catch (Exception e) {
-            // Đôi khi mã QR đã tự hết hạn trên PayOS trước đó, API của PayOS sẽ báo lỗi.
-            // Chúng ta CATCH lỗi này để KHÔNG quăng lỗi 500 ra Frontend, vì ở Local (DB) chúng ta đã hủy thành công rồi.
-            log.warn("Đã hủy đơn [{}] ở Local, nhưng PayOS báo lỗi (có thể QR đã hết hạn từ trước): {}", 
-                     transactionCode, e.getMessage());
+            log.warn("Đã hủy đơn [{}] ở Local, nhưng PayOS báo lỗi: {}", transactionCode, e.getMessage());
         }
     }
 
-    // Chạy ngầm định kỳ mỗi 5 phút (300.000 ms)
+    // =================================================================================
+    // 4. CRON JOB: TỰ ĐỘNG DỌN RÁC ĐƠN PENDING (QUÁ 15 PHÚT)
+    // =================================================================================
     @Scheduled(fixedRate = 300000)
     @Transactional
     public void cleanupExpiredTransactions() {
-        
-        // 1. Xác định mốc thời gian: 15 phút trước so với thời điểm hiện tại
         LocalDateTime fifteenMinutesAgo = LocalDateTime.now().minusMinutes(15);
-        
-        // 2. Lên Database tìm tất cả các đơn PENDING tạo trước mốc 15 phút đó
         List<Transaction> expiredTransactions = transactionRepository
                 .findByStatusAndCreatedAtBefore(TransactionStatus.PENDING, fifteenMinutesAgo);
 
-        // 3. Nếu tìm thấy rác thì dọn dẹp
         if (!expiredTransactions.isEmpty()) {
-            
-            // Chuyển toàn bộ sang trạng thái CANCELLED
             expiredTransactions.forEach(tx -> tx.setStatus(TransactionStatus.CANCELLED));
-            
-            // Lưu lại vào DB một lượt (Batch Update) cho tối ưu hiệu suất
             transactionRepository.saveAll(expiredTransactions);
-            
-            log.info("🧹 Cron Job: Đã quét và tự động HỦY {} đơn hàng PENDING do quá hạn 15 phút không thanh toán.", 
-                     expiredTransactions.size());
+            log.info("🧹 Cron Job: Đã quét và tự động HỦY {} đơn hàng PENDING do quá hạn.", expiredTransactions.size());
         }
     }
 
     // =========================================================================
-    // API 1: LẤY DANH SÁCH GIAO DỊCH (CÓ PHÂN TRANG & LỌC)
+    // 5. API LẤY DANH SÁCH GIAO DỊCH
     // =========================================================================
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<TransactionListResponse> getTransactionHistory(
             Integer companyId, int page, int size, String status, LocalDateTime startDate, LocalDateTime endDate) {
 
-        // Luôn sắp xếp mới nhất lên đầu
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         TransactionStatus txStatus = (status != null && !status.equalsIgnoreCase("ALL")) 
                                      ? TransactionStatus.valueOf(status.toUpperCase()) : null;
@@ -422,49 +371,38 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     // =========================================================================
-    // API 3: XEM CHI TIẾT GIAO DỊCH (KÈM BÓC TÁCH DÒNG TIỀN & TRẠNG THÁI GÓI)
+    // 6. API XEM CHI TIẾT GIAO DỊCH
     // =========================================================================
     @Override
     @Transactional(readOnly = true)
     public TransactionDetailResponse getTransactionDetail(String transactionCode, Integer companyId) {
-        
-        // 1. Lấy giao dịch (Bảo mật: Phải đúng của công ty đó)
         Transaction tx = transactionRepository.findByTransactionCodeAndCompanyId(transactionCode, companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giao dịch hoặc bạn không có quyền xem."));
 
-        // 2. Tính toán lại logic Proration (Khấu trừ)
-        // Giá gốc phụ thuộc vào việc khách mua tháng hay mua năm ở giao dịch đó
         BigDecimal originalPrice = tx.getBillingCycle() == BillingCycle.YEARLY 
                                    ? tx.getPlan().getYearlyPrice() 
                                    : tx.getPlan().getMonthlyPrice();
                                    
-        // Số tiền được giảm (Do dư gói cũ) = Giá gốc - Số tiền thực thu (Đảm bảo >= 0)
         BigDecimal deducted = originalPrice.subtract(tx.getAmount());
         if (deducted.compareTo(BigDecimal.ZERO) < 0) deducted = BigDecimal.ZERO;
 
-        // 3. Lấy Tình trạng sử dụng hiện tại của Công ty
         Company company = tx.getCompany();
         CompanySubscription activeSub = company.getSubscriptions().stream()
                 .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE || s.getStatus() == SubscriptionStatus.PAST_DUE)
                 .findFirst()
                 .orElse(null);
 
-        // 4. Build dữ liệu trả về
         TransactionDetailResponse.TransactionDetailResponseBuilder builder = TransactionDetailResponse.builder()
-                // Cơ bản
                 .transactionCode(tx.getTransactionCode())
                 .createdAt(tx.getCreatedAt())
                 .paidAt(tx.getPaidAt())
                 .status(tx.getStatus().toString())
                 .paymentMethod(tx.getPaymentMethod())
-                // Dòng tiền
                 .originalPrice(originalPrice)
                 .deductedAmount(deducted)
                 .finalPaidAmount(tx.getAmount())
-                // Đối soát
                 .gatewayReferenceCode(tx.getGatewayTransactionId());
 
-        // Nếu công ty đang có gói cước, đính kèm thông tin sử dụng vào
         if (activeSub != null) {
             builder.currentPlanName(activeSub.getPlan().getName())
                    .subscriptionStatus(activeSub.getStatus().toString())
@@ -474,5 +412,77 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         return builder.build();
+    }
+
+    // ============================================================================
+    // ✉️ HÀM HELPER: TẠO VÀ GỬI EMAIL BIÊN LAI
+    // ============================================================================
+    private void sendReceiptEmail(Transaction tx, Company company, CompanySubscription sub) {
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        String paymentDate = tx.getCreatedAt().format(dateFormatter);
+        String nextBillingDate = sub.getCurrentPeriodEnd() != null 
+                ? sub.getCurrentPeriodEnd().format(dateFormatter) 
+                : "Không giới hạn";
+                
+        NumberFormat currencyFormatter = NumberFormat.getInstance(new Locale("vi", "VN"));
+        String formattedAmount = currencyFormatter.format(tx.getAmount()) + " VNĐ";
+
+        String subject = "Biên lai thanh toán: Nâng cấp gói " + tx.getPlan().getName() + " thành công";
+
+        // 🚀 Lấy thông tin người đã trực tiếp tạo ra giao dịch này (Giám đốc / Kế toán)
+        User payer = tx.getCreatedBy();
+
+        String emailBody = String.format(
+            "<div style=\"font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e1e5eb; border-radius: 8px; overflow: hidden;\">" +
+            "  <div style=\"background-color: #2c3e50; padding: 25px; text-align: center; color: white;\">" +
+            "    <h1 style=\"margin: 0; font-size: 24px;\">BIÊN LAI THANH TOÁN</h1>" +
+            "    <p style=\"margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;\">Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!</p>" +
+            "  </div>" +
+            "  <div style=\"padding: 30px;\">" +
+            // Thay đổi lời chào thành tên của người thanh toán thay vì tên công ty
+            "    <p>Xin chào <b>%s</b>,</p>" + 
+            "    <p>Chúng tôi xác nhận đã nhận được thanh toán của bạn cho hệ thống quản trị dự án tại công ty <b>%s</b>. Gói cước của bạn đã được kích hoạt thành công.</p>" +
+            "    <table style=\"width: 100%%; border-collapse: collapse; margin: 25px 0; background-color: #f8f9fa; border-radius: 5px;\">" +
+            "      <tr>" +
+            "        <td style=\"padding: 15px; border-bottom: 1px solid #e1e5eb;\"><b>Mã giao dịch:</b></td>" +
+            "        <td style=\"padding: 15px; text-align: right; border-bottom: 1px solid #e1e5eb; font-family: monospace;\">#%s</td>" +
+            "      </tr>" +
+            "      <tr>" +
+            "        <td style=\"padding: 15px; border-bottom: 1px solid #e1e5eb;\"><b>Ngày thanh toán:</b></td>" +
+            "        <td style=\"padding: 15px; text-align: right; border-bottom: 1px solid #e1e5eb;\">%s</td>" +
+            "      </tr>" +
+            "      <tr>" +
+            "        <td style=\"padding: 15px; border-bottom: 1px solid #e1e5eb;\"><b>Gói dịch vụ:</b></td>" +
+            "        <td style=\"padding: 15px; text-align: right; border-bottom: 1px solid #e1e5eb; color: #3498db; font-weight: bold;\">%s</td>" +
+            "      </tr>" +
+            "      <tr>" +
+            "        <td style=\"padding: 15px; border-bottom: 1px solid #e1e5eb;\"><b>Hạn sử dụng tiếp theo:</b></td>" +
+            "        <td style=\"padding: 15px; text-align: right; border-bottom: 1px solid #e1e5eb;\">%s</td>" +
+            "      </tr>" +
+            "      <tr>" +
+            "        <td style=\"padding: 15px; font-size: 18px;\"><b>TỔNG THANH TOÁN:</b></td>" +
+            "        <td style=\"padding: 15px; text-align: right; font-size: 18px; color: #27ae60; font-weight: bold;\">%s</td>" +
+            "      </tr>" +
+            "    </table>" +
+            "    <p style=\"color: #7f8c8d; font-size: 13px; line-height: 1.5;\">" +
+            "      * Đây là biên lai điện tử được xuất tự động từ hệ thống. Bạn có thể xem lại toàn bộ lịch sử giao dịch tại mục Cài đặt Công ty." +
+            "    </p>" +
+            "  </div>" +
+            "  <div style=\"background-color: #f4f6f8; padding: 15px; text-align: center; color: #7f8c8d; font-size: 12px;\">" +
+            "    <p style=\"margin: 0;\">© 2026 Worknet - Hệ thống Quản trị Dự án</p>" +
+            "  </div>" +
+            "</div>",
+            payer.getFullName(), // 1. Truyền tên người dùng
+            company.getName(),   // 2. Truyền tên công ty
+            tx.getTransactionCode(),
+            paymentDate,
+            tx.getPlan().getName(),
+            nextBillingDate,
+            formattedAmount
+        );
+
+        // 🚀 Gửi email trực tiếp cho người đã thao tác
+        emailService.sendEmail(payer.getEmail(), subject, emailBody);
+        log.info("📧 Đã gửi Email Biên lai cho đơn hàng {} đến người thanh toán: {}", tx.getTransactionCode(), payer.getEmail());
     }
 }

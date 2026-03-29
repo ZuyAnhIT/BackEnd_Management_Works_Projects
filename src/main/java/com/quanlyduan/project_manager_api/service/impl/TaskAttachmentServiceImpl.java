@@ -4,12 +4,15 @@ package com.quanlyduan.project_manager_api.service.impl;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.response.TaskAttachmentResponse;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.Task;
 import com.quanlyduan.project_manager_api.model.TaskAttachment;
 import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.repository.CompanyRepository;
 import com.quanlyduan.project_manager_api.repository.TaskAttachmentRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
+import com.quanlyduan.project_manager_api.service.QuotaValidationService;
 import com.quanlyduan.project_manager_api.service.TaskAttachmentService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -35,16 +38,24 @@ public class TaskAttachmentServiceImpl implements TaskAttachmentService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final TaskAttachmentRepository attachmentRepository;
+    
+    // Thêm các Dependency mới để kiểm tra Quota và cập nhật Company
+    private final QuotaValidationService quotaValidationService;
+    private final CompanyRepository companyRepository;
 
     // ======================================================
     // CONSTRUCTOR (Dependency Injection)
     // ======================================================
     public TaskAttachmentServiceImpl(TaskRepository taskRepository,
                                      UserRepository userRepository,
-                                     TaskAttachmentRepository attachmentRepository) {
+                                     TaskAttachmentRepository attachmentRepository,
+                                     QuotaValidationService quotaValidationService,
+                                     CompanyRepository companyRepository) {
         this.taskRepository = taskRepository;
         this.userRepository = userRepository;
         this.attachmentRepository = attachmentRepository;
+        this.quotaValidationService = quotaValidationService;
+        this.companyRepository = companyRepository;
     }
 
     // ======================================================
@@ -62,6 +73,12 @@ public class TaskAttachmentServiceImpl implements TaskAttachmentService {
         User uploader = userRepository.findById(uploaderId)
                 // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Uploader user not found."));
+
+        // ==============================================================
+        // 🚀 BƯỚC CHẶN QUOTA: KIỂM TRA DUNG LƯỢNG TRƯỚC KHI LƯU FILE
+        // ==============================================================
+        Company company = task.getProject().getWorkspace().getCompany();
+        quotaValidationService.validateStorageQuota(company.getId(), file.getSize());
 
         // 2. LOGIC LƯU FILE CỤC BỘ
         // Tạo thư mục con riêng cho từng Task (ví dụ: uploads/task-123)
@@ -89,6 +106,13 @@ public class TaskAttachmentServiceImpl implements TaskAttachmentService {
                 .build();
 
         TaskAttachment saved = attachmentRepository.save(attachment);
+
+        // ==============================================================
+        // 🚀 CẬP NHẬT LẠI DUNG LƯỢNG ĐÃ DÙNG CỦA CÔNG TY SAU KHI UPLOAD
+        // ==============================================================
+        long currentStorage = company.getCurrentStorageBytes() != null ? company.getCurrentStorageBytes() : 0;
+        company.setCurrentStorageBytes(currentStorage + file.getSize());
+        companyRepository.save(company);
 
         // 4. Trả về Response
         return mapToAttachmentResponse(saved);
