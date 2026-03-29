@@ -1,11 +1,13 @@
 package com.quanlyduan.project_manager_api.controller; 
 
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.MySubscriptionResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.plan.PublicPlanResponse;
 import com.quanlyduan.project_manager_api.service.SubscriptionPlanService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -51,5 +53,18 @@ public class PublicPlanController {
         PublicPlanResponse response = planService.getPublicPlanById(planId);
         
         return ResponseEntity.ok(ApiResponse.success("Fetched pricing plan details successfully.", response));
+    }
+
+    /**
+     * API: Lấy thông tin gói cước và hạn mức sử dụng hiện tại của Công ty
+     */
+    @GetMapping("/my-subscription")
+    @PreAuthorize("@securityService.hasCompanyPermission(#companyId, 'company:manage_billing')") // Hoặc 'company:view' tuỳ bạn quyết định ai được xem
+    public ResponseEntity<ApiResponse<MySubscriptionResponse>> getMySubscriptionInfo(
+            @RequestParam Integer companyId) {
+            
+        MySubscriptionResponse response = planService.getMySubscriptionInfo(companyId);
+        
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin gói cước thành công.", response));
     }
 }

@@ -13,8 +13,11 @@ import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanySubscription;
 import com.quanlyduan.project_manager_api.model.SubscriptionPlan;
 import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.SubscriptionStatus;
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.SubscriptionPlanRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.SubscriptionPlanService;
@@ -27,8 +30,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import com.quanlyduan.project_manager_api.repository.specification.SubscriptionPlanSpecification;
+import com.quanlyduan.project_manager_api.dto.response.MySubscriptionResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import lombok.RequiredArgsConstructor;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
@@ -39,6 +45,8 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
     private final SecurityService securityService;
     private final ObjectMapper objectMapper; 
     private final CompanyRepository companyRepository;
+    private final CompanyMemberRepository companyMemberRepository;
+    private final ProjectRepository projectRepository;
 
     @Override
     @Transactional
@@ -343,5 +351,57 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
 
         log.info("Khách hàng đã yêu cầu hủy gói [{}]. Gói sẽ tự động kết thúc vào ngày: {}", 
                  activeSub.getPlan().getName(), activeSub.getCurrentPeriodEnd());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MySubscriptionResponse getMySubscriptionInfo(Integer companyId) {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Công ty."));
+
+        // 1. Lấy gói cước đang hoạt động (ACTIVE hoặc PAST_DUE)
+        CompanySubscription activeSub = company.getSubscriptions().stream()
+                .filter(sub -> sub.getStatus() == SubscriptionStatus.ACTIVE || sub.getStatus() == SubscriptionStatus.PAST_DUE)
+                .findFirst()
+                .orElse(null);
+
+        // Kịch bản: Công ty không có gói nào (Hoặc đang dùng mặc định)
+        if (activeSub == null || activeSub.getPlan() == null) {
+            return MySubscriptionResponse.builder()
+                    .planName("Chưa đăng ký gói")
+                    .subscriptionStatus("NONE")
+                    .build();
+        }
+
+        // 2. Tính toán tài nguyên đang sử dụng thực tế
+        long currentMembers = companyMemberRepository.countByCompany_IdAndStatusNot(companyId, MemberStatus.REMOVED);
+        long currentProjects = projectRepository.countByWorkspace_Company_IdAndStatusNot(companyId, ProjectStatus.CANCELLED);
+        long currentStorage = company.getCurrentStorageBytes() != null ? company.getCurrentStorageBytes() : 0;
+        
+        long maxStorageBytes = activeSub.getPlan().getMaxStorageGb() == -1 
+                ? -1 
+                : activeSub.getPlan().getMaxStorageGb() * 1073741824L; // Quy đổi GB sang Bytes
+
+        // 3. Trả về DTO
+        return MySubscriptionResponse.builder()
+                .planName(activeSub.getPlan().getName())
+                .planCode(activeSub.getPlan().getPlanCode())
+                .monthlyPrice(activeSub.getPlan().getMonthlyPrice())
+                .yearlyPrice(activeSub.getPlan().getYearlyPrice())
+                
+                .subscriptionStatus(activeSub.getStatus().toString())
+                .currentPeriodStart(activeSub.getCurrentPeriodStart())
+                .currentPeriodEnd(activeSub.getCurrentPeriodEnd())
+                .isCancelAtPeriodEnd(Boolean.TRUE.equals(activeSub.getCancelAtPeriodEnd()))
+                
+                .currentMembers(currentMembers)
+                .maxMembers(activeSub.getPlan().getMaxUsers())
+                
+                .currentProjects(currentProjects)
+                .maxProjects(activeSub.getPlan().getMaxProjects())
+                
+                .currentStorageBytes(currentStorage)
+                .maxStorageBytes(maxStorageBytes)
+                .build();
     }
 }
