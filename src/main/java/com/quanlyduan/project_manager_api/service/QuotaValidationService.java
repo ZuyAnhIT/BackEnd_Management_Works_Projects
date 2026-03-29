@@ -23,20 +23,20 @@ public interface QuotaValidationService {
      */
     void validateWorkspaceCreationQuota(Integer companyId);
     
-    // /**
-    //  * Kiểm tra xem Công ty có được phép mời thêm Nhân viên mới không.
-    //  * Dựa trên số lượng Member hiện tại so với max_users của Gói cước.
-    //  *
-    //  * @param companyId ID của Công ty cần kiểm tra
-    //  */
-    // void validateUserInvitationQuota(Integer companyId);
+    /**
+     * Kiểm tra giới hạn số lượng Thành viên (User) tối đa của công ty.
+     * Dùng trước khi gửi email mời (Invite) thành viên mới.
+     * @param companyId ID của công ty
+     * @throws com.quanlyduan.project_manager_api.exception.OverageException nếu vượt quá giới hạn
+     */
+    void validateUserInvitationQuota(Integer companyId);
 
-    // /**
-    //  * Kiểm tra xem Công ty có được phép tải thêm File với dung lượng này không.
-    //  * Dựa trên current_storage_bytes + fileSizeToUpload so với max_storage_gb.
-    //  *
-    //  * @param companyId ID của Công ty cần kiểm tra
-    //  * @param fileSizeToUpload Kích thước file (tính bằng bytes) chuẩn bị tải lên
-    //  */
-    // void validateStorageQuota(Integer companyId, long fileSizeToUpload);
+    /**
+     * Kiểm tra giới hạn Dung lượng lưu trữ (Storage) của công ty.
+     * Dùng trước khi lưu file vật lý vào server.
+     * @param companyId ID của công ty
+     * @param fileSizeToUpload Kích thước file (tính bằng Bytes) chuẩn bị upload
+     * @throws com.quanlyduan.project_manager_api.exception.OverageException nếu dung lượng file vượt quá khoảng trống còn lại
+     */
+    void validateStorageQuota(Integer companyId, long fileSizeToUpload);
 }

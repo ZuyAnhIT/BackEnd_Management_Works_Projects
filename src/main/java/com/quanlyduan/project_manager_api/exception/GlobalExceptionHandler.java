@@ -133,4 +133,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("An unexpected error occurred: " + ex.getMessage())); 
     }
+
+    /**
+     * Xử lý lỗi Vượt quá giới hạn gói cước (Quota Exceeded).
+     * Trả về mã HTTP 402 (PAYMENT_REQUIRED) để Frontend biết đường hiển thị Popup nâng cấp gói.
+     */
+    @ExceptionHandler(OverageException.class)
+    public ResponseEntity<ApiResponse<Object>> handleOverageException(OverageException ex) {
+        return ResponseEntity
+                .status(HttpStatus.PAYMENT_REQUIRED)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
 }

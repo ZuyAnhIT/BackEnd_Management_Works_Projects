@@ -18,4 +18,12 @@ public interface CompanySubscriptionRepository extends JpaRepository<CompanySubs
     Optional<CompanySubscription> findByCompany_Id(Integer companyId);
     // Tìm các gói theo Trạng thái VÀ Ngày hết hạn nhỏ hơn một mốc thời gian nào đó
     List<CompanySubscription> findByStatusAndCurrentPeriodEndBefore(SubscriptionStatus status, LocalDateTime dateTime);
+
+    // Tìm các gói cước theo trạng thái và có ngày hết hạn nằm trong khoảng thời gian [start, end]
+    List<CompanySubscription> findByStatusAndCurrentPeriodEndBetween(
+            SubscriptionStatus status, 
+            LocalDateTime start, 
+            LocalDateTime end
+    );
+    
 }

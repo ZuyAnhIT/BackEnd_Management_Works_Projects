@@ -1117,7 +1117,6 @@ public class ProjectServiceImpl implements ProjectService {
     public ProjectInvitation inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request) {
         // 1. Tìm Project và lấy thông tin người mời/Công ty
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found."));
 
         User inviter = securityService.getCurrentAuthenticatedUser();
@@ -1125,24 +1124,23 @@ public class ProjectServiceImpl implements ProjectService {
 
         // 2. Tìm Role và kiểm tra cấp độ
         Role role = roleRepository.findFirstByRoleCode(request.getRoleCode())
-                // Sửa thông báo sang tiếng Anh
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + request.getRoleCode()));
 
         if (role.getLevel() != RoleLevel.PROJECT) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("Invalid role. Must be a PROJECT level role.");
         }
 
         String email = request.getEmail();
         Optional<User> existingUserOpt = userRepository.findByEmail(email);
 
+        // =====================================================================
         // 3. XỬ LÝ LOGIC: Phân biệt Nội bộ/Bên ngoài
+        // =====================================================================
         if (existingUserOpt.isPresent()) {
             User existingUser = existingUserOpt.get();
 
             // 3.1. Nếu đã ở trong dự án -> Báo lỗi
             if (projectMemberRepository.findByProject_IdAndUser_Id(projectId, existingUser.getId()).isPresent()) {
-                // Sửa thông báo sang tiếng Anh
                 throw new BadRequestException("This user is already a member of the project.");
             }
 
@@ -1167,17 +1165,26 @@ public class ProjectServiceImpl implements ProjectService {
             }
         }
 
+        // =====================================================================
         // ==> TRƯỜNG HỢP BÊN NGOÀI (Chưa có TK hoặc Không phải nhân viên Cty)
+        // =====================================================================
+        
+        // 🔴 LOGIC CHẶN LÁCH LUẬT QUOTA CÔNG TY:
+        // Người ngoài chỉ được mời với quyền GUEST. Nếu muốn set quyền ADMIN/MEMBER, phải mời vào Công ty trước.
+        if (!role.getRoleCode().equalsIgnoreCase("GUEST_PROJECT")) {
+            throw new BadRequestException(
+                "Security Policy: Outsiders can only be invited with the Guest role (GUEST_PROJECT). " +
+                "To assign higher roles like Admin or Member, they must be invited to the Company first."
+            );
+        }
+
         // 4. Kiểm tra lời mời trùng đang chờ xử lý
         if (projectInvitationRepository.existsByProject_IdAndEmailAndStatus(projectId, email, InvitationStatus.PENDING)) {
-            // Sửa thông báo sang tiếng Anh
             throw new BadRequestException("An invitation is already pending for this email.");
         }
 
         // 5. Tạo Token & Lưu DB
         String token = UUID.randomUUID().toString();
-        LocalDateTime expiresAt = LocalDateTime.now().plusDays(7); // Hết hạn sau 7 ngày
-
         ProjectInvitation invitation = ProjectInvitation.builder()
                 .project(project)
                 .email(email)
@@ -1185,14 +1192,14 @@ public class ProjectServiceImpl implements ProjectService {
                 .invitedBy(inviter)
                 .token(token)
                 .status(InvitationStatus.PENDING)
-                .expiresAt(expiresAt)
+                .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
 
         ProjectInvitation projectInvitation = projectInvitationRepository.save(invitation);
 
         // 6. Gửi Email Mời
         sendProjectInvitationEmail(inviter, email, project, role, token);
-        return projectInvitationRepository.save(projectInvitation);
+        return projectInvitation;
     }
 
     /**

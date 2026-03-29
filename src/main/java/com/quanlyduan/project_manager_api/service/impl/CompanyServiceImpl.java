@@ -2,6 +2,7 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.UUID;
 
@@ -17,6 +18,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.quanlyduan.project_manager_api.service.QuotaValidationService;
 
 import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
@@ -77,7 +79,7 @@ public class CompanyServiceImpl implements CompanyService {
     private final FileStorageService fileStorageService;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final CompanySubscriptionRepository companySubscriptionRepository;
-
+    private final QuotaValidationService quotaValidationService;
     private final ProjectRepository projectRepository;
 
     @Value("${app.frontend.url}")
@@ -94,7 +96,8 @@ public class CompanyServiceImpl implements CompanyService {
                               ProjectRepository projectRepository,
                               FileStorageService fileStorageService,
                               CompanySubscriptionRepository companySubscriptionRepository,
-                            SubscriptionPlanRepository subscriptionPlanRepository
+                            SubscriptionPlanRepository subscriptionPlanRepository,
+                            QuotaValidationService quotaValidationService
                     ) {
         this.companyRepository = companyRepository;
         this.companyMemberRepository = companyMemberRepository;
@@ -108,14 +111,15 @@ public class CompanyServiceImpl implements CompanyService {
         this.fileStorageService = fileStorageService;
         this.subscriptionPlanRepository = subscriptionPlanRepository;
         this.companySubscriptionRepository = companySubscriptionRepository;
+        this.quotaValidationService = quotaValidationService;
     }
 
     // =================================================================================
-    // 🏢 LOGIC TẠO CÔNG TY (CREATE COMPANY)
+    // 🏢 LOGIC TẠO CÔNG TY (CREATE COMPANY) & KÍCH HOẠT TRIAL 14 NGÀY
     // =================================================================================
     @Override
-    @Transactional // Đảm bảo tính toàn vẹn dữ liệu: 1 lỗi là rollback toàn bộ
-    @LogActivity(action = "CREATE", entityType = "COMPANY", description = "Create new Company with default SaaS plan") 
+    @Transactional // Đảm bảo tính toàn vẹn dữ liệu
+    @LogActivity(action = "CREATE", entityType = "COMPANY", description = "Create new Company with 14-days PRO Trial") 
     public Company createCompany(CreateCompanyRequest request) {
         
         // 1. Lấy thông tin người đang thao tác
@@ -126,24 +130,23 @@ public class CompanyServiceImpl implements CompanyService {
             throw new BadRequestException("Company name already exists. Please choose another name.");
         }
 
-        // 3. Chuẩn bị dữ liệu hệ thống (Role & Default Plan)
+        // 3. Chuẩn bị dữ liệu hệ thống
         Role adminRole = roleRepository.findFirstByRoleCode(RoleCode.COMPANY_ADMIN.name())
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found: COMPANY_ADMIN."));
 
-        // LUỒNG MỚI: Lấy gói cước mặc định cho người dùng mới (Gói FREE)
-        SubscriptionPlan defaultPlan = subscriptionPlanRepository.findByPlanCode("FREE")
-                .orElseThrow(() -> new ResourceNotFoundException("System Error: Default subscription plan 'FREE' is missing."));
+        // 🚀 LUỒNG MỚI (MỒI NHỬ SaaS): Lấy gói PRO để cho dùng thử thay vì gói FREE
+        SubscriptionPlan trialPlan = subscriptionPlanRepository.findByPlanCode("PRO")
+                .orElseThrow(() -> new ResourceNotFoundException("System Error: Subscription plan 'PRO' is missing."));
 
         // 4. Tạo bản ghi Company
         Company newCompany = Company.builder()
                 .name(request.getCompanyName())
-                // .companyCode(generateCompanyCode(request.getCompanyName())) // Bạn có thể viết thêm hàm gen mã nếu muốn
                 .description(request.getDescription())
                 .address(request.getAddress())
                 .phoneNumber(request.getPhoneNumber())
                 .email(request.getEmail())
                 .website(request.getWebsite())
-                .currentStorageBytes(0L) // Khởi tạo dung lượng ban đầu là 0
+                .currentStorageBytes(0L)
                 .isVerifiedTenant(false)
                 .createdById(creator.getId())
                 .status(CompanyStatus.ACTIVE)
@@ -151,12 +154,18 @@ public class CompanyServiceImpl implements CompanyService {
         
         Company savedCompany = companyRepository.save(newCompany);
 
-        // 5. Cấp phát gói cước (Gói FREE trọn đời)
+        // 5. 🚀 CẤP PHÁT GÓI CƯỚC DÙNG THỬ (14 NGÀY)
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime trialEndDate = now.plusDays(14); // Hết hạn sau 14 ngày
+
         CompanySubscription subscription = CompanySubscription.builder()
                 .company(savedCompany)
-                .plan(defaultPlan) // Đây đang là gói "FREE"
-                .status(SubscriptionStatus.ACTIVE) // ĐỔI TỪ TRIAL THÀNH ACTIVE
-                // Xóa bỏ 2 dòng trialStartsAt và trialEndsAt vì gói Free không có khái niệm hết hạn dùng thử
+                .plan(trialPlan) // Cho dùng thẳng gói PRO
+                .status(SubscriptionStatus.ACTIVE) // Đang hoạt động bình thường
+                .currentPeriodStart(now)
+                .currentPeriodEnd(trialEndDate) // Đặt ngày hết hạn
+                // Bật cờ Hủy: Để sau 14 ngày Cron Job sẽ cắt thẳng về Free luôn, không cho ân hạn (PAST_DUE)
+                .cancelAtPeriodEnd(true) 
                 .build();
                 
         companySubscriptionRepository.save(subscription);
@@ -171,55 +180,69 @@ public class CompanyServiceImpl implements CompanyService {
                 
         companyMemberRepository.save(membership);
 
+        // =================================================================================
+        // 7. ✉️ GỬI EMAIL CHÀO MỪNG (BẤT ĐỒNG BỘ)
+        // =================================================================================
+        sendWelcomeAndTrialEmail(creator, savedCompany, trialPlan, trialEndDate);
+
         return savedCompany;
+    }
+
+    /**
+     * HÀM HELPER: Tạo template HTML và gửi Email Chào mừng
+     */
+    private void sendWelcomeAndTrialEmail(User user, Company company, SubscriptionPlan plan, LocalDateTime trialEndDate) {
+        String subject = "🎉 Chào mừng đến với hệ thống - Tặng bạn 14 ngày trải nghiệm gói " + plan.getName() + "!";
+        String formattedDate = trialEndDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        
+        // Tạo giao diện Email HTML chuyên nghiệp
+        String emailBody = String.format(
+            "<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;\">" +
+            "  <h2 style=\"color: #2c3e50; text-align: center;\">Chào mừng bạn gia nhập hệ thống!</h2>" +
+            "  <p>Xin chào <b>%s</b>,</p>" +
+            "  <p>Chúc mừng bạn đã tạo thành công không gian làm việc <b>%s</b>. Để giúp bạn có trải nghiệm tốt nhất, chúng tôi đã tự động kích hoạt <b>14 ngày dùng thử miễn phí gói %s</b> cho công ty của bạn.</p>" +
+            "  <div style=\"background-color: #f8f9fa; padding: 15px; border-left: 4px solid #3498db; margin: 20px 0;\">" +
+            "    <p style=\"margin: 0;\"><b>Gói hiện tại:</b> %s</p>" +
+            "    <p style=\"margin: 5px 0 0 0;\"><b>Hạn dùng thử:</b> Đến %s</p>" +
+            "  </div>" +
+            "  <p>Với gói %s, bạn có thể trải nghiệm toàn bộ các tính năng cao cấp nhất mà không gặp bất kỳ giới hạn nào.</p>" +
+            "  <p><i>Lưu ý: Sau khi thời gian dùng thử kết thúc, hệ thống sẽ tự động chuyển về gói <b>Miễn phí (FREE)</b> nếu bạn không thực hiện nâng cấp. Sẽ không có bất kỳ khoản phí nào phát sinh ngoài ý muốn.</i></p>" +
+            "  <div style=\"text-align: center; margin-top: 30px;\">" +
+            "    <a href=\"%s/admin/dashboard\" style=\"background-color: #3498db; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;\">Bắt đầu ngay</a>" +
+            "  </div>" +
+            "  <hr style=\"border: none; border-top: 1px solid #e0e0e0; margin-top: 30px;\">" +
+            "  <p style=\"font-size: 12px; color: #7f8c8d; text-align: center;\">Nếu bạn có bất kỳ câu hỏi nào, vui lòng trả lời trực tiếp email này để được hỗ trợ.</p>" +
+            "</div>",
+            user.getFullName(), company.getName(), plan.getName(), plan.getName(), formattedDate, plan.getName(), "http://localhost:3000" // Thay bằng URL Frontend của bạn (frontendUrl)
+        );
+
+        // Gọi hàm gửi mail (Hàm này đã có @Async bên EmailServiceImpl nên sẽ chạy nền)
+        emailService.sendEmail(user.getEmail(), subject, emailBody);
     }
 
     // =================================================================================
     // ✉️ LOGIC TẠO LỜI MỜI THÀNH VIÊN KÈM QUOTA GUARD (SAAS)
+    // =================================================================================
+    // =================================================================================
+    // ✉️ LOGIC TẠO LỜI MỜI THÀNH VIÊN CÔNG TY
     // =================================================================================
     @Override
     @Transactional
     @LogActivity(action = "INVITE", entityType = "COMPANY_MEMBER", description = "Invite new member to Company")
     public CompanyInvitation inviteMember(Integer companyId, InviteMemberRequest request) {
 
-        // 1. Lấy thông tin người mời và Công ty
         User admin = getCurrentAuthenticatedUser();
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
 
         // =====================================================================
-        // 🚀 BƯỚC 2: QUOTA GUARD (Chiến lược 1: Đặt chỗ trước - Reservation)
+        // 🚀 BƯỚC 1: QUOTA GUARD (Gọi qua Service tập trung)
         // =====================================================================
-        CompanySubscription currentSubscription = companySubscriptionRepository.findByCompany_Id(companyId)
-                .orElseThrow(() -> new BadRequestException("System Error: Company does not have an active subscription."));
+        quotaValidationService.validateUserInvitationQuota(companyId);
 
-        // 1. Đếm số thành viên đang chính thức làm việc (ACTIVE)
-        long currentActiveMembers = companyMemberRepository.countByCompany_IdAndStatus(companyId, MemberStatus.ACTIVE);
-        
-        // 2. Đếm số lời mời đang treo chưa ai phản hồi (PENDING)
-        long currentPendingInvitations = companyInvitationRepository.countByCompany_IdAndStatus(companyId, InvitationStatus.PENDING);
-        
-        // 3. TỔNG SỐ SLOT ĐÃ BỊ CHIẾM DỤNG
-        long totalReservedSlots = currentActiveMembers + currentPendingInvitations;
-
-        // Lấy giới hạn của gói cước hiện tại
-        Integer maxAllowedUsers = currentSubscription.getPlan().getMaxUsers();
-
-        // Chặn lại nếu tổng Slot chiếm dụng >= Giới hạn (Bỏ qua nếu max = -1 tức là Unlimited)
-        if (maxAllowedUsers != null && maxAllowedUsers != -1) {
-            if (totalReservedSlots >= maxAllowedUsers) {
-                // Tách thông báo lỗi rõ ràng để Admin biết tại sao bị chặn dù nhìn vào cty mới có 4 người
-                throw new QuotaExceededException(
-                    String.format("Cannot send invitation! Your '%s' plan allows a maximum of %d members. " +
-                                  "You currently have %d active members and %d pending invitations. " +
-                                  "Please cancel some pending invitations or upgrade your plan.", 
-                    currentSubscription.getPlan().getName(), maxAllowedUsers, currentActiveMembers, currentPendingInvitations)
-                );
-            }
-        }
         // =====================================================================
-
-        // 3. Validate Role và Thông tin cơ bản
+        // BƯỚC 2: VALIDATE ROLE VÀ DỮ LIỆU
+        // =====================================================================
         Role role = roleRepository.findFirstByRoleCode(request.getRoleCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found for code: " + request.getRoleCode()));
 
@@ -232,7 +255,6 @@ public class CompanyServiceImpl implements CompanyService {
             throw new BadRequestException("You cannot invite yourself to the company.");
         }
 
-        // 4. Kiểm tra trùng lặp dữ liệu (Đã là thành viên hoặc Đã mời)
         if (companyMemberRepository.existsByCompany_IdAndUser_Email(companyId, invitedEmail)) {
             throw new BadRequestException("This user is already an active member of the company.");
         }
@@ -241,10 +263,10 @@ public class CompanyServiceImpl implements CompanyService {
             throw new BadRequestException("An invitation has already been sent to this email and is awaiting response.");
         }
 
-        // 5. Tạo và Lưu lời mời (Token hết hạn sau 3 ngày)
+        // =====================================================================
+        // BƯỚC 3: TẠO LỜI MỜI & GỬI EMAIL
+        // =====================================================================
         String token = UUID.randomUUID().toString();
-        LocalDateTime expiryDate = LocalDateTime.now().plusDays(3); 
-
         CompanyInvitation invitation = CompanyInvitation.builder()
                 .company(company)
                 .email(invitedEmail)
@@ -252,7 +274,7 @@ public class CompanyServiceImpl implements CompanyService {
                 .invitedBy(admin)
                 .token(token)
                 .status(InvitationStatus.PENDING)
-                .expiresAt(expiryDate)
+                .expiresAt(LocalDateTime.now().plusDays(3))
                 .build();
 
         CompanyInvitation savedInvitation = companyInvitationRepository.save(invitation);
