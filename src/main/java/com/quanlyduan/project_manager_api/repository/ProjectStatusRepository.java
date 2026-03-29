@@ -1,42 +1,60 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/repository/ProjectStatusRepository.java
 package com.quanlyduan.project_manager_api.repository;
 
-import com.quanlyduan.project_manager_api.model.ProjectStatus; // Entity Trạng thái Dự án
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
+import com.quanlyduan.project_manager_api.model.ProjectStatus;
 
-@Repository
 /**
- * Repository cho Entity ProjectStatus (Quản lý các cột trạng thái/Board của Dự án).
+ * Kho lưu trữ dữ liệu quản lý các trạng thái dự án (Kanban Columns).
+ * Điều khiển thứ tự hiển thị và các ràng buộc về tên cột trên bảng công việc.
  */
+@Repository
 public interface ProjectStatusRepository extends JpaRepository<ProjectStatus, Integer> {
 
-    /**
-     * Tìm trạng thái (cột) đầu tiên (mặc định) của một dự án,
-     * dựa trên thứ tự sắp xếp (sort_order) thấp nhất.
-     */
-    Optional<ProjectStatus> findFirstByProject_IdOrderBySortOrderAsc(Integer projectId);
+    // Khai báo câu truy vấn tìm giá trị thứ tự sắp xếp lớn nhất
+    String FIND_MAX_SORT_ORDER_QUERY = "SELECT COALESCE(MAX(s.sortOrder), -1) " +
+                                       "FROM ProjectStatus s " +
+                                       "WHERE s.project.id = :projectId";
+
+    // ======================================================
+    // 1. TRUY VẤN DỮ LIỆU (RETRIEVAL)
+    // ======================================================
 
     /**
-     * Lấy tất cả trạng thái (cột) của dự án, sắp xếp theo thứ tự hiển thị (sortOrder) tăng dần.
+     * Lấy toàn bộ danh sách trạng thái của dự án theo thứ tự hiển thị tăng dần.
+     * @param projectId ID của dự án.
      */
     List<ProjectStatus> findByProject_IdOrderBySortOrderAsc(Integer projectId);
 
     /**
-     * Kiểm tra trùng tên cột (không phân biệt hoa thường) trong cùng 1 dự án.
+     * Tìm trạng thái mặc định (cột đầu tiên) của dự án dựa trên thứ tự thấp nhất.
      */
-    boolean existsByProject_IdAndNameIgnoreCase(Integer projectId, String name);
+    Optional<ProjectStatus> findFirstByProject_IdOrderBySortOrderAsc(Integer projectId);
+
+    // ======================================================
+    // 2. TIỆN ÍCH LOGIC (UTILITIES)
+    // ======================================================
 
     /**
-     * Tìm giá trị sort_order lớn nhất hiện tại trong dự án.
-     * COALESCE(MAX(s.sortOrder), -1) để trả về -1 nếu không có cột nào tồn tại,
-     * giúp logic nghiệp vụ dễ dàng cộng 1 để bắt đầu từ 0.
+     * Tìm giá trị sortOrder lớn nhất hiện tại trong dự án.
+     * Trả về -1 nếu dự án chưa có cột nào (giúp logic Service dễ dàng cộng 1 để bắt đầu từ 0).
      */
-    @Query("SELECT COALESCE(MAX(s.sortOrder), -1) FROM ProjectStatus s WHERE s.project.id = :projectId")
+    @Query(FIND_MAX_SORT_ORDER_QUERY)
     Integer findMaxSortOrderByProjectId(@Param("projectId") Integer projectId);
+
+    // ======================================================
+    // 3. KIỂM TRA RÀNG BUỘC (VALIDATION)
+    // ======================================================
+
+    /**
+     * Kiểm tra sự tồn tại của tên cột trong cùng một dự án (không phân biệt hoa thường).
+     * Dùng để tránh việc tạo hai cột trùng tên trên cùng một Board.
+     */
+    boolean existsByProject_IdAndNameIgnoreCase(Integer projectId, String name);
 }

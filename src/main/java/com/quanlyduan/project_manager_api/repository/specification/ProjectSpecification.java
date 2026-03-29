@@ -1,51 +1,102 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/repository/specification/ProjectSpecification.java
 package com.quanlyduan.project_manager_api.repository.specification;
+
+import org.springframework.data.jpa.domain.Specification;
 
 import com.quanlyduan.project_manager_api.model.Project;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.util.JpaSpecificationUtil;
-import org.springframework.data.jpa.domain.Specification;
 
+/**
+ * Lop xay dung bo loc dong cho thuc the Du an (Project).
+ * Ho tro tim kiem linh hoat trong pham vi mot Khong gian lam viec (Workspace).
+ */
 public class ProjectSpecification {
 
+    // Khai bao cac hang so ten truong de tranh hardcode
+    private static final String FIELD_WORKSPACE = "workspace";
+    private static final String FIELD_ID = "id";
+    private static final String FIELD_NAME = "name";
+    private static final String FIELD_PROJECT_CODE = "projectCode";
+    private static final String FIELD_MANAGER = "manager";
+    private static final String ATTR_FULL_NAME = "fullName";
+    private static final String FIELD_STATUS = "status";
+
     /**
-     * Tạo bộ lọc động (Specification) cho Entity Project.
-     * Dùng để tìm kiếm Dự án theo nhiều tiêu chí khác nhau trong một Workspace cụ thể.
+     * Constructor rieng tu de ngan viec khoi tao lop utility.
+     */
+    private ProjectSpecification() {
+    }
+
+    /**
+     * Tao bo loc dong dua tren cac tham so tim kiem cung cap tu Client.
+     * @param workspaceId ID khong gian lam viec (Dieu kien bat buoc)
+     * @param searchName Tim kiem theo ten du an
+     * @param searchCode Tim kiem theo ma du an
+     * @param searchManager Tim kiem theo ten nguoi quan ly
+     * @param searchStatus Tim kiem theo trang thai du an
+     * @return Specification da ghep noi cac dieu kien loc
      */
     public static Specification<Project> filterProjects(
             Integer workspaceId,
-            String searchName,      // Tìm theo Tên Dự án
-            String searchCode,      // Tìm theo Mã Dự án
-            String searchManager,   // Tìm theo Tên Quản lý
-            ProjectStatus searchStatus // Tìm theo Trạng thái (Enum)
+            String searchName,
+            String searchCode,
+            String searchManager,
+            ProjectStatus searchStatus
     ) {
-        // 1. Điều kiện bắt buộc: Project phải thuộc Workspace ID
-        // Sử dụng lambda expression để trỏ cụ thể vào ID của Workspace, tránh lỗi Type Mismatch (Object vs Integer)
+        // Khoi tao dieu kien bat buoc: Loc theo ID Workspace
         Specification<Project> spec = (root, query, cb) -> 
-                cb.equal(root.get("workspace").get("id"), workspaceId);
+                cb.equal(root.get(FIELD_WORKSPACE).get(FIELD_ID), workspaceId);
 
-        // 2. Tìm theo Tên Dự án (LIKE)
-        if (searchName != null && !searchName.isEmpty()) {
-            spec = spec.and(JpaSpecificationUtil.attributeContains("name", searchName));
+        // Ap dung cac dieu kien loc optional (Stepdown Rule)
+        spec = applyNameFilter(spec, searchName);
+        spec = applyCodeFilter(spec, searchCode);
+        spec = applyManagerFilter(spec, searchManager);
+        spec = applyStatusFilter(spec, searchStatus);
+
+        return spec;
+    }
+
+    // ======================================================
+    // CAC HAM PRIVATE HO TRO (STEPDOWN RULE)
+    // ======================================================
+
+    /**
+     * Loc theo ten du an su dung dieu kien LIKE.
+     */
+    private static Specification<Project> applyNameFilter(Specification<Project> spec, String name) {
+        if (name != null && !name.isEmpty()) {
+            return spec.and(JpaSpecificationUtil.attributeContains(FIELD_NAME, name));
         }
+        return spec;
+    }
 
-        // 3. Tìm theo Mã Dự án (LIKE)
-        if (searchCode != null && !searchCode.isEmpty()) {
-            spec = spec.and(JpaSpecificationUtil.attributeContains("projectCode", searchCode));
+    /**
+     * Loc theo ma du an su dung dieu kien LIKE.
+     */
+    private static Specification<Project> applyCodeFilter(Specification<Project> spec, String code) {
+        if (code != null && !code.isEmpty()) {
+            return spec.and(JpaSpecificationUtil.attributeContains(FIELD_PROJECT_CODE, code));
         }
+        return spec;
+    }
 
-        // 4. Tìm theo Tên Quản lý (JOIN bảng Manager/User)
-        // Dùng attributeContainsJoin để thực hiện tìm kiếm LIKE trên bảng liên quan
-        if (searchManager != null && !searchManager.isEmpty()) {
-            spec = spec.and(JpaSpecificationUtil.attributeContainsJoin("manager", "fullName", searchManager));
+    /**
+     * Loc theo ten nguoi quan ly (Yeu cau JOIN den bang User).
+     */
+    private static Specification<Project> applyManagerFilter(Specification<Project> spec, String managerName) {
+        if (managerName != null && !managerName.isEmpty()) {
+            return spec.and(JpaSpecificationUtil.attributeContainsJoin(FIELD_MANAGER, ATTR_FULL_NAME, managerName));
         }
+        return spec;
+    }
 
-        // 5. Tìm theo Trạng thái (EQUAL - Enum)
-        if (searchStatus != null) {
-            // Dùng attributeEquals, Spring JPA tự động xử lý so sánh Enum
-            spec = spec.and(JpaSpecificationUtil.attributeEquals("status", searchStatus));
+    /**
+     * Loc theo trang thai du an su dung dieu kien EQUAL cho Enum.
+     */
+    private static Specification<Project> applyStatusFilter(Specification<Project> spec, ProjectStatus status) {
+        if (status != null) {
+            return spec.and(JpaSpecificationUtil.attributeEquals(FIELD_STATUS, status));
         }
-
         return spec;
     }
 }

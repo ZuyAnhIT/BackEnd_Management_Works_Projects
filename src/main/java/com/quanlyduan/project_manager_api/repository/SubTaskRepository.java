@@ -1,38 +1,55 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/repository/SubTaskRepository.java
 package com.quanlyduan.project_manager_api.repository;
-
-import com.quanlyduan.project_manager_api.model.SubTask; // Entity SubTask
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-@Repository
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.quanlyduan.project_manager_api.model.SubTask;
+
 /**
- * Repository cho Entity SubTask (Quản lý các công việc con).
+ * Kho lưu trữ dữ liệu quản lý các công việc con (Sub-tasks).
+ * Hỗ trợ điều khiển thứ tự hiển thị và các thao tác cập nhật vị trí trong danh sách công việc.
  */
+@Repository
 public interface SubTaskRepository extends JpaRepository<SubTask, Integer> {
 
-    /**
-     * Đếm tổng số lượng SubTask thuộc về một Task cha.
-     * Dùng để xác định 'sort_order' cho SubTask mới.
-     */
-    Integer countByParentTask_Id(Integer taskId);
+    // ======================================================
+    // 1. TRUY VẤN DỮ LIỆU (RETRIEVAL)
+    // ======================================================
 
     /**
-     * Tìm tất cả SubTask của một Task cha, sắp xếp theo 'sort_order' tăng dần.
-     * Dùng để lấy danh sách SubTask cho chi tiết Task.
+     * Lấy toàn bộ danh sách công việc con của một công việc cha.
+     * Kết quả được sắp xếp theo thứ tự hiển thị tăng dần để hiển thị trên giao diện chi tiết.
+     * @param taskId ID của công việc cha.
      */
     List<SubTask> findByParentTask_IdOrderBySortOrderAsc(Integer taskId);
 
+    // ======================================================
+    // 2. LOGIC CẬP NHẬT VỊ TRÍ (SHIFTING & SORTING)
+    // ======================================================
+
     /**
-     * Tìm tất cả SubTask của một Task cha có 'sort_order' lớn hơn một giá trị cụ thể,
-     * sắp xếp theo 'sort_order' tăng dần.
-     * Dùng cho logic cập nhật lại vị trí (shifting) khi kéo thả.
+     * Tìm các công việc con có thứ tự sắp xếp lớn hơn một giá trị cụ thể trong cùng công việc cha.
+     * Thường dùng để dịch chuyển vị trí (Shifting) của các phần tử phía sau khi thực hiện kéo thả hoặc xóa.
+     * @param taskId ID của công việc cha.
+     * @param sortOrder Giá trị thứ tự mốc để so sánh.
      */
     List<SubTask> findByParentTask_IdAndSortOrderGreaterThanOrderBySortOrderAsc(
-        Integer taskId,
-        Integer sortOrder
+            Integer taskId,
+            Integer sortOrder
     );
+
+    // ======================================================
+    // 3. TIỆN ÍCH HỖ TRỢ (UTILITIES)
+    // ======================================================
+
+    /**
+     * Đếm tổng số lượng công việc con thuộc về một công việc cha.
+     * Dùng để xác định giá trị 'sort_order' tiếp theo khi tạo mới một công việc con.
+     * @param taskId ID của công việc cha.
+     * @return Tổng số lượng công việc con hiện có.
+     */
+    Integer countByParentTask_Id(Integer taskId);
 
 }

@@ -1,21 +1,22 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/repository/CompanyRepository.java
 package com.quanlyduan.project_manager_api.repository;
 
-import com.quanlyduan.project_manager_api.model.Company; // Entity Công ty
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-@Repository
+import com.quanlyduan.project_manager_api.model.Company;
+
 /**
- * Repository cho Entity Company (Quản lý các thao tác với bảng companies).
+ * Kho lưu trữ dữ liệu cho thực thể Công ty (Company).
+ * Hỗ trợ các thao tác CRUD cơ bản và tìm kiếm động thông qua JpaSpecificationExecutor.
  */
+@Repository
 public interface CompanyRepository extends JpaRepository<Company, Integer>, JpaSpecificationExecutor<Company> {
 
     /**
-     * Kiểm tra xem đã có Công ty nào tồn tại với tên này chưa.
+     * Kiểm tra sự tồn tại của công ty dựa trên tên đăng ký.
+     * @param name Tên công ty cần kiểm tra.
+     * @return true nếu tên công ty đã tồn tại trong hệ thống.
      */
-    Boolean existsByName(String name);
+    boolean existsByName(String name);
 }

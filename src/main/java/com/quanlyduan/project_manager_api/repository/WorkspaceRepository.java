@@ -1,54 +1,70 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/repository/WorkspaceRepository.java
 package com.quanlyduan.project_manager_api.repository;
-
-import com.quanlyduan.project_manager_api.model.Workspace; // Entity Workspace
-import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
-@Repository
+import com.quanlyduan.project_manager_api.model.Workspace;
+import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
+
 /**
- * Repository cho Entity Workspace (Quản lý các không gian làm việc).
- * Kế thừa JpaSpecificationExecutor để hỗ trợ tìm kiếm động.
+ * Kho lưu trữ dữ liệu quản lý Không gian làm việc (Workspace).
+ * Hỗ trợ các thao tác kiểm tra tên trùng lặp, quản lý hạn mức tài nguyên và tìm kiếm động.
  */
+@Repository
 public interface WorkspaceRepository extends JpaRepository<Workspace, Integer>, JpaSpecificationExecutor<Workspace> {
 
+    // Khai báo hằng số cho câu truy vấn JPQL lấy danh sách ID
+    String FIND_IDS_BY_COMPANY_QUERY = "SELECT w.id FROM Workspace w WHERE w.company.id = :companyId";
+
+    // ======================================================
+    // 1. KIỂM TRA RÀNG BUỘC (VALIDATION)
+    // ======================================================
+
     /**
-     * Kiểm tra xem tên Workspace đã tồn tại trong phạm vi Công ty chưa.
-     * Dùng cho logic tạo mới.
+     * Kiểm tra sự tồn tại của tên Workspace trong phạm vi một Công ty.
+     * Sử dụng để đảm bảo tính duy nhất khi người dùng tạo mới Workspace.
      */
     boolean existsByCompany_IdAndName(Integer companyId, String workspaceName);
 
     /**
-     * Đếm số lượng Workspace của Công ty, NGOẠI TRỪ những cái đã bị Xóa (DELETED).
-     * Dùng để check Quota Guard.
-     */
-    long countByCompany_IdAndStatusNot(Integer companyId, WorkspaceStatus status);
-
-    /**
-     * Lấy danh sách không gian làm việc theo ID công ty (Có phân trang).
-     */
-    Page<Workspace> findByCompany_Id(Integer companyId, Pageable pageable);
-
-    /**
-     * Tìm Workspace theo Tên và ID Công ty.
-     * Dùng để kiểm tra tên trùng lặp khi CẬP NHẬT.
+     * Tìm kiếm Workspace theo tên và ID Công ty.
+     * Thường dùng để kiểm tra tính hợp lệ của tên khi thực hiện cập nhật thông tin.
      */
     Optional<Workspace> findByCompany_IdAndName(Integer companyId, String name);
 
+    // ======================================================
+    // 2. QUẢN LÝ HẠN MỨC DỮ LIỆU (QUOTA GUARD)
+    // ======================================================
+
     /**
-     * Lấy danh sách tất cả các ID Workspace thuộc về một Công ty.
-     * Dùng cho các truy vấn kiểm tra quyền/phạm vi.
+     * Đếm tổng số lượng Workspace của công ty, loại trừ các trạng thái không mong muốn (ví dụ: DELETED).
+     * Phục vụ logic kiểm tra giới hạn của gói cước SaaS (Quota Guard).
+     * @param companyId ID của công ty cần kiểm tra.
+     * @param status Trạng thái cần loại trừ (ví dụ: WorkspaceStatus.DELETED).
      */
-    @Query("SELECT w.id FROM Workspace w WHERE w.company.id = :companyId")
+    long countByCompany_IdAndStatusNot(Integer companyId, WorkspaceStatus status);
+
+    // ======================================================
+    // 3. TRUY VẤN DỮ LIỆU (RETRIEVAL)
+    // ======================================================
+
+    /**
+     * Lấy danh sách toàn bộ ID Workspace thuộc về một Công ty.
+     * Dùng cho các truy vấn kiểm tra quyền hạn hoặc lọc phạm vi dữ liệu diện rộng.
+     */
+    @Query(FIND_IDS_BY_COMPANY_QUERY)
     List<Integer> findWorkspaceIdsByCompanyId(@Param("companyId") Integer companyId);
+
+    /**
+     * Lấy danh sách Không gian làm việc của một công ty hỗ trợ phân trang và sắp xếp.
+     */
+    Page<Workspace> findByCompany_Id(Integer companyId, Pageable pageable);
 }
