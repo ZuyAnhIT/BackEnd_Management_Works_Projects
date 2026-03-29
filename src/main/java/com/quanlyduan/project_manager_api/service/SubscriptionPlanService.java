@@ -2,6 +2,7 @@ package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.plan.CreatePlanRequest;
 import com.quanlyduan.project_manager_api.dto.request.plan.UpdatePlanRequest;
+import com.quanlyduan.project_manager_api.dto.response.MySubscriptionResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.plan.PlanResponse;
 import com.quanlyduan.project_manager_api.dto.response.plan.PublicPlanResponse;
@@ -49,4 +50,6 @@ public interface SubscriptionPlanService {
 
     // Khách hàng yêu cầu hủy gói (Không gia hạn nữa)
     void cancelActiveSubscription(Integer companyId);
+
+    MySubscriptionResponse getMySubscriptionInfo(Integer companyId);
 }
