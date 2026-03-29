@@ -1,6 +1,13 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/controller/AuthController.java
 package com.quanlyduan.project_manager_api.controller;
 
+import jakarta.validation.Valid;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.quanlyduan.project_manager_api.dto.request.ForgotPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.GoogleLoginRequest;
@@ -14,168 +21,119 @@ import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
 import com.quanlyduan.project_manager_api.service.AuthService;
-import jakarta.validation.Valid;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
+/**
+ * Controller xử lý các nghiệp vụ liên quan đến xác thực người dùng (Authentication).
+ */
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin("*")
-/**
- * Controller xử lý các nghiệp vụ liên quan đến Xác thực (Authentication).
- */
 public class AuthController {
+
+    // Khai báo các câu thông báo trả về
+    private static final String MSG_REGISTER_SUCCESS = "Registration successful. Please check your email for OTP verification.";
+    private static final String MSG_LOGIN_SUCCESS = "Login successful.";
+    private static final String MSG_LOGOUT_SUCCESS = "Logout successful.";
+    private static final String MSG_VERIFY_SUCCESS = "Email verification successful.";
+    private static final String MSG_REGISTER_INVITE_SUCCESS = "Registration and company acceptance successful.";
+    private static final String MSG_REGISTER_PROJECT_INVITE_SUCCESS = "Registration and project acceptance successful.";
+    private static final String MSG_FORGOT_PASSWORD_SUCCESS = "If an account with this email exists, a password reset link has been sent.";
+    private static final String MSG_RESET_PASSWORD_SUCCESS = "Your password has been successfully reset. You can log in now.";
+    private static final String MSG_GOOGLE_LOGIN_SUCCESS = "Google login successful.";
 
     private final AuthService authService;
 
+    // Khởi tạo thủ công để tiêm (inject) phụ thuộc
     public AuthController(AuthService authService) {
         this.authService = authService;
     }
 
-    // ======================================================
-    // 1. ĐĂNG KÝ (REGISTER)
-    // ======================================================
+    /**
+     * Đăng ký tài khoản mới và gửi mã OTP qua email.
+     */
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<Object>> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
-        // Gọi service để đăng ký user và gửi OTP
-        authService.register(registerRequest);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        ApiResponse<Object> response = ApiResponse.success(
-            "Registration successful. Please check your email for OTP verification.",
-            null
-        );
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<Object>> registerUser(@Valid @RequestBody RegisterRequest request) {
+        authService.register(request);
+        return ResponseEntity.ok(ApiResponse.success(MSG_REGISTER_SUCCESS, null));
     }
 
-    // ======================================================
-    // 2. ĐĂNG NHẬP (LOGIN)
-    // ======================================================
+    /**
+     * Đăng nhập hệ thống bằng email và mật khẩu.
+     */
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> loginUser(@Valid @RequestBody LoginRequest loginRequest) {
-
-        // Gọi service để đăng nhập và lấy tokens
-        LoginResponse loginResponse = authService.login(loginRequest);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        ApiResponse<LoginResponse> response = ApiResponse.success(
-            "Login successful.",
-            loginResponse
-        );
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<LoginResponse>> loginUser(@Valid @RequestBody LoginRequest request) {
+        LoginResponse response = authService.login(request);
+        return ResponseEntity.ok(ApiResponse.success(MSG_LOGIN_SUCCESS, response));
     }
 
-    // ======================================================
-    // 3. ĐĂNG XUẤT (LOGOUT)
-    // ======================================================
+    /**
+     * Đăng xuất và thu hồi Refresh Token.
+     */
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Object>> logoutUser(@Valid @RequestBody LogoutRequest logoutRequest) {
-        // Thu hồi Refresh Token
-        authService.logout(logoutRequest);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Logout successful.", null));
+    public ResponseEntity<ApiResponse<Object>> logoutUser(@Valid @RequestBody LogoutRequest request) {
+        authService.logout(request);
+        return ResponseEntity.ok(ApiResponse.success(MSG_LOGOUT_SUCCESS, null));
     }
 
-
-    // ======================================================
-    // 4. XÁC THỰC EMAIL (VERIFY EMAIL)
-    // ======================================================
+    /**
+     * Xác thực email tài khoản thông qua mã OTP.
+     */
     @PostMapping("/verify-email")
-    public ResponseEntity<ApiResponse<Object>> verifyEmail(@Valid @RequestBody VerifyEmailRequest verifyRequest) {
-        // Xác thực OTP
-        authService.verifyEmail(verifyRequest);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        ApiResponse<Object> response = ApiResponse.success(
-            "Email verification successful.",
-            null
-        );
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<Object>> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        authService.verifyEmail(request);
+        return ResponseEntity.ok(ApiResponse.success(MSG_VERIFY_SUCCESS, null));
     }
 
-
-    // ======================================================
-    // 5. ĐĂNG KÝ TỪ LỜI MỜI CÔNG TY (REGISTER FROM COMPANY INVITE)
-    // ======================================================
-    // API public, dùng cho người chưa có tài khoản. Trả về token.
+    /**
+     * Đăng ký tài khoản mới thông qua lời mời tham gia công ty.
+     * Áp dụng cho người dùng chưa có tài khoản trên hệ thống.
+     */
     @PostMapping("/register-from-invite")
     public ResponseEntity<ApiResponse<LoginResponse>> registerFromInvite(
             @Valid @RequestBody RegisterFromInviteRequest request) {
-
-        LoginResponse loginResponse = authService.registerFromInvite(request);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success(
-            "Registration and company acceptance successful.", loginResponse
-        ));
+        LoginResponse response = authService.registerFromInvite(request);
+        return ResponseEntity.ok(ApiResponse.success(MSG_REGISTER_INVITE_SUCCESS, response));
     }
 
-    // ======================================================
-    // 6. ĐĂNG KÝ TỪ LỜI MỜI DỰ ÁN (REGISTER FROM PROJECT INVITE)
-    // ======================================================
-    // API public, dùng cho người chưa có tài khoản. Trả về token.
+    /**
+     * Đăng ký tài khoản mới thông qua lời mời tham gia dự án.
+     * Tự động thiết lập quyền dự án và đăng nhập.
+     */
     @PostMapping("/register-from-project-invite")
     public ResponseEntity<ApiResponse<LoginResponse>> registerFromProjectInvite(
             @Valid @RequestBody RegisterFromProjectInviteRequest request) {
-
-        // Gọi logic để tạo user, gán role project và đăng nhập
-        LoginResponse loginResponse = authService.registerFromProjectInvite(request);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success(
-            "Registration and project acceptance successful.", loginResponse
-        ));
+        LoginResponse response = authService.registerFromProjectInvite(request);
+        return ResponseEntity.ok(ApiResponse.success(MSG_REGISTER_PROJECT_INVITE_SUCCESS, response));
     }
 
-    // ======================================================
-    // 7. QUÊN MẬT KHẨU (FORGOT PASSWORD)
-    // ======================================================
+    /**
+     * Gửi yêu cầu cấp lại mật khẩu.
+     * Luôn trả về thông báo thành công để bảo mật, tránh việc kẻ xấu dò tìm email.
+     */
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Object>> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request) {
-
         authService.forgotPassword(request);
-
-        // Luôn trả về thành công để bảo mật (tránh dò email)
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success(
-            "If an account with this email exists, a password reset link has been sent.",
-            null
-        ));
+        return ResponseEntity.ok(ApiResponse.success(MSG_FORGOT_PASSWORD_SUCCESS, null));
     }
 
-    // ======================================================
-    // 8. ĐẶT LẠI MẬT KHẨU (RESET PASSWORD)
-    // ======================================================
+    /**
+     * Đặt lại mật khẩu mới thông qua liên kết bảo mật.
+     */
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<Object>> resetPassword(
             @Valid @RequestBody ResetPasswordRequest request) {
-
         authService.resetPassword(request);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success(
-            "Your password has been successfully reset. You can log in now.",
-            null
-        ));
+        return ResponseEntity.ok(ApiResponse.success(MSG_RESET_PASSWORD_SUCCESS, null));
     }
 
-    // ======================================================
-    // 9. ĐĂNG NHẬP BẰNG GOOGLE (LOGIN WITH GOOGLE)
-    // ======================================================
+    /**
+     * Đăng nhập hoặc đăng ký nhanh thông qua tài khoản Google.
+     */
     @PostMapping("/google")
     public ResponseEntity<ApiResponse<LoginResponse>> loginWithGoogle(
             @Valid @RequestBody GoogleLoginRequest request) {
-
-        LoginResponse loginResponse = authService.loginWithGoogle(request);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success(
-            "Google login successful.",
-            loginResponse
-        ));
+        LoginResponse response = authService.loginWithGoogle(request);
+        return ResponseEntity.ok(ApiResponse.success(MSG_GOOGLE_LOGIN_SUCCESS, response));
     }
-
 }

@@ -1,27 +1,33 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/config/ApplicationConfig.java
 package com.quanlyduan.project_manager_api.config;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
+import java.util.Collections;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.Collections;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 
+/**
+ * Lớp cấu hình các Bean chung cho toàn bộ ứng dụng.
+ */
 @Configuration
 public class ApplicationConfig {
 
-    // Lấy giá trị Google Client ID từ file cấu hình (application.properties)
-    @Value("${google.client-id}")
-    private String googleClientId;
+    private final String googleClientId;
+
+    // Khởi tạo thủ công và inject giá trị từ application.properties
+    public ApplicationConfig(@Value("${google.client-id}") String googleClientId) {
+        this.googleClientId = googleClientId;
+    }
 
     /**
-     * Khởi tạo Bean PasswordEncoder.
-     * Sử dụng thuật toán BCrypt để mã hóa và kiểm tra mật khẩu người dùng.
+     * Cấu hình Bean mã hóa mật khẩu.
+     * Sử dụng thuật toán BCrypt mặc định của Spring Security.
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -29,18 +35,13 @@ public class ApplicationConfig {
     }
 
     /**
-     * Khởi tạo Bean GoogleIdTokenVerifier.
-     * Bean này chịu trách nhiệm xác thực tính hợp lệ của Google ID Token gửi từ Client.
+     * Cấu hình Bean xác thực Google ID Token.
+     * Xác minh tính hợp lệ và đảm bảo token được cấp phát đúng cho ứng dụng (dựa vào Client ID).
      */
     @Bean
     public GoogleIdTokenVerifier googleIdTokenVerifier() {
-        // Xây dựng verifier sử dụng NetHttpTransport và GsonFactory chuẩn của Google
         return new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
-            // Thiết lập danh sách Audience hợp lệ (chính là Client ID của ứng dụng này)
-            // Điều này đảm bảo token được cấp phát cho đúng ứng dụng của chúng ta
-            .setAudience(Collections.singletonList(googleClientId))
-            .build();
+                .setAudience(Collections.singletonList(googleClientId))
+                .build();
     }
-
-    // (Ghi chú: Các Bean cấu hình khác như ModelMapper có thể được thêm vào đây trong tương lai)
 }

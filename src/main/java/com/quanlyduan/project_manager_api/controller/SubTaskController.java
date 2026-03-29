@@ -1,7 +1,21 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/controller/SubTaskController.java
 package com.quanlyduan.project_manager_api.controller;
 
 import java.util.List;
+
+import jakarta.validation.Valid;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateSubTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateSubTaskRequest;
@@ -10,32 +24,33 @@ import com.quanlyduan.project_manager_api.dto.response.SubTaskResponse;
 import com.quanlyduan.project_manager_api.service.SubTaskService;
 
 import io.swagger.v3.oas.annotations.Operation;
-import jakarta.validation.Valid;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
+/**
+ * Controller xử lý các nghiệp vụ liên quan đến Công việc con (SubTask) của một Task.
+ * Các thao tác yêu cầu tuân thủ hệ thống phân cấp: Company -> Workspace -> Project -> Task.
+ */
 @RestController
-// Endpoint phụ thuộc vào các cấp cha: Company -> Workspace -> Project -> Task
 @RequestMapping("/api/companies/{companyId}/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/subtasks")
 @CrossOrigin("*")
-/**
- * Controller xử lý các nghiệp vụ liên quan đến SubTask (Công việc con) của một Task cụ thể.
- * Tất cả các thao tác đều yêu cầu kiểm tra tính hợp lệ của hệ thống phân cấp (Hierarchy).
- */
 public class SubTaskController {
+
+    // Khai báo các hằng số thông báo trả về (Response Messages)
+    private static final String MSG_FETCH_LIST_SUCCESS = "Successfully retrieved subtask list.";
+    private static final String MSG_FETCH_DETAIL_SUCCESS = "Successfully retrieved subtask.";
+    private static final String MSG_CREATE_SUCCESS = "Subtask created successfully.";
+    private static final String MSG_UPDATE_SUCCESS = "Subtask updated successfully.";
+    private static final String MSG_DELETE_SUCCESS = "Subtask deleted successfully.";
 
     private final SubTaskService subTaskService;
 
+    // Khởi tạo thủ công để tiêm phụ thuộc (Dependency Injection)
     public SubTaskController(SubTaskService subTaskService) {
         this.subTaskService = subTaskService;
     }
 
-    // ======================================================
-    // 1. LẤY DANH SÁCH SUBTASK (LIST SUBTASKS)
-    // ======================================================
+    /**
+     * Lấy danh sách tất cả các công việc con thuộc một Task cụ thể.
+     */
     @Operation(summary = "Get list of subtasks")
     @GetMapping
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:view')")
@@ -46,13 +61,12 @@ public class SubTaskController {
             @PathVariable Integer taskId) {
 
         List<SubTaskResponse> subTasks = subTaskService.getSubTasks(companyId, workspaceId, projectId, taskId);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Successfully retrieved subtask list.", subTasks));
+        return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_LIST_SUCCESS, subTasks));
     }
 
-    // ======================================================
-    // 2. XEM CHI TIẾT SUBTASK (GET DETAIL)
-    // ======================================================
+    /**
+     * Xem thông tin chi tiết của một công việc con.
+     */
     @Operation(summary = "Get subtask detail")
     @GetMapping("/{subTaskId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:view')")
@@ -64,13 +78,12 @@ public class SubTaskController {
             @PathVariable Integer subTaskId) {
 
         SubTaskResponse subTask = subTaskService.getSubTaskDetail(companyId, workspaceId, projectId, taskId, subTaskId);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Successfully retrieved subtask.", subTask));
+        return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_DETAIL_SUCCESS, subTask));
     }
 
-    // ======================================================
-    // 3. TẠO SUBTASK MỚI (CREATE SUBTASK)
-    // ======================================================
+    /**
+     * Tạo mới một công việc con cho Task hiện tại.
+     */
     @Operation(summary = "Create new subtask")
     @PostMapping
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:edit')")
@@ -82,13 +95,13 @@ public class SubTaskController {
             @Valid @RequestBody CreateSubTaskRequest request) {
 
         SubTaskResponse subTask = subTaskService.createSubTask(companyId, workspaceId, projectId, taskId, request);
-        // Sửa thông báo trả về sang tiếng Anh (201 Created)
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Subtask created successfully.", subTask));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(MSG_CREATE_SUCCESS, subTask));
     }
 
-    // ======================================================
-    // 4. CẬP NHẬT SUBTASK (UPDATE SUBTASK)
-    // ======================================================
+    /**
+     * Cập nhật thông tin của một công việc con đã tồn tại.
+     */
     @Operation(summary = "Update subtask")
     @PutMapping("/{subTaskId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:edit')")
@@ -101,13 +114,12 @@ public class SubTaskController {
             @Valid @RequestBody UpdateSubTaskRequest request) {
 
         SubTaskResponse subTask = subTaskService.updateSubTask(companyId, workspaceId, projectId, taskId, subTaskId, request);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Subtask updated successfully.", subTask));
+        return ResponseEntity.ok(ApiResponse.success(MSG_UPDATE_SUCCESS, subTask));
     }
 
-    // ======================================================
-    // 5. XÓA SUBTASK (DELETE SUBTASK)
-    // ======================================================
+    /**
+     * Xóa bỏ một công việc con khỏi Task.
+     */
     @Operation(summary = "Delete subtask")
     @DeleteMapping("/{subTaskId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:delete')")
@@ -119,7 +131,6 @@ public class SubTaskController {
             @PathVariable Integer subTaskId) {
 
         subTaskService.deleteSubTask(companyId, workspaceId, projectId, taskId, subTaskId);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Subtask deleted successfully.", null));
+        return ResponseEntity.ok(ApiResponse.success(MSG_DELETE_SUCCESS, null));
     }
 }

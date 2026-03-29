@@ -1,5 +1,29 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/controller/ProjectController.java
 package com.quanlyduan.project_manager_api.controller;
+
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import jakarta.validation.Valid;
+
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,7 +33,6 @@ import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.RoleUpdateRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
-import com.quanlyduan.project_manager_api.dto.response.ActivityLogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
@@ -17,7 +40,6 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectInvitationResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
-import com.quanlyduan.project_manager_api.dto.response.TaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
@@ -29,35 +51,56 @@ import com.quanlyduan.project_manager_api.service.TaskService;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
 
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+/**
+ * Controller xu ly cac nghiep vu lien quan den Du an (Project) va cac thuc the ben trong nhu Task, Thanh vien.
+ */
 @RestController
 @RequestMapping("/api/companies/{companyId}/workspaces/{workspaceId}/projects")
 @CrossOrigin("*")
-/**
- * Controller xử lý các nghiệp vụ liên quan đến Dự án (Project) trong Workspace.
- */
 public class ProjectController {
+
+    // Cac hang so mac dinh cho phan trang va sap xep
+    private static final String DEFAULT_PAGE = "0";
+    private static final String DEFAULT_SIZE_10 = "10";
+    private static final String DEFAULT_SIZE_20 = "20";
+    private static final String SORT_BY_CREATED_AT = "createdAt";
+    private static final String SORT_BY_JOINED_AT = "joinedAt";
+    private static final String SORT_BY_ORDER = "sortOrder";
+    private static final String SORT_BY_ID = "id";
+    private static final String SORT_DIR_DESC = "desc";
+    private static final String SORT_DIR_ASC = "asc";
+    private static final String INVITE_STATUS_PENDING = "PENDING";
+
+    // Cac thong bao tra ve (Response Messages)
+    private static final String MSG_CREATE_SUCCESS = "Project created successfully.";
+    private static final String MSG_LIST_SUCCESS = "Project list retrieved successfully.";
+    private static final String MSG_SEARCH_SUCCESS = "Project search successful.";
+    private static final String MSG_DETAIL_SUCCESS = "Project details retrieved successfully.";
+    private static final String MSG_UPDATE_SUCCESS = "Project information updated successfully.";
+    private static final String MSG_UPDATE_STATUS_SUCCESS = "Project status updated successfully.";
+    private static final String MSG_DELETE_SUCCESS = "Project cancelled successfully.";
+    private static final String MSG_BACKLOG_SUCCESS = "Project backlog data retrieved successfully.";
+    private static final String MSG_CREATE_TASK_SUCCESS = "New task created successfully.";
+    private static final String MSG_BOARD_SUCCESS = "Task board data retrieved successfully.";
+    private static final String MSG_TASK_LIST_SUCCESS = "Project tasks fetched successfully.";
+    private static final String MSG_GROUPED_TASK_SUCCESS = "Grouped task data retrieved successfully.";
+    private static final String MSG_CALENDAR_SUCCESS = "Calendar tasks retrieved successfully.";
+    private static final String MSG_ARCHIVE_SUCCESS = "Archived tasks retrieved successfully.";
+    private static final String MSG_MEMBER_LIST_SUCCESS = "Project member list retrieved successfully.";
+    private static final String MSG_MEMBER_SEARCH_SUCCESS = "Project member search successful.";
+    private static final String MSG_INVITATION_LIST_SUCCESS = "Project invitations retrieved successfully.";
+    private static final String MSG_CANCEL_INVITE_SUCCESS = "Invitation cancelled successfully.";
+    private static final String MSG_INVITE_SUCCESS = "Operation successful.";
 
     private final ProjectService projectService;
     private final SecurityService securityService;
     private final TaskService taskService;
     private final ObjectMapper objectMapper;
 
-    public ProjectController(ProjectService projectService, SecurityService securityService, TaskService taskService, ObjectMapper objectMapper) {
+    // Khoi tao thu cong de tiem phu thuoc
+    public ProjectController(ProjectService projectService, SecurityService securityService, 
+                             TaskService taskService, ObjectMapper objectMapper) {
         this.projectService = projectService;
         this.securityService = securityService;
         this.taskService = taskService;
@@ -65,87 +108,73 @@ public class ProjectController {
     }
 
     // ========================================================================
-    // A. QUẢN LÝ PROJECT (CRUD)
+    // QUAN LY DU AN (PROJECT CRUD)
     // ========================================================================
 
-    // API TẠO DỰ ÁN (TICH HOP UPLOAD)
+    /**
+     * Tao du an moi trong Workspace, ho tro tai len anh dai dien.
+     */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'project:create')")
     public ResponseEntity<ApiResponse<ProjectResponse>> createProject(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
-
-            // Nhận JSON String
             @Parameter(schema = @Schema(implementation = ProjectRequest.class))
             @RequestPart("data") String dataString,
-
-            // Nhận file ảnh (Optional)
             @RequestPart(value = "file", required = false) MultipartFile file) {
 
-        // Convert String -> DTO
-        ProjectRequest request;
-        try {
-            request = objectMapper.readValue(dataString, ProjectRequest.class);
-        } catch (JsonProcessingException e) {
-            // Sửa thông báo trả về sang tiếng Anh
-            throw new BadRequestException("Invalid JSON data: " + e.getMessage());
-        }
-
+        ProjectRequest request = parseProjectData(dataString, ProjectRequest.class);
         Integer creatorId = securityService.getCurrentUserId();
         ProjectResponse created = projectService.createProject(companyId, workspaceId, request, creatorId, file);
 
-        // Sửa thông báo trả về sang tiếng Anh (201 Created)
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Project created successfully.", created));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(MSG_CREATE_SUCCESS, created));
     }
 
-    // API 1: LẤY DANH SÁCH (Cơ bản)
+    /**
+     * Lay danh sach du an trong Workspace (ho tro loc theo trang thai).
+     */
     @GetMapping
     @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'project:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<ProjectResponse>>> listProjects(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
-            @RequestParam(required = false) ProjectStatus status, // Filter đơn giản
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
-        PageResponseDTO<ProjectResponse> projects = projectService.listProjectsByWorkspace(companyId, workspaceId, status, page, size, sortBy, sortDir);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Project list retrieved successfully.", projects));
+            @RequestParam(required = false) ProjectStatus status,
+            @RequestParam(defaultValue = DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = DEFAULT_SIZE_10) int size,
+            @RequestParam(defaultValue = SORT_BY_CREATED_AT) String sortBy,
+            @RequestParam(defaultValue = SORT_DIR_DESC) String sortDir) {
+
+        PageResponseDTO<ProjectResponse> projects = projectService.listProjectsByWorkspace(
+                companyId, workspaceId, status, page, size, sortBy, sortDir);
+        return ResponseEntity.ok(ApiResponse.success(MSG_LIST_SUCCESS, projects));
     }
 
-    // API 2: TÌM KIẾM (Nâng cao - MỚI)
+    /**
+     * Tim kiem du an nang cao theo ten, ma, nguoi quan ly.
+     */
     @GetMapping("/search")
     @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'project:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<ProjectResponse>>> searchProjects(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
-
-            // Các tham số tìm kiếm
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String manager,
             @RequestParam(required = false) ProjectStatus status,
-
-            // Các tham số phân trang
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
+            @RequestParam(defaultValue = DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = DEFAULT_SIZE_10) int size,
+            @RequestParam(defaultValue = SORT_BY_CREATED_AT) String sortBy,
+            @RequestParam(defaultValue = SORT_DIR_DESC) String sortDir) {
 
         PageResponseDTO<ProjectResponse> results = projectService.searchProjects(
-            companyId, workspaceId, name, code, manager, status,
-            page, size, sortBy, sortDir
-        );
+                companyId, workspaceId, name, code, manager, status, page, size, sortBy, sortDir);
 
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Project search successful.", results));
+        return ResponseEntity.ok(ApiResponse.success(MSG_SEARCH_SUCCESS, results));
     }
 
-    // API LẤY CHI TIẾT DỰ ÁN
+    /**
+     * Lay thong tin chi tiet cua mot du an.
+     */
     @GetMapping("/{projectId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<ProjectResponse>> getProjectDetails(
@@ -153,41 +182,31 @@ public class ProjectController {
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId) {
         ProjectResponse response = projectService.getProjectDetails(companyId, workspaceId, projectId);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Project details retrieved successfully.", response));
+        return ResponseEntity.ok(ApiResponse.success(MSG_DETAIL_SUCCESS, response));
     }
 
-    // API CẬP NHẬT DỰ ÁN (TICH HOP UPLOAD)
+    /**
+     * Cap nhat thong tin du an va hinh anh minh hoa.
+     */
     @PutMapping(value = "/{projectId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
     public ResponseEntity<ApiResponse<ProjectResponse>> updateProject(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-
-            // Nhận JSON String
             @Parameter(schema = @Schema(implementation = UpdateProjectRequest.class))
             @RequestPart("data") String dataString,
-
-            // Nhận file ảnh
             @RequestPart(value = "file", required = false) MultipartFile file) {
 
-        // Convert String -> DTO
-        UpdateProjectRequest request;
-        try {
-            request = objectMapper.readValue(dataString, UpdateProjectRequest.class);
-        } catch (JsonProcessingException e) {
-            // Sửa thông báo trả về sang tiếng Anh
-            throw new BadRequestException("Invalid JSON data: " + e.getMessage());
-        }
-
+        UpdateProjectRequest request = parseProjectData(dataString, UpdateProjectRequest.class);
         ProjectResponse updated = projectService.updateProject(companyId, workspaceId, projectId, request, file);
 
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Project information updated successfully.", updated));
+        return ResponseEntity.ok(ApiResponse.success(MSG_UPDATE_SUCCESS, updated));
     }
 
-    // API CẬP NHẬT TRẠNG THÁI DỰ ÁN (STATUS)
+    /**
+     * Thay doi trang thai hien tai cua du an.
+     */
     @PutMapping("/{projectId}/status")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
     public ResponseEntity<ApiResponse<ProjectResponse>> updateProjectStatus(
@@ -197,11 +216,12 @@ public class ProjectController {
             @Valid @RequestBody UpdateProjectStatusRequest request) {
 
         ProjectResponse updated = projectService.updateProjectStatus(companyId, workspaceId, projectId, request);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Project status updated successfully.", updated));
+        return ResponseEntity.ok(ApiResponse.success(MSG_UPDATE_STATUS_SUCCESS, updated));
     }
 
-    // API XÓA (soft delete) Project: chuyển trạng thái dự án sang CANCELLED.
+    /**
+     * Huy du an (Soft delete).
+     */
     @DeleteMapping("/{projectId}")
     @PreAuthorize("@securityService.hasPermission('workspace', #workspaceId, 'project:delete')")
     public ResponseEntity<ApiResponse<Object>> deleteProject(
@@ -210,46 +230,42 @@ public class ProjectController {
             @PathVariable Integer projectId) {
 
         projectService.deleteProject(companyId, workspaceId, projectId);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Project cancelled successfully.", null));
+        return ResponseEntity.ok(ApiResponse.success(MSG_DELETE_SUCCESS, null));
     }
 
     // ========================================================================
-    // B. QUẢN LÝ TASK (BACKLOG, BOARD, LIST)
+    // QUAN LY CONG VIEC (TASK VIEWS)
     // ========================================================================
 
-    // API XEM MÀN HÌNH BACKLOG (PHAN TRANG + SORT + FILTER NANG CAO)
+    /**
+     * Lay du lieu man hinh Backlog cua du an.
+     */
     @GetMapping("/{projectId}/backlog")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<ProjectBacklogResponse>> getProjectBacklog(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-
-            // Các tham số tìm kiếm/lọc (Optional)
-            @RequestParam(required = false) String keyword,      // Tìm chung (Tên/Mã)
-            @RequestParam(required = false) Integer assigneeId, // Tìm theo người làm
-            @RequestParam(required = false) TaskPriority priority, // Tìm theo độ ưu tiên
-            @RequestParam(required = false) TaskType taskType,      // Tìm theo loại
-
-            // Các tham số phân trang cho phần Backlog
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "sortOrder") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir
-    ) {
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer assigneeId,
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) TaskType taskType,
+            @RequestParam(defaultValue = DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = DEFAULT_SIZE_20) int size,
+            @RequestParam(defaultValue = SORT_BY_ORDER) String sortBy,
+            @RequestParam(defaultValue = SORT_DIR_ASC) String sortDir) {
 
         ProjectBacklogResponse backlogData = projectService.getProjectBacklog(
             companyId, workspaceId, projectId, keyword, assigneeId, priority, taskType,
             page, size, sortBy, sortDir
         );
 
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Project backlog data retrieved successfully.", backlogData));
+        return ResponseEntity.ok(ApiResponse.success(MSG_BACKLOG_SUCCESS, backlogData));
     }
 
-    // API TAO TASK (DÙNG CHUNG CHO CẢ BACKLOG VÀ SPRINT)
-    // URL: POST .../projects/{projectId}/tasks
+    /**
+     * Tao cong viec moi (Task).
+     */
     @PostMapping("/{projectId}/tasks")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:create')")
     public ResponseEntity<ApiResponse<TaskSummaryResponse>> createTask(
@@ -258,232 +274,190 @@ public class ProjectController {
             @PathVariable Integer projectId,
             @Valid @RequestBody CreateTaskRequest request) {
 
-        // Service sẽ tự lo việc task này thuộc Sprint nào hay thuộc Backlog
         TaskSummaryResponse newTask = taskService.createTask(projectId, request);
-
-        // Sửa thông báo trả về sang tiếng Anh (201 Created)
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("New task created successfully.", newTask));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(MSG_CREATE_TASK_SUCCESS, newTask));
     }
 
-    // --- XEM BOARD (KÈM FILTER NÂNG CAO) ---
+    /**
+     * Lay du lieu bang cong viec (Board view).
+     */
     @GetMapping("/{projectId}/board")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<List<BoardColumnResponse>>> getProjectBoard(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-
-            // Filter Sprint
-            @RequestParam(required = false) Integer sprintId, // null = auto active, 0 = backlog
-            
-            // Filter Tìm kiếm nâng cao
+            @RequestParam(required = false) Integer sprintId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer assigneeId,
             @RequestParam(required = false) TaskPriority priority,
-            @RequestParam(required = false) TaskType taskType
-    ) {
+            @RequestParam(required = false) TaskType taskType) {
 
         List<BoardColumnResponse> board = projectService.getProjectBoard(
-            companyId, workspaceId, projectId,
-            sprintId, keyword, assigneeId, priority, taskType
+            companyId, workspaceId, projectId, sprintId, keyword, assigneeId, priority, taskType
         );
 
-        
-        return ResponseEntity.ok(ApiResponse.success("Task board data retrieved successfully.", board));
+        return ResponseEntity.ok(ApiResponse.success(MSG_BOARD_SUCCESS, board));
     }
 
-    // ======================================================
-    // API LẤY DANH SÁCH TASK (LIST VIEW) - ĐÃ NÂNG CẤP
-    // ======================================================
+    /**
+     * Lay danh sach cong viec (List view) kem phan trang va bo loc.
+     */
     @GetMapping("/{projectId}/tasks")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<TaskSummaryResponse>>> getProjectTasks(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-
-            // Filter Params
             @RequestParam(required = false) Integer sprintId,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Integer assigneeId,
             @RequestParam(required = false) TaskPriority priority,
             @RequestParam(required = false) List<Integer> statusIds,
+            @RequestParam(defaultValue = DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = DEFAULT_SIZE_20) int size,
+            @RequestParam(defaultValue = SORT_BY_ID) String sortBy,
+            @RequestParam(defaultValue = SORT_DIR_DESC) String sortDir) {
 
-            // Pagination & Sorting
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
-
-        // Gọi Service trả về Page<TaskSummaryResponse>
         PageResponseDTO<TaskSummaryResponse> tasks = projectService.getProjectTaskList(
-                companyId, workspaceId, projectId,
-                sprintId, search, assigneeId, priority, statusIds,
+                companyId, workspaceId, projectId, sprintId, search, assigneeId, priority, statusIds,
                 page, size, sortBy, sortDir
         );
 
-        // Sửa thông báo sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Project tasks fetched successfully.", tasks));
+        return ResponseEntity.ok(ApiResponse.success(MSG_TASK_LIST_SUCCESS, tasks));
     }
 
-    // ======================================================
-    // API NHÓM TASK (GROUPING VIEW) 
-    // ======================================================
+    /**
+     * Gom nhom cong viec theo tieu chi (Nguoi lam, do uu tien, trang thai, sprint).
+     */
     @GetMapping("/{projectId}/tasks/grouped")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<Map<String, List<TaskSummaryResponse>>>> getTasksGrouped(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-            @RequestParam String groupBy, // "assignee", "priority", "status", "sprint"
-
-            // Filter Params
+            @RequestParam String groupBy,
             @RequestParam(required = false) Integer sprintId,
-            @RequestParam(required = false) String search
-    ) {
-        // Gọi Service trả về Map<String, List<TaskSummaryResponse>>
+            @RequestParam(required = false) String search) {
+
         Map<String, List<TaskSummaryResponse>> data = projectService.getTasksGroupedBy(
             companyId, workspaceId, projectId, groupBy, sprintId, search
         );
 
-        // Sửa thông báo sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Grouped task data retrieved successfully.", data));
+        return ResponseEntity.ok(ApiResponse.success(MSG_GROUPED_TASK_SUCCESS, data));
     }
 
-    // ======================================================
-    // API XEM LỊCH (CALENDAR VIEW)
-    // ======================================================
+    /**
+     * Lay danh sach cong viec hien thi tren lich (Calendar view).
+     */
     @GetMapping("/{projectId}/calendar")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<List<TaskSummaryResponse>>> getProjectCalendar(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-
-            // Thời gian view (Bắt buộc cho Calendar)
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from, // ex: 2025-10-01
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,   // ex: 2025-11-01
-
-            // Filter Params (Optional)
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer assigneeId,
             @RequestParam(required = false) TaskPriority priority,
-            @RequestParam(required = false) TaskType taskType
-    ) {
+            @RequestParam(required = false) TaskType taskType) {
 
         List<TaskSummaryResponse> calendarTasks = projectService.getTaskCalendar(
-            companyId, workspaceId, projectId,
-            from, to, keyword, assigneeId, priority, taskType
+            companyId, workspaceId, projectId, from, to, keyword, assigneeId, priority, taskType
         );
 
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Calendar tasks retrieved successfully.", calendarTasks));
+        return ResponseEntity.ok(ApiResponse.success(MSG_CALENDAR_SUCCESS, calendarTasks));
     }
 
-    // API XEM DANH SÁCH TASK ĐÃ LƯU TRỮ (ARCHIVE BIN) - CÓ LỌC & TÌM KIẾM
+    /**
+     * Truy xuat thung rac (Cac cong viec da luu tru).
+     */
     @GetMapping("/{projectId}/archived-tasks")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<TaskSummaryResponse>>> getArchivedTasks(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-            
-            // --- CÁC BỘ LỌC MỚI ---
-            @RequestParam(required = false) String keyword,      // Tìm theo tên/mã
-            @RequestParam(required = false) Integer assigneeId,  // Tìm theo người làm cũ
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer assigneeId,
             @RequestParam(required = false) TaskPriority priority,
             @RequestParam(required = false) TaskType taskType,
-            
-            // Phân trang
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
+            @RequestParam(defaultValue = DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = DEFAULT_SIZE_20) int size) {
         
         PageResponseDTO<TaskSummaryResponse> archivedTasks = projectService.getArchivedTasks(
-            projectId, 
-            keyword, assigneeId, priority, taskType, // Truyền bộ lọc vào Service
-            page, size
+            projectId, keyword, assigneeId, priority, taskType, page, size
         );
         
-        return ResponseEntity.ok(ApiResponse.success("Archived tasks retrieved successfully.", archivedTasks));
+        return ResponseEntity.ok(ApiResponse.success(MSG_ARCHIVE_SUCCESS, archivedTasks));
     }
 
     // ========================================================================
-    // C. QUẢN LÝ THÀNH VIÊN DỰ ÁN
+    // QUAN LY THANH VIEN DU AN
     // ========================================================================
 
-    // API LẤY DANH SÁCH THÀNH VIÊN (Cơ bản)
+    /**
+     * Lay danh sach thanh vien tham gia du an.
+     */
     @GetMapping("/{projectId}/members")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<ProjectMemberResponse>>> getProjectMembers(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "joinedAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
+            @RequestParam(defaultValue = DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = DEFAULT_SIZE_10) int size,
+            @RequestParam(defaultValue = SORT_BY_JOINED_AT) String sortBy,
+            @RequestParam(defaultValue = SORT_DIR_DESC) String sortDir) {
 
         PageResponseDTO<ProjectMemberResponse> members = projectService.getProjectMembers(projectId, page, size, sortBy, sortDir);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Project member list retrieved successfully.", members));
+        return ResponseEntity.ok(ApiResponse.success(MSG_MEMBER_LIST_SUCCESS, members));
     }
 
-    // API TÌM KIẾM THÀNH VIÊN (Nâng cao)
+    /**
+     * Tim kiem thanh vien du an theo ten, email, vai tro.
+     */
     @GetMapping("/{projectId}/members/search")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<PageResponseDTO<ProjectMemberResponse>>> searchProjectMembers(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-
-            // Các tham số tìm kiếm
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String email,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String phone,
-
-            // Các tham số phân trang
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "joinedAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
+            @RequestParam(defaultValue = DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = DEFAULT_SIZE_10) int size,
+            @RequestParam(defaultValue = SORT_BY_JOINED_AT) String sortBy,
+            @RequestParam(defaultValue = SORT_DIR_DESC) String sortDir) {
 
         PageResponseDTO<ProjectMemberResponse> members = projectService.searchProjectMembers(
-            projectId, name, email, role, phone,
-            page, size, sortBy, sortDir
+            projectId, name, email, role, phone, page, size, sortBy, sortDir
         );
 
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Project member search successful.", members));
+        return ResponseEntity.ok(ApiResponse.success(MSG_MEMBER_SEARCH_SUCCESS, members));
     }
 
-
-    // API CẬP NHẬT VAI TRÒ THÀNH VIÊN DỰ ÁN
-    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:manage_roles')")
+    /**
+     * Thay doi vai tro cua thanh vien trong du an.
+     */
     @PutMapping("/{projectId}/members/{memberId}/role")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:manage_roles')")
     public ResponseEntity<ApiResponse<Object>> updateProjectMemberRole(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
             @PathVariable Integer memberId,
-            @Valid @RequestBody RoleUpdateRequest request) { // Tái sử dụng DTO
+            @Valid @RequestBody RoleUpdateRequest request) {
 
-        // 1. Gọi service
         ProjectMemberResponse updatedMember = projectService.updateProjectMemberRole(projectId, memberId, request.getRoleCode());
 
-        // 2. Tạo message động (Sửa thông báo trả về sang tiếng Anh)
         String message = String.format("Role for user '%s' (ID: %d) successfully updated to '%s'.",
-            updatedMember.getFullName(),
-            updatedMember.getUserId(),
-            updatedMember.getRoleName()
+            updatedMember.getFullName(), updatedMember.getUserId(), updatedMember.getRoleName()
         );
 
-        // 3. Tạo data trả về
         Map<String, Object> responseData = new HashMap<>();
         responseData.put("userId", updatedMember.getUserId());
         responseData.put("fullName", updatedMember.getFullName());
@@ -493,7 +467,9 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success(message, responseData));
     }
 
-    // API MỜI THÀNH VIÊN (NỘI BỘ + NGOÀI)
+    /**
+     * Moi thanh vien moi (trong cong ty hoac ben ngoai) vao du an.
+     */
     @PostMapping("/{projectId}/members")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:invite_member')")
     public ResponseEntity<ApiResponse<Object>> inviteMember(
@@ -503,50 +479,59 @@ public class ProjectController {
             @Valid @RequestBody InviteProjectMemberRequest request) {
 
         projectService.inviteMemberToProject(projectId, request);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Operation successful.", null));
+        return ResponseEntity.ok(ApiResponse.success(MSG_INVITE_SUCCESS, null));
     }
 
-    // 1. LẤY DANH SÁCH LỜI MỜI (CÓ PHÂN TRANG & TÌM KIẾM)
+    /**
+     * Lay danh sach cac loi moi tham gia du an da gui.
+     */
     @GetMapping("/{projectId}/invitations")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
     public ResponseEntity<ApiResponse<PageResponseDTO<ProjectInvitationResponse>>> getProjectInvitations(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-            
-            // Các bộ lọc
             @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "PENDING") String status,
-            
-            // Phân trang
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
+            @RequestParam(defaultValue = INVITE_STATUS_PENDING) String status,
+            @RequestParam(defaultValue = DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = DEFAULT_SIZE_10) int size,
+            @RequestParam(defaultValue = SORT_BY_CREATED_AT) String sortBy,
+            @RequestParam(defaultValue = SORT_DIR_DESC) String sortDir) {
         
         PageResponseDTO<ProjectInvitationResponse> data = projectService.getProjectInvitations(
                 projectId, keyword, status, page, size, sortBy, sortDir
         );
         
-        return ResponseEntity.ok(ApiResponse.success("Project invitations retrieved successfully.", data));
+        return ResponseEntity.ok(ApiResponse.success(MSG_INVITATION_LIST_SUCCESS, data));
     }
 
-    // 2. HỦY LỜI MỜI
+    /**
+     * Huy mot loi moi tham gia du an da gui truoc do.
+     */
     @DeleteMapping("/{projectId}/invitations/{invitationId}")
-    // Sửa 'project:admin' thành 'project:edit'
-    // Logic: Thay đổi danh sách thành viên là hành động chỉnh sửa dự án
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
     public ResponseEntity<ApiResponse<Object>> cancelInvitation(
             @PathVariable Integer companyId,
             @PathVariable Integer workspaceId,
             @PathVariable Integer projectId,
-            @PathVariable Integer invitationId
-    ) {
+            @PathVariable Integer invitationId) {
+            
         projectService.cancelProjectInvitation(projectId, invitationId);
-        return ResponseEntity.ok(ApiResponse.success("Invitation cancelled successfully.", null));
+        return ResponseEntity.ok(ApiResponse.success(MSG_CANCEL_INVITE_SUCCESS, null));
     }
 
+    // ========================================================================
+    // CAC HAM HO TRO (UTILITIES)
+    // ========================================================================
+
+    /**
+     * Chuyen doi du lieu JSON chuoi sang Doi tuong DTO tuong ung.
+     */
+    private <T> T parseProjectData(String dataString, Class<T> clazz) {
+        try {
+            return objectMapper.readValue(dataString, clazz);
+        } catch (JsonProcessingException e) {
+            throw new BadRequestException("Invalid JSON data: " + e.getMessage());
+        }
+    }
 }

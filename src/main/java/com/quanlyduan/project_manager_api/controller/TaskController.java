@@ -1,9 +1,9 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/controller/TaskController.java
 package com.quanlyduan.project_manager_api.controller;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
+
+import jakarta.validation.Valid;
 
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -41,22 +41,37 @@ import com.quanlyduan.project_manager_api.service.TaskAttachmentService;
 import com.quanlyduan.project_manager_api.service.TaskCommentService;
 import com.quanlyduan.project_manager_api.service.TaskService;
 
-import jakarta.validation.Valid;
-
-@RestController
-@RequestMapping("/api/tasks") // Tất cả API liên quan đến Task sẽ bắt đầu bằng /api/tasks
-@CrossOrigin("*")
 /**
- * Controller xử lý các nghiệp vụ liên quan đến Task (chi tiết Task, comment, attachment).
+ * Controller xử lý các nghiệp vụ liên quan đến công việc (Task), bao gồm chi tiết, bình luận, tệp đính kèm và nhập dữ liệu.
  */
+@RestController
+@RequestMapping("/api/tasks")
+@CrossOrigin("*")
 public class TaskController {
+
+    // Khai báo các thông báo trả về (Response Messages)
+    private static final String MSG_FETCH_DETAILS_SUCCESS = "Task details retrieved successfully.";
+    private static final String MSG_UPDATE_SUCCESS = "Task updated successfully.";
+    private static final String MSG_DELETE_SUCCESS = "Task deleted successfully.";
+    private static final String MSG_EPIC_UPDATE_SUCCESS = "Task Epic updated successfully.";
+    private static final String MSG_ARCHIVE_SUCCESS = "Task archived successfully.";
+    private static final String MSG_RESTORE_SUCCESS = "Task restored successfully.";
+    private static final String MSG_MOVE_SUCCESS = "Task moved successfully.";
+    private static final String MSG_SPRINT_UPDATE_SUCCESS = "Task Sprint updated successfully.";
+    private static final String MSG_BACKLOG_MOVE_SUCCESS = "Task moved to Backlog successfully.";
+    private static final String MSG_COMMENT_ADD_SUCCESS = "Comment added successfully.";
+    private static final String MSG_COMMENT_FETCH_SUCCESS = "Comments retrieved successfully.";
+    private static final String MSG_UPLOAD_SUCCESS = "File uploaded successfully.";
+    private static final String MSG_ATTACHMENT_FETCH_SUCCESS = "Task attachments retrieved successfully.";
+    private static final String MSG_IMPORT_PREVIEW_SUCCESS = "Preview generated successfully.";
+    private static final String MSG_IMPORT_SAVE_SUCCESS = "Tasks imported successfully.";
 
     private final TaskCommentService commentService;
     private final TaskAttachmentService attachmentService;
     private final SecurityService securityService;
     private final TaskService taskService;
 
-    // CONSTRUCTOR THỦ CÔNG
+    // Khởi tạo thủ công để tiêm phụ thuộc (Dependency Injection)
     public TaskController(TaskCommentService commentService,
                           TaskAttachmentService attachmentService,
                           SecurityService securityService,
@@ -68,23 +83,22 @@ public class TaskController {
     }
 
     // ======================================================
-    // A. QUẢN LÝ THÔNG TIN CHÍNH (CRUD)
+    // QUẢN LÝ THÔNG TIN CHÍNH (CRUD & TRẠNG THÁI ĐẶC BIỆT)
     // ======================================================
 
-    // API XEM CHI TIẾT TASK
+    /**
+     * Lấy thông tin chi tiết của một công việc.
+     */
     @GetMapping("/{taskId}")
     @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:view')")
-    public ResponseEntity<ApiResponse<TaskResponse>> getTaskDetails(
-            @PathVariable Integer taskId) {
-
+    public ResponseEntity<ApiResponse<TaskResponse>> getTaskDetails(@PathVariable Integer taskId) {
         TaskResponse task = taskService.getTaskDetails(taskId);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Task details retrieved successfully.", task));
+        return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_DETAILS_SUCCESS, task));
     }
 
-
-    // API CẬP NHẬT THÔNG TIN TASK (PUT/FULL UPDATE)
+    /**
+     * Cập nhật toàn bộ thông tin của công việc.
+     */
     @PutMapping("/{taskId}")
     @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:edit')")
     public ResponseEntity<ApiResponse<TaskResponse>> updateTask(
@@ -92,132 +106,118 @@ public class TaskController {
             @Valid @RequestBody UpdateTaskRequest request) {
 
         TaskResponse updatedTask = taskService.updateTask(taskId, request);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Task updated successfully.", updatedTask));
+        return ResponseEntity.ok(ApiResponse.success(MSG_UPDATE_SUCCESS, updatedTask));
     }
+
+    /**
+     * Xóa bỏ hoàn toàn công việc khỏi hệ thống.
+     */
     @DeleteMapping("/{taskId}")
     @PreAuthorize("@securityService.hasPermission('task', #taskId, 'task:delete')")
     public ResponseEntity<ApiResponse<Object>> deleteTask(@PathVariable Integer taskId) {
-        
         taskService.deleteTask(taskId);
-        
-        return ResponseEntity.ok(ApiResponse.success("Task deleted successfully.", null));
+        return ResponseEntity.ok(ApiResponse.success(MSG_DELETE_SUCCESS, null));
     }
-    // API GÁN/GỠ EPIC CHO TASK
+
+    /**
+     * Thay đổi Epic gắn liền với công việc.
+     */
     @PatchMapping("/{taskId}/epic")
-    // Bảo vệ: Task phải thuộc về Project mà User có quyền sửa (project:edit)
     @PreAuthorize("@securityService.hasPermission('task', #taskId, 'project:edit')")
     public ResponseEntity<ApiResponse<TaskResponse>> updateTaskEpic(
             @PathVariable Integer taskId,
             @Valid @RequestBody UpdateTaskEpicRequest request) {
 
         TaskResponse task = taskService.updateTaskEpic(taskId, request);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Task Epic updated successfully.", task));
+        return ResponseEntity.ok(ApiResponse.success(MSG_EPIC_UPDATE_SUCCESS, task));
     }
 
-    // API LƯU TRỮ TASK
+    /**
+     * Đưa công việc vào kho lưu trữ (Archive).
+     */
     @PatchMapping("/{taskId}/archive")
     @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:edit')")
     public ResponseEntity<ApiResponse<Object>> archiveTask(@PathVariable Integer taskId) {
         taskService.archiveTask(taskId);
-        return ResponseEntity.ok(ApiResponse.success("Task archived successfully.", null));
+        return ResponseEntity.ok(ApiResponse.success(MSG_ARCHIVE_SUCCESS, null));
     }
 
-    // API KHÔI PHỤC TASK
+    /**
+     * Khôi phục công việc từ kho lưu trữ về trạng thái bình thường.
+     */
     @PatchMapping("/{taskId}/restore")
     @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:edit')")
     public ResponseEntity<ApiResponse<Object>> restoreTask(@PathVariable Integer taskId) {
         taskService.restoreTask(taskId);
-        return ResponseEntity.ok(ApiResponse.success("Task restored successfully.", null));
+        return ResponseEntity.ok(ApiResponse.success(MSG_RESTORE_SUCCESS, null));
     }
 
     // ======================================================
-    // B. KÉO THẢ & TRẠNG THÁI
+    // QUẢN LÝ VỊ TRÍ & CHU KỲ (MOVE & SPRINT)
     // ======================================================
 
-    // KÉO THẢ TASK SANG CỘT KHÁC (Thay đổi trạng thái và vị trí)
+    /**
+     * Di chuyển công việc sang cột trạng thái khác hoặc thay đổi vị trí trong cột.
+     */
     @PutMapping("/{taskId}/move")
-    // Bảo vệ: Cần quyền 'task:edit' (Sửa task)
     @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:edit')")
     public ResponseEntity<ApiResponse<Object>> moveTask(
             @PathVariable Integer taskId,
             @Valid @RequestBody MoveTaskStatusRequest request) {
 
         taskService.moveTaskToStatus(taskId, request);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Task moved successfully.", null));
+        return ResponseEntity.ok(ApiResponse.success(MSG_MOVE_SUCCESS, null));
     }
 
-    // KÉO THẢ TASK VÀO SPRINT (hoặc về Backlog)
+    /**
+     * Chuyển công việc vào một Sprint cụ thể hoặc đưa về danh sách Backlog.
+     */
     @PutMapping("/{taskId}/sprint")
     @PreAuthorize("@securityService.hasPermission('task', #taskId, 'backlog:manage')")
     public ResponseEntity<ApiResponse<Object>> updateTaskSprint(
             @PathVariable Integer taskId,
             @Valid @RequestBody UpdateTaskSprintRequest request) {
 
-
         taskService.updateTaskSprint(taskId, request.getSprintId(), request.getNewSortOrder());
-
-        // Tạo thông báo động
-        String message = (request.getSprintId() == null) ? "Task moved to Backlog successfully." : "Task Sprint updated successfully.";
+        String message = (request.getSprintId() == null) ? MSG_BACKLOG_MOVE_SUCCESS : MSG_SPRINT_UPDATE_SUCCESS;
         return ResponseEntity.ok(ApiResponse.success(message, null));
     }
 
-
     // ======================================================
-    // C. BÌNH LUẬN (COMMENTS)
+    // TƯƠNG TÁC & THẢO LUẬN (COMMENTS)
     // ======================================================
 
-    // API Thêm bình luận vào Task
+    /**
+     * Thêm bình luận mới vào công việc.
+     */
     @PostMapping("/{taskId}/comments")
     @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:comment')")
     public ResponseEntity<ApiResponse<TaskCommentResponse>> addComment(
             @PathVariable Integer taskId,
             @Valid @RequestBody CommentRequest request) {
 
-        // 1. Gọi service để thực hiện logic
         TaskCommentResponse newComment = commentService.addComment(taskId, request);
-
-        // 2. Đóng gói kết quả vào ApiResponse
-        ApiResponse<TaskCommentResponse> response = ApiResponse.success(
-                // Sửa thông báo trả về sang tiếng Anh
-                "Comment added successfully.",
-                newComment
-        );
-
-        // 3. Trả về 201 CREATED vì đã tạo mới thành công
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(MSG_COMMENT_ADD_SUCCESS, newComment));
     }
 
-    // API Lấy danh sách bình luận của Task
+    /**
+     * Lấy danh sách toàn bộ bình luận của một công việc.
+     */
     @GetMapping("/{taskId}/comments")
     @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:comment:view')")
-    public ResponseEntity<ApiResponse<List<TaskCommentResponse>>> getComments(
-            @PathVariable Integer taskId) {
-
-        // 1. Gọi service để lấy dữ liệu
+    public ResponseEntity<ApiResponse<List<TaskCommentResponse>>> getComments(@PathVariable Integer taskId) {
         List<TaskCommentResponse> comments = commentService.getComments(taskId);
-
-        // 2. Đóng gói kết quả
-        ApiResponse<List<TaskCommentResponse>> response = ApiResponse.success(
-                // Sửa thông báo trả về sang tiếng Anh
-                "Comments retrieved successfully.",
-                comments
-        );
-
-        // 3. Trả về 200 OK
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(MSG_COMMENT_FETCH_SUCCESS, comments));
     }
 
     // ======================================================
-    // D. TỆP ĐÍNH KÈM (ATTACHMENTS)
+    // QUẢN LÝ TỆP ĐÍNH KÈM (ATTACHMENTS)
     // ======================================================
 
-    // Đính kèm tệp tin
+    /**
+     * Tải tệp tin lên và đính kèm vào công việc.
+     */
     @PostMapping(value = "/{taskId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:attach_file')")
     public ResponseEntity<ApiResponse<TaskAttachmentResponse>> uploadAttachment(
@@ -227,52 +227,59 @@ public class TaskController {
         Integer uploaderId = securityService.getCurrentUserId();
         TaskAttachmentResponse attachment = attachmentService.storeAttachment(taskId, file, uploaderId);
         return ResponseEntity.status(HttpStatus.CREATED)
-                // Sửa thông báo trả về sang tiếng Anh
-                .body(ApiResponse.success("File uploaded successfully.", attachment));
+                .body(ApiResponse.success(MSG_UPLOAD_SUCCESS, attachment));
     }
 
-    // Lấy danh sách tệp tin
+    /**
+     * Lấy danh sách các tệp tin đã đính kèm vào công việc.
+     */
     @GetMapping("/{taskId}/attachments")
-    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:view')") // Chỉ cần quyền xem Task
-    public ResponseEntity<ApiResponse<List<TaskAttachmentResponse>>> getAttachments(
-            @PathVariable Integer taskId) {
-
+    @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:view')")
+    public ResponseEntity<ApiResponse<List<TaskAttachmentResponse>>> getAttachments(@PathVariable Integer taskId) {
         List<TaskAttachmentResponse> attachments = attachmentService.getAttachmentsForTask(taskId);
-        return ResponseEntity.ok(ApiResponse.success("Task attachments retrieved successfully.", attachments));
+        return ResponseEntity.ok(ApiResponse.success(MSG_ATTACHMENT_FETCH_SUCCESS, attachments));
     }
 
-    // API 1: Tải file mẫu CSV
-   @GetMapping("/import-template")
+    // ======================================================
+    // TIỆN ÍCH NHẬP DỮ LIỆU HÀNG LOẠT (IMPORT)
+    // ======================================================
+
+    /**
+     * Tải xuống file mẫu Excel để phục vụ việc nhập dữ liệu công việc hàng loạt.
+     */
+    @GetMapping("/import-template")
     public ResponseEntity<Resource> downloadImportTemplate() {
-        String filename = "tasks_import_template.xlsx"; // Đổi đuôi file
+        String filename = "tasks_import_template.xlsx";
         byte[] excelContent = taskService.generateImportTemplate();
-        
         ByteArrayResource resource = new ByteArrayResource(excelContent);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
-                // Content Type cho .xlsx
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(resource);
     }
 
-    // API 2: Xem trước dữ liệu import từ file CSV
+    /**
+     * Phân tích và hiển thị kết quả xem trước từ tệp tin Excel được tải lên.
+     */
     @PostMapping(value = "/{projectId}/import/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:create')")
     public ResponseEntity<ApiResponse<List<TaskImportPreviewResponse>>> previewImport(
             @PathVariable Integer projectId,
             @RequestParam("file") MultipartFile file) {
         List<TaskImportPreviewResponse> preview = taskService.previewImportTasks(projectId, file);
-        return ResponseEntity.ok(ApiResponse.success("Preview generated", preview));
+        return ResponseEntity.ok(ApiResponse.success(MSG_IMPORT_PREVIEW_SUCCESS, preview));
     }
 
-    // API 2: Save (Gửi JSON đã sửa -> Lưu DB)
+    /**
+     * Lưu trữ dữ liệu công việc từ kết quả xem trước vào cơ sở dữ liệu.
+     */
     @PostMapping("/{projectId}/import/save")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'task:create')")
     public ResponseEntity<ApiResponse<ImportTaskResultResponse>> saveImport(
             @PathVariable Integer projectId,
             @RequestBody List<TaskImportPreviewResponse> rows) {
         ImportTaskResultResponse result = taskService.saveImportedTasks(projectId, rows);
-        return ResponseEntity.ok(ApiResponse.success("Tasks imported successfully", result));
+        return ResponseEntity.ok(ApiResponse.success(MSG_IMPORT_SAVE_SUCCESS, result));
     }
 }

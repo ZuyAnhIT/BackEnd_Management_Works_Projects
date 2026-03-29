@@ -1,8 +1,13 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/controller/FileController.java
 package com.quanlyduan.project_manager_api.controller;
 
-import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -15,67 +20,67 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.Files;
+import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 
-@Controller
-@RequestMapping("/api/files") // Endpoint chung cho việc truy xuất files (ảnh avatar, attachment)
-@CrossOrigin("*")
 /**
- * Controller xử lý việc truy xuất và tải xuống các tệp đã lưu trữ cục bộ.
+ * Controller xử lý việc truy xuất và tải xuống các tệp tin (ảnh, tài liệu) được lưu trữ cục bộ trên server.
  */
+@Controller
+@RequestMapping("/api/files")
+@CrossOrigin("*")
 public class FileController {
 
-    // Lấy đường dẫn thư mục upload từ cấu hình
-    @Value("${app.upload.dir:uploads}")
-    private String uploadDir;
+    private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
+    private static final String CONTENT_DISPOSITION_INLINE = "inline; filename=\"%s\"";
 
-    // ======================================================
-    // API TRUY XUẤT FILE (SERVE FILE)
-    // ======================================================
-    @GetMapping("/{filename:.+}") // Regex (.+) cho phép cả tên file có dấu chấm
+    private final String uploadDir;
+
+    // Khởi tạo thủ công và tiêm giá trị cấu hình thư mục lưu trữ
+    public FileController(@Value("${app.upload.dir:uploads}") String uploadDir) {
+        this.uploadDir = uploadDir;
+    }
+
+    /**
+     * API truy xuất nội dung tệp tin dựa trên tên tệp.
+     * Hỗ trợ hiển thị trực tiếp (inline) trên trình duyệt đối với các tệp hình ảnh.
+     */
+    @GetMapping("/{filename:.+}")
     public ResponseEntity<Resource> serveFile(@PathVariable String filename, HttpServletRequest request) {
         try {
-            // 1. TẠO ĐƯỜNG DẪN VÀ CHUẨN HÓA
-            // Lấy vị trí lưu trữ gốc
+            // Xác định và chuẩn hóa đường dẫn tệp tin
             Path fileStorageLocation = Paths.get(this.uploadDir).toAbsolutePath().normalize();
-            // Giải quyết đường dẫn đến file cụ thể
             Path filePath = fileStorageLocation.resolve(filename).normalize();
 
-            // 2. LOAD FILE VÀO SPRING RESOURCE
+            // Nạp tệp tin vào Spring Resource
             Resource resource = new UrlResource(filePath.toUri());
 
-            // 3. KIỂM TRA TỒN TẠI VÀ KHẢ DỤNG
+            // Kiểm tra tệp tin có tồn tại và có thể đọc được hay không
             if (!resource.exists() || !resource.isReadable()) {
-                // Sửa thông báo sang tiếng Anh
                 throw new ResourceNotFoundException("File not found: " + filename);
             }
 
-            // 4. XÁC ĐỊNH LOẠI NỘI DUNG (MIME TYPE)
-            String contentType = null;
-            try {
-                // Thử đoán Content Type từ tệp
-                contentType = Files.probeContentType(filePath);
-            } catch (IOException ex) {
-                // Mặc định là binary stream nếu không xác định được loại tệp
-                contentType = "application/octet-stream";
-            }
+            // Xác định loại nội dung (MIME type)
+            String contentType = determineContentType(filePath);
 
-            // 5. XÂY DỰNG HTTP RESPONSE
             return ResponseEntity.ok()
-                    // Thiết lập Content Type
                     .contentType(MediaType.parseMediaType(contentType))
-                    // Thiết lập header: 'inline' để hiển thị trực tiếp trên trình duyệt (cho ảnh)
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
-                    // Trả về Resource
+                    .header(HttpHeaders.CONTENT_DISPOSITION, String.format(CONTENT_DISPOSITION_INLINE, resource.getFilename()))
                     .body(resource);
 
         } catch (MalformedURLException ex) {
-            // Sửa thông báo sang tiếng Anh
             throw new ResourceNotFoundException("File data not found: " + filename);
+        }
+    }
+
+    /**
+     * Tự động xác định loại nội dung của tệp dựa trên định dạng tệp tin.
+     */
+    private String determineContentType(Path filePath) {
+        try {
+            String contentType = Files.probeContentType(filePath);
+            return (contentType != null) ? contentType : DEFAULT_CONTENT_TYPE;
+        } catch (IOException ex) {
+            return DEFAULT_CONTENT_TYPE;
         }
     }
 }

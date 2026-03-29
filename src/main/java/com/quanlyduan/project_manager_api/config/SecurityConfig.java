@@ -1,8 +1,7 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/config/SecurityConfig.java
 package com.quanlyduan.project_manager_api.config;
 
-import com.quanlyduan.project_manager_api.security.UserDetailsServiceImpl;
-import com.quanlyduan.project_manager_api.security.jwt.JwtAuthenticationFilter;
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -21,23 +20,19 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
+import com.quanlyduan.project_manager_api.security.UserDetailsServiceImpl;
+import com.quanlyduan.project_manager_api.security.jwt.JwtAuthenticationFilter;
 
+/**
+ * Cấu hình bảo mật tổng thể cho hệ thống (Spring Security).
+ * Quản lý phân quyền, xác thực JWT, CORS và Session.
+ */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity // Cho phép sử dụng @PreAuthorize trong Controller
+@EnableMethodSecurity
 public class SecurityConfig {
 
-    private final UserDetailsServiceImpl userDetailsService;
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final PasswordEncoder passwordEncoder;
-
-    /**
-     * Danh sách các đường dẫn API được phép truy cập công khai (không cần Token).
-     * - /api/auth/**: Đăng nhập, Đăng ký, Quên mật khẩu...
-     * - /v3/api-docs/**, /swagger-ui/**: Tài liệu API (Swagger).
-     * - /uploads/**: Tài nguyên tĩnh (Hình ảnh đại diện, file đính kèm...).
-     */
+    // Danh sách các định tuyến API công khai (không yêu cầu Token)
     private static final String[] PUBLIC_URLS = {
             "/api/auth/**",
             "/v3/api-docs/**",
@@ -47,12 +42,18 @@ public class SecurityConfig {
             "/api/files/**",
             "/uploads/**",
             "/api/plans",
-            "/api/plans/**"
+            "/api/plans/**",
+            "/api/payments/webhook"
     };
 
-    /**
-     * Constructor thủ công để Inject các dependencies cần thiết.
-     */
+    private static final String ALLOWED_ORIGIN = "http://localhost:3000";
+    private static final String API_PATTERN = "/**";
+
+    private final UserDetailsServiceImpl userDetailsService;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final PasswordEncoder passwordEncoder;
+
+    // Khởi tạo thủ công để tiêm (inject) các phụ thuộc cần thiết
     public SecurityConfig(UserDetailsServiceImpl userDetailsService,
                           JwtAuthenticationFilter jwtAuthenticationFilter,
                           PasswordEncoder passwordEncoder) {
@@ -62,92 +63,56 @@ public class SecurityConfig {
     }
 
     /**
-     * Cấu hình Chuỗi bộ lọc bảo mật (Security Filter Chain).
-     * Đây là trái tim của Spring Security.
+     * Cấu hình chuỗi bộ lọc bảo mật chính (Security Filter Chain).
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 1. Cấu hình CORS (Cross-Origin Resource Sharing)
-            // Sử dụng bean corsConfigurationSource được định nghĩa bên dưới
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-            // 2. Tắt CSRF (Cross-Site Request Forgery)
-            // Vì chúng ta sử dụng JWT (Stateless) nên không cần bảo vệ CSRF như Session
             .csrf(AbstractHttpConfigurer::disable)
-
-            // 3. Phân quyền truy cập URL
             .authorizeHttpRequests(auth -> auth
-                // Các URL trong PUBLIC_URLS được phép truy cập tự do
                 .requestMatchers(PUBLIC_URLS).permitAll()
-                .requestMatchers("/api/payments/webhook").permitAll()
-                // Tất cả các request còn lại BẮT BUỘC phải có Token xác thực
                 .anyRequest().authenticated()
-                
             )
-
-            // 4. Quản lý Session
-            // Thiết lập chế độ STATELESS: Server không lưu trạng thái đăng nhập (Session)
-            // Mỗi request phải gửi kèm Token
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-            // 5. Cấu hình Authentication Provider
             .authenticationProvider(authenticationProvider())
-
-            // 6. Thêm Filter xác thực JWT
-            // Filter này sẽ chạy TRƯỚC UsernamePasswordAuthenticationFilter
-            // để kiểm tra Token trong Header trước khi xử lý đăng nhập truyền thống
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
     /**
-     * Bean cung cấp cơ chế xác thực.
-     * Sử dụng DaoAuthenticationProvider để xác thực qua Database.
+     * Cấu hình chi tiết CORS cho phép giao tiếp với Frontend.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of(ALLOWED_ORIGIN));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration(API_PATTERN, config);
+        return source;
+    }
+
+    /**
+     * Cung cấp cơ chế xác thực người dùng thông qua cơ sở dữ liệu.
      */
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        // Cung cấp Service để tìm user trong DB
         authProvider.setUserDetailsService(userDetailsService);
-        // Cung cấp Encoder để so sánh mật khẩu
         authProvider.setPasswordEncoder(passwordEncoder);
         return authProvider;
     }
 
     /**
-     * Bean quản lý xác thực chính của Spring Security.
-     * Được sử dụng trong AuthController để thực hiện login.
+     * Cung cấp Bean quản lý xác thực chung của Spring Security.
      */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
-    }
-
-    /**
-     * Cấu hình CORS chi tiết.
-     * Cho phép Frontend (http://localhost:3000) gọi API của Backend.
-     */
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        
-        // Cho phép domain Frontend
-        config.setAllowedOrigins(List.of("http://localhost:3000")); 
-        
-        // Cho phép các phương thức HTTP
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        
-        // Cho phép tất cả các Header (bao gồm Authorization, Content-Type...)
-        config.setAllowedHeaders(List.of("*"));
-        
-        // Cho phép gửi Credentials (Cookies, Auth Headers)
-        config.setAllowCredentials(true);
-
-        // Áp dụng cấu hình này cho toàn bộ các đường dẫn API (/**)
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
     }
 }
