@@ -1,5 +1,24 @@
 package com.quanlyduan.project_manager_api.controller;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+
+import jakarta.validation.Valid;
+
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanlyduan.project_manager_api.dto.request.CancelPaymentRequest;
 import com.quanlyduan.project_manager_api.dto.request.CheckoutRequest;
 import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
@@ -10,35 +29,39 @@ import com.quanlyduan.project_manager_api.dto.response.TransactionListResponse;
 import com.quanlyduan.project_manager_api.security.UserPrincipal;
 import com.quanlyduan.project_manager_api.service.PaymentService;
 
-// 👉 Import chuẩn của PayOS v2.0.1
+import lombok.extern.slf4j.Slf4j;
 import vn.payos.model.webhooks.Webhook;
 
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-
+/**
+ * Controller xu ly cac nghiep vu lien quan den thanh toan va giao dich qua PayOS.
+ */
 @RestController
 @RequestMapping("/api/payments")
-@RequiredArgsConstructor
 @Slf4j
 public class PaymentController {
 
+    // Khai bao cac hang so mac dinh
+    private static final String DEFAULT_PAGE = "0";
+    private static final String DEFAULT_SIZE = "10";
+    private static final String DEFAULT_STATUS_FILTER = "ALL";
+
+    // Khai bao cac thong bao tra ve (Response Messages)
+    private static final String MSG_CHECKOUT_SUCCESS = "Payment link created successfully.";
+    private static final String MSG_WEBHOOK_SUCCESS = "Webhook processed successfully.";
+    private static final String MSG_WEBHOOK_ERROR_IGNORED = "Error but ignored.";
+    private static final String MSG_CANCEL_SUCCESS = "Transaction cancelled successfully.";
+    private static final String MSG_FETCH_HISTORY_SUCCESS = "Transaction history retrieved successfully.";
+    private static final String MSG_FETCH_DETAIL_SUCCESS = "Transaction detail retrieved successfully.";
+
     private final PaymentService paymentService;
 
+    // Khoi tao thu cong de tiem phu thuoc
+    public PaymentController(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+
     /**
-     * API 1: Tạo Link Thanh Toán (Checkout)
+     * Tao lien ket thanh toan cho goi cuoc SaaS.
      */
     @PostMapping("/checkout")
     @PreAuthorize("@securityService.hasCompanyPermission(#request.companyId, 'company:manage_billing')")
@@ -47,48 +70,40 @@ public class PaymentController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
         Integer currentUserId = currentUser.getId();
-
         CheckoutResponse response = paymentService.createPaymentLink(request.getCompanyId(), currentUserId, request);
 
-        return ResponseEntity.ok(ApiResponse.success("Tạo link thanh toán thành công.", response));
+        return ResponseEntity.ok(ApiResponse.success(MSG_CHECKOUT_SUCCESS, response));
     }
 
+    /**
+     * Tiep nhan va xu ly tin hieu thanh toan tu PayOS Webhook.
+     */
     @PostMapping("/webhook")
-    // Đổi tham số thành String nguyên thủy để KHÔNG BAO GIỜ bị lỗi ép kiểu
     public ResponseEntity<Map<String, Object>> handlePayOSWebhook(@RequestBody String rawBody) {
-        
-        // Dùng System.out.println thay vì log.info để ép buộc in ra màn hình, bất chấp cấu hình log
-        System.out.println("==================================================");
-        System.out.println("[TÍN HIỆU TỪ PAYOS] ĐÃ CHẠM VÀO BACKEND!");
-        System.out.println("📦 Dữ liệu thô: " + rawBody);
-        System.out.println("==================================================");
-
         Map<String, Object> response = new HashMap<>();
         
         try {
-            // Tự tay ép kiểu từ String sang Object Webhook
             ObjectMapper mapper = new ObjectMapper();
             Webhook webhookBody = mapper.readValue(rawBody, Webhook.class);
             
-            // Chuyển xuống Service xử lý
             paymentService.processWebhook(webhookBody);
             
             response.put("success", true);
-            response.put("message", "Webhook processed successfully.");
+            response.put("message", MSG_WEBHOOK_SUCCESS);
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            System.err.println("CÓ LỖI XẢY RA KHI XỬ LÝ WEBHOOK:");
-            e.printStackTrace(); 
+            log.error("Error processing PayOS webhook: {}", e.getMessage());
             
+            // Tra ve success true theo yeu cau cua PayOS de tranh gui lai webhook khi da co loi logic
             response.put("success", true); 
-            response.put("message", "Error but ignored");
+            response.put("message", MSG_WEBHOOK_ERROR_IGNORED);
             return ResponseEntity.ok(response);
         }
     }
 
     /**
-     * API 2: Khách hàng chủ động hủy đơn hàng (Cancel PENDING Transaction)
+     * Huy giao dich dang o trang thai cho thanh toan.
      */
     @PostMapping("/checkout/{transactionCode}/cancel")
     @PreAuthorize("@securityService.hasCompanyPermission(#request.companyId, 'company:manage_billing')")
@@ -98,31 +113,30 @@ public class PaymentController {
 
         paymentService.cancelPendingTransaction(transactionCode, request.getCompanyId(), request.getCancellationReason());
 
-        return ResponseEntity.ok(ApiResponse.success("Hủy giao dịch thành công.", null));
+        return ResponseEntity.ok(ApiResponse.success(MSG_CANCEL_SUCCESS, null));
     }
 
     /**
-     * API 1: Lấy danh sách giao dịch (Có phân trang, bộ lọc)
+     * Lay danh sach lich su giao dich cua cong ty co phan trang va bo loc.
      */
     @GetMapping("/checkout/history")
     @PreAuthorize("@securityService.hasCompanyPermission(#companyId, 'company:manage_billing')")
     public ResponseEntity<ApiResponse<PageResponseDTO<TransactionListResponse>>> getTransactionHistory(
             @RequestParam Integer companyId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false, defaultValue = "ALL") String status,
-            // Cho phép Frontend truyền ngày dạng yyyy-MM-dd'T'HH:mm:ss
+            @RequestParam(defaultValue = DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = DEFAULT_SIZE) int size,
+            @RequestParam(required = false, defaultValue = DEFAULT_STATUS_FILTER) String status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
 
         PageResponseDTO<TransactionListResponse> history = paymentService.getTransactionHistory(
                 companyId, page, size, status, startDate, endDate);
         
-        return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử giao dịch thành công.", history));
+        return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_HISTORY_SUCCESS, history));
     }
 
     /**
-     * API 3: Xem chi tiết 1 giao dịch cụ thể
+     * Xem thong tin chi tiet cua mot ma giao dich cu the.
      */
     @GetMapping("/checkout/history/{transactionCode}")
     @PreAuthorize("@securityService.hasCompanyPermission(#companyId, 'company:manage_billing')")
@@ -132,6 +146,6 @@ public class PaymentController {
 
         TransactionDetailResponse detail = paymentService.getTransactionDetail(transactionCode, companyId);
         
-        return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết giao dịch thành công.", detail));
+        return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_DETAIL_SUCCESS, detail));
     }
 }

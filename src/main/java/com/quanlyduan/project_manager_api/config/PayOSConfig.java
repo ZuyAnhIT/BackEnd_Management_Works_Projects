@@ -3,31 +3,32 @@ package com.quanlyduan.project_manager_api.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
 import vn.payos.PayOS;
 
 /**
- * Cấu hình khởi tạo đối tượng PayOS để giao tiếp với cổng thanh toán.
- * Spring Boot sẽ tự động nạp các key từ file application.properties (đã được link với .env)
+ * Lớp cấu hình khởi tạo đối tượng PayOS để giao tiếp với cổng thanh toán.
  */
 @Configuration
 public class PayOSConfig {
 
-    // Nạp Client ID từ cấu hình
-    @Value("${payos.client-id}")
-    private String clientId;
+    private final String clientId;
+    private final String apiKey;
+    private final String checksumKey;
 
-    // Nạp API Key từ cấu hình
-    @Value("${payos.api-key}")
-    private String apiKey;
-
-    // Nạp Checksum Key từ cấu hình (dùng để verify Webhook)
-    @Value("${payos.checksum-key}")
-    private String checksumKey;
+    // Khởi tạo thủ công và tiêm các giá trị cấu hình từ application.properties
+    public PayOSConfig(
+            @Value("${payos.client-id}") String clientId,
+            @Value("${payos.api-key}") String apiKey,
+            @Value("${payos.checksum-key}") String checksumKey) {
+        this.clientId = clientId;
+        this.apiKey = apiKey;
+        this.checksumKey = checksumKey;
+    }
 
     /**
-     * Khởi tạo Bean PayOS.
-     * Đối tượng này sẽ được Spring quản lý như một Singleton và có thể được 
-     * @Autowired (hoặc Inject qua Constructor) vào bất kỳ Service nào cần dùng.
+     * Cấu hình Bean PayOS.
+     * Đối tượng này được quản lý như một Singleton để tái sử dụng trong các Service.
      */
     @Bean
     public PayOS payOS() {

@@ -1,39 +1,56 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/controller/SprintController.java
 package com.quanlyduan.project_manager_api.controller;
 
-import com.quanlyduan.project_manager_api.dto.request.CreateSprintRequest;
-import com.quanlyduan.project_manager_api.dto.request.UpdateSprintRequest;
-import com.quanlyduan.project_manager_api.dto.response.*;
-import com.quanlyduan.project_manager_api.service.SprintService;
+import java.util.List;
+
+import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Valid;
-import java.util.List;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
+import com.quanlyduan.project_manager_api.dto.request.CreateSprintRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateSprintRequest;
+import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
+import com.quanlyduan.project_manager_api.dto.response.SprintResponse;
+import com.quanlyduan.project_manager_api.service.SprintService;
+
+/**
+ * Controller xử lý các nghiệp vụ liên quan đến quản lý Sprint (chu kỳ làm việc) trong Dự án.
+ */
 @RestController
-// Đặt RequestMapping về /api/projects/{projectId}/sprints
 @RequestMapping("/api/projects/{projectId}/sprints")
 @CrossOrigin("*")
-/**
- * Controller xử lý các nghiệp vụ liên quan đến Sprint trong Dự án.
- */
 public class SprintController {
+
+    // Khai báo các câu thông báo trả về (Response Messages)
+    private static final String MSG_CREATE_SUCCESS = "Sprint created successfully.";
+    private static final String MSG_START_SUCCESS = "Sprint started successfully.";
+    private static final String MSG_COMPLETE_SUCCESS = "Sprint completed successfully.";
+    private static final String MSG_FETCH_LIST_SUCCESS = "Sprint list retrieved successfully.";
+    private static final String MSG_FETCH_DETAIL_SUCCESS = "Sprint details retrieved successfully.";
+    private static final String MSG_UPDATE_SUCCESS = "Sprint information updated successfully.";
+    private static final String MSG_DELETE_SUCCESS = "Sprint deleted successfully.";
 
     private final SprintService sprintService;
 
-    // CONSTRUCTOR THỦ CÔNG
+    // Khởi tạo thủ công để tiêm phụ thuộc (Dependency Injection)
     public SprintController(SprintService sprintService) {
         this.sprintService = sprintService;
     }
 
-    // ======================================================
-    // 1. TẠO SPRINT MỚI (CREATE SPRINT)
-    // ======================================================
     /**
-     * Tạo Sprint mới (trong 1 project).
-     * Endpoint: POST /api/projects/{projectId}/sprints
+     * Tạo một Sprint mới cho dự án.
      */
     @PostMapping
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:create')")
@@ -42,53 +59,12 @@ public class SprintController {
             @Valid @RequestBody CreateSprintRequest request) {
 
         SprintResponse sprint = sprintService.createSprint(projectId, request);
-        // Sửa thông báo trả về sang tiếng Anh (201 Created)
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Sprint created successfully.", sprint));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(MSG_CREATE_SUCCESS, sprint));
     }
 
-    // ======================================================
-    // 2. BẮT ĐẦU SPRINT (START SPRINT)
-    // ======================================================
     /**
-     * Bắt đầu một Sprint (chuyển trạng thái từ NOT_STARTED sang IN_PROGRESS).
-     * Endpoint: POST /api/projects/{projectId}/sprints/{sprintId}/start
-     */
-    @PostMapping("/{sprintId}/start")
-    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:start')")
-    public ResponseEntity<ApiResponse<SprintResponse>> startSprint(
-            @PathVariable Integer projectId,
-            @PathVariable Integer sprintId) {
-
-        SprintResponse sprint = sprintService.startSprint(projectId, sprintId);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Sprint started successfully.", sprint));
-    }
-
-    // ======================================================
-    // 3. HOÀN THÀNH SPRINT (COMPLETE SPRINT)
-    // ======================================================
-    /**
-     * Hoàn thành một Sprint (chuyển trạng thái sang COMPLETED).
-     * Logic service sẽ tự đẩy Task chưa xong về Backlog.
-     * Endpoint: POST /api/projects/{projectId}/sprints/{sprintId}/complete
-     */
-    @PostMapping("/{sprintId}/complete")
-    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:start')") // Giả định dùng chung quyền
-    public ResponseEntity<ApiResponse<SprintResponse>> completeSprint(
-            @PathVariable Integer projectId,
-            @PathVariable Integer sprintId) {
-
-        SprintResponse sprint = sprintService.completeSprint(projectId, sprintId);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Sprint completed successfully.", sprint));
-    }
-
-    // ======================================================
-    // 4. LẤY DANH SÁCH SPRINT (LIST SPRINTS)
-    // ======================================================
-    /**
-     * Lấy danh sách Sprint của Dự án (có thể lọc theo trạng thái).
-     * Endpoint: GET /api/projects/{projectId}/sprints
+     * Lấy danh sách tất cả các Sprint thuộc dự án (có hỗ trợ lọc theo trạng thái).
      */
     @GetMapping
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
@@ -97,34 +73,50 @@ public class SprintController {
             @RequestParam(required = false) String status) {
 
         List<SprintResponse> sprints = sprintService.getSprintsByProject(projectId, status);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Sprint list retrieved successfully.", sprints));
+        return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_LIST_SUCCESS, sprints));
     }
 
-    // ======================================================
-    // 5. XEM CHI TIẾT SPRINT (GET DETAILS)
-    // ======================================================
     /**
-     * Lấy chi tiết Sprint (Bao gồm danh sách task trong Sprint đó).
-     * Endpoint: GET /api/projects/{projectId}/sprints/{sprintId}
+     * Xem thông tin chi tiết của một Sprint cụ thể, bao gồm danh sách các công việc bên trong.
      */
     @GetMapping("/{sprintId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:view')")
     public ResponseEntity<ApiResponse<SprintDetailsResponse>> getSprintDetails(
-            @PathVariable Integer projectId, // Giữ lại để kiểm tra IDOR/quyền
+            @PathVariable Integer projectId,
             @PathVariable Integer sprintId) {
 
         SprintDetailsResponse details = sprintService.getSprintDetails(projectId, sprintId);
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Sprint details retrieved successfully.", details));
+        return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_DETAIL_SUCCESS, details));
     }
 
-    // ======================================================
-    // 6. CẬP NHẬT THÔNG TIN SPRINT (UPDATE SPRINT)
-    // ======================================================
     /**
-     * Cập nhật thông tin (Tên, Mục tiêu, Ngày) của Sprint.
-     * Endpoint: PUT /api/projects/{projectId}/sprints/{sprintId}
+     * Bắt đầu một Sprint (chuyển trạng thái từ chưa bắt đầu sang đang thực hiện).
+     */
+    @PostMapping("/{sprintId}/start")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:start')")
+    public ResponseEntity<ApiResponse<SprintResponse>> startSprint(
+            @PathVariable Integer projectId,
+            @PathVariable Integer sprintId) {
+
+        SprintResponse sprint = sprintService.startSprint(projectId, sprintId);
+        return ResponseEntity.ok(ApiResponse.success(MSG_START_SUCCESS, sprint));
+    }
+
+    /**
+     * Hoàn thành một Sprint và tự động xử lý các công việc chưa xong (đưa về Backlog).
+     */
+    @PostMapping("/{sprintId}/complete")
+    @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:start')")
+    public ResponseEntity<ApiResponse<SprintResponse>> completeSprint(
+            @PathVariable Integer projectId,
+            @PathVariable Integer sprintId) {
+
+        SprintResponse sprint = sprintService.completeSprint(projectId, sprintId);
+        return ResponseEntity.ok(ApiResponse.success(MSG_COMPLETE_SUCCESS, sprint));
+    }
+
+    /**
+     * Cập nhật thông tin cơ bản của Sprint như tên, mục tiêu và thời gian.
      */
     @PutMapping("/{sprintId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:edit')")
@@ -134,17 +126,11 @@ public class SprintController {
             @Valid @RequestBody UpdateSprintRequest request) {
 
         SprintResponse sprint = sprintService.updateSprint(projectId, sprintId, request);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Sprint information updated successfully.", sprint));
+        return ResponseEntity.ok(ApiResponse.success(MSG_UPDATE_SUCCESS, sprint));
     }
 
-    // ======================================================
-    // 7. XÓA SPRINT (DELETE SPRINT)
-    // ======================================================
     /**
-     * Xóa Sprint (Smart Delete: Xóa hẳn nếu NOT_STARTED & không Task; Hủy/Cancel nếu đang chạy/có Task).
-     * Endpoint: DELETE /api/projects/{projectId}/sprints/{sprintId}
+     * Xóa một Sprint khỏi dự án. Hệ thống sẽ kiểm tra điều kiện trước khi cho phép xóa hẳn hoặc hủy.
      */
     @DeleteMapping("/{sprintId}")
     @PreAuthorize("@securityService.hasPermission('project', #projectId, 'sprint:delete')")
@@ -153,8 +139,6 @@ public class SprintController {
             @PathVariable Integer sprintId) {
 
         sprintService.deleteSprint(projectId, sprintId);
-
-        // Sửa thông báo trả về sang tiếng Anh
-        return ResponseEntity.ok(ApiResponse.success("Sprint deleted successfully.", null));
+        return ResponseEntity.ok(ApiResponse.success(MSG_DELETE_SUCCESS, null));
     }
 }

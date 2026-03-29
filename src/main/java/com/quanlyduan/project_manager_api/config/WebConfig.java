@@ -1,36 +1,47 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/config/WebConfig.java
 package com.quanlyduan.project_manager_api.config;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
+/**
+ * Cấu hình Web MVC để xử lý các tài nguyên tĩnh.
+ * Cung cấp quyền truy cập qua HTTP cho các file (ảnh, tài liệu,...) đã được upload lên server.
+ */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    // Lấy đường dẫn thư mục upload từ file cấu hình (application.properties)
-    // Mặc định là "uploads" nếu không tìm thấy cấu hình
-    @Value("${app.upload.dir:uploads}")
-    private String uploadDir;
+    private static final String RESOURCE_HANDLER_PATTERN = "/uploads/**";
+    private static final String RESOURCE_LOCATION_PREFIX = "file:";
+
+    private final String uploadDir;
+
+    // Khởi tạo thủ công và tiêm giá trị cấu hình thư mục upload (mặc định là "uploads")
+    public WebConfig(@Value("${app.upload.dir:uploads}") String uploadDir) {
+        this.uploadDir = uploadDir;
+    }
 
     /**
-     * Cấu hình Resource Handler để phục vụ các file tĩnh (ảnh, tài liệu) đã upload.
-     * Giúp truy cập file qua URL dạng: http://domain.com/uploads/ten-file.jpg
+     * Đăng ký bộ xử lý tài nguyên tĩnh.
+     * Ánh xạ các request HTTP (ví dụ: /uploads/image.png) tới thư mục vật lý chứa file trên server.
      */
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // 1. Xác định đường dẫn vật lý tuyệt đối của thư mục upload trên server
-        Path uploadPath = Paths.get(uploadDir);
-        String uploadAbsolutePath = uploadPath.toFile().getAbsolutePath();
+        String uploadAbsolutePath = getUploadAbsolutePath();
 
-        // 2. Đăng ký handler:
-        // - Khi request bắt đầu bằng "/uploads/**"
-        // - Spring sẽ tìm file tương ứng trong thư mục vật lý "file:..."
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + uploadAbsolutePath + "/");
+        registry.addResourceHandler(RESOURCE_HANDLER_PATTERN)
+                .addResourceLocations(RESOURCE_LOCATION_PREFIX + uploadAbsolutePath + "/");
+    }
+
+    /**
+     * Lấy đường dẫn vật lý tuyệt đối của thư mục upload.
+     */
+    private String getUploadAbsolutePath() {
+        Path uploadPath = Paths.get(uploadDir);
+        return uploadPath.toFile().getAbsolutePath();
     }
 }

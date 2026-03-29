@@ -1,85 +1,76 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/controller/DashboardController.java
 package com.quanlyduan.project_manager_api.controller;
 
-import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
-import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
-import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
-import com.quanlyduan.project_manager_api.dto.response.MyWorkspaceResponse;
-import com.quanlyduan.project_manager_api.service.DashboardService;
-import com.quanlyduan.project_manager_api.dto.response.MyTaskResponse;
+import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.security.access.prepost.PreAuthorize;
 
-import java.util.List;
+import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
+import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
+import com.quanlyduan.project_manager_api.dto.response.MyTaskResponse;
+import com.quanlyduan.project_manager_api.dto.response.MyWorkspaceResponse;
+import com.quanlyduan.project_manager_api.service.DashboardService;
 
+/**
+ * Controller xử lý các nghiệp vụ lấy dữ liệu tổng quan (Dashboard) cho tài khoản cá nhân.
+ */
 @RestController
 @RequestMapping("/api/dashboard")
 @CrossOrigin("*")
-/**
- * Controller xử lý các nghiệp vụ Dashboard/Tổng quan cá nhân.
- */
 public class DashboardController {
+
+    // Khai báo các câu thông báo trả về
+    private static final String MSG_FETCH_WORKSPACES_SUCCESS = "Successfully fetched my workspaces.";
+    private static final String MSG_FETCH_COMPANIES_SUCCESS = "Successfully fetched my companies.";
+    private static final String MSG_FETCH_PROJECTS_SUCCESS = "Successfully fetched my projects.";
+    private static final String MSG_FETCH_TASKS_SUCCESS = "Successfully fetched my tasks.";
 
     private final DashboardService dashboardService;
 
-    // Constructor tiêm thủ công
+    // Khởi tạo thủ công để tiêm (inject) phụ thuộc
     public DashboardController(DashboardService dashboardService) {
         this.dashboardService = dashboardService;
     }
 
-    // ======================================================
-    // 1. LẤY DANH SÁCH WORKSPACE CỦA TÔI
-    // ======================================================
+    /**
+     * Lấy danh sách các không gian làm việc (Workspace) mà người dùng đang tham gia.
+     */
     @GetMapping("/workspaces")
     public ResponseEntity<ApiResponse<List<MyWorkspaceResponse>>> getMyWorkspaces() {
         List<MyWorkspaceResponse> workspaces = dashboardService.getMyWorkspaces();
-        return ResponseEntity.ok(
-                // Sửa thông báo trả về sang tiếng Anh
-                ApiResponse.success("Successfully fetched my workspaces.", workspaces)
-        );
+        return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_WORKSPACES_SUCCESS, workspaces));
     }
 
-    // ======================================================
-    // 2. LẤY DANH SÁCH COMPANY CỦA TÔI
-    // ======================================================
+    /**
+     * Lấy danh sách các công ty (Company) mà người dùng đang tham gia.
+     */
     @GetMapping("/companies")
     public ResponseEntity<ApiResponse<List<MyCompanyResponse>>> getMyCompanies() {
         List<MyCompanyResponse> companies = dashboardService.getMyCompanies();
-        return ResponseEntity.ok(
-                // Sửa thông báo trả về sang tiếng Anh
-                ApiResponse.success("Successfully fetched my companies.", companies)
-        );
+        return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_COMPANIES_SUCCESS, companies));
     }
 
-    // ======================================================
-    // 3. LẤY DANH SÁCH PROJECT CỦA TÔI
-    // ======================================================
+    /**
+     * Lấy danh sách các dự án (Project) mà người dùng đang tham gia.
+     */
     @GetMapping("/my-projects")
     public ResponseEntity<ApiResponse<List<MyProjectResponse>>> getMyProjects() {
         List<MyProjectResponse> projects = dashboardService.getMyProjects();
-        return ResponseEntity.ok(
-                // Sửa thông báo trả về sang tiếng Anh
-                ApiResponse.success("Successfully fetched my projects.", projects)
-        );
+        return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_PROJECTS_SUCCESS, projects));
     }
 
-    // ======================================================
-    // 4. LẤY DANH SÁCH TASK ĐƯỢC GIAO CHO TÔI
-    // ======================================================
-    // Lấy danh sách các task (chưa hoàn thành) được giao cho tôi
+    /**
+     * Lấy danh sách các công việc (Task) chưa hoàn thành được giao trực tiếp cho người dùng.
+     */
     @GetMapping("/my-tasks")
-    @PreAuthorize("isAuthenticated()") // Chỉ cần đăng nhập
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<MyTaskResponse>>> getMyTasks() {
         List<MyTaskResponse> tasks = dashboardService.getMyTasks();
-        return ResponseEntity.ok(ApiResponse.success(
-                // Giữ nguyên thông báo gốc nếu đã là tiếng Anh, hoặc dịch rõ ràng hơn
-                "Successfully fetched my tasks.",
-                tasks
-        ));
+        return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_TASKS_SUCCESS, tasks));
     }
 }
