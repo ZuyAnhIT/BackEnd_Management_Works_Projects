@@ -1,12 +1,12 @@
-// File: src/main/java/com/quanlyduan.project_manager_api/security/jwt/JwtAuthenticationFilter.java
 package com.quanlyduan.project_manager_api.security.jwt;
 
+import java.io.IOException;
 
-import com.quanlyduan.project_manager_api.security.UserDetailsServiceImpl;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
+import com.quanlyduan.project_manager_api.security.UserDetailsServiceImpl;
 
 /**
  * Filter xác thực JWT.
@@ -25,60 +25,68 @@ import java.io.IOException;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    // Khai báo các hằng số cho Header và Token
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final int BEARER_PREFIX_LENGTH = 7;
+
     private final JwtTokenProvider tokenProvider;
     private final UserDetailsServiceImpl userDetailsService;
 
-    // Constructor thủ công để inject dependencies
+    // Khởi tạo thủ công để tiêm phụ thuộc (Dependency Injection)
     public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, UserDetailsServiceImpl userDetailsService) {
         this.tokenProvider = tokenProvider;
         this.userDetailsService = userDetailsService;
     }
 
+    /**
+     * Xử lý kiểm tra Token và thiết lập ngữ cảnh bảo mật cho mỗi Request.
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
-            // 1. Lấy chuỗi JWT (Access Token) từ Header
+            // 1. Trích xuất JWT từ Header
             String jwt = getJwtFromRequest(request);
 
-            // 2. Kiểm tra tính hợp lệ và xác thực Token
+            // 2. Xác thực tính hợp lệ của Token
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-                // 3. Lấy Email (Username) từ Token
+                
+                // 3. Truy xuất thông tin định danh (Email) từ Token
                 String email = tokenProvider.getEmailFromToken(jwt);
 
-                // 4. Load chi tiết User (UserDetails) từ Database
+                // 4. Tải thông tin chi tiết người dùng từ cơ sở dữ liệu
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
                 
                 // 5. Khởi tạo đối tượng xác thực (Authentication)
-                // Password là null vì ta đã xác thực bằng Token (không cần password)
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities());
                 
-                // 6. Gán thêm thông tin chi tiết của request (IP, Browser,...)
+                // 6. Gán chi tiết thông tin request vào đối tượng xác thực
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                // 7. Thiết lập đối tượng xác thực vào Spring Security Context
-                // Từ đây, các API @PreAuthorize có thể truy cập thông tin User
+                // 7. Thiết lập đối tượng xác thực vào Security Context của hệ thống
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception ex) {
-            // Bắt lỗi khi không thể thiết lập xác thực (ví dụ: Token hết hạn, sai chữ ký)
-            logger.error("Could not set user authentication in security context.", ex); // Đã dịch
+            // Ghi nhật ký lỗi nếu quá trình xác thực thất bại (Token hết hạn, sai chữ ký, v.v.)
+            logger.error("Could not set user authentication in security context.", ex);
         }
 
-        // Chuyển quyền xử lý sang Filter tiếp theo trong chuỗi
+        // Tiếp tục chuyển quyền xử lý cho các Filter tiếp theo trong chuỗi
         filterChain.doFilter(request, response);
     }
 
     /**
-     * Hàm helper: Trích xuất chuỗi JWT (sau tiền tố "Bearer ") từ Header "Authorization".
+     * Hàm hỗ trợ: Trích xuất chuỗi JWT nguyên bản từ Header "Authorization".
      */
     private String getJwtFromRequest(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        // Kiểm tra xem Header có tồn tại và bắt đầu bằng "Bearer " không
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7); // Bỏ qua 7 ký tự đầu ("Bearer ")
+        String bearerToken = request.getHeader(AUTHORIZATION_HEADER);
+        
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
+            return bearerToken.substring(BEARER_PREFIX_LENGTH);
         }
+        
         return null;
     }
 }

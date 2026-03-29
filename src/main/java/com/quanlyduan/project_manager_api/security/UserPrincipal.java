@@ -1,51 +1,51 @@
-// File: src/main/java/com.quanlyduan.project_manager_api/security/UserPrincipal.java
 package com.quanlyduan.project_manager_api.security;
-
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.quanlyduan.project_manager_api.model.User;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.Collections;
 
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.quanlyduan.project_manager_api.model.User;
+
+import lombok.Getter;
+
 /**
- * Lớp chính chứa thông tin người dùng đã xác thực (Security Principal).
- * Dùng để lưu trữ thông tin cơ bản của User và quyền hạn trong Spring Security Context.
+ * Lop dai dien cho danh tinh nguoi dung da duoc xac thuc (Security Principal).
+ * Luu tru thong tin co ban va danh sach quyen han trong Spring Security Context.
  */
 @Getter
-@AllArgsConstructor
 public class UserPrincipal implements UserDetails {
-
-    // ========================================================================
-    // 1. THÔNG TIN CƠ BẢN & ĐỊNH DANH
-    // ========================================================================
 
     private final Integer id;
     private final String fullName;
     private final String email;
-    private final Boolean isEmailVerified; // Cờ xác thực email
+    private final Boolean isEmailVerified;
 
-    // ========================================================================
-    // 2. THÔNG TIN BẢO MẬT & QUYỀN HẠN
-    // ========================================================================
-
-    @JsonIgnore // Không được serialize ra JSON (bảo mật)
+    @JsonIgnore
     private final String password;
 
-    // Danh sách quyền hạn (Roles/Permissions) của người dùng
     private final Collection<? extends GrantedAuthority> authorities;
 
+    // Khoi tao thu cong thay vi dung @AllArgsConstructor
+    public UserPrincipal(Integer id, String fullName, String email, Boolean isEmailVerified, 
+                         String password, Collection<? extends GrantedAuthority> authorities) {
+        this.id = id;
+        this.fullName = fullName;
+        this.email = email;
+        this.isEmailVerified = isEmailVerified;
+        this.password = password;
+        this.authorities = authorities;
+    }
+
     /**
-     * Phương thức Factory tĩnh: Tạo đối tượng UserPrincipal từ Entity User.
-     * @param user Entity User từ Database.
+     * Factory Method de tao doi tuong UserPrincipal tu thuc the User (Entity).
+     * @param user Doi tuong User truy van tu co so du lieu.
+     * @return UserPrincipal hop le cho Spring Security.
      */
     public static UserPrincipal create(User user) {
-        // [LƯU Ý]: Hiện tại, hàm này tạo danh sách quyền rỗng.
-        // Logic sẽ được cập nhật sau để load Roles/Permissions từ DB.
+        // Logic load quyen han (Authorities) se duoc bo sung tai day khi he thong phan quyen hoan thien
         Collection<? extends GrantedAuthority> authorities = Collections.emptyList();
 
         return new UserPrincipal(
@@ -57,8 +57,10 @@ public class UserPrincipal implements UserDetails {
                 authorities
         );
     }
-    
-    // --- Implement các phương thức của UserDetails ---
+
+    // ========================================================================
+    // TRIEN KHAI CAC PHUONG THUC CUA USERDETAILS
+    // ========================================================================
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -71,35 +73,37 @@ public class UserPrincipal implements UserDetails {
     }
 
     /**
-     * Trả về định danh người dùng. Trong hệ thống này, chúng ta dùng email làm username.
+     * Su dung Email lam dinh danh duy nhat (Username) cho qua trinh dang nhap.
      */
     @Override
     public String getUsername() {
-        return email; 
+        return email;
     }
 
     /**
-     * Cờ kiểm tra tài khoản có được phép sử dụng hay không.
-     * QUAN TRỌNG: Chỉ cho phép đăng nhập thành công nếu email đã được xác thực.
+     * Tai khoan chi duoc kich hoat neu Email da duoc xac thuc thanh cong.
      */
     @Override
     public boolean isEnabled() {
-        return this.isEmailVerified; 
-    }
-    
-    @Override
-    public boolean isAccountNonExpired() {
-        return true; // Mặc định là true (không hết hạn)
+        return Boolean.TRUE.equals(isEmailVerified);
     }
 
     @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    /**
+     * Mac dinh tai khoan khong bi khoa. 
+     * Sau nay co the mo rong de kiem tra thuoc tinh 'status' cua User.
+     */
+    @Override
     public boolean isAccountNonLocked() {
-        // Mặc định là true (không bị khóa). Sau này có thể kiểm tra UserStatus.
-        return true; 
+        return true;
     }
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return true; // Mặc định là true
+        return true;
     }
 }

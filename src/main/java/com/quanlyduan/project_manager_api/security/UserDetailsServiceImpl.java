@@ -1,44 +1,45 @@
-// File: src/main/java/com.quanlyduan/project_manager_api/security/UserDetailsServiceImpl.java
 package com.quanlyduan.project_manager_api.security;
 
-import com.quanlyduan.project_manager_api.model.User; 
-import com.quanlyduan.project_manager_api.repository.UserRepository; 
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.quanlyduan.project_manager_api.model.User; 
+import com.quanlyduan.project_manager_api.repository.UserRepository; 
+
 /**
- * Service triển khai UserDetailsService của Spring Security.
- * Chịu trách nhiệm tải thông tin chi tiết người dùng (UserDetails) từ Database.
+ * Service trien khai UserDetailsService cua Spring Security.
+ * Chịu trách nhiệm truy vấn thông tin người dùng từ cơ sở dữ liệu để phục vụ quá trình xác thực.
  */
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
 
+    private static final String ERR_USER_NOT_FOUND = "User not found with email: %s";
+
     private final UserRepository userRepository; 
 
-    // Constructor thủ công để inject UserRepository
     public UserDetailsServiceImpl(UserRepository userRepository) { 
-        // Comment: Inject UserRepository
         this.userRepository = userRepository; 
     }
 
     /**
-     * Tải thông tin người dùng dựa trên tên người dùng (ở đây là email).
-     * Phương thức này được Spring Security gọi khi cần xác thực người dùng.
-     * * @param email Email đăng nhập (được sử dụng làm Username)
-     * @throws UsernameNotFoundException Nếu không tìm thấy người dùng trong DB
+     * Tai thong tin chi tiet nguoi dung dua tren Email (Username).
+     * Phuong thuc nay duoc Spring Security tu dong goi trong qua trinh xac thuc JWT.
+     * * @param email Email dang nhap cua nguoi dung.
+     * @return Doi tuong UserPrincipal chua thong tin xac thuc va quyen han.
+     * @throws UsernameNotFoundException neu khong tim thay Email trong he thong.
      */
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         
-        // 1. Load người dùng từ DB bằng email
+        // 1. Tim kiem nguoi dung trong Database
         User user = userRepository.findByEmail(email) 
-            .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+            .orElseThrow(() -> new UsernameNotFoundException(String.format(ERR_USER_NOT_FOUND, email)));
 
-        // 2. Convert Entity User sang đối tượng UserPrincipal (UserDetails) của hệ thống
+        // 2. Chuyen doi Entity User sang UserPrincipal (trien khai UserDetails)
         return UserPrincipal.create(user);
     }
 }
