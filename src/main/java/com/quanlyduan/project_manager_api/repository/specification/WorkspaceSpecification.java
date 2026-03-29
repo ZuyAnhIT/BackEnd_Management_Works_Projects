@@ -1,23 +1,36 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/repository/specification/WorkspaceSpecification.java
 package com.quanlyduan.project_manager_api.repository.specification;
+
+import org.springframework.data.jpa.domain.Specification;
 
 import com.quanlyduan.project_manager_api.model.Workspace;
 import com.quanlyduan.project_manager_api.model.common.enums.WorkspaceStatus;
 import com.quanlyduan.project_manager_api.util.JpaSpecificationUtil;
-import org.springframework.data.jpa.domain.Specification;
 
+/**
+ * Lop xay dung bo loc dong cho thuc the Workspace.
+ * Ho tro tim kiem theo cong ty, ten, ma va trang thai cua khong gian lam viec.
+ */
 public class WorkspaceSpecification {
 
+    // Khai bao cac hang so ten truong trong Entity de tranh hardcode
+    private static final String FIELD_COMPANY = "company";
+    private static final String FIELD_ID = "id";
+    private static final String FIELD_NAME = "name";
+    private static final String FIELD_WORKSPACE_CODE = "workspaceCode";
+    private static final String FIELD_DESCRIPTION = "description";
+    private static final String FIELD_STATUS = "status";
+
+    // Constructor rieng tu de ngan viec khoi tao lop utility
+    private WorkspaceSpecification() {
+    }
+
     /**
-     * Tạo bộ lọc động (Specification) cho Entity Workspace.
-     * Dùng để tìm kiếm Không gian làm việc theo nhiều tiêu chí khác nhau trong một Công ty cụ thể.
-     *
-     * @param companyId ID công ty hiện tại (Điều kiện BẮT BUỘC)
-     * @param searchName Tìm theo Tên Workspace
-     * @param searchCode Tìm theo Mã Workspace
-     * @param searchDescription Tìm theo Mô tả
-     * @param searchStatus Tìm theo Trạng thái (Enum)
-     * @return Specification đã ghép nối các Predicate (Điều kiện lọc)
+     * Tao bo loc dong dua tren cac tham so tim kiem cung cap tu Client.
+     * @param companyId ID cong ty hien tai (Dieu kien bat buoc)
+     * @param searchName Tim theo ten khong gian lam viec
+     * @param searchCode Tim theo ma khong gian lam viec
+     * @param searchDescription Tim theo mo ta
+     * @param searchStatus Tim theo trang thai (Enum)
      */
     public static Specification<Workspace> filterWorkspaces(
             Integer companyId,
@@ -26,32 +39,60 @@ public class WorkspaceSpecification {
             String searchDescription,
             WorkspaceStatus searchStatus 
     ) {
-        // 1. Điều kiện bắt buộc: Workspace phải thuộc Company ID
-        // Trỏ cụ thể vào ID của Company để tránh lỗi Type Mismatch (Object vs Integer)
+        // 1. Dieu kien bat buoc: Workspace phai thuoc ve Company
         Specification<Workspace> spec = (root, query, cb) -> 
-                cb.equal(root.get("company").get("id"), companyId);
+                cb.equal(root.get(FIELD_COMPANY).get(FIELD_ID), companyId);
 
-        // 2. Lọc theo Tên (LIKE)
+        // 2. Ap dung cac dieu kien loc optional (Stepdown Rule)
+        spec = applyNameFilter(spec, searchName);
+        spec = applyCodeFilter(spec, searchCode);
+        spec = applyDescriptionFilter(spec, searchDescription);
+        spec = applyStatusFilter(spec, searchStatus);
+
+        return spec;
+    }
+
+    // ======================================================
+    // CAC HAM PRIVATE HO TRO (STEPDOWN RULE)
+    // ======================================================
+
+    /**
+     * Loc theo ten Workspace su dung dieu kien LIKE.
+     */
+    private static Specification<Workspace> applyNameFilter(Specification<Workspace> spec, String searchName) {
         if (searchName != null && !searchName.isEmpty()) {
-            spec = spec.and(JpaSpecificationUtil.attributeContains("name", searchName));
+            return spec.and(JpaSpecificationUtil.attributeContains(FIELD_NAME, searchName));
         }
+        return spec;
+    }
 
-        // 3. Lọc theo Mã (LIKE)
+    /**
+     * Loc theo ma Workspace su dung dieu kien LIKE.
+     */
+    private static Specification<Workspace> applyCodeFilter(Specification<Workspace> spec, String searchCode) {
         if (searchCode != null && !searchCode.isEmpty()) {
-            spec = spec.and(JpaSpecificationUtil.attributeContains("workspaceCode", searchCode));
+            return spec.and(JpaSpecificationUtil.attributeContains(FIELD_WORKSPACE_CODE, searchCode));
         }
+        return spec;
+    }
 
-        // 4. Lọc theo Mô tả (LIKE)
+    /**
+     * Loc theo mo ta Workspace su dung dieu kien LIKE.
+     */
+    private static Specification<Workspace> applyDescriptionFilter(Specification<Workspace> spec, String searchDescription) {
         if (searchDescription != null && !searchDescription.isEmpty()) {
-            spec = spec.and(JpaSpecificationUtil.attributeContains("description", searchDescription));
+            return spec.and(JpaSpecificationUtil.attributeContains(FIELD_DESCRIPTION, searchDescription));
         }
+        return spec;
+    }
 
-        // 5. Lọc theo Trạng thái (EQUAL - Enum)
+    /**
+     * Loc theo trang thai (Enum) su dung dieu kien EQUAL.
+     */
+    private static Specification<Workspace> applyStatusFilter(Specification<Workspace> spec, WorkspaceStatus searchStatus) {
         if (searchStatus != null) {
-            // Dùng attributeEquals, Spring JPA tự động xử lý so sánh Enum
-            spec = spec.and(JpaSpecificationUtil.attributeEquals("status", searchStatus));
+            return spec.and(JpaSpecificationUtil.attributeEquals(FIELD_STATUS, searchStatus));
         }
-
         return spec;
     }
 }

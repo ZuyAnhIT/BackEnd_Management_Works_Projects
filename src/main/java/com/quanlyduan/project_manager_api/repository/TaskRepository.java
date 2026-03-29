@@ -1,8 +1,9 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/repository/TaskRepository.java
 package com.quanlyduan.project_manager_api.repository;
 
-import com.quanlyduan.project_manager_api.model.Sprint; // Entity Sprint
-import com.quanlyduan.project_manager_api.model.Task; // Entity Task
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,361 +13,266 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.time.LocalDateTime;
-import java.util.Collection;
+import com.quanlyduan.project_manager_api.model.Sprint;
+import com.quanlyduan.project_manager_api.model.Task;
 
-@Repository
 /**
- * Repository cho Entity Task (Quản lý các công việc trong Dự án).
- * Kế thừa JpaSpecificationExecutor để hỗ trợ tìm kiếm động.
+ * Kho lưu trữ dữ liệu quản lý công việc (Task).
+ * Hỗ trợ các truy vấn phức tạp cho bảng Board, Backlog, lịch trình và phân tích AI.
  */
+@Repository
 public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecificationExecutor<Task> {
 
-        // --- PHƯƠNG THỨC TỰ ĐỘNG TỪ SPRING DATA JPA ---
+    // ======================================================
+    // KHAI BÁO HẰNG SỐ TRUY VẤN (QUERY CONSTANTS)
+    // ======================================================
 
-        // Spring Data JPA tự động cung cấp 'findById(Integer taskId)'.
-        // 'existsById(Integer taskId)' cũng được cung cấp.
+    String UPDATE_SPRINT_FOR_TASKS = "UPDATE Task t SET t.sprint = :sprint WHERE t.id IN :taskIds";
+    
+    String MOVE_TASKS_TO_BACKLOG = "UPDATE Task t SET t.sprint = NULL WHERE t.sprint.id = :sprintId";
 
-        /**
-         * Lấy Task được gán cho User, ngoại trừ các trạng thái đã hoàn thành (Dùng
-         * Enum/String).
-         */
-        List<Task> findByAssignee_IdAndStatusNotIn(Integer assigneeId, List<String> excludedStatuses);
+    String FIND_BY_ASSIGNEE_WITH_DETAILS = "SELECT t FROM Task t JOIN FETCH t.project p JOIN FETCH p.workspace w " +
+                                           "WHERE t.assignee.id = :assigneeId AND t.status NOT IN :excludedStatuses";
 
-        /**
-         * Lấy backlog (task chưa có sprint) của một project, sắp xếp theo thứ tự.
-         */
-        List<Task> findByProject_IdAndSprint_IdIsNullOrderBySortOrderAsc(Integer projectId);
+    String FIND_PROJECT_TASKS_ORDERED = "SELECT t FROM Task t LEFT JOIN FETCH t.assignee LEFT JOIN FETCH t.epic " +
+                                        "LEFT JOIN FETCH t.status WHERE t.project.id = :projectId " +
+                                        "ORDER BY t.sprint.id ASC NULLS FIRST, t.sortOrder ASC";
 
-        /**
-         * Lấy task trong một sprint, sắp xếp theo thứ tự.
-         */
-        List<Task> findBySprint_IdOrderBySortOrderAsc(Integer sprintId);
+    String FIND_DASHBOARD_TASKS = "SELECT t FROM Task t JOIN FETCH t.project p JOIN FETCH p.workspace w " +
+                                  "LEFT JOIN FETCH t.status s WHERE t.assignee.id = :assigneeId ORDER BY t.dueDate ASC";
 
-        // --- TRUY VẤN DÙNG @MODIFIYING ---
+    String FIND_SPRINT_TASKS_WITH_DETAILS = "SELECT t FROM Task t LEFT JOIN FETCH t.assignee LEFT JOIN FETCH t.epic " +
+                                            "LEFT JOIN FETCH t.status WHERE t.sprint.id = :sprintId ORDER BY t.sortOrder ASC";
 
-        /**
-         * Gán nhiều Task (theo danh sách IDs) vào một Sprint cụ thể.
-         */
-        @Modifying
-        @Query("UPDATE Task t SET t.sprint = :sprint WHERE t.id IN :taskIds")
-        void updateSprintForTasks(@Param("sprint") Sprint sprint, @Param("taskIds") List<Integer> taskIds);
+    String FIND_BACKLOG_TASKS = "SELECT t FROM Task t LEFT JOIN FETCH t.assignee LEFT JOIN FETCH t.epic " +
+                                "LEFT JOIN FETCH t.status WHERE t.project.id = :projectId AND t.sprint IS NULL " +
+                                "ORDER BY t.sortOrder ASC";
 
-        /**
-         * Di chuyển tất cả Task thuộc một Sprint về Backlog (sprint = NULL).
-         * Dùng khi hủy hoặc hoàn thành Sprint.
-         */
-        @Modifying
-        @Query("UPDATE Task t SET t.sprint = NULL WHERE t.sprint.id = :sprintId")
-        void moveTasksToBacklogBySprintId(@Param("sprintId") Integer sprintId);
+    String FIND_INCOMPLETE_SPRINT_TASKS = "SELECT t FROM Task t WHERE t.sprint.id = :sprintId " +
+                                          "AND (t.status IS NULL OR t.status.isCompletedStatus = false)";
 
-        // --- TRUY VẤN CHI TIẾT (DÙNG FETCH JOIN) ---
+    String MAX_SORT_ORDER_SPRINT = "SELECT COALESCE(MAX(t.sortOrder), 0) FROM Task t WHERE t.sprint.id = :sprintId";
 
-        /**
-         * Lấy task được gán cho user, ngoại trừ các status đã hoàn thành, kèm theo chi
-         * tiết Project và Workspace.
-         */
-        @Query("SELECT t FROM Task t " +
-                        "JOIN FETCH t.project p " +
-                        "JOIN FETCH p.workspace w " +
-                        "WHERE t.assignee.id = :assigneeId " +
-                        "AND t.status NOT IN :excludedStatuses")
-        List<Task> findByAssignee_IdAndStatusNotInWithDetails(
-                        @Param("assigneeId") Integer assigneeId,
-                        @Param("excludedStatuses") Collection<String> excludedStatuses);
+    String MAX_SORT_ORDER_BACKLOG = "SELECT COALESCE(MAX(t.sortOrder), 0) FROM Task t WHERE t.project.id = :projectId AND t.sprint IS NULL";
 
-        /**
-         * Lấy tất cả Task của Project, sắp xếp theo Sprint (Backlog lên đầu) và
-         * SortOrder, kèm theo chi tiết.
-         */
-        @Query("SELECT t FROM Task t " +
-                        "LEFT JOIN FETCH t.assignee " +
-                        "LEFT JOIN FETCH t.epic " +
-                        "LEFT JOIN FETCH t.status " +
-                        "WHERE t.project.id = :projectId " +
-                        "ORDER BY t.sprint.id ASC NULLS FIRST, t.sortOrder ASC")
-        List<Task> findByProjectIdWithDetails(Integer projectId);
+    String SHIFT_SORT_ORDER_SPRINT = "UPDATE Task t SET t.sortOrder = t.sortOrder + 1 " +
+                                     "WHERE t.sprint.id = :sprintId AND t.sortOrder >= :newSortOrder";
 
-        /**
-         * Lấy tất cả task được gán cho user (cho Dashboard), kèm theo chi tiết.
-         */
-        @Query("SELECT t FROM Task t " +
-                        "JOIN FETCH t.project p " +
-                        "JOIN FETCH p.workspace w " +
-                        "LEFT JOIN FETCH t.status s " +
-                        "WHERE t.assignee.id = :assigneeId " +
-                        "ORDER BY t.dueDate ASC")
-        List<Task> findByAssignee_IdWithDetails(@Param("assigneeId") Integer assigneeId);
+    String SHIFT_SORT_ORDER_BACKLOG = "UPDATE Task t SET t.sortOrder = t.sortOrder + 1 " +
+                                      "WHERE t.project.id = :projectId AND t.sprint IS NULL AND t.sortOrder >= :newSortOrder";
 
-        /**
-         * Lấy tất cả Task trong Sprint, kèm theo chi tiết.
-         */
-        @Query("SELECT t FROM Task t " +
-                        "LEFT JOIN FETCH t.assignee " +
-                        "LEFT JOIN FETCH t.epic " +
-                        "LEFT JOIN FETCH t.status " +
-                        "WHERE t.sprint.id = :sprintId " +
-                        "ORDER BY t.sortOrder ASC")
-        List<Task> findBySprintIdWithDetails(Integer sprintId);
+    String MAX_SORT_ORDER_STATUS = "SELECT COALESCE(MAX(t.sortOrder), 0) FROM Task t WHERE t.project.id = :projectId AND t.status.id = :statusId";
 
-        /**
-         * Lấy danh sách Task thuộc Backlog (sprint_id IS NULL) của dự án, kèm theo chi
-         * tiết.
-         */
-        @Query("SELECT t FROM Task t " +
-                        "LEFT JOIN FETCH t.assignee " +
-                        "LEFT JOIN FETCH t.epic " +
-                        "LEFT JOIN FETCH t.status " +
-                        "WHERE t.project.id = :projectId AND t.sprint IS NULL " +
-                        "ORDER BY t.sortOrder ASC")
-        List<Task> findBacklogTasksByProjectId(Integer projectId);
+    String SHIFT_SORT_ORDER_STATUS = "UPDATE Task t SET t.sortOrder = t.sortOrder + 1 " +
+                                     "WHERE t.project.id = :projectId AND t.status.id = :statusId AND t.sortOrder >= :newSortOrder";
 
-        /**
-         * Tìm các Task trong Sprint mà chưa hoàn thành (status chưa có cờ
-         * completed=true).
-         */
-        @Query("SELECT t FROM Task t " +
-                        "WHERE t.sprint.id = :sprintId " +
-                        "AND (t.status IS NULL OR t.status.isCompletedStatus = false)")
-        List<Task> findIncompleteTasksBySprintId(@Param("sprintId") Integer sprintId);
+    String COUNT_CREATED_TASKS = "SELECT COUNT(t) FROM Task t WHERE (:projectId IS NULL OR t.project.id = :projectId) " +
+                                 "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND t.createdAt BETWEEN :startDate AND :endDate";
 
-        // --- HÀM HỖ TRỢ AUDIT/VALIDATION ---
+    String COUNT_COMPLETED_TASKS = "SELECT COUNT(t) FROM Task t WHERE (:projectId IS NULL OR t.project.id = :projectId) " +
+                                   "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND t.completedAt BETWEEN :startDate AND :endDate";
 
-        /**
-         * Đếm tổng số Task trong một Project.
-         * Dùng để sinh mã Task Code (Ví dụ: PROJ-1).
-         */
-        long countByProjectId(Integer projectId);
+    String COUNT_UPDATED_TASKS = "SELECT COUNT(t) FROM Task t WHERE (:projectId IS NULL OR t.project.id = :projectId) " +
+                                 "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND t.updatedAt BETWEEN :startDate AND :endDate";
 
-        /**
-         * Kiểm tra xem có bất kỳ Task nào đang ở Status này không (Chặn xóa Status).
-         */
-        boolean existsByStatus_Id(Integer statusId);
+    String FIND_TASKS_DUE_SOON = "SELECT t FROM Task t JOIN FETCH t.project p LEFT JOIN FETCH t.status s " +
+                                 "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) " +
+                                 "AND t.dueDate BETWEEN :now AND :futureDate AND (t.status.isCompletedStatus = false OR t.status IS NULL) " +
+                                 "ORDER BY t.dueDate ASC";
 
-        /**
-         * Kiểm tra xem có Task nào thuộc Epic này không (Chặn xóa Epic).
-         */
-        boolean existsByEpic_Id(Integer epicId);
+    String FIND_CREATED_TASKS_LIST = "SELECT t FROM Task t JOIN FETCH t.project p LEFT JOIN FETCH t.status s LEFT JOIN FETCH t.assignee a " +
+                                     "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) " +
+                                     "AND t.createdAt BETWEEN :startDate AND :endDate ORDER BY t.createdAt DESC";
 
-        /**
-         * Lấy danh sách Task thuộc Epic cụ thể.
-         */
-        List<Task> findByEpicId(Integer epicId);
+    String FIND_COMPLETED_TASKS_LIST = "SELECT t FROM Task t JOIN FETCH t.project p LEFT JOIN FETCH t.status s LEFT JOIN FETCH t.assignee a " +
+                                       "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) " +
+                                       "AND t.completedAt BETWEEN :startDate AND :endDate ORDER BY t.completedAt DESC";
 
-        /**
-         * Đếm số Task trong một Sprint.
-         */
-        long countBySprint_Id(Integer sprintId);
+    String FIND_UPDATED_TASKS_LIST = "SELECT t FROM Task t JOIN FETCH t.project p LEFT JOIN FETCH t.status s LEFT JOIN FETCH t.assignee a " +
+                                     "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) " +
+                                     "AND t.updatedAt BETWEEN :startDate AND :endDate ORDER BY t.updatedAt DESC";
 
-        // Lấy tất cả task trong một Sprint cụ thể
-        List<Task> findBySprint_Id(Integer sprintId);
+    String COUNT_BY_STATUS_GROUP = "SELECT t.status, COUNT(t) FROM Task t WHERE (:projectId IS NULL OR t.project.id = :projectId) " +
+                                   "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) GROUP BY t.status";
 
-        // --- HÀM HỖ TRỢ KÉO THẢ (SORT ORDER) ---
+    String COUNT_BY_PRIORITY_GROUP = "SELECT t.priority, COUNT(t) FROM Task t WHERE (:projectId IS NULL OR t.project.id = :projectId) " +
+                                     "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) GROUP BY t.priority";
 
-        // 1. Tìm vị trí lớn nhất trong Sprint (để thêm vào cuối)
-        @Query("SELECT COALESCE(MAX(t.sortOrder), 0) FROM Task t WHERE t.sprint.id = :sprintId")
-        Integer findMaxSortOrderBySprintId(@Param("sprintId") Integer sprintId);
+    String COUNT_BY_TYPE_GROUP = "SELECT t.taskType, COUNT(t) FROM Task t WHERE (:projectId IS NULL OR t.project.id = :projectId) " +
+                                 "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) GROUP BY t.taskType";
 
-        // 2. Tìm vị trí lớn nhất trong Backlog (project nhưng sprint null)
-        @Query("SELECT COALESCE(MAX(t.sortOrder), 0) FROM Task t WHERE t.project.id = :projectId AND t.sprint IS NULL")
-        Integer findMaxSortOrderByProjectIdAndSprintIsNull(@Param("projectId") Integer projectId);
+    String COUNT_COMPLETED_BY_KEYWORD = "SELECT COUNT(t) FROM Task t WHERE t.assignee.id = :userId AND t.project.id = :projectId " +
+                                        "AND t.status.isCompletedStatus = true AND (LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+                                        "OR LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%')))";
 
-        // 3. Đẩy các task phía sau xuống 1 bậc (Trong Sprint)
-        @Modifying
-        @Query("UPDATE Task t SET t.sortOrder = t.sortOrder + 1 WHERE t.sprint.id = :sprintId AND t.sortOrder >= :newSortOrder")
-        void shiftSortOrderInSprint(@Param("sprintId") Integer sprintId, @Param("newSortOrder") Integer newSortOrder);
+    String CURRENT_SPRINT_WORKLOAD = "SELECT COALESCE(SUM(t.storyPoints), 0) FROM Task t WHERE t.assignee.id = :userId " +
+                                     "AND t.project.id = :projectId AND t.sprint.status = 'IN_PROGRESS' " +
+                                     "AND (t.status.isCompletedStatus = false OR t.status.isCompletedStatus IS NULL)";
 
-        // 4. Đẩy các task phía sau xuống 1 bậc (Trong Backlog)
-        @Modifying
-        @Query("UPDATE Task t SET t.sortOrder = t.sortOrder + 1 WHERE t.project.id = :projectId AND t.sprint IS NULL AND t.sortOrder >= :newSortOrder")
-        void shiftSortOrderInBacklog(@Param("projectId") Integer projectId,
-                        @Param("newSortOrder") Integer newSortOrder);
+    String SUM_COMPLETED_POINTS_SPRINT = "SELECT COALESCE(SUM(t.storyPoints), 0) FROM Task t WHERE t.sprint.id = :sprintId AND t.status.isCompletedStatus = true";
 
-        // 5. Tìm vị trí lớn nhất trong một Status của một Project (để thêm vào cuối)
-        @Query("SELECT COALESCE(MAX(t.sortOrder), 0) FROM Task t WHERE t.project.id = :projectId AND t.status.id = :statusId")
-        Integer findMaxSortOrderByStatusId(@Param("projectId") Integer projectId, @Param("statusId") Integer statusId);
+    String SUM_REMAINING_POINTS_PROJECT = "SELECT COALESCE(SUM(t.storyPoints), 0) FROM Task t WHERE t.project.id = :projectId " +
+                                          "AND (t.status.isCompletedStatus = false OR t.status.isCompletedStatus IS NULL)";
 
-        // 6. Đẩy các task phía sau xuống 1 bậc (Khi chèn vào giữa) trong cùng 1 cột
-        @Modifying
-        @Query("UPDATE Task t SET t.sortOrder = t.sortOrder + 1 WHERE t.project.id = :projectId AND t.status.id = :statusId AND t.sortOrder >= :newSortOrder")
-        void shiftSortOrderInStatus(@Param("projectId") Integer projectId, @Param("statusId") Integer statusId,
-                        @Param("newSortOrder") Integer newSortOrder);
+    // ======================================================
+    // 1. TRUY VẤN CHI TIẾT (FETCH JOIN / DETAILS)
+    // ======================================================
 
-        // --- HÀM HỖ TRỢ TÍNH TOÁN (CALENDAR) ---
+    /**
+     * Lấy danh sách công việc của người được gán kèm chi tiết Dự án và Không gian làm việc.
+     */
+    @Query(FIND_BY_ASSIGNEE_WITH_DETAILS)
+    List<Task> findByAssignee_IdAndStatusNotInWithDetails(@Param("assigneeId") Integer assigneeId, @Param("excludedStatuses") Collection<String> excludedStatuses);
 
-        // 1. Đếm Task được TẠO trong khoảng thời gian
-        // Nếu projectId null -> đếm toàn bộ (cho ngữ cảnh cá nhân user)
-        // Nếu assigneeId null -> đếm toàn bộ team
-        @Query("SELECT COUNT(t) FROM Task t WHERE " +
-                        "(:projectId IS NULL OR t.project.id = :projectId) AND " +
-                        "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
-                        "t.createdAt BETWEEN :startDate AND :endDate")
-        long countCreatedTasks(@Param("projectId") Integer projectId,
-                        @Param("assigneeId") Integer assigneeId,
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate);
+    /**
+     * Lấy toàn bộ công việc trong dự án, ưu tiên Backlog lên đầu và sắp xếp theo thứ tự hiển thị.
+     */
+    @Query(FIND_PROJECT_TASKS_ORDERED)
+    List<Task> findByProjectIdWithDetails(Integer projectId);
 
-        // 2. Đếm Task HOÀN THÀNH (Dựa vào completedAt)
-        @Query("SELECT COUNT(t) FROM Task t WHERE " +
-                        "(:projectId IS NULL OR t.project.id = :projectId) AND " +
-                        "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
-                        "t.completedAt BETWEEN :startDate AND :endDate")
-        long countCompletedTasks(@Param("projectId") Integer projectId,
-                        @Param("assigneeId") Integer assigneeId,
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate);
+    /**
+     * Lấy danh sách công việc cho Dashboard người dùng, sắp xếp theo hạn chót.
+     */
+    @Query(FIND_DASHBOARD_TASKS)
+    List<Task> findByAssignee_IdWithDetails(@Param("assigneeId") Integer assigneeId);
 
-        // 3. Đếm Task CẬP NHẬT (updatedAt trong khoảng, và created != updated để tránh
-        // trùng lúc tạo)
-        @Query("SELECT COUNT(t) FROM Task t WHERE " +
-                        "(:projectId IS NULL OR t.project.id = :projectId) AND " +
-                        "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
-                        "t.updatedAt BETWEEN :startDate AND :endDate")
-        long countUpdatedTasks(@Param("projectId") Integer projectId,
-                        @Param("assigneeId") Integer assigneeId,
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate);
+    /**
+     * Lấy danh sách công việc thuộc về một Sprint cụ thể kèm thông tin chi tiết.
+     */
+    @Query(FIND_SPRINT_TASKS_WITH_DETAILS)
+    List<Task> findBySprintIdWithDetails(Integer sprintId);
 
-        // 4. Tìm Task SẮP ĐẾN HẠN (DueDate trong tương lai gần & Chưa xong)
-        @Query("SELECT t FROM Task t " +
-                        "JOIN FETCH t.project p " + // Fetch để hiển thị chi tiết
-                        "LEFT JOIN FETCH t.status s " +
-                        "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND " +
-                        "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
-                        "t.dueDate BETWEEN :now AND :futureDate AND " +
-                        "(t.status.isCompletedStatus = false OR t.status IS NULL) " +
-                        "ORDER BY t.dueDate ASC")
-        List<Task> findTasksDueSoon(@Param("projectId") Integer projectId,
-                        @Param("assigneeId") Integer assigneeId,
-                        @Param("now") LocalDateTime now,
-                        @Param("futureDate") LocalDateTime futureDate);
+    /**
+     * Lấy danh sách công việc chưa hoàn thành trong một Sprint.
+     */
+    @Query(FIND_INCOMPLETE_SPRINT_TASKS)
+    List<Task> findIncompleteTasksBySprintId(@Param("sprintId") Integer sprintId);
 
-        // --- CÁC HÀM MỚI THỐNG KÊ ---
+    /**
+     * Lấy chi tiết công việc dựa trên ID và ID dự án.
+     */
+    Optional<Task> findByIdAndProject_Id(Integer taskId, Integer projectId);
 
-        // 1. Lấy danh sách Task TẠO trong khoảng thời gian
-        @Query("SELECT t FROM Task t " +
-                        "JOIN FETCH t.project p " +
-                        "LEFT JOIN FETCH t.status s " +
-                        "LEFT JOIN FETCH t.assignee a " +
-                        "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND " +
-                        "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
-                        "t.createdAt BETWEEN :startDate AND :endDate " +
-                        "ORDER BY t.createdAt DESC") // Mới nhất lên đầu
-        List<Task> findCreatedTasks(@Param("projectId") Integer projectId,
-                        @Param("assigneeId") Integer assigneeId,
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate,
-                        Pageable pageable); // Dùng Pageable để giới hạn số lượng (Limit)
+    // ======================================================
+    // 2. QUẢN LÝ SPRINT & BACKLOG (SPRINT LOGIC)
+    // ======================================================
 
-        // 2. Lấy danh sách Task HOÀN THÀNH
-        @Query("SELECT t FROM Task t " +
-                        "JOIN FETCH t.project p " +
-                        "LEFT JOIN FETCH t.status s " +
-                        "LEFT JOIN FETCH t.assignee a " +
-                        "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND " +
-                        "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
-                        "t.completedAt BETWEEN :startDate AND :endDate " +
-                        "ORDER BY t.completedAt DESC")
-        List<Task> findCompletedTasks(@Param("projectId") Integer projectId,
-                        @Param("assigneeId") Integer assigneeId,
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate,
-                        Pageable pageable);
+    /**
+     * Lấy danh sách công việc trong Backlog của dự án (chưa gán Sprint).
+     */
+    @Query(FIND_BACKLOG_TASKS)
+    List<Task> findBacklogTasksByProjectId(Integer projectId);
 
-        // 3. Lấy danh sách Task CẬP NHẬT
-        @Query("SELECT t FROM Task t " +
-                        "JOIN FETCH t.project p " +
-                        "LEFT JOIN FETCH t.status s " +
-                        "LEFT JOIN FETCH t.assignee a " +
-                        "WHERE (:projectId IS NULL OR t.project.id = :projectId) AND " +
-                        "(:assigneeId IS NULL OR t.assignee.id = :assigneeId) AND " +
-                        "t.updatedAt BETWEEN :startDate AND :endDate " +
-                        "ORDER BY t.updatedAt DESC")
-        List<Task> findUpdatedTasks(@Param("projectId") Integer projectId,
-                        @Param("assigneeId") Integer assigneeId,
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate,
-                        Pageable pageable);
+    /**
+     * Cập nhật Sprint cho danh sách công việc.
+     */
+    @Modifying
+    @Query(UPDATE_SPRINT_FOR_TASKS)
+    void updateSprintForTasks(@Param("sprint") Sprint sprint, @Param("taskIds") List<Integer> taskIds);
 
-        /**
-         * Thống kê số lượng Task theo Trạng thái (GROUP BY Status).
-         * Kết quả trả về List<Object[]>: [ProjectStatus entity, Long count]
-         */
-        @Query("SELECT t.status, COUNT(t) " +
-                        "FROM Task t " +
-                        "WHERE (:projectId IS NULL OR t.project.id = :projectId) " +
-                        "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) " +
-                        "GROUP BY t.status")
-        List<Object[]> countTasksByStatusGroup(@Param("projectId") Integer projectId,
-                        @Param("assigneeId") Integer assigneeId);
+    /**
+     * Di chuyển toàn bộ công việc từ Sprint về Backlog.
+     */
+    @Modifying
+    @Query(MOVE_TASKS_TO_BACKLOG)
+    void moveTasksToBacklogBySprintId(@Param("sprintId") Integer sprintId);
 
-        /**
-         * Thống kê số lượng Task theo Mức độ ưu tiên (GROUP BY Priority).
-         * Kết quả trả về List<Object[]>: [TaskPriority enum, Long count]
-         */
-        @Query("SELECT t.priority, COUNT(t) " +
-                        "FROM Task t " +
-                        "WHERE (:projectId IS NULL OR t.project.id = :projectId) " +
-                        "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) " +
-                        "GROUP BY t.priority")
-        List<Object[]> countTasksByPriorityGroup(@Param("projectId") Integer projectId,
-                        @Param("assigneeId") Integer assigneeId);
+    List<Task> findByProject_IdAndSprint_IdIsNullOrderBySortOrderAsc(Integer projectId);
 
-        /**
-         * Thống kê số lượng Task theo Loại công việc (GROUP BY TaskType).
-         * Kết quả trả về List<Object[]>: [TaskType enum, Long count]
-         */
-        @Query("SELECT t.taskType, COUNT(t) " +
-                        "FROM Task t " +
-                        "WHERE (:projectId IS NULL OR t.project.id = :projectId) " +
-                        "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) " +
-                        "GROUP BY t.taskType")
-        List<Object[]> countTasksByTypeGroup(@Param("projectId") Integer projectId,
-                        @Param("assigneeId") Integer assigneeId);
+    List<Task> findBySprint_IdOrderBySortOrderAsc(Integer sprintId);
 
-        // ======================================================
-        // QUERY CHO ANALYTICS (AI FEATURES)
-        // ======================================================
+    List<Task> findBySprint_Id(Integer sprintId);
 
-        /**
-         * Đếm số task đã hoàn thành của một User trong Project mà có chứa từ khóa
-         * (Tìm trong Title hoặc Description).
-         */
-        @Query("SELECT COUNT(t) FROM Task t " +
-                        "WHERE t.assignee.id = :userId " +
-                        "AND t.project.id = :projectId " +
-                        "AND t.status.isCompletedStatus = true " +
-                        "AND (LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-                        "OR LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
-        int countCompletedTasksByKeyword(
-                        @Param("projectId") Integer projectId,
-                        @Param("userId") Integer userId,
-                        @Param("keyword") String keyword);
+    // ======================================================
+    // 3. LOGIC KÉO THẢ & THỨ TỰ (SORT ORDER)
+    // ======================================================
 
-        /**
-         * Tính tổng Story Points mà User đang gánh trong các Sprint đang chạy
-         * (IN_PROGRESS).
-         * Dùng COALESCE để trả về 0 nếu không có task nào.
-         */
-        @Query("SELECT COALESCE(SUM(t.storyPoints), 0) FROM Task t " +
-                        "WHERE t.assignee.id = :userId " +
-                        "AND t.project.id = :projectId " +
-                        "AND t.sprint.status = 'IN_PROGRESS' " +
-                        "AND (t.status.isCompletedStatus = false OR t.status.isCompletedStatus IS NULL)")
-        int getCurrentSprintWorkload(
-                        @Param("projectId") Integer projectId,
-                        @Param("userId") Integer userId);
+    @Query(MAX_SORT_ORDER_SPRINT)
+    Integer findMaxSortOrderBySprintId(@Param("sprintId") Integer sprintId);
 
-        // Tính tổng Story Points đã hoàn thành trong một Sprint cụ thể
-        @Query("SELECT COALESCE(SUM(t.storyPoints), 0) FROM Task t " +
-                        "WHERE t.sprint.id = :sprintId AND t.status.isCompletedStatus = true")
-        Integer sumCompletedPointsBySprintId(@Param("sprintId") Integer sprintId);
+    @Query(MAX_SORT_ORDER_BACKLOG)
+    Integer findMaxSortOrderByProjectIdAndSprintIsNull(@Param("projectId") Integer projectId);
 
-        // Tính tổng Story Points còn lại (Backlog + Active Sprint chưa xong)
-        @Query("SELECT COALESCE(SUM(t.storyPoints), 0) FROM Task t " +
-                        "WHERE t.project.id = :projectId " +
-                        "AND (t.status.isCompletedStatus = false OR t.status.isCompletedStatus IS NULL)")
-        Integer sumRemainingPoints(@Param("projectId") Integer projectId);
+    @Modifying
+    @Query(SHIFT_SORT_ORDER_SPRINT)
+    void shiftSortOrderInSprint(@Param("sprintId") Integer sprintId, @Param("newSortOrder") Integer newSortOrder);
 
+    @Modifying
+    @Query(SHIFT_SORT_ORDER_BACKLOG)
+    void shiftSortOrderInBacklog(@Param("projectId") Integer projectId, @Param("newSortOrder") Integer newSortOrder);
+
+    @Query(MAX_SORT_ORDER_STATUS)
+    Integer findMaxSortOrderByStatusId(@Param("projectId") Integer projectId, @Param("statusId") Integer statusId);
+
+    @Modifying
+    @Query(SHIFT_SORT_ORDER_STATUS)
+    void shiftSortOrderInStatus(@Param("projectId") Integer projectId, @Param("statusId") Integer statusId, @Param("newSortOrder") Integer newSortOrder);
+
+    // ======================================================
+    // 4. THỐNG KÊ & LỊCH TRÌNH (CALENDAR & STATS)
+    // ======================================================
+
+    @Query(COUNT_CREATED_TASKS)
+    long countCreatedTasks(@Param("projectId") Integer projectId, @Param("assigneeId") Integer assigneeId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    @Query(COUNT_COMPLETED_TASKS)
+    long countCompletedTasks(@Param("projectId") Integer projectId, @Param("assigneeId") Integer assigneeId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    @Query(COUNT_UPDATED_TASKS)
+    long countUpdatedTasks(@Param("projectId") Integer projectId, @Param("assigneeId") Integer assigneeId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    @Query(FIND_TASKS_DUE_SOON)
+    List<Task> findTasksDueSoon(@Param("projectId") Integer projectId, @Param("assigneeId") Integer assigneeId, @Param("now") LocalDateTime now, @Param("futureDate") LocalDateTime futureDate);
+
+    @Query(FIND_CREATED_TASKS_LIST)
+    List<Task> findCreatedTasks(@Param("projectId") Integer projectId, @Param("assigneeId") Integer assigneeId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate, Pageable pageable);
+
+    @Query(FIND_COMPLETED_TASKS_LIST)
+    List<Task> findCompletedTasks(@Param("projectId") Integer projectId, @Param("assigneeId") Integer assigneeId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate, Pageable pageable);
+
+    @Query(FIND_UPDATED_TASKS_LIST)
+    List<Task> findUpdatedTasks(@Param("projectId") Integer projectId, @Param("assigneeId") Integer assigneeId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate, Pageable pageable);
+
+    @Query(COUNT_BY_STATUS_GROUP)
+    List<Object[]> countTasksByStatusGroup(@Param("projectId") Integer projectId, @Param("assigneeId") Integer assigneeId);
+
+    @Query(COUNT_BY_PRIORITY_GROUP)
+    List<Object[]> countTasksByPriorityGroup(@Param("projectId") Integer projectId, @Param("assigneeId") Integer assigneeId);
+
+    @Query(COUNT_BY_TYPE_GROUP)
+    List<Object[]> countTasksByTypeGroup(@Param("projectId") Integer projectId, @Param("assigneeId") Integer assigneeId);
+
+    // ======================================================
+    // 5. PHÂN TÍCH AI & STORY POINTS (AI ANALYTICS)
+    // ======================================================
+
+    @Query(COUNT_COMPLETED_BY_KEYWORD)
+    int countCompletedTasksByKeyword(@Param("projectId") Integer projectId, @Param("userId") Integer userId, @Param("keyword") String keyword);
+
+    @Query(CURRENT_SPRINT_WORKLOAD)
+    int getCurrentSprintWorkload(@Param("projectId") Integer projectId, @Param("userId") Integer userId);
+
+    @Query(SUM_COMPLETED_POINTS_SPRINT)
+    Integer sumCompletedPointsBySprintId(@Param("sprintId") Integer sprintId);
+
+    @Query(SUM_REMAINING_POINTS_PROJECT)
+    Integer sumRemainingPoints(@Param("projectId") Integer projectId);
+
+    // ======================================================
+    // 6. KIỂM TRA & KIỂM TOÁN (VALIDATION & AUDIT)
+    // ======================================================
+
+    boolean existsByProject_IdAndTaskCode(Integer projectId, String taskCode);
+
+    long countByProjectId(Integer projectId);
+
+    boolean existsByStatus_Id(Integer statusId);
+
+    boolean existsByEpic_Id(Integer epicId);
+
+    List<Task> findByEpicId(Integer epicId);
+
+    long countBySprint_Id(Integer sprintId);
+
+    List<Task> findByAssignee_IdAndStatusNotIn(Integer assigneeId, List<String> excludedStatuses);
 }

@@ -1,75 +1,114 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/repository/specification/TagSpecification.java
 package com.quanlyduan.project_manager_api.repository.specification;
-
-import com.quanlyduan.project_manager_api.dto.request.TagFilterRequest;
-import com.quanlyduan.project_manager_api.model.Tag;
-import jakarta.persistence.criteria.Predicate;
-import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.data.jpa.domain.Specification;
+
+import com.quanlyduan.project_manager_api.dto.request.TagFilterRequest;
+import com.quanlyduan.project_manager_api.model.Tag;
+
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+
+/**
+ * Lop cung cap cac bo loc dong cho thuc the Nhan (Tag).
+ * Ho tro tim kiem theo du an, tu khoa, nguoi tao va thoi gian.
+ */
 public class TagSpecification {
 
+    // Khai bao cac hang so ten truong trong Entity de tranh hardcode
+    private static final String FIELD_PROJECT = "project";
+    private static final String FIELD_ID = "id";
+    private static final String FIELD_NAME = "name";
+    private static final String FIELD_DESCRIPTION = "description";
+    private static final String FIELD_CREATED_BY = "createdBy";
+    private static final String FIELD_CREATED_AT = "createdAt";
+    private static final String LIKE_PATTERN = "%%%s%%";
+
     /**
-     * Tạo Specification lọc Tag động (Dynamic Query).
-     * Hàm này xây dựng bộ lọc SQL dựa trên các tham số tùy chọn được gửi trong TagFilterRequest.
-     *
-     * @param projectId ID của dự án (BẮT BUỘC)
-     * @param filter Object chứa các điều kiện lọc (keyword, dates, creators...)
-     * @return Specification đã ghép nối các Predicate
+     * Constructor rieng tu de ngan viec khoi tao lop utility.
+     */
+    private TagSpecification() {
+    }
+
+    /**
+     * Tao Specification loc Tag dong dua tren cac tham so yeu cau.
      */
     public static Specification<Tag> getFilterSpec(Integer projectId, TagFilterRequest filter) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // ========================================================================
-            // 1. ĐIỀU KIỆN BẮT BUỘC: Lọc theo Project ID
-            // ========================================================================
-            // Đảm bảo Tag thuộc về đúng dự án đang truy cập
-            predicates.add(cb.equal(root.get("project").get("id"), projectId));
+            // 1. Dieu kien bat buoc: Loc theo ID du an
+            addProjectPredicate(predicates, root, cb, projectId);
 
-            // 2. Xử lý các điều kiện lọc TÙY CHỌN
+            // 2. Ap dung cac dieu kien loc tuy chon (Stepdown Rule)
             if (filter != null) {
-                
-                // --- A. Lọc theo Keyword (Name OR Description - Tìm kiếm chung) ---
-                String keyword = filter.getKeyword();
-                if (keyword != null && !keyword.trim().isEmpty()) {
-                    String pattern = "%" + keyword.trim().toLowerCase() + "%";
-                    
-                    // Lọc 1: Tìm kiếm gần đúng trong Name
-                    Predicate hasName = cb.like(cb.lower(root.get("name")), pattern);
-                    // Lọc 2: Tìm kiếm gần đúng trong Description
-                    Predicate hasDesc = cb.like(cb.lower(root.get("description")), pattern);
-                    
-                    // Kết hợp bằng OR
-                    predicates.add(cb.or(hasName, hasDesc));
-                }
-
-                // --- B. Lọc theo danh sách tên (Multi-select / IN clause) ---
-                // Chỉ tìm kiếm các Tag có tên nằm trong danh sách được cung cấp
-                if (filter.getNames() != null && !filter.getNames().isEmpty()) {
-                    predicates.add(root.get("name").in(filter.getNames()));
-                }
-
-                // --- C. Lọc theo người tạo (Chính xác theo ID) ---
-                if (filter.getCreatedById() != null) {
-                    predicates.add(cb.equal(root.get("createdBy").get("id"), filter.getCreatedById()));
-                }
-
-                // --- D. Lọc theo ngày tạo (Date Range - BETWEEN) ---
-                // Lọc theo mốc BẮT ĐẦU (createdFrom)
-                if (filter.getCreatedFrom() != null) {
-                    predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), filter.getCreatedFrom()));
-                }
-                // Lọc theo mốc KẾT THÚC (createdTo)
-                if (filter.getCreatedTo() != null) {
-                    predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), filter.getCreatedTo()));
-                }
+                addKeywordPredicate(predicates, root, cb, filter.getKeyword());
+                addNamesPredicate(predicates, root, filter.getNames());
+                addCreatorPredicate(predicates, root, cb, filter.getCreatedById());
+                addDateRangePredicate(predicates, root, cb, filter);
             }
 
-            // 3. Kết hợp tất cả điều kiện còn lại bằng toán tử AND
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    // ======================================================
+    // CAC HAM HO TRO (STEPDOWN RULE)
+    // ======================================================
+
+    /**
+     * Rang buoc Tag phai thuoc ve du an dang truy cap.
+     */
+    private static void addProjectPredicate(List<Predicate> predicates, Root<Tag> root, CriteriaBuilder cb, Integer projectId) {
+        predicates.add(cb.equal(root.get(FIELD_PROJECT).get(FIELD_ID), projectId));
+    }
+
+    /**
+     * Loc theo tu khoa tim kiem trong Ten hoac Mo ta.
+     */
+    private static void addKeywordPredicate(List<Predicate> predicates, Root<Tag> root, CriteriaBuilder cb, String keyword) {
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String pattern = String.format(LIKE_PATTERN, keyword.trim().toLowerCase());
+            
+            Predicate hasName = cb.like(cb.lower(root.get(FIELD_NAME)), pattern);
+            Predicate hasDesc = cb.like(cb.lower(root.get(FIELD_DESCRIPTION)), pattern);
+            
+            predicates.add(cb.or(hasName, hasDesc));
+        }
+    }
+
+    /**
+     * Loc theo danh sach cac ten nhan cu the (IN clause).
+     */
+    private static void addNamesPredicate(List<Predicate> predicates, Root<Tag> root, List<String> names) {
+        if (names != null && !names.isEmpty()) {
+            predicates.add(root.get(FIELD_NAME).in(names));
+        }
+    }
+
+    /**
+     * Loc theo dinh danh nguoi tao nhan.
+     */
+    private static void addCreatorPredicate(List<Predicate> predicates, Root<Tag> root, CriteriaBuilder cb, Integer createdById) {
+        if (createdById != null) {
+            predicates.add(cb.equal(root.get(FIELD_CREATED_BY).get(FIELD_ID), createdById));
+        }
+    }
+
+    /**
+     * Loc theo khoang thoi gian tao (Created From - Created To).
+     */
+    private static void addDateRangePredicate(List<Predicate> predicates, Root<Tag> root, CriteriaBuilder cb, TagFilterRequest filter) {
+        // Loc tu ngay
+        if (filter.getCreatedFrom() != null) {
+            predicates.add(cb.greaterThanOrEqualTo(root.get(FIELD_CREATED_AT), filter.getCreatedFrom()));
+        }
+        // Loc den ngay
+        if (filter.getCreatedTo() != null) {
+            predicates.add(cb.lessThanOrEqualTo(root.get(FIELD_CREATED_AT), filter.getCreatedTo()));
+        }
     }
 }

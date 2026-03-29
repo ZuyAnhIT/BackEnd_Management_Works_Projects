@@ -1,39 +1,56 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/repository/EpicRepository.java
 package com.quanlyduan.project_manager_api.repository;
 
-import com.quanlyduan.project_manager_api.model.Epic;
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
-import java.util.List;
 
-@Repository
+import com.quanlyduan.project_manager_api.model.Epic;
+
 /**
- * Repository cho Entity Epic (Quản lý các Epic/công việc lớn trong Dự án).
- * Kế thừa JpaSpecificationExecutor để hỗ trợ tìm kiếm động.
+ * Kho lưu trữ dữ liệu cho thực thể Epic (Các hạng mục công việc lớn trong Dự án).
+ * Hỗ trợ các thao tác truy vấn theo dự án và tìm kiếm động thông qua JpaSpecificationExecutor.
  */
+@Repository
 public interface EpicRepository extends JpaRepository<Epic, Integer>, JpaSpecificationExecutor<Epic> {
 
+    // ======================================================
+    // 1. TRUY VẤN DỮ LIỆU (RETRIEVAL)
+    // ======================================================
+
     /**
-     * Lấy danh sách tất cả Epic thuộc về một Dự án.
+     * Lấy danh sách tất cả các Epic thuộc về một Dự án cụ thể.
+     * @param projectId ID của dự án cần truy vấn.
+     * @return Danh sách các Epic tìm thấy.
      */
     List<Epic> findByProject_Id(Integer projectId);
 
+    // ======================================================
+    // 2. TIỆN ÍCH HỖ TRỢ (UTILITIES)
+    // ======================================================
+
     /**
-     * Đếm tổng số Epic thuộc về một Dự án.
-     * Dùng để sinh mã Epic Code (Ví dụ: PROJ-E-1).
+     * Đếm tổng số lượng Epic trong một dự án.
+     * Thường được sử dụng để sinh mã định danh Epic Code (Ví dụ: PROJ-E-01).
+     * @param projectId ID của dự án.
+     * @return Tổng số lượng Epic hiện có.
      */
     long countByProject_Id(Integer projectId);
 
-    // 1. Kiểm tra khi Tạo mới
+    // ======================================================
+    // 3. KIỂM TRA RÀNG BUỘC (VALIDATION)
+    // ======================================================
+
     /**
-     * Kiểm tra xem đã tồn tại Epic với Tên (không phân biệt hoa thường) trong Dự án chưa.
+     * Kiểm tra sự tồn tại của Epic theo tên trong cùng một dự án (không phân biệt hoa thường).
+     * Dùng để tránh trùng lặp tên khi tạo mới Epic.
      */
     boolean existsByProject_IdAndNameIgnoreCase(Integer projectId, String name);
 
-    // 2. Kiểm tra khi Cập nhật
     /**
-     * Kiểm tra xem có tồn tại Epic khác (khác ID) có Tên trùng trong cùng Dự án không.
+     * Kiểm tra sự tồn tại của Epic khác có cùng tên trong cùng một dự án.
+     * Dùng để kiểm tra ràng buộc tên khi cập nhật thông tin Epic.
      */
     boolean existsByProject_IdAndNameIgnoreCaseAndIdNot(Integer projectId, String name, Integer id);
 }

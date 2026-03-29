@@ -1,44 +1,49 @@
 package com.quanlyduan.project_manager_api.exception;
 
-// DTOs
-import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
+import java.util.HashMap;
+import java.util.Map;
 
-// Spring Framework - Web & Http
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-// Spring Security
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.access.AccessDeniedException;
-
-// Validation & Utils
-import org.springframework.validation.FieldError;
-import java.util.HashMap;
-import java.util.Map;
+import com.quanlyduan.project_manager_api.dto.response.ApiResponse;
 
 /**
- * Lớp xử lý ngoại lệ toàn cục (Global Exception Handler).
- * Tập trung tất cả các lỗi xảy ra trong quá trình thực thi và chuyển đổi chúng
- * thành định dạng ApiResponse chuẩn để trả về cho Client.
+ * Lop tap trung xu ly tat ca cac ngoai le cua he thong.
+ * Chuyen doi cac loi thanh dinh dang phan hoi chuan ApiResponse.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    // ==========================================
-    // 1. XỬ LÝ LỖI VALIDATION (HTTP 400)
-    // ==========================================
+    // Khai bao cac hang so thong bao loi
+    private static final String MSG_VALIDATION_FAILED = "Input validation failed";
+    private static final String MSG_AUTH_FAILED = "Authentication failed";
+    private static final String MSG_BAD_CREDENTIALS = "Invalid email or password";
+    private static final String MSG_ACCESS_DENIED = "Access denied: You do not have permission for this action";
+    private static final String MSG_INTERNAL_ERROR = "An unexpected error occurred: ";
+
+    // Constructor viet thu cong
+    public GlobalExceptionHandler() {
+        super();
+    }
+
+    // ======================================================
+    // 1. XU LY LOI DU LIEU VA NGHERP VU (HTTP 400, 404, 402)
+    // ======================================================
 
     /**
-     * Xử lý lỗi khi dữ liệu đầu vào không vượt qua được tầng Validation (@Valid).
-     * Trả về danh sách chi tiết các trường bị lỗi.
+     * Xu ly loi khi du lieu dau vao khong hop le theo cau hinh Validation.
      */
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
@@ -48,21 +53,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             WebRequest request) {
 
         Map<String, String> validationErrors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach((error) -> {
+        ex.getBindingResult().getAllErrors().forEach(error -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
             validationErrors.put(fieldName, errorMessage);
         });
         
-        ApiResponse<Map<String, String>> errorResponse = ApiResponse.error(
-            "Input validation failed", 
-            validationErrors
-        );
+        ApiResponse<Map<String, String>> errorResponse = ApiResponse.error(MSG_VALIDATION_FAILED, validationErrors);
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     /**
-     * Bắt lỗi nghiệp vụ chung (BadRequestException).
+     * Bat cac loi nghiep vu sai lech yeu cau tu phia Client.
      */
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<ApiResponse<Object>> handleBadRequestException(BadRequestException ex) {
@@ -71,12 +73,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
-    // ==========================================
-    // 2. XỬ LÝ LỖI TÀI NGUYÊN (HTTP 404)
-    // ==========================================
-
     /**
-     * Bắt lỗi khi không tìm thấy thực thể trong Database.
+     * Xu ly loi khi khong tim thay tai nguyen yeu cau trong he thong.
      */
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Object>> handleResourceNotFoundException(ResourceNotFoundException ex) {
@@ -85,19 +83,29 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
-    // ==========================================
-    // 3. XỬ LÝ BẢO MẬT & PHÂN QUYỀN (HTTP 401, 403)
-    // ==========================================
+    /**
+     * Xu ly loi khi cong ty vuot qua han muc tai nguyen cua goi cuoc.
+     */
+    @ExceptionHandler(OverageException.class)
+    public ResponseEntity<ApiResponse<Object>> handleOverageException(OverageException ex) {
+        return ResponseEntity
+                .status(HttpStatus.PAYMENT_REQUIRED)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    // ======================================================
+    // 2. XU LY BAO MAT VA PHAN QUYEN (HTTP 401, 403)
+    // ======================================================
 
     /**
-     * Xử lý các lỗi liên quan đến xác thực (Authentication).
+     * Xu ly loi xac thuc nguoi dung nhu sai mat khau hoac token khong hop le.
      */
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<Object>> handleAuthenticationException(AuthenticationException ex) {
-        String message = "Authentication failed";
+        String message = MSG_AUTH_FAILED;
         
         if (ex instanceof BadCredentialsException) {
-            message = "Invalid email or password";
+            message = MSG_BAD_CREDENTIALS;
         } else if (ex.getMessage() != null) {
             message = ex.getMessage();
         }
@@ -108,40 +116,29 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
     
     /**
-     * Xử lý lỗi khi người dùng không có quyền thực hiện hành động (Authorization).
+     * Xu ly loi khi nguoi dung da dang nhap nhung khong co quyen truy cap tai nguyen.
      */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Object>> handleAccessDeniedException(AccessDeniedException ex) {
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error("Access denied: You do not have permission for this action."));
+                .body(ApiResponse.error(MSG_ACCESS_DENIED));
     }
     
-    // ==========================================
-    // 4. XỬ LÝ LỖI HỆ THỐNG (HTTP 500)
-    // ==========================================
+    // ======================================================
+    // 3. XU LY LOI HE THONG (HTTP 500)
+    // ======================================================
 
     /**
-     * Chốt chặn cuối cùng cho tất cả các ngoại lệ chưa được khai báo xử lý cụ thể.
+     * Bat tat ca cac loi chua duoc phan loai cu the de dam bao he thong khong bi ngat quang.
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGlobalException(Exception ex) {
-        // Log stack trace để hỗ trợ quá trình debugging tại server
-        logger.error("Internal Server Error: ", ex);
+        // Ghi log loi he thong de phuc vu tra cuu sau nay
+        logger.error("Internal System Error: ", ex);
         
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("An unexpected error occurred: " + ex.getMessage())); 
-    }
-
-    /**
-     * Xử lý lỗi Vượt quá giới hạn gói cước (Quota Exceeded).
-     * Trả về mã HTTP 402 (PAYMENT_REQUIRED) để Frontend biết đường hiển thị Popup nâng cấp gói.
-     */
-    @ExceptionHandler(OverageException.class)
-    public ResponseEntity<ApiResponse<Object>> handleOverageException(OverageException ex) {
-        return ResponseEntity
-                .status(HttpStatus.PAYMENT_REQUIRED)
-                .body(ApiResponse.error(ex.getMessage()));
+                .body(ApiResponse.error(MSG_INTERNAL_ERROR + ex.getMessage())); 
     }
 }

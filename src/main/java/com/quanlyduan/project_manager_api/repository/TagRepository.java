@@ -1,28 +1,38 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/repository/TagRepository.java
 package com.quanlyduan.project_manager_api.repository;
 
-import com.quanlyduan.project_manager_api.model.Tag; // Entity Tag
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
-@Repository
+import com.quanlyduan.project_manager_api.model.Tag;
+
 /**
- * Repository cho Entity Tag (Quản lý các nhãn/tags được gán cho Task).
- * Kế thừa JpaSpecificationExecutor để hỗ trợ tìm kiếm động.
+ * Kho lưu trữ dữ liệu quản lý các nhãn (Tags) của công việc.
+ * Hỗ trợ các thao tác kiểm tra tính duy nhất và tìm kiếm động thông qua JpaSpecificationExecutor.
  */
+@Repository
 public interface TagRepository extends JpaRepository<Tag, Integer>, JpaSpecificationExecutor<Tag> {
 
+    // ======================================================
+    // 1. KIỂM TRA RÀNG BUỘC (VALIDATION)
+    // ======================================================
+
     /**
-     * Kiểm tra xem đã tồn tại Tag với Tên (chính xác) trong Dự án chưa.
-     * Dùng cho việc tạo Tag mới.
+     * Kiểm tra sự tồn tại của nhãn theo tên trong phạm vi một Dự án.
+     * Sử dụng để ngăn chặn việc tạo trùng lặp tên nhãn khi tạo mới.
+     * @param name Tên nhãn cần kiểm tra.
+     * @param projectId ID của dự án chứa nhãn.
+     * @return true nếu tên nhãn đã tồn tại trong dự án.
      */
     boolean existsByNameAndProject_Id(String name, Integer projectId);
 
     /**
-     * Kiểm tra tính duy nhất của Tên Tag trong phạm vi một Dự án,
-     * loại trừ Tag đang được cập nhật (khác ID).
-     * Dùng cho việc cập nhật Tag.
+     * Kiểm tra sự tồn tại của tên nhãn trong dự án, loại trừ nhãn hiện tại.
+     * Sử dụng để đảm bảo tính duy nhất của tên nhãn khi thực hiện cập nhật.
+     * @param name Tên nhãn mới.
+     * @param projectId ID của dự án.
+     * @param id ID của nhãn hiện tại (để loại trừ khỏi quá trình kiểm tra).
+     * @return true nếu tên nhãn bị trùng với một nhãn khác trong dự án.
      */
     boolean existsByNameAndProject_IdAndIdNot(String name, Integer projectId, Integer id);
 }

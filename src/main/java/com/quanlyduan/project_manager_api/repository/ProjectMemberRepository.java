@@ -1,65 +1,83 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/repository/ProjectMemberRepository.java
 package com.quanlyduan.project_manager_api.repository;
-
-import com.quanlyduan.project_manager_api.model.ProjectMember; // Entity Thành viên Dự án
 
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Repository;
+
+import com.quanlyduan.project_manager_api.model.ProjectMember;
 
 /**
- * Repository cho Entity ProjectMember (Quản lý mối quan hệ thành viên Dự án).
+ * Kho luu tru du lieu quan ly thanh vien du an (Project Member).
+ * Ho tro kiem tra quyen han, vai tro va truy van danh sach nhan su trong du an.
  */
+@Repository
 public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Integer>, JpaSpecificationExecutor<ProjectMember> {
 
-    /**
-     * Kiểm tra xem User có phải là thành viên (đã từng) của Dự án không.
-     */
-    boolean existsByProject_IdAndUser_Id(Integer projectId, Integer userId);
+    // Khai bao cau truy van kiem tra quyen han (Permission-based Auth)
+    String CHECK_PERMISSION_QUERY = "SELECT COUNT(p.id) > 0 FROM ProjectMember pm " +
+                                    "JOIN pm.role r " +
+                                    "JOIN r.permissions p " +
+                                    "WHERE pm.user.id = :userId " +
+                                    "AND pm.project.id = :projectId " +
+                                    "AND p.permissionCode = :permissionCode";
+
+    // ======================================================
+    // 1. KIEM TRA QUYEN HAN VA VAI TRO (SECURITY)
+    // ======================================================
 
     /**
-     * Kiểm tra xem User có vai trò cụ thể trong Dự án không.
+     * Kiem tra nguoi dung co mot Quyen han (Permission) cu the trong du an hay khong.
+     * Logic: Truy van thong qua quan he giua Thanh vien -> Vai tro -> Danh sach quyen.
      */
-    boolean existsByProject_IdAndUser_IdAndRole_RoleCode(
-        Integer projectId, Integer userId, String roleCode
-    );
-
-    /**
-     * Kiểm tra xem User có một Quyền hạn (Permission) cụ thể trong Dự án không.
-     * Logic: JOIN qua Role để xem có Permission tương ứng không.
-     */
-    @Query("SELECT COUNT(p.id) > 0 FROM ProjectMember pm " +
-            "JOIN pm.role r " +
-            "JOIN r.permissions p " +
-            "WHERE pm.user.id = :userId " +
-            "AND pm.project.id = :projectId " +
-            "AND p.permissionCode = :permissionCode")
+    @Query(CHECK_PERMISSION_QUERY)
     boolean checkProjectPermission(@Param("userId") Integer userId,
                                    @Param("projectId") Integer projectId,
                                    @Param("permissionCode") String permissionCode);
 
     /**
-     * Lấy tất cả các mối quan hệ thành viên (membership) của một User (dùng cho hồ sơ).
+     * Kiem tra nguoi dung co vai tro cu the (Role Code) trong du an hay khong.
      */
-    List<ProjectMember> findByUser_Id(Integer userId);
+    boolean existsByProject_IdAndUser_IdAndRole_RoleCode(Integer projectId, Integer userId, String roleCode);
+
+    // ======================================================
+    // 2. KIEM TRA SU TON TAI (EXISTENCE)
+    // ======================================================
 
     /**
-     * Lấy danh sách thành viên dự án theo Project ID (có phân trang).
+     * Kiem tra xem nguoi dung co phai la thanh vien cua du an hay khong.
+     */
+    boolean existsByProject_IdAndUser_Id(Integer projectId, Integer userId);
+
+    // ======================================================
+    // 3. TRUY VAN DU LIEU (RETRIEVAL)
+    // ======================================================
+
+    /**
+     * Tim chi tiet thong tin thanh vien dua tren ID du an va ID nguoi dung.
+     * Dung cho cac thao tac cap nhat vai tro hoac xoa thanh vien khoi du an.
+     */
+    Optional<ProjectMember> findByProject_IdAndUser_Id(Integer projectId, Integer userId);
+
+    /**
+     * Lay danh sach thanh vien cua mot du an ho tro phan trang.
      */
     Page<ProjectMember> findByProject_Id(Integer projectId, Pageable pageable);
 
     /**
-     * Tìm kiếm chi tiết thành viên theo Project ID và User ID.
-     * Dùng cho các chức năng cập nhật hoặc xóa thành viên cụ thể.
+     * Lay toan bo danh sach thanh vien trong mot du an.
+     * Dung cho cac tac vu thong ke hoay AI Analytics.
      */
-    Optional<ProjectMember> findByProject_IdAndUser_Id(Integer projectId, Integer userId);
-
-    // (Dùng cho Analytics/AI - Lấy tất cả danh sách để tính toán)
     List<ProjectMember> findByProject_Id(Integer projectId);
+
+    /**
+     * Lay danh sach tat ca cac moi quan he thanh vien du an cua mot nguoi dung.
+     */
+    List<ProjectMember> findByUser_Id(Integer userId);
 }
