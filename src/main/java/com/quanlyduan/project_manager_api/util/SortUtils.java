@@ -1,50 +1,47 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/util/SortUtils.java
 package com.quanlyduan.project_manager_api.util;
 
+import java.util.Map;
 import org.springframework.data.domain.Sort;
 
-import java.util.Map;
+/**
+ * Lop tien ich ho tro tao doi tuong Sort an toan bang cach anh xa ten truong tu Client sang Entity.
+ * Giup ngan chan loi khi Frontend truyen sai ten truong va dam bao tinh bao mat cho he thong.
+ */
+public final class SortUtils {
 
-public class SortUtils {
+    private static final String ASCENDING_DIRECTION = "asc";
+    private static final String ERR_INSTANTIATION = "This is a utility class and cannot be instantiated";
+
+    // Ngan chan viec khoi tao doi tuong
+    private SortUtils() {
+        throw new UnsupportedOperationException(ERR_INSTANTIATION);
+    }
 
     /**
-     * Tạo đối tượng Sort an toàn với khả năng ánh xạ tên trường.
-     * Phương thức này giúp chuyển đổi tham số sắp xếp từ client (ví dụ: "name", "asc")
-     * thành tên trường thực tế trong JPA Entity (ví dụ: "user.fullName") một cách an toàn,
-     * đồng thời áp dụng trường mặc định nếu tham số không hợp lệ.
-     * * @param sortByParam       Tên trường client gửi lên (vd: "name", "role")
-     * @param sortDirectionParam Hướng sắp xếp ("asc", "desc")
-     * @param defaultSortField  Trường mặc định trong Entity (vd: "createdAt")
-     * @param fieldMapping      Map ánh xạ từ tên client -> tên Entity (vd: "name" -> "user.fullName")
-     * @return Sort object
+     * Tao doi tuong Sort dua tren tham so dau vao va ban do anh xa truong (Field Mapping).
+     * * @param sortByParam Ten truong sap xep tu Client (vd: "name").
+     * @param sortDirParam Huong sap xep ("asc" hoac "desc").
+     * @param defaultField Truong sap xep mac dinh cua Entity (vd: "createdAt").
+     * @param fieldMapping Map anh xa tu ten Client sang ten thuc te trong Entity.
+     * @return Doi tuong Sort da duoc cau hinh.
      */
     public static Sort createSort(String sortByParam,
-                                  String sortDirectionParam,
-                                  String defaultSortField,
+                                  String sortDirParam,
+                                  String defaultField,
                                   Map<String, String> fieldMapping) {
 
-        // 1. Xác định hướng sắp xếp (Mặc định là DESC)
-        Sort.Direction direction = Sort.Direction.DESC;
-        if (sortDirectionParam != null && sortDirectionParam.equalsIgnoreCase("asc")) {
-            direction = Sort.Direction.ASC;
+        // 1. Xac dinh huong sap xep (Mac dinh la DESC)
+        Sort.Direction direction = ASCENDING_DIRECTION.equalsIgnoreCase(sortDirParam) 
+                ? Sort.Direction.ASC 
+                : Sort.Direction.DESC;
+
+        // 2. Xac dinh truong sap xep thuc te
+        String actualField = defaultField;
+        
+        if (sortByParam != null && !sortByParam.isBlank() && fieldMapping != null) {
+            actualField = fieldMapping.getOrDefault(sortByParam, defaultField);
         }
 
-        // 2. Xác định trường sắp xếp thực tế trong Entity
-        String actualFieldName = defaultSortField; // Mặc định là trường default
-
-        if (sortByParam != null && !sortByParam.trim().isEmpty()) {
-            // Kiểm tra trong map ánh xạ:
-            if (fieldMapping != null && fieldMapping.containsKey(sortByParam)) {
-                // Nếu tìm thấy, sử dụng tên trường thực tế
-                actualFieldName = fieldMapping.get(sortByParam);
-            } else if (fieldMapping == null || fieldMapping.isEmpty()) {
-                // Trường hợp không có map ánh xạ (không an toàn): Giữ nguyên logic quay về default
-                actualFieldName = defaultSortField;
-            }
-            // Nếu không có trong map, `actualFieldName` vẫn giữ giá trị `defaultSortField` (an toàn)
-        }
-
-        // 3. Tạo và trả về đối tượng Sort
-        return Sort.by(direction, actualFieldName);
+        return Sort.by(direction, actualField);
     }
 }

@@ -2,123 +2,115 @@ package com.quanlyduan.project_manager_api.security;
 
 import com.quanlyduan.project_manager_api.model.User;
 
+/**
+ * Interface định nghĩa các dịch vụ bảo mật và kiểm tra quyền hạn (Security & Authorization).
+ * Cung cấp các phương thức để xác thực danh tính người dùng và kiểm tra quyền truy cập 
+ * theo mô hình phân cấp (Hierarchy-based Access Control).
+ */
 public interface SecurityService {
 
     // ========================================================================
-    // 1. CÁC HÀM LẤY THÔNG TIN USER (IDENTITY)
+    // XÁC THỰC & ĐỊNH DANH (IDENTITY)
     // ========================================================================
 
     /**
-     * Lấy email của user đang đăng nhập (từ UserPrincipal).
-     * @return Email của người dùng, hoặc null nếu không có user xác thực.
+     * Lấy địa chỉ Email của người dùng đang đăng nhập từ Security Context.
+     * @return Email của người dùng, hoặc null nếu chưa xác thực.
      */
     String getCurrentUserEmail();
 
     /**
-     * Lấy ID của user đang đăng nhập (từ UserPrincipal).
-     * @return ID của người dùng, hoặc null nếu không có user xác thực.
+     * Lấy ID của người dùng đang đăng nhập từ Security Context.
+     * @return ID người dùng, hoặc null nếu chưa xác thực.
      */
     Integer getCurrentUserId();
 
     /**
-     * Lấy toàn bộ Entity User (NguoiDung) từ CSDL.
-     * Dùng cho các service cần đối tượng User đầy đủ.
-     * @return Đối tượng User đã xác thực.
-     * @throws org.springframework.security.core.userdetails.UsernameNotFoundException Nếu user không tồn tại hoặc không được xác thực.
+     * Truy xuất toàn bộ thực thể User từ cơ sở dữ liệu dựa trên danh tính đã xác thực.
+     * @return Đối tượng User đầy đủ.
+     * @throws org.springframework.security.core.userdetails.UsernameNotFoundException nếu không tìm thấy người dùng.
      */
     User getCurrentAuthenticatedUser();
 
     // ========================================================================
-    // 2. HÀM KIỂM TRA QUYỀN HẠN (PERMISSION-BASED CHECKERS)
+    // CƠ CHẾ KIỂM TRA QUYỀN TỔNG QUÁT (CORE PERMISSION ENGINE)
     // ========================================================================
 
     /**
-     * Kiểm tra user có quyền <permissionCode> ở cấp độ HỆ THỐNG (SYSTEM) không.
-     * @param permissionCode Mã quyền (ví dụ: 'plan:create').
-     * @PreAuthorize("@securityService.hasSystemPermission('plan:create')")
-     */
-    boolean hasSystemPermission(String permissionCode);
-    
-    /**
-     * Kiểm tra user có quyền <permissionCode> tại công ty <companyId> không.
-     * @param companyId ID công ty.
-     * @param permissionCode Mã quyền (ví dụ: 'company:edit').
-     * @PreAuthorize("@securityService.hasCompanyPermission(#companyId, 'company:edit')")
-     */
-    boolean hasCompanyPermission(Integer companyId, String permissionCode);
-
-    /**
-     * Kiểm tra user có quyền <permissionCode> tại workspace <workspaceId> không.
-     * @param workspaceId ID không gian làm việc.
-     * @param permissionCode Mã quyền (ví dụ: 'project:create').
-     * @PreAuthorize("@securityService.hasWorkspacePermission(#workspaceId, 'project:create')")
-     */
-    boolean hasWorkspacePermission(Integer workspaceId, String permissionCode);
-
-    /**
-     * Kiểm tra user có quyền <permissionCode> tại project <projectId> không.
-     * @param projectId ID dự án.
-     * @param permissionCode Mã quyền (ví dụ: 'task:create').
-     * @PreAuthorize("@securityService.hasProjectPermission(#projectId, 'task:create')")
-     */
-    boolean hasProjectPermission(Integer projectId, String permissionCode);
-    
-    /**
-     * Kiểm tra user có quyền <permissionCode> liên quan đến sprint <sprintId> không.
-     * (Hàm này sẽ tìm projectId từ sprintId rồi gọi hasProjectPermission)
-     * @param sprintId ID Sprint.
-     * @param permissionCode Mã quyền (ví dụ: 'project:view').
-     * @PreAuthorize("@securityService.hasSprintPermission(#sprintId, 'project:view')")
-     */
-    boolean hasSprintPermission(Integer sprintId, String permissionCode);
-
-    /**
-     * Kiểm tra user có quyền <permissionCode> liên quan đến task <taskId> không.
-     * (Hàm này sẽ tìm projectId từ taskId rồi gọi hasProjectPermission)
-     * @param taskId ID Task.
-     * @param permissionCode Mã quyền (ví dụ: 'task:comment').
-     * @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:comment')")
-     */
-    boolean hasTaskPermission(Integer taskId, String permissionCode);
-    
-    /**
-     * Hàm kiểm tra quyền thừa kế (Hierarchy Permission Check).
-     * Kiểm tra quyền <permissionCode> tại phạm vi <scope> (project, workspace, company)
-     * bao gồm cả việc thừa kế từ cấp cao hơn (ví dụ: Admin Công ty có quyền trên Project).
-     * @param scope Phạm vi (Ví dụ: 'project', 'workspace').
-     * @param targetId ID của phạm vi đó.
-     * @param permissionCode Mã quyền.
-     * @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
+     * Kiểm tra quyền hạn linh hoạt dựa trên phạm vi (Scope) và phân cấp thừa kế.
+     * Ví dụ: Admin Công ty tự động có quyền trên các Project thuộc Công ty đó.
+     * * @param scope Phạm vi cần kiểm tra ('project', 'workspace', 'company').
+     * @param targetId ID của đối tượng mục tiêu.
+     * @param permissionCode Mã quyền cần kiểm tra (ví dụ: 'project:edit').
+     * @example @PreAuthorize("@securityService.hasPermission('project', #projectId, 'project:edit')")
      */
     boolean hasPermission(String scope, Integer targetId, String permissionCode);
 
     // ========================================================================
-    // 3. CÁC HÀM TIỆN ÍCH (LEGACY/UTILITY ROLE CHECKERS)
+    // KIỂM TRA QUYỀN THEO TÀI NGUYÊN (RESOURCE PERMISSIONS)
     // ========================================================================
 
     /**
-     * [ĐÃ NÂNG CẤP] Kiểm tra user có phải là Company Admin không.
+     * Kiểm tra quyền hạn ở cấp độ quản trị hệ thống (System Level).
+     */
+    boolean hasSystemPermission(String permissionCode);
+    
+    /**
+     * Kiểm tra quyền hạn tại cấp độ Công ty.
+     * @example @PreAuthorize("@securityService.hasCompanyPermission(#companyId, 'company:edit')")
+     */
+    boolean hasCompanyPermission(Integer companyId, String permissionCode);
+
+    /**
+     * Kiểm tra quyền hạn tại cấp độ Không gian làm việc (Workspace).
+     * @example @PreAuthorize("@securityService.hasWorkspacePermission(#workspaceId, 'project:create')")
+     */
+    boolean hasWorkspacePermission(Integer workspaceId, String permissionCode);
+
+    /**
+     * Kiểm tra quyền hạn trực tiếp tại cấp độ Dự án.
+     * @example @PreAuthorize("@securityService.hasProjectPermission(#projectId, 'task:create')")
+     */
+    boolean hasProjectPermission(Integer projectId, String permissionCode);
+    
+    /**
+     * Kiểm tra quyền hạn dự án dựa trên ID của Sprint.
+     * @example @PreAuthorize("@securityService.hasSprintPermission(#sprintId, 'project:view')")
+     */
+    boolean hasSprintPermission(Integer sprintId, String permissionCode);
+
+    /**
+     * Kiểm tra quyền hạn dự án hoặc quyền riêng biệt dựa trên ID của Công việc (Task).
+     * @example @PreAuthorize("@securityService.hasTaskPermission(#taskId, 'task:comment')")
+     */
+    boolean hasTaskPermission(Integer taskId, String permissionCode);
+
+    // ========================================================================
+    // KIỂM TRA VAI TRÒ & TIỆN ÍCH (ROLES & UTILITIES)
+    // ========================================================================
+
+    /**
+     * Kiểm tra người dùng có phải là Quản trị viên của công ty hay không.
      */
     boolean isCompanyAdmin(Integer companyId);
 
     /**
-     * [ĐÃ NÂNG CẤP] Kiểm tra user có phải là Company Member không.
+     * Kiểm tra người dùng có phải là thành viên chính thức của công ty hay không.
      */
     boolean isCompanyMember(Integer companyId);
 
     /**
-     * [ĐÃ NÂNG CẤP] Kiểm tra user có phải là Workspace Admin không.
+     * Kiểm tra người dùng có vai trò Quản trị viên trong không gian làm việc hay không.
      */
     boolean isWorkspaceAdmin(Integer companyId, Integer workspaceId);
 
     /**
-     * [ĐÃ NÂNG CẤP] Kiểm tra user có phải là Workspace Member không.
+     * Kiểm tra người dùng có tham gia vào không gian làm việc hay không.
      */
     boolean isWorkspaceMember(Integer companyId, Integer workspaceId);
 
     /**
-     * [ĐÃ NÂNG CẤP] Kiểm tra user có quyền quản lý Workspace Member không (thêm/xóa/đổi role).
+     * Kiểm tra người dùng có quyền thực hiện các thao tác quản lý thành viên (thêm/xóa/đổi role) trong Workspace.
      */
     boolean canManageWorkspaceMembers(Integer companyId, Integer workspaceId);
-
 }

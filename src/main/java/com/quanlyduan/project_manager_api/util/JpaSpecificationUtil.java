@@ -1,36 +1,31 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/util/JpaSpecificationUtil.java
 package com.quanlyduan.project_manager_api.util;
 
-import org.springframework.data.jpa.domain.Specification;
+import java.util.Collection;
+
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Path;
-import java.util.Collection;
 
-public class JpaSpecificationUtil {
+import org.springframework.data.jpa.domain.Specification;
 
-    /**
-     * Tìm kiếm LIKE (Chứa) - Không phân biệt chữ hoa/thường.
-     * Dùng cho Tên dự án, Tên Task, Code.
-     * Trả về Conjunction (luôn đúng) nếu giá trị tìm kiếm là null/rỗng.
-     * @param field Tên trường trong Entity (ví dụ: "name", "email").
-     * @param value Giá trị tìm kiếm.
-     */
-    public static <T> Specification<T> attributeContains(String field, String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
-        }
-        String pattern = "%" + value.toLowerCase() + "%";
-        return (root, query, criteriaBuilder) ->
-            criteriaBuilder.like(criteriaBuilder.lower(root.get(field)), pattern);
+/**
+ * Lop tien ich ho tro xay dung cac truy van dong (Dynamic Query) su dung JPA Specification.
+ */
+public final class JpaSpecificationUtil {
+
+    private static final String LIKE_PATTERN = "%%%s%%";
+
+    // Ngan chan viec khoi tao doi tuong tu lop tien ich
+    private JpaSpecificationUtil() {
+        throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
     }
 
     /**
-     * Tìm kiếm chính xác (EQUAL).
-     * Dùng cho ID, Boolean, Enum hoặc các trường cần khớp chính xác.
-     * Trả về Conjunction (luôn đúng) nếu giá trị tìm kiếm là null/rỗng.
-     * @param field Tên trường trong Entity.
-     * @param value Giá trị cần khớp.
+     * Tao dieu kien so sanh bang (EQUAL).
+     * Thuong dung cho cac truong ID, Boolean, Enum hoac cac truong can khop chinh xac.
+     * * @param field Ten truong trong Entity.
+     * @param value Gia tri can so sanh.
+     * @return Specification ket qua (Conjunction neu gia tri null).
      */
     public static <T> Specification<T> attributeEquals(String field, Object value) {
         if (value == null || (value instanceof String && ((String) value).trim().isEmpty())) {
@@ -40,10 +35,50 @@ public class JpaSpecificationUtil {
     }
 
     /**
-     * [NÂNG CẤP] Tìm kiếm trong danh sách (IN).
-     * Ví dụ: Tìm Task có độ ưu tiên là HIGH hoặc URGENT.
-     * @param field Tên trường trong Entity.
-     * @param values Danh sách các giá trị hợp lệ.
+     * Tao dieu kien tim kiem theo chuoi (LIKE) - Khong phan biet chu hoa/thuong.
+     * * @param field Ten truong trong Entity.
+     * @param value Gia tri chuoi can tim kiem.
+     * @return Specification ket qua (Conjunction neu gia tri null/rong).
+     */
+    public static <T> Specification<T> attributeContains(String field, String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+        }
+        String pattern = String.format(LIKE_PATTERN, value.toLowerCase());
+        return (root, query, criteriaBuilder) ->
+            criteriaBuilder.like(criteriaBuilder.lower(root.get(field)), pattern);
+    }
+
+    /**
+     * Tao dieu kien tim kiem trong khoang (BETWEEN).
+     * Ho tro tim kiem chi theo gia tri toi thieu (>= min) hoac chi theo gia tri toi da (<= max).
+     * * @param field Ten truong trong Entity.
+     * @param min Gia tri toi thieu (co bao gom).
+     * @param max Gia tri toi đa (co bao gom).
+     * @return Specification ket qua.
+     */
+    public static <T, Y extends Comparable<? super Y>> Specification<T> attributeBetween(String field, Y min, Y max) {
+        return (root, query, criteriaBuilder) -> {
+            if (min == null && max == null) {
+                return criteriaBuilder.conjunction();
+            }
+
+            Path<Y> path = root.get(field);
+            if (min != null && max != null) {
+                return criteriaBuilder.between(path, min, max);
+            } else if (min != null) {
+                return criteriaBuilder.greaterThanOrEqualTo(path, min);
+            } else {
+                return criteriaBuilder.lessThanOrEqualTo(path, max);
+            }
+        };
+    }
+
+    /**
+     * Tao dieu kien tim kiem trong mot danh sach cac gia tri (IN).
+     * * @param field Ten truong trong Entity.
+     * @param values Tap hop cac gia tri hop le.
+     * @return Specification ket qua.
      */
     public static <T> Specification<T> attributeIn(String field, Collection<?> values) {
         if (values == null || values.isEmpty()) {
@@ -53,49 +88,22 @@ public class JpaSpecificationUtil {
     }
 
     /**
-     * [NÂNG CẤP] Tìm kiếm LIKE trên bảng JOIN (LEFT JOIN).
-     * Dùng LEFT JOIN để không mất dữ liệu từ bảng gốc nếu trường JOIN là null.
-     * Ví dụ: Tìm Task theo tên người được giao (assignee.fullName).
-     * @param joinAttribute Tên thuộc tính đối tượng cần JOIN (ví dụ: "assignee").
-     * @param field Tên trường trong đối tượng được JOIN (ví dụ: "fullName").
-     * @param value Giá trị tìm kiếm.
+     * Tao dieu kien tim kiem chuoi tren bang lien ket (LEFT JOIN).
+     * Su dung LEFT JOIN de dam bao khong mat du lieu neu truong lien ket bi null.
+     * * @param joinAttribute Ten thuoc tinh doi tuong can lien ket (JOIN).
+     * @param field Ten truong trong doi tuong duoc lien ket.
+     * @param value Gia tri tim kiem.
+     * @return Specification ket qua.
      */
     public static <T, R> Specification<T> attributeContainsJoin(String joinAttribute, String field, String value) {
         if (value == null || value.trim().isEmpty()) {
             return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
         }
-        String pattern = "%" + value.toLowerCase() + "%";
+        String pattern = String.format(LIKE_PATTERN, value.toLowerCase());
 
         return (root, query, criteriaBuilder) -> {
-            // Sử dụng LEFT JOIN để giữ lại các Entity gốc (T) ngay cả khi không có bản ghi JOIN khớp.
             Join<T, R> join = root.join(joinAttribute, JoinType.LEFT);
             return criteriaBuilder.like(criteriaBuilder.lower(join.get(field)), pattern);
-        };
-    }
-
-    /**
-     * [MỚI] Tìm kiếm trong khoảng (BETWEEN) - Dùng cho Ngày tháng hoặc Số.
-     * Hỗ trợ tìm kiếm chỉ theo giá trị MIN hoặc chỉ theo giá trị MAX.
-     * Ví dụ: Tìm dự án tạo từ ngày A đến ngày B.
-     * @param field Tên trường trong Entity.
-     * @param min Giá trị tối thiểu (bao gồm).
-     * @param max Giá trị tối đa (bao gồm).
-     */
-    public static <T, Y extends Comparable<? super Y>> Specification<T> attributeBetween(String field, Y min, Y max) {
-        return (root, query, criteriaBuilder) -> {
-            if (min == null && max == null) return criteriaBuilder.conjunction();
-
-            Path<Y> path = root.get(field);
-            if (min != null && max != null) {
-                // BETWEEN: path >= min AND path <= max
-                return criteriaBuilder.between(path, min, max);
-            } else if (min != null) {
-                // GREATER THAN OR EQUAL TO: path >= min
-                return criteriaBuilder.greaterThanOrEqualTo(path, min);
-            } else {
-                // LESS THAN OR EQUAL TO: path <= max
-                return criteriaBuilder.lessThanOrEqualTo(path, max);
-            }
         };
     }
 }

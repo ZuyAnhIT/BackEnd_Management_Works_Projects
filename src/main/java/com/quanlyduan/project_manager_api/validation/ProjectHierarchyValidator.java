@@ -1,5 +1,6 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/validation/ProjectHierarchyValidator.java
 package com.quanlyduan.project_manager_api.validation;
+
+import org.springframework.stereotype.Component;
 
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
@@ -13,10 +14,28 @@ import com.quanlyduan.project_manager_api.repository.SubTaskRepository;
 import com.quanlyduan.project_manager_api.repository.TagRepository;
 import com.quanlyduan.project_manager_api.repository.TaskRepository;
 
-import org.springframework.stereotype.Component;
-
+/**
+ * Component ho tro kiem tra tinh hop le cua he thong phan cap du lieu (Hierarchy Validation).
+ * Dam bao cac thuc the (Task, Tag, SubTask) thuoc dung cha cua chung (Project, Workspace, Company).
+ */
 @Component
 public class ProjectHierarchyValidator {
+
+    // Khai bao cac hang so thong bao loi
+    private static final String ERR_PROJECT_NOT_FOUND = "Project not found with ID: %d";
+    private static final String ERR_PROJECT_NOT_IN_WORKSPACE = "Project ID %d does not belong to Workspace ID %d";
+    private static final String ERR_WORKSPACE_NOT_IN_COMPANY = "Workspace ID %d does not belong to Company ID %d";
+    
+    private static final String ERR_TASK_NOT_FOUND = "Task not found with ID: %d";
+    private static final String ERR_TASK_NOT_IN_PROJECT = "Task ID %d does not belong to Project ID %d";
+    
+    private static final String ERR_TAG_NOT_FOUND = "Tag not found with ID: %d";
+    private static final String ERR_TAG_NOT_IN_PROJECT = "Tag ID %d does not belong to Project ID %d";
+    
+    private static final String ERR_SUBTASK_NOT_FOUND = "Subtask not found with ID: %d";
+    private static final String ERR_SUBTASK_NOT_IN_TASK = "SubTask ID %d does not belong to Task ID %d";
+    
+    private static final String ERR_USER_NOT_MEMBER = "User ID %d is not a member of Project ID %d";
 
     private final ProjectRepository projectRepository;
     private final TaskRepository taskRepository;
@@ -24,9 +43,7 @@ public class ProjectHierarchyValidator {
     private final SubTaskRepository subTaskRepository;
     private final ProjectMemberRepository projectMemberRepository;
 
-    // ======================================================
-    // CONSTRUCTOR (Dependency Injection)
-    // ======================================================
+    // Khoi tao thu cong de tiem phu thuoc (Dependency Injection)
     public ProjectHierarchyValidator(ProjectRepository projectRepository,
                                      TaskRepository taskRepository,
                                      TagRepository tagRepository,
@@ -39,121 +56,90 @@ public class ProjectHierarchyValidator {
         this.projectMemberRepository = projectMemberRepository;
     }
 
-    // ======================================================
-    // 1. VALIDATE PROJECT (LEVEL 1)
-    // ======================================================
     /**
-     * Validate Level 1: Project -> Workspace -> Company.
-     * Đảm bảo Project tồn tại và thuộc đúng Workspace/Company.
+     * Validate Cap do 1: Project -> Workspace -> Company.
+     * Kiem tra su ton tai va quan he phan cap giua Du an va Cong ty.
      */
     public Project validateProject(Integer companyId, Integer workspaceId, Integer projectId) {
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
+                .orElseThrow(() -> new ResourceNotFoundException(String.format(ERR_PROJECT_NOT_FOUND, projectId)));
 
-        // Kiểm tra Project thuộc Workspace
+        // Kiem tra Project thuoc Workspace
         if (!project.getWorkspace().getId().equals(workspaceId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Project ID " + projectId + " does not belong to Workspace ID " + workspaceId);
+            throw new BadRequestException(String.format(ERR_PROJECT_NOT_IN_WORKSPACE, projectId, workspaceId));
         }
-        // Kiểm tra Workspace thuộc Company
+        
+        // Kiem tra Workspace thuoc Company
         if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Workspace ID " + workspaceId + " does not belong to the Company ID " + companyId);
+            throw new BadRequestException(String.format(ERR_WORKSPACE_NOT_IN_COMPANY, workspaceId, companyId));
         }
+        
         return project;
     }
 
-    // ======================================================
-    // 2. VALIDATE TASK (LEVEL 2)
-    // ======================================================
     /**
-     * Validate Level 2: Task -> Project -> Workspace -> Company.
-     * Sử dụng validateProject() để kiểm tra các cấp cha trước.
+     * Validate Cap do 2: Task -> Project -> Workspace -> Company.
+     * Su dung validateProject() de kiem tra cac cap cha truoc khi validate Task.
      */
     public Task validateTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId) {
-        // 1. Validate cha trước (Project, Workspace, Company)
         validateProject(companyId, workspaceId, projectId);
 
-        // 2. Validate Task
         Task task = taskRepository.findById(taskId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID:" + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException(String.format(ERR_TASK_NOT_FOUND, taskId)));
 
-        // Kiểm tra Task thuộc Project
         if (!task.getProject().getId().equals(projectId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Task ID " + taskId + " does not belong to Project ID " + projectId);
+            throw new BadRequestException(String.format(ERR_TASK_NOT_IN_PROJECT, taskId, projectId));
         }
+        
         return task;
     }
 
-    // ======================================================
-    // 3. VALIDATE TAG (LEVEL 2)
-    // ======================================================
     /**
-     * Validate Tag: Tag -> Project -> Workspace -> Company.
-     * Đảm bảo Tag tồn tại và thuộc đúng Project.
+     * Validate Cap do 2: Tag -> Project -> Workspace -> Company.
+     * Dam bao nhan (Tag) ton tai va thuoc dung Du an chi dinh.
      */
     public Tag validateTag(Integer companyId, Integer workspaceId, Integer projectId, Integer tagId) {
-        // 1. Validate cha trước (Project, Workspace, Company)
         validateProject(companyId, workspaceId, projectId);
 
-        // 2. Validate Tag
         Tag tag = tagRepository.findById(tagId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Tag not found with ID:" + tagId));
+                .orElseThrow(() -> new ResourceNotFoundException(String.format(ERR_TAG_NOT_FOUND, tagId)));
 
-        // 3. Kiểm tra Tag có thuộc Project không
         if (!tag.getProject().getId().equals(projectId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Tag ID " + tagId + " does not belong to Project ID " + projectId);
+            throw new BadRequestException(String.format(ERR_TAG_NOT_IN_PROJECT, tagId, projectId));
         }
+        
         return tag;
     }
 
-    // ======================================================
-    // 4. VALIDATE SUBTASK (LEVEL 3)
-    // ======================================================
     /**
-     * Validate SubTask: SubTask -> Task -> Project -> Workspace -> Company.
-     * Sử dụng validateTask() để kiểm tra các cấp cha trước.
+     * Validate Cap do 3: SubTask -> Task -> Project -> Workspace -> Company.
+     * Cap do sau nhat, kiem tra toan bo luong phan cap tu SubTask len den Cong ty.
      */
     public SubTask validateSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId) {
-        // 1. Validate cha trước (Task, Project, Workspace, Company)
         validateTask(companyId, workspaceId, projectId, taskId);
 
-        // 2. Validate SubTask
         SubTask subTask = subTaskRepository.findById(subTaskId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Subtask not found with ID:" + subTaskId));
+                .orElseThrow(() -> new ResourceNotFoundException(String.format(ERR_SUBTASK_NOT_FOUND, subTaskId)));
 
-        // Kiểm tra SubTask thuộc Task
         if (!subTask.getParentTask().getId().equals(taskId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("SubTask ID " + subTaskId + " does not belong to Task ID " + taskId);
+            throw new BadRequestException(String.format(ERR_SUBTASK_NOT_IN_TASK, subTaskId, taskId));
         }
+        
         return subTask;
     }
 
-    // ======================================================
-    // 5. VALIDATE THÀNH VIÊN DỰ ÁN
-    // ======================================================
     /**
-     * 2. Validate Assignee: Kiểm tra người được giao có thuộc Project không.
-     * Hàm này trả về void, nếu sai thì ném lỗi. Bỏ qua nếu userId là null.
+     * Kiem tra mot nguoi dung co phai la thanh vien chinh thuc cua du an hay khong.
+     * Thuong dung de validate Assignee truoc khi giao viec.
      */
     public void validateProjectMember(Integer projectId, Integer userId) {
-        // Nếu userId là null (trường hợp không giao cho ai hoặc gỡ người làm), thì bỏ qua
         if (userId == null) {
             return;
         }
 
-        // Kiểm tra xem userId có tồn tại trong bảng ProjectMember (với projectId đã cho) không
         boolean isMember = projectMemberRepository.existsByProject_IdAndUser_Id(projectId, userId);
         if (!isMember) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("User ID " + userId + " is not a member of Project ID " + projectId);
+            throw new BadRequestException(String.format(ERR_USER_NOT_MEMBER, userId, projectId));
         }
     }
 }

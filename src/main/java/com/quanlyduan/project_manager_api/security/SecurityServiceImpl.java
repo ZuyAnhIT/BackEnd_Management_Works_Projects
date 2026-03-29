@@ -1,30 +1,49 @@
 package com.quanlyduan.project_manager_api.security;
 
-import com.quanlyduan.project_manager_api.exception.BadRequestException;
-import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
-import com.quanlyduan.project_manager_api.model.Company;
-import com.quanlyduan.project_manager_api.model.Sprint;
-import com.quanlyduan.project_manager_api.model.Task;
-import com.quanlyduan.project_manager_api.model.User;
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
-import com.quanlyduan.project_manager_api.repository.*;
-import com.quanlyduan.project_manager_api.security.SecurityService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service("securityService") // Đặt tên Bean là "securityService"
-@Transactional(readOnly = true) // Các hàm kiểm tra quyền chỉ đọc
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.Company;
+import com.quanlyduan.project_manager_api.model.Sprint;
+import com.quanlyduan.project_manager_api.model.Task;
+import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
+import com.quanlyduan.project_manager_api.repository.CompanyRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectRepository;
+import com.quanlyduan.project_manager_api.repository.SprintRepository;
+import com.quanlyduan.project_manager_api.repository.TaskRepository;
+import com.quanlyduan.project_manager_api.repository.UserRepository;
+import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository;
+import com.quanlyduan.project_manager_api.repository.WorkspaceRepository;
+
+/**
+ * Thuc thi cac nghiep vu bao mat va kiem tra quyen han da tang.
+ * Ho tro co che thua ke quyen: Company -> Workspace -> Project -> Task/Sprint.
+ */
+@Service("securityService")
+@Transactional(readOnly = true)
 public class SecurityServiceImpl implements SecurityService {
 
-    // === TẤT CẢ REPOSITORIES CẦN THIẾT ===
+    // Cac hang so pham vi (Scopes)
+    private static final String SCOPE_COMPANY = "company";
+    private static final String SCOPE_WORKSPACE = "workspace";
+    private static final String SCOPE_PROJECT = "project";
+    private static final String SCOPE_TASK = "task";
+    private static final String SCOPE_SPRINT = "sprint";
+    
+    // Cac thong bao loi
+    private static final String ERR_TENANT_SUSPENDED = "Your business account has been temporarily suspended. Please contact the administrator.";
+    private static final String ERR_USER_NOT_FOUND = "User not found with ID: %d";
+
     private final CompanyMemberRepository companyMemberRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final ProjectMemberRepository projectMemberRepository;
-    private final UserRoleRepository userRoleRepository;
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
     private final WorkspaceRepository workspaceRepository;
@@ -32,11 +51,9 @@ public class SecurityServiceImpl implements SecurityService {
     private final SprintRepository sprintRepository;
     private final CompanyRepository companyRepository;
 
-    // === CONSTRUCTOR THỦ CÔNG ===
     public SecurityServiceImpl(CompanyMemberRepository companyMemberRepository,
                                WorkspaceMemberRepository workspaceMemberRepository,
                                ProjectMemberRepository projectMemberRepository,
-                               UserRoleRepository userRoleRepository,
                                UserRepository userRepository,
                                TaskRepository taskRepository,
                                WorkspaceRepository workspaceRepository,
@@ -46,7 +63,6 @@ public class SecurityServiceImpl implements SecurityService {
         this.companyMemberRepository = companyMemberRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.projectMemberRepository = projectMemberRepository;
-        this.userRoleRepository = userRoleRepository;
         this.userRepository = userRepository;
         this.taskRepository = taskRepository;
         this.workspaceRepository = workspaceRepository;
@@ -56,17 +72,8 @@ public class SecurityServiceImpl implements SecurityService {
     }
 
     // ========================================================================
-    // KHỐI 1: LẤY THÔNG TIN NGƯỜI DÙNG HIỆN TẠI (IDENTITY)
+    // IDENTITY: XAC THUC NGUOI DUNG
     // ========================================================================
-
-    private UserPrincipal getCurrentUserPrincipal() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof UserPrincipal)) {
-            return null;
-        }
-        return (UserPrincipal) authentication.getPrincipal();
-    }
 
     @Override
     public String getCurrentUserEmail() {
@@ -79,20 +86,138 @@ public class SecurityServiceImpl implements SecurityService {
         UserPrincipal user = getCurrentUserPrincipal();
         return (user != null) ? user.getId() : null;
     }
-    
+
     @Override
     public User getCurrentAuthenticatedUser() {
         Integer userId = getCurrentUserId();
         if (userId == null) {
-            throw new UsernameNotFoundException("Authenticated user information not found."); 
+            throw new UsernameNotFoundException("Authenticated user information not found.");
         }
         return userRepository.findById(userId)
-            .orElseThrow(() -> new UsernameNotFoundException("User not found with ID: " + userId));
+                .orElseThrow(() -> new UsernameNotFoundException(String.format(ERR_USER_NOT_FOUND, userId)));
+    }
+
+    private UserPrincipal getCurrentUserPrincipal() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() 
+                || !(authentication.getPrincipal() instanceof UserPrincipal)) {
+            return null;
+        }
+        return (UserPrincipal) authentication.getPrincipal();
     }
 
     // ========================================================================
-    // KHỐI 2: HÀM TIỆN ÍCH TRUY VẤN NGƯỢC (HIERARCHY HELPERS)
+    // CORE PERMISSION: CO CHE KIEM TRA QUYEN TONG QUAT
     // ========================================================================
+
+    @Override
+    public boolean hasPermission(String scope, Integer targetId, String permissionCode) {
+        Integer userId = getCurrentUserId();
+        if (userId == null || targetId == null || scope == null || permissionCode == null) {
+            return false;
+        }
+
+        // 1. Kiem tra trang thai hoat dong cua Tenant (Company)
+        validateTenantStatus(scope, targetId);
+
+        // 2. Kiem tra quyen theo tung cap do (Co thua ke tu tren xuong)
+        switch (scope.toLowerCase()) {
+            case SCOPE_COMPANY:
+                return companyMemberRepository.checkCompanyPermission(userId, targetId, permissionCode);
+
+            case SCOPE_WORKSPACE:
+                // Check truc tiep tai Workspace, neu khong co thi check len cap Company
+                if (workspaceMemberRepository.checkWorkspacePermission(userId, targetId, permissionCode)) return true;
+                return hasCompanyPermission(getCompanyIdFromWorkspace(targetId), permissionCode);
+
+            case SCOPE_PROJECT:
+                // Check Project -> Workspace -> Company
+                if (projectMemberRepository.checkProjectPermission(userId, targetId, permissionCode)) return true;
+                Integer wsId = getWorkspaceIdFromProject(targetId);
+                return hasWorkspacePermission(wsId, permissionCode);
+
+            case SCOPE_TASK:
+                Task task = taskRepository.findById(targetId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Task not found."));
+                return hasProjectPermission(task.getProject().getId(), permissionCode);
+
+            case SCOPE_SPRINT:
+                Sprint sprint = sprintRepository.findById(targetId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Sprint not found."));
+                return hasProjectPermission(sprint.getProject().getId(), permissionCode);
+
+            default:
+                throw new IllegalArgumentException("Unknown permission scope: " + scope);
+        }
+    }
+
+    // ========================================================================
+    // RESOURCE SPECIFIC: KIEM TRA QUYEN TREN TUNG TAI NGUYEN
+    // ========================================================================
+
+    @Override
+    public boolean hasSystemPermission(String permissionCode) {
+        Integer userId = getCurrentUserId();
+        return userId != null && userRepository.countSystemPermission(userId, permissionCode) > 0;
+    }
+
+    @Override
+    public boolean hasCompanyPermission(Integer companyId, String permissionCode) {
+        Integer userId = getCurrentUserId();
+        return userId != null && companyId != null && 
+               companyMemberRepository.checkCompanyPermission(userId, companyId, permissionCode);
+    }
+
+    @Override
+    public boolean hasWorkspacePermission(Integer workspaceId, String permissionCode) {
+        return hasPermission(SCOPE_WORKSPACE, workspaceId, permissionCode);
+    }
+
+    @Override
+    public boolean hasProjectPermission(Integer projectId, String permissionCode) {
+        return hasPermission(SCOPE_PROJECT, projectId, permissionCode);
+    }
+
+    @Override
+    public boolean hasTaskPermission(Integer taskId, String permissionCode) {
+        return hasPermission(SCOPE_TASK, taskId, permissionCode);
+    }
+
+    @Override
+    public boolean hasSprintPermission(Integer sprintId, String permissionCode) {
+        return hasPermission(SCOPE_SPRINT, sprintId, permissionCode);
+    }
+
+    // ========================================================================
+    // HELPERS: CAC HAM TRUY VAN NGUOC & VALIDATION
+    // ========================================================================
+
+    /**
+     * Truy nguoc tu doi tuong muc tieu de kiem tra xem Cong ty chu quan co dang bi khoa hay khong.
+     */
+    private void validateTenantStatus(String scope, Integer targetId) {
+        Integer companyId = null;
+        switch (scope.toLowerCase()) {
+            case SCOPE_COMPANY: companyId = targetId; break;
+            case SCOPE_WORKSPACE: companyId = getCompanyIdFromWorkspace(targetId); break;
+            case SCOPE_PROJECT: companyId = getCompanyIdFromWorkspace(getWorkspaceIdFromProject(targetId)); break;
+            case SCOPE_TASK: 
+                Task t = taskRepository.findById(targetId).orElse(null);
+                if (t != null) companyId = getCompanyIdFromWorkspace(t.getProject().getWorkspace().getId());
+                break;
+            case SCOPE_SPRINT:
+                Sprint s = sprintRepository.findById(targetId).orElse(null);
+                if (s != null) companyId = getCompanyIdFromWorkspace(s.getProject().getWorkspace().getId());
+                break;
+        }
+
+        if (companyId != null) {
+            Company company = companyRepository.findById(companyId).orElse(null);
+            if (company != null && "SUSPENDED".equalsIgnoreCase(company.getStatus().toString())) {
+                throw new BadRequestException(ERR_TENANT_SUSPENDED);
+            }
+        }
+    }
 
     private Integer getCompanyIdFromWorkspace(Integer workspaceId) {
         return workspaceRepository.findById(workspaceId)
@@ -107,145 +232,9 @@ public class SecurityServiceImpl implements SecurityService {
     }
 
     // ========================================================================
-    // KHỐI 3: KIỂM TRA QUYỀN HẠN (PERMISSION-BASED)
+    // COMPATIBILITY: CAC HAM TIEN ICH VAI TRO (ROLES)
     // ========================================================================
 
-    @Override
-    public boolean hasSystemPermission(String permissionCode) {
-        // 1. Lấy ID người dùng đang đăng nhập từ Context
-        Integer currentUserId = getCurrentUserId();
-        
-        // Bắt lỗi an toàn nếu chưa đăng nhập
-        if (currentUserId == null) {
-            return false; 
-        }
-
-        // 2. Gọi xuống Database để kiểm tra (Trả về > 0 nghĩa là có quyền)
-        int permissionCount = userRepository.countSystemPermission(currentUserId, permissionCode);
-        
-        return permissionCount > 0;
-    }
-    
-    @Override
-    public boolean hasCompanyPermission(Integer companyId, String permissionCode) {
-        Integer userId = getCurrentUserId();
-        if (userId == null || companyId == null)
-            return false;
-        return companyMemberRepository.checkCompanyPermission(userId, companyId, permissionCode);
-    }
-
-    @Override
-    public boolean hasWorkspacePermission(Integer workspaceId, String permissionCode) {
-        Integer userId = getCurrentUserId();
-        if (userId == null || workspaceId == null)
-            return false;
-        return workspaceMemberRepository.checkWorkspacePermission(userId, workspaceId, permissionCode);
-    }
-    
-    @Override
-    public boolean hasProjectPermission(Integer projectId, String permissionCode) {
-        Integer userId = getCurrentUserId();
-        if (userId == null || projectId == null)
-            return false;
-        return projectMemberRepository.checkProjectPermission(userId, projectId, permissionCode);
-    }
-    
-    @Override
-    public boolean hasTaskPermission(Integer taskId, String permissionCode) {
-        Integer userId = getCurrentUserId();
-        if (userId == null || taskId == null) return false;
-        
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found for permission check."));
-        
-        Integer projectId = task.getProject().getId();
-        return hasPermission("project", projectId, permissionCode);
-    }
-
-    @Override
-    public boolean hasSprintPermission(Integer sprintId, String permissionCode) {
-        Integer userId = getCurrentUserId();
-        if (userId == null || sprintId == null) return false;
-        
-        Sprint sprint = sprintRepository.findById(sprintId)
-                .orElseThrow(() -> new ResourceNotFoundException("Sprint not found for permission check."));
-        
-        Integer projectId = sprint.getProject().getId();
-        return hasPermission("project", projectId, permissionCode);
-    }
-
-    @Override
-    public boolean hasPermission(String scope, Integer targetId, String permissionCode) {
-        Integer userId = getCurrentUserId();
-        if (userId == null || targetId == null || scope == null || permissionCode == null)
-            return false;
-
-        // BƯỚC CHẶN TENANT SUSPENDED
-        Integer companyIdToCheck = null;
-        switch (scope.toLowerCase()) {
-            case "company": companyIdToCheck = targetId; break;
-            case "workspace": companyIdToCheck = getCompanyIdFromWorkspace(targetId); break;
-            case "project": 
-            case "task": 
-            case "sprint":
-                Integer workspaceId = getWorkspaceIdFromProject(scope.equals("project") ? targetId : /* logic lấy projectId từ task/sprint */ targetId); 
-                companyIdToCheck = getCompanyIdFromWorkspace(workspaceId);
-                break;
-        }
-
-        if (companyIdToCheck != null) {
-            Company company = companyRepository.findById(companyIdToCheck)
-                    .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
-            
-            if ("SUSPENDED".equalsIgnoreCase(company.getStatus().toString())) {
-                // Ném ra Exception cụ thể để Frontend hiện Popup: "Tài khoản doanh nghiệp của bạn đã bị tạm khóa"
-                throw new BadRequestException("Your business account has been temporarily suspended. Please contact the system administrator.");
-            }
-        }
-
-        switch (scope.toLowerCase()) {
-            case "company":
-                return companyMemberRepository.checkCompanyPermission(userId, targetId, permissionCode);
-
-            case "workspace":
-                boolean hasWorkspacePerm = workspaceMemberRepository.checkWorkspacePermission(userId, targetId, permissionCode);
-                if (hasWorkspacePerm) return true;
-
-                Integer companyId = getCompanyIdFromWorkspace(targetId);
-                return companyMemberRepository.checkCompanyPermission(userId, companyId, permissionCode);
-
-            case "project":
-                boolean hasProjectPerm = projectMemberRepository.checkProjectPermission(userId, targetId, permissionCode);
-                if (hasProjectPerm) return true;
-
-                Integer workspaceId = getWorkspaceIdFromProject(targetId);
-                boolean hasWorkspacePermFromProject = workspaceMemberRepository.checkWorkspacePermission(userId, workspaceId, permissionCode);
-                if (hasWorkspacePermFromProject) return true;
-
-                Integer companyIdFromProject = getCompanyIdFromWorkspace(workspaceId);
-                return companyMemberRepository.checkCompanyPermission(userId, companyIdFromProject, permissionCode);
-
-            case "task":
-                Task task = taskRepository.findById(targetId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Task not found for permission check."));
-                Integer projectId = task.getProject().getId();
-                return hasPermission("project", projectId, permissionCode);
-            
-            case "sprint":
-                Sprint sprint = sprintRepository.findById(targetId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Sprint not found for permission check."));
-                Integer projectIdS = sprint.getProject().getId();
-                return hasPermission("project", projectIdS, permissionCode);
-
-            default:
-                throw new IllegalArgumentException("Unknown permission scope: " + scope);
-        }
-    }
-    
-    // ========================================================================
-    // KHỐI 4: CÁC HÀM TIỆN ÍCH KIỂM TRA ROLE CŨ (COMPATIBILITY)
-    // ========================================================================
-    
     @Override
     public boolean isCompanyAdmin(Integer companyId) {
         return hasCompanyPermission(companyId, "company:manage_roles");
@@ -258,22 +247,18 @@ public class SecurityServiceImpl implements SecurityService {
 
     @Override
     public boolean isWorkspaceAdmin(Integer companyId, Integer workspaceId) {
-        if (!getCompanyIdFromWorkspace(workspaceId).equals(companyId)) {
-            return false;
-        }
-        return hasPermission("workspace", workspaceId, "workspace:edit");
+        return getCompanyIdFromWorkspace(workspaceId).equals(companyId) && 
+               hasPermission(SCOPE_WORKSPACE, workspaceId, "workspace:edit");
     }
 
     @Override
     public boolean isWorkspaceMember(Integer companyId, Integer workspaceId) {
-        if (!getCompanyIdFromWorkspace(workspaceId).equals(companyId)) {
-            return false;
-        }
-        return hasPermission("workspace", workspaceId, "workspace:view");
+        return getCompanyIdFromWorkspace(workspaceId).equals(companyId) && 
+               hasPermission(SCOPE_WORKSPACE, workspaceId, "workspace:view");
     }
 
     @Override
     public boolean canManageWorkspaceMembers(Integer companyId, Integer workspaceId) {
-        return hasPermission("workspace", workspaceId, "workspace:invite_member");
+        return hasPermission(SCOPE_WORKSPACE, workspaceId, "workspace:invite_member");
     }
 }
