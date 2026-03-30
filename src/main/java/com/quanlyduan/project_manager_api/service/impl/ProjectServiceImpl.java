@@ -1,4 +1,3 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/ProjectServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import java.math.BigDecimal;
@@ -31,7 +30,6 @@ import com.quanlyduan.project_manager_api.dto.request.InviteProjectMemberRequest
 import com.quanlyduan.project_manager_api.dto.request.ProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateProjectStatusRequest;
-import com.quanlyduan.project_manager_api.dto.response.ActivityLogResponse;
 import com.quanlyduan.project_manager_api.dto.response.BoardColumnResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.ProjectBacklogResponse;
@@ -42,10 +40,7 @@ import com.quanlyduan.project_manager_api.dto.response.ProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.SprintDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
-import com.quanlyduan.project_manager_api.exception.QuotaExceededException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
-import com.quanlyduan.project_manager_api.model.ActivityLog;
-import com.quanlyduan.project_manager_api.model.CompanySubscription;
 import com.quanlyduan.project_manager_api.model.Epic;
 import com.quanlyduan.project_manager_api.model.Project;
 import com.quanlyduan.project_manager_api.model.ProjectInvitation;
@@ -60,7 +55,6 @@ import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.RoleCode;
 import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
 import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
@@ -94,6 +88,101 @@ import com.quanlyduan.project_manager_api.validation.ProjectHierarchyValidator;
 @Service
 public class ProjectServiceImpl implements ProjectService {
 
+    // Khai bao cac hang so de loai bo hardcode
+    public static final String ACTION_CREATE = "CREATE";
+    public static final String ACTION_UPDATE = "UPDATE";
+    public static final String ACTION_DELETE = "DELETE";
+    public static final String ACTION_INVITE = "INVITE";
+    public static final String ACTION_JOIN = "JOIN";
+
+    public static final String ENTITY_PROJECT = "PROJECT";
+    public static final String ENTITY_PROJECT_MEMBER = "PROJECT_MEMBER";
+
+    public static final String DESC_CREATE_PROJECT = "Create new Project";
+    public static final String DESC_DELETE_PROJECT = "Delete Project";
+    public static final String DESC_UPDATE_PROJECT_STATUS = "Update Project Status";
+    public static final String DESC_UPDATE_PROJECT = "Update project information";
+    public static final String DESC_UPDATE_MEMBER_ROLE = "Update Project Member Role";
+    public static final String DESC_INVITE_MEMBER = "Invite member to Project";
+    public static final String DESC_ACCEPT_INVITATION = "Accept project invitation";
+
+    public static final String ERROR_WORKSPACE_NOT_FOUND = "Workspace not found.";
+    public static final String ERROR_WORKSPACE_WRONG_COMPANY = "Workspace does not belong to the specified company.";
+    public static final String ERROR_PROJECT_CODE_EXISTS = "Project code already exists in this workspace.";
+    public static final String ERROR_USER_NOT_FOUND = "User not found.";
+    public static final String ERROR_INVALID_BOARD_CONFIG = "Invalid JSON boardConfig.";
+    public static final String ERROR_MANAGER_NOT_FOUND = "Manager user not found.";
+    public static final String ERROR_PROJECT_TYPE_NOT_FOUND = "Project type not found.";
+    public static final String ERROR_ROLE_NOT_FOUND = "Role not found: ";
+    public static final String ERROR_PROJECT_NOT_FOUND = "Project not found.";
+    public static final String ERROR_PROJECT_NOT_FOUND_ID = "Project not found with ID: ";
+    public static final String ERROR_PROJECT_WRONG_WORKSPACE = "Project does not belong to the specified workspace.";
+    public static final String ERROR_PROJECT_WRONG_HIERARCHY = "Project does not belong to this workspace or company.";
+    public static final String ERROR_EMPTY_STATUS = "New status cannot be empty.";
+    public static final String ERROR_CANNOT_UPDATE_TO_CANCELLED = "Cannot update status to CANCELLED. Please use the delete API instead.";
+    public static final String ERROR_SAME_STATUS = "Project is already in the requested status.";
+    public static final String ERROR_INVALID_GROUP_BY = "Invalid groupBy parameter. Use 'assignee', 'priority', 'status' or 'sprint'.";
+    public static final String ERROR_MEMBER_NOT_FOUND_ID = "Project member not found with ID: ";
+    public static final String ERROR_MEMBER_NOT_IN_PROJECT = "Member not found in this project.";
+    public static final String ERROR_CHANGE_OWN_ROLE = "You cannot change your own role.";
+    public static final String ERROR_SAME_ROLE = "New role is the same as the current role, no update needed.";
+    public static final String ERROR_INVALID_ROLE_LEVEL = "Invalid role. Must be a PROJECT level role.";
+    public static final String ERROR_ALREADY_MEMBER = "This user is already a member of the project.";
+    public static final String ERROR_INVITE_GUEST_ONLY = "Security Policy: Outsiders can only be invited with the Guest role (GUEST_PROJECT). To assign higher roles like Admin or Member, they must be invited to the Company first.";
+    public static final String ERROR_PENDING_INVITATION = "An invitation is already pending for this email.";
+    public static final String ERROR_INVALID_INVITATION = "Invitation does not exist or token is invalid.";
+    public static final String ERROR_INVITATION_PROCESSED = "This invitation is no longer valid or has been processed.";
+    public static final String ERROR_INVITATION_EXPIRED = "Invitation has expired.";
+    public static final String ERROR_EMAIL_MISMATCH = "Account email does not match the invitation email.";
+    public static final String ERROR_INVITATION_WRONG_PROJECT = "Invitation does not belong to this project.";
+
+    public static final String LOG_RENAMED = "renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"";
+    public static final String LOG_CODE_CHANGED = "changed code from <strong>%s</strong> to <strong>%s</strong>";
+    public static final String LOG_DESC_UPDATED = "updated description";
+    public static final String LOG_GOAL_UPDATED = "updated goal";
+    public static final String LOG_PRIORITY_CHANGED = "changed priority to <strong>%s</strong>";
+    public static final String LOG_START_DATE_CHANGED = "changed start date";
+    public static final String LOG_DUE_DATE_CHANGED = "changed due date";
+    public static final String LOG_MANAGER_REMOVED = "removed manager";
+    public static final String LOG_MANAGER_CHANGED = "changed manager to <strong>%s</strong>";
+    public static final String LOG_COVER_UPDATED = "updated cover image";
+    public static final String LOG_JOINED_PROJECT = "has joined the project <strong>%s</strong>";
+
+    public static final String GROUP_BY_ASSIGNEE = "assignee";
+    public static final String GROUP_BY_PRIORITY = "priority";
+    public static final String GROUP_BY_STATUS = "status";
+    public static final String GROUP_BY_SPRINT = "sprint";
+
+    public static final String LABEL_UNASSIGNED = "Unassigned";
+    public static final String LABEL_BACKLOG = "Backlog";
+    public static final String LABEL_SYSTEM = "System";
+
+    public static final String ROLE_GUEST_PROJECT = "GUEST_PROJECT";
+    public static final String ROLE_PROJECT_ADMIN = "PROJECT_ADMIN";
+
+    public static final String SORT_FIELD_CREATED_AT = "createdAt";
+    public static final String SORT_FIELD_SORT_ORDER = "sortOrder";
+    public static final String SORT_FIELD_JOINED_AT = "joinedAt";
+    public static final String SORT_DIR_ASC = "asc";
+
+    public static final String FOLDER_PROJECT_COVERS = "project-covers";
+
+    public static final String DEFAULT_STATUS_TODO = "To Do";
+    public static final String DEFAULT_STATUS_IN_PROGRESS = "In Progress";
+    public static final String DEFAULT_STATUS_DONE = "Done";
+    public static final String DEFAULT_COLOR_TODO = "#95a5a6";
+    public static final String DEFAULT_COLOR_IN_PROGRESS = "#3498db";
+    public static final String DEFAULT_COLOR_DONE = "#2ecc71";
+
+    public static final String EMAIL_SUBJECT_ADDED = "You have been added to the project: ";
+    public static final String EMAIL_BODY_ADDED = "Hi %s,<br><br>%s has included you into project <strong>%s</strong> with role <strong>%s</strong>.<br>Please access project with this link: <a href=\"%s\">View Project</a>";
+    public static final String EMAIL_SUBJECT_INVITED = "Project Invitation: ";
+    public static final String EMAIL_BODY_INVITED = "Hi,<br><br>%s has invited you into project <strong>%s</strong> with role <strong>%s</strong>.<br>Please click the link below to accept the invitation:<br><a href=\"%s\">Accept Invitation</a><br><br>This link will expire in 7 days.";
+
+    // Khai bao cac bien phu thuoc va cau hinh
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
+
     private final ProjectRepository projectRepository;
     private final WorkspaceRepository workspaceRepository;
     private final ActivityLogRepository activityLogRepository;
@@ -106,7 +195,6 @@ public class ProjectServiceImpl implements ProjectService {
     private final TaskService taskService;
     private final SecurityService securityService;
     private final FileStorageService fileStorageService;
-
     private final SprintRepository sprintRepository;
     private final EpicRepository epicRepository;
     private final ProjectStatusRepository projectStatusRepository;
@@ -115,16 +203,9 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectHierarchyValidator hierarchyValidator;
     private final CompanySubscriptionRepository companySubscriptionRepository;
     private final QuotaValidationServiceImpl quotaValidationService;
-
     private final EmailService emailService;
 
-
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
-
-    // ========================================================================
-    // CONSTRUCTOR (Dependency Injection)
-    // ========================================================================
+    // Constructor khoi tao thu cong
     public ProjectServiceImpl(ProjectRepository projectRepository,
                               WorkspaceRepository workspaceRepository,
                               ActivityLogRepository activityLogRepository,
@@ -145,9 +226,7 @@ public class ProjectServiceImpl implements ProjectService {
                               ProjectInvitationRepository projectInvitationRepository,
                               ProjectHierarchyValidator hierarchyValidator,
                               CompanySubscriptionRepository companySubscriptionRepository,
-                              QuotaValidationServiceImpl quotaValidationService
-
-                              ) {
+                              QuotaValidationServiceImpl quotaValidationService) {
         this.projectRepository = projectRepository;
         this.workspaceRepository = workspaceRepository;
         this.activityLogRepository = activityLogRepository;
@@ -171,68 +250,58 @@ public class ProjectServiceImpl implements ProjectService {
         this.quotaValidationService = quotaValidationService;
     }
 
-    /**
-     * Helper: Kiểm tra giá trị chuỗi có được cung cấp (khác null, khác rỗng, không phải "string").
-     */
-    private boolean isProvided(String value) {
-        return value != null && !value.isBlank() && !"string".equalsIgnoreCase(value.trim());
-    }
-    
-    // ------------------------------------------------------------------------
-    // NHÓM CHỨC NĂNG: CRUD & DETAIL PROJECT
-    // ------------------------------------------------------------------------
-    
-    // 📂 LOGIC TẠO DỰ ÁN (KÈM UPLOAD ẢNH BÌA & SAAS QUOTA GUARD)
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+
     @Override
     @Transactional
-    @LogActivity(action = "CREATE", entityType = "PROJECT", description = "Create new Project")
+    @LogActivity(action = ACTION_CREATE, entityType = ENTITY_PROJECT, description = DESC_CREATE_PROJECT)
     public ProjectResponse createProject(Integer companyId, Integer workspaceId, ProjectRequest request, Integer creatorId, MultipartFile coverImageFile) {
-        
-        // BỨC TƯỜNG LỬA: Kiểm tra hạn mức trước khi làm bất cứ điều gì
+        // Kiem tra han muc truoc khi tao du an moi
         quotaValidationService.validateProjectCreationQuota(companyId);
-        // (1) Kiểm tra workspace tồn tại và thuộc đúng companyId
+        
+        // Kiem tra khong gian lam viec
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_WORKSPACE_NOT_FOUND));
 
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Workspace does not belong to the specified company.");
+            throw new BadRequestException(ERROR_WORKSPACE_WRONG_COMPANY);
         }
 
-        // (2) Kiểm tra unique projectCode
+        // Kiem tra ma du an da ton tai hay chua
         if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, request.getProjectCode())) {
-            throw new BadRequestException("Project code already exists in this workspace.");
+            throw new BadRequestException(ERROR_PROJECT_CODE_EXISTS);
         }
 
-        // (3) Lấy createdBy
+        // Lay thong tin nguoi tao du an
         User createdBy = userRepository.findById(creatorId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_USER_NOT_FOUND));
 
-        // (4) Khởi tạo Project (Giữ nguyên toàn bộ logic cũ của bạn)
+        // Khoi tao doi tuong du an
         Project project = new Project();
         project.setWorkspace(workspace);
         project.setCreatedBy(createdBy);
-
         project.setName(request.getName());
         project.setProjectCode(request.getProjectCode());
         project.setDescription(request.getDescription());
         project.setGoal(request.getGoal());
 
-        // XỬ LÝ UPLOAD ẢNH BÌA
+        // Xu ly upload anh bia
         if (coverImageFile != null && !coverImageFile.isEmpty()) {
-            String coverPath = fileStorageService.storeFile(coverImageFile, "project-covers");
+            String coverPath = fileStorageService.storeFile(coverImageFile, FOLDER_PROJECT_COVERS);
             project.setCoverImageUrl(coverPath);
         } else if (request.getCoverImageUrl() != null) {
             project.setCoverImageUrl(request.getCoverImageUrl());
         }
 
-        // boardConfig
+        // Cau hinh bang cong viec
         if (request.getBoardConfig() != null) {
             try {
                 project.setBoardConfig(objectMapper.writeValueAsString(request.getBoardConfig()));
             } catch (JsonProcessingException e) {
-                throw new BadRequestException("Invalid JSON boardConfig.");
+                throw new BadRequestException(ERROR_INVALID_BOARD_CONFIG);
             }
         }
+        
         project.setStartDate(request.getStartDate());
         project.setDueDate(request.getDueDate());
 
@@ -244,13 +313,13 @@ public class ProjectServiceImpl implements ProjectService {
 
         if (request.getManagerId() != null && request.getManagerId() > 0) {
             User manager = userRepository.findById(request.getManagerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Manager user not found."));
+                    .orElseThrow(() -> new ResourceNotFoundException(ERROR_MANAGER_NOT_FOUND));
             project.setManager(manager);
         }
 
         if (request.getProjectTypeId() != null && request.getProjectTypeId() > 0) {
             ProjectType type = projectTypeRepository.findById(request.getProjectTypeId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Project type not found."));
+                    .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_TYPE_NOT_FOUND));
             project.setProjectType(type);
         }
 
@@ -258,14 +327,12 @@ public class ProjectServiceImpl implements ProjectService {
             project.setProgress(BigDecimal.ZERO);
         }
 
-        // (5) Lưu Project
+        // Luu du an moi vao co so du lieu
         Project saved = projectRepository.save(project);
 
-        // (6) Gán người tạo làm Project Admin
-        Role projectAdminRole = roleRepository.findFirstByRoleCode(RoleCode.PROJECT_ADMIN.name())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Role not found: " + RoleCode.PROJECT_ADMIN.name() + ". Please configure in the database."
-                ));
+        // Gan quyen quan tri du an cho nguoi tao
+        Role projectAdminRole = roleRepository.findFirstByRoleCode(ROLE_PROJECT_ADMIN)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_ROLE_NOT_FOUND + ROLE_PROJECT_ADMIN));
 
         ProjectMember projectMember = ProjectMember.builder()
                 .project(saved)
@@ -276,254 +343,244 @@ public class ProjectServiceImpl implements ProjectService {
 
         projectMemberRepository.save(projectMember);
 
-        // (7) KHỞI TẠO TRẠNG THÁI MẶC ĐỊNH
+        // Khoi tao cac trang thai mac dinh cho du an
         initDefaultStatuses(saved); 
 
-        // (8) Trả response
         return toResponse(saved);
     }
 
-    /**
-     * US9: Xóa dự án (soft delete) bằng cách chuyển trạng thái sang CANCELLED.
-     */
     @Override
     @Transactional
-    @LogActivity(action = "DELETE", entityType = "PROJECT", description = "Delete Project")
+    @LogActivity(action = ACTION_DELETE, entityType = ENTITY_PROJECT, description = DESC_DELETE_PROJECT)
     public void deleteProject(Integer companyId, Integer workspaceId, Integer projectId) {
-        // 1. Kiểm tra Workspace Hierarchy
+        // Kiem tra phan cap cua khong gian lam viec
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_WORKSPACE_NOT_FOUND));
+                
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Workspace does not belong to the specified company.");
+            throw new BadRequestException(ERROR_WORKSPACE_WRONG_COMPANY);
         }
 
-        // 2. Kiểm tra Project Hierarchy
+        // Kiem tra phan cap cua du an
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND));
+                
         if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Project does not belong to the specified workspace.");
+            throw new BadRequestException(ERROR_PROJECT_WRONG_WORKSPACE);
         }
         
-        // 3. Thực hiện Soft Delete
+        // Thuc hien xoa mem bang cach chuyen trang thai sang huy bo
         project.setStatus(ProjectStatus.CANCELLED);
         projectRepository.save(project);
     }
 
-    /**
-     * Cập nhật trạng thái Project (trừ CANCELLED).
-     */
     @Override
     @Transactional
-    @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update Project Status")
+    @LogActivity(action = ACTION_UPDATE, entityType = ENTITY_PROJECT, description = DESC_UPDATE_PROJECT_STATUS)
     public ProjectResponse updateProjectStatus(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectStatusRequest request) {
-        // 1. Kiểm tra Workspace Hierarchy
+        // Kiem tra phan cap cua khong gian lam viec
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_WORKSPACE_NOT_FOUND));
+                
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Workspace does not belong to the specified company.");
+            throw new BadRequestException(ERROR_WORKSPACE_WRONG_COMPANY);
         }
 
-        // 2. Kiểm tra Project Hierarchy
+        // Kiem tra phan cap cua du an
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND));
+                
         if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Project does not belong to the specified workspace.");
+            throw new BadRequestException(ERROR_PROJECT_WRONG_WORKSPACE);
         }
 
-        // 3. Validate trạng thái
+        // Kiem tra tinh hop le cua trang thai moi
         ProjectStatus newStatus = request.getNewStatus();
         if (newStatus == null) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("New status cannot be empty.");
+            throw new BadRequestException(ERROR_EMPTY_STATUS);
         }
+        
         if (newStatus == ProjectStatus.CANCELLED) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Cannot update status to CANCELLED. Please use the delete API instead.");
+            throw new BadRequestException(ERROR_CANNOT_UPDATE_TO_CANCELLED);
         }
+        
         if (project.getStatus() == newStatus) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Project is already in the requested status.");
+            throw new BadRequestException(ERROR_SAME_STATUS);
         }
 
-        // 4. Cập nhật và lưu
+        // Cap nhat trang thai va luu
         project.setStatus(newStatus);
         Project saved = projectRepository.save(project);
         return toResponse(saved);
     }
 
-    /**
-     * LOGIC CẬP NHẬT DỰ ÁN (TICH HOP UPLOAD ẢNH).
-     */
-    // ======================================================
-    // LOGIC CẬP NHẬT DỰ ÁN - FULL CODE
-    // ======================================================
     @Override
     @Transactional
-    @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update project information")
+    @LogActivity(action = ACTION_UPDATE, entityType = ENTITY_PROJECT, description = DESC_UPDATE_PROJECT)
     public ProjectResponse updateProject(Integer companyId, Integer workspaceId, Integer projectId, UpdateProjectRequest request, MultipartFile coverImageFile) {
+        // Kiem tra phan cap
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_WORKSPACE_NOT_FOUND));
+                
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Workspace does not belong to the specified company.");
+            throw new BadRequestException(ERROR_WORKSPACE_WRONG_COMPANY);
         }
 
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND));
+                
         if (project.getWorkspace() == null || !project.getWorkspace().getId().equals(workspaceId)) {
-            throw new BadRequestException("Project does not belong to the specified workspace.");
+            throw new BadRequestException(ERROR_PROJECT_WRONG_WORKSPACE);
         }
 
         StringBuilder changes = new StringBuilder();
 
-        // 1. Name & Code
+        // Cap nhat ten va ma du an
         if (isProvided(request.getName()) && !request.getName().equals(project.getName())) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", project.getName(), request.getName()));
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(String.format(LOG_RENAMED, project.getName(), request.getName()));
             project.setName(request.getName());
         }
 
         if (isProvided(request.getProjectCode()) && !request.getProjectCode().equals(project.getProjectCode())) {
             if (projectRepository.existsByWorkspace_IdAndProjectCodeIgnoreCase(workspaceId, request.getProjectCode())) {
-                throw new BadRequestException("Project code already exists.");
+                throw new BadRequestException(ERROR_PROJECT_CODE_EXISTS);
             }
-            if (changes.length() > 0) changes.append(", ");
-            changes.append(String.format("changed code from <strong>%s</strong> to <strong>%s</strong>", project.getProjectCode(), request.getProjectCode()));
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(String.format(LOG_CODE_CHANGED, project.getProjectCode(), request.getProjectCode()));
             project.setProjectCode(request.getProjectCode());
         }
 
-        // 2. Description & Goal
+        // Cap nhat mo ta va muc tieu
         if (isProvided(request.getDescription()) && !request.getDescription().equals(project.getDescription())) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append("updated description");
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(LOG_DESC_UPDATED);
             project.setDescription(request.getDescription());
         }
+        
         if (isProvided(request.getGoal()) && !request.getGoal().equals(project.getGoal())) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append("updated goal");
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(LOG_GOAL_UPDATED);
             project.setGoal(request.getGoal());
         }
 
-        // 3. Priority
+        // Cap nhat muc do uu tien
         if (request.getPriority() != null && request.getPriority() != project.getPriority()) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append(String.format("changed priority to <strong>%s</strong>", request.getPriority()));
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(String.format(LOG_PRIORITY_CHANGED, request.getPriority()));
             project.setPriority(request.getPriority());
         }
 
-        // 4. Dates
+        // Cap nhat thoi gian
         if (request.getStartDate() != null && !request.getStartDate().equals(project.getStartDate())) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append("changed start date");
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(LOG_START_DATE_CHANGED);
             project.setStartDate(request.getStartDate());
         }
+        
         if (request.getDueDate() != null && !request.getDueDate().equals(project.getDueDate())) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append("changed due date");
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(LOG_DUE_DATE_CHANGED);
             project.setDueDate(request.getDueDate());
         }
+        
         if (request.getCompletedAt() != null && !request.getCompletedAt().equals(project.getCompletedAt())) {
-             // Logic riêng cho completed
              project.setCompletedAt(request.getCompletedAt());
         }
 
-        // 5. Manager
+        // Cap nhat nguoi quan ly
         if (request.getManagerId() != null) {
             Integer oldManagerId = project.getManager() != null ? project.getManager().getId() : 0;
             if (!request.getManagerId().equals(oldManagerId)) {
                 if (request.getManagerId() == 0) {
-                     if (changes.length() > 0) changes.append(", ");
-                     changes.append("removed manager");
+                     if (changes.length() > 0) {
+                         changes.append(", ");
+                     }
+                     changes.append(LOG_MANAGER_REMOVED);
                      project.setManager(null);
                 } else {
                     User manager = userRepository.findById(request.getManagerId())
-                            .orElseThrow(() -> new ResourceNotFoundException("Manager not found."));
+                            .orElseThrow(() -> new ResourceNotFoundException(ERROR_MANAGER_NOT_FOUND));
                     
-                    if (changes.length() > 0) changes.append(", ");
-                    changes.append(String.format("changed manager to <strong>%s</strong>", manager.getFullName()));
+                    if (changes.length() > 0) {
+                        changes.append(", ");
+                    }
+                    changes.append(String.format(LOG_MANAGER_CHANGED, manager.getFullName()));
                     project.setManager(manager);
                 }
             }
         }
 
-        // 6. Cover Image
+        // Cap nhat anh bia
         if (coverImageFile != null && !coverImageFile.isEmpty()) {
-            String coverPath = fileStorageService.storeFile(coverImageFile, "project-covers");
-            if (changes.length() > 0) changes.append(", ");
-            changes.append("updated cover image");
+            String coverPath = fileStorageService.storeFile(coverImageFile, FOLDER_PROJECT_COVERS);
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(LOG_COVER_UPDATED);
             project.setCoverImageUrl(coverPath);
         } else if (request.getCoverImageUrl() != null && !request.getCoverImageUrl().equals(project.getCoverImageUrl())) {
-             if (changes.length() > 0) changes.append(", ");
-             changes.append("updated cover image");
+             if (changes.length() > 0) {
+                 changes.append(", ");
+             }
+             changes.append(LOG_COVER_UPDATED);
              project.setCoverImageUrl(request.getCoverImageUrl().isBlank() ? null : request.getCoverImageUrl());
         }
 
-        // Set log
+        // Ghi log vao context
         if (changes.length() > 0) {
             ActivityLogContext.setDetail(changes.toString());
-        } else {
-             // Nếu không có thay đổi gì (hoặc chỉ đổi field không quan trọng)
-            //  ActivityLogContext.setDetail("updated project details");
         }
 
         Project saved = projectRepository.save(project);
         return toResponse(saved);
     }
 
-    /**
-     * Lấy chi tiết Project (bao gồm kiểm tra Hierarchy).
-     */
     @Override
     public ProjectResponse getProjectDetails(Integer companyId, Integer workspaceId, Integer projectId) {
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND));
 
-        // Kiểm tra Hierarchy
         if (!project.getWorkspace().getId().equals(workspaceId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Project does not belong to the specified workspace.");
+            throw new BadRequestException(ERROR_PROJECT_WRONG_WORKSPACE);
         }
 
         if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Workspace does not belong to the specified company.");
+            throw new BadRequestException(ERROR_WORKSPACE_WRONG_COMPANY);
         }
 
-        // Dùng mapper chung để đảm bảo đầy đủ field như khi tạo/list
         return toResponse(project);
     }
 
-    // ------------------------------------------------------------------------
-    // NHÓM CHỨC NĂNG: LISTING & SEARCHING
-    // ------------------------------------------------------------------------
-
-    // 1. LẤY DANH SÁCH DỰ ÁN (Cơ bản)
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<ProjectResponse> listProjectsByWorkspace(
             Integer companyId, Integer workspaceId, ProjectStatus status,
             int page, int size, String sortBy, String sortDir) {
 
-        // 1. Kiểm tra Workspace Hierarchy
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_WORKSPACE_NOT_FOUND));
+                
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Workspace does not belong to the specified company.");
+            throw new BadRequestException(ERROR_WORKSPACE_WRONG_COMPANY);
         }
 
-        // 2. Định nghĩa Map sắp xếp cho PROJECT
         Map<String, String> sortMapping = Map.of(
-            "createdAt", "createdAt",
+            SORT_FIELD_CREATED_AT, SORT_FIELD_CREATED_AT,
             "name", "name",
             "code", "projectCode",
             "status", "status",
@@ -531,10 +588,8 @@ public class ProjectServiceImpl implements ProjectService {
             "manager", "manager.fullName"
         );
 
-        // 3. Tạo Pageable
-        Pageable pageable = createPageable(page, size, sortBy, sortDir, "createdAt", sortMapping);
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, SORT_FIELD_CREATED_AT, sortMapping);
 
-        // 4. Query DB
         Page<Project> projectPage;
         if (status != null) {
             projectPage = projectRepository.findByWorkspace_IdAndStatus(workspaceId, status, pageable);
@@ -542,12 +597,10 @@ public class ProjectServiceImpl implements ProjectService {
             projectPage = projectRepository.findByWorkspace_Id(workspaceId, pageable);
         }
 
-        // 5. Map và trả về
         Page<ProjectResponse> dtoPage = projectPage.map(this::toResponse);
         return new PageResponseDTO<>(dtoPage);
     }
 
-    // 2. TÌM KIẾM DỰ ÁN (Nâng cao)
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<ProjectResponse> searchProjects(
@@ -555,18 +608,15 @@ public class ProjectServiceImpl implements ProjectService {
             String searchName, String searchCode, String searchManager, ProjectStatus searchStatus,
             int page, int size, String sortBy, String sortDir) {
 
-        // 1. Kiểm tra Workspace Hierarchy
         Workspace workspace = workspaceRepository.findById(workspaceId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_WORKSPACE_NOT_FOUND));
+                
         if (workspace.getCompany() == null || !workspace.getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Workspace does not belong to the specified company.");
+            throw new BadRequestException(ERROR_WORKSPACE_WRONG_COMPANY);
         }
 
-        // 2. Định nghĩa Map sắp xếp cho PROJECT
         Map<String, String> sortMapping = Map.of(
-            "createdAt", "createdAt",
+            SORT_FIELD_CREATED_AT, SORT_FIELD_CREATED_AT,
             "name", "name",
             "code", "projectCode",
             "status", "status",
@@ -574,27 +624,17 @@ public class ProjectServiceImpl implements ProjectService {
             "manager", "manager.fullName"
         );
 
-        // 3. Tạo Pageable
-        Pageable pageable = createPageable(page, size, sortBy, sortDir, "createdAt", sortMapping);
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, SORT_FIELD_CREATED_AT, sortMapping);
 
-        // 4. Tạo Specification (Bộ lọc động)
         Specification<Project> spec = ProjectSpecification.filterProjects(
             workspaceId, searchName, searchCode, searchManager, searchStatus
         );
 
-        // 5. Query DB, Map và trả về
         Page<Project> projectPage = projectRepository.findAll(spec, pageable);
         Page<ProjectResponse> dtoPage = projectPage.map(this::toResponse);
         return new PageResponseDTO<>(dtoPage);
     }
 
-    // ------------------------------------------------------------------------
-    // NHÓM CHỨC NĂNG: BACKLOG & BOARD & LIST TASKS
-    // ------------------------------------------------------------------------
-
-    /**
-     * LOGIC LẤY DỮ LIỆU MÀN HÌNH BACKLOG (Active Sprints + Paginated Backlog).
-     */
     @Override
     @Transactional(readOnly = true)
     public ProjectBacklogResponse getProjectBacklog(
@@ -603,39 +643,30 @@ public class ProjectServiceImpl implements ProjectService {
             TaskPriority priority, TaskType taskType,
             int page, int size, String sortBy, String sortDir) {
 
-        // 1. Validate Project Hierarchy
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND));
+                
         if (!project.getWorkspace().getId().equals(workspaceId) ||
             !project.getWorkspace().getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Project does not belong to this workspace or company.");
+            throw new BadRequestException(ERROR_PROJECT_WRONG_HIERARCHY);
         }
 
-        // 2. PHẦN A: ACTIVE SPRINTS
+        // Tinh toan cho cac sprint dang hoat dong
         List<Sprint> activeSprints = sprintRepository.findActiveSprintsByProjectId(
             projectId, Arrays.asList(SprintStatus.NOT_STARTED, SprintStatus.IN_PROGRESS)
         );
 
         List<SprintDetailsResponse> sprintDtos = activeSprints.stream().map(sprint -> {
-            // Lọc Task trong Sprint
             Specification<Task> sprintTaskSpec = TaskSpecification.filterTasks(
-                projectId, sprint.getId(), false, keyword, assigneeId, priority, taskType, null, 
-                false // *** QUAN TRỌNG: isArchived = false ***
+                projectId, sprint.getId(), false, keyword, assigneeId, priority, taskType, null, false
             );
 
-            // Task trong Sprint luôn sắp xếp theo thứ tự hiển thị (sortOrder)
-            List<Task> tasks = taskRepository.findAll(sprintTaskSpec, Sort.by("sortOrder").ascending());
+            List<Task> tasks = taskRepository.findAll(sprintTaskSpec, Sort.by(SORT_FIELD_SORT_ORDER).ascending());
 
-            // TÍNH TOÁN THỐNG KÊ (trên danh sách đã lọc)
             long totalPoints = tasks.stream()
                     .mapToLong(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
                     .sum();
 
-            int count = tasks.size();
-
-            // Map task
             List<TaskSummaryResponse> taskDtos = tasks.stream()
                     .map(this::mapToTaskSummaryResponse)
                     .collect(Collectors.toList());
@@ -650,42 +681,35 @@ public class ProjectServiceImpl implements ProjectService {
                     .projectId(projectId)
                     .tasks(taskDtos)
                     .totalStoryPoints(totalPoints)
-                    .taskCount(count)
+                    .taskCount(tasks.size())
                     .build();
         }).collect(Collectors.toList());
 
-
-        // 3. PHẦN B: PRODUCT BACKLOG (Tasks chưa được gán Sprint)
+        // Tinh toan cho danh sach cho (Backlog)
         Specification<Task> backlogSpec = TaskSpecification.filterTasks(
-            projectId, null, true, keyword, assigneeId, priority, taskType, null, 
-            false // *** QUAN TRỌNG: isArchived = false ***
+            projectId, null, true, keyword, assigneeId, priority, taskType, null, false
         );
 
-        // Định nghĩa Map sắp xếp cho Backlog Task
         Map<String, String> sortMapping = Map.of(
-            "sortOrder", "sortOrder",
+            SORT_FIELD_SORT_ORDER, SORT_FIELD_SORT_ORDER,
             "title", "title",
             "priority", "priority",
             "storyPoints", "storyPoints",
             "dueDate", "dueDate"
         );
         
-        // Tạo Sort object, ưu tiên "sortOrder" mặc định ASC
-        Sort sort = SortUtils.createSort(sortBy, sortDir, "sortOrder", sortMapping);
-        if ("sortOrder".equals(sortBy) && (sortDir == null || sortDir.isEmpty())) {
-             sort = Sort.by(Sort.Direction.ASC, "sortOrder");
+        Sort sort = SortUtils.createSort(sortBy, sortDir, SORT_FIELD_SORT_ORDER, sortMapping);
+        if (SORT_FIELD_SORT_ORDER.equals(sortBy) && (sortDir == null || sortDir.isEmpty())) {
+             sort = Sort.by(Sort.Direction.ASC, SORT_FIELD_SORT_ORDER);
         }
 
-
         Pageable pageable = PageRequest.of(page, size, sort);
-
         Page<Task> backlogPage = taskRepository.findAll(backlogSpec, pageable);
 
         List<TaskSummaryResponse> backlogTaskDtos = backlogPage.stream()
                 .map(this::mapToTaskSummaryResponse)
                 .collect(Collectors.toList());
 
-        // 4. Đóng gói kết quả
         return ProjectBacklogResponse.builder()
                 .activeSprints(sprintDtos)
                 .backlogTasks(backlogTaskDtos)
@@ -696,10 +720,6 @@ public class ProjectServiceImpl implements ProjectService {
                 .build();
     }
 
-
-    // ======================================================
-    // LOGIC XEM BOARD (TỰ ĐỘNG TÌM ACTIVE SPRINT)
-    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public List<BoardColumnResponse> getProjectBoard(
@@ -707,63 +727,49 @@ public class ProjectServiceImpl implements ProjectService {
             Integer sprintId, String keyword, Integer assigneeId,
             TaskPriority priority, TaskType taskType) {
 
-        // 1. VALIDATE HỆ THỐNG PHÂN CẤP
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND));
 
         if (!project.getWorkspace().getId().equals(workspaceId) ||
             !project.getWorkspace().getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Project does not belong to this workspace or company.");
+            throw new BadRequestException(ERROR_PROJECT_WRONG_HIERARCHY);
         }
 
-        // 2. TỰ ĐỘNG GIẢI QUYẾT SPRINT ID
         Integer targetSprintId = sprintId;
         boolean isBacklog = false;
 
         if (targetSprintId == null) {
-            // Nếu client không gửi ID -> Tìm Sprint đang chạy (IN_PROGRESS)
             List<Sprint> activeSprints = sprintRepository.findActiveSprintsByProjectId(
                 projectId, Collections.singletonList(SprintStatus.IN_PROGRESS)
             );
             targetSprintId = activeSprints.isEmpty() ? -1 : activeSprints.get(0).getId();
         } else if (targetSprintId == 0) {
-            // Client gửi 0 -> Backlog
             isBacklog = true;
             targetSprintId = null;
         }
 
-        // 3. LẤY DANH SÁCH CỘT (STATUS)
         List<com.quanlyduan.project_manager_api.model.ProjectStatus> statuses =
                 projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId);
 
-        // 4. TẠO SPECIFICATION ĐỂ LỌC TASK
         Specification<Task> spec = TaskSpecification.filterTasks(
-                projectId, targetSprintId, isBacklog, keyword, assigneeId, priority, taskType, null, 
-                false // *** QUAN TRỌNG: isArchived = false ***
+                projectId, targetSprintId, isBacklog, keyword, assigneeId, priority, taskType, null, false
         );
 
-        // 5. LẤY TASK TỪ DB (1 Query duy nhất, sort theo thứ tự trong cột)
-        List<Task> tasks = taskRepository.findAll(spec, Sort.by("sortOrder").ascending());
+        List<Task> tasks = taskRepository.findAll(spec, Sort.by(SORT_FIELD_SORT_ORDER).ascending());
 
-        // 6. NHÓM TASK THEO STATUS ID (Grouping in Memory)
         Map<Integer, List<Task>> tasksByStatus = tasks.stream()
                 .filter(t -> t.getStatus() != null)
                 .collect(Collectors.groupingBy(t -> t.getStatus().getId()));
 
-        // 7. BUILD RESPONSE
         List<BoardColumnResponse> board = new ArrayList<>();
 
         for (com.quanlyduan.project_manager_api.model.ProjectStatus status : statuses) {
             List<Task> tasksInColumn = tasksByStatus.getOrDefault(status.getId(), Collections.emptyList());
 
-            // Sử dụng this.mapToTaskSummaryResponse để có cấu trúc JSON đầy đủ (Tags, Nested Objects)
             List<TaskSummaryResponse> taskResponses = tasksInColumn.stream()
                     .map(this::mapToTaskSummaryResponse)
                     .collect(Collectors.toList());
 
-            // Tạo đối tượng cột
             board.add(BoardColumnResponse.builder()
                     .statusId(status.getId())
                     .statusName(status.getName())
@@ -777,9 +783,6 @@ public class ProjectServiceImpl implements ProjectService {
         return board;
     }
 
-    // ======================================================
-    // US-S4-8-9-11: Lọc và Phân trang Task (List View) 
-    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<TaskSummaryResponse> getProjectTaskList(
@@ -788,132 +791,95 @@ public class ProjectServiceImpl implements ProjectService {
             List<Integer> statusIds,
             int page, int size, String sortBy, String sortDir) {
 
-        // 1. VALIDATE HỆ THỐNG PHÂN CẤP
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND_ID + projectId));
 
         if (!project.getWorkspace().getId().equals(workspaceId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Project does not belong to the specified Workspace.");
+            throw new BadRequestException(ERROR_PROJECT_WRONG_WORKSPACE);
         }
+        
         if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Workspace does not belong to the specified Company.");
+            throw new BadRequestException(ERROR_WORKSPACE_WRONG_COMPANY);
         }
 
-        // 2. CHUẨN BỊ THAM SỐ CHO SPECIFICATION
-        // Xử lý logic Backlog: Nếu client gửi sprintId = 0 thì coi là Backlog
         boolean isBacklog = (sprintId != null && sprintId == 0);
 
-        // 3. GỌI FILTER SPECIFICATION
         Specification<Task> spec = TaskSpecification.filterTasks(
-                projectId, sprintId, isBacklog, search, assigneeId, priority, null, statusIds, 
-                false // *** QUAN TRỌNG: isArchived = false ***
+                projectId, sprintId, isBacklog, search, assigneeId, priority, null, statusIds, false
         );
 
-        // 4. XỬ LÝ SORT
         Map<String, String> sortMap = Map.of(
             "title", "title",
             "dueDate", "dueDate",
             "priority", "priority",
-            "status", "status.name" // Sort theo tên status
+            "status", "status.name"
         );
+        
         Sort sort = SortUtils.createSort(sortBy, sortDir, "id", sortMap);
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        // 5. QUERY DB & MAP RESPONSE
         Page<Task> taskPage = taskRepository.findAll(spec, pageable);
-        
-        // *** CẬP NHẬT: Sử dụng mapToTaskSummaryResponse để lấy cấu trúc JSON mới ***
         Page<TaskSummaryResponse> responsePage = taskPage.map(this::mapToTaskSummaryResponse);
 
         return new PageResponseDTO<>(responsePage);
     }
 
-    // ======================================================
-    // US-S4-10: Nhóm Task (Grouping View) - 
-    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public Map<String, List<TaskSummaryResponse>> getTasksGroupedBy(
             Integer companyId, Integer workspaceId, Integer projectId,
             String groupBy, Integer sprintId, String search) {
 
-        // 1. VALIDATE HỆ THỐNG PHÂN CẤP (Hierarchy Check)
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND_ID + projectId));
 
         if (!project.getWorkspace().getId().equals(workspaceId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Project does not belong to the specified Workspace.");
+            throw new BadRequestException(ERROR_PROJECT_WRONG_WORKSPACE);
         }
+        
         if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Workspace does not belong to the specified Company.");
+            throw new BadRequestException(ERROR_WORKSPACE_WRONG_COMPANY);
         }
 
-        // 2. QUERY DATA
-        // Xử lý logic Backlog (0 -> Backlog)
         boolean isBacklog = (sprintId != null && sprintId == 0);
 
-        // Specification: Thêm tham số cuối cùng là FALSE (isArchived)
         Specification<Task> spec = TaskSpecification.filterTasks(
-                projectId, sprintId, isBacklog, search, null, null, null, null, 
-                false // *** QUAN TRỌNG: isArchived = false ***
+                projectId, sprintId, isBacklog, search, null, null, null, null, false
         );
 
         List<Task> tasks = taskRepository.findAll(spec);
-
-        // 3. GROUPING LOGIC (Java Streams)
-        
-        // Helper mapper để tái sử dụng
         java.util.function.Function<Task, TaskSummaryResponse> mapper = this::mapToTaskSummaryResponse;
 
-        if ("assignee".equalsIgnoreCase(groupBy)) {
-            // Nhóm theo Tên người được giao
+        if (GROUP_BY_ASSIGNEE.equalsIgnoreCase(groupBy)) {
             return tasks.stream().collect(Collectors.groupingBy(
-                t -> t.getAssignee() != null ? t.getAssignee().getFullName() : "Unassigned",
-                Collectors.mapping(mapper, Collectors.toList()) // Dùng mapper mới
+                t -> t.getAssignee() != null ? t.getAssignee().getFullName() : LABEL_UNASSIGNED,
+                Collectors.mapping(mapper, Collectors.toList())
             ));
-
-        } else if ("priority".equalsIgnoreCase(groupBy)) {
-             // Nhóm theo Độ ưu tiên
+        } else if (GROUP_BY_PRIORITY.equalsIgnoreCase(groupBy)) {
              return tasks.stream()
-                 .filter(t -> t.getPriority() != null) // Lọc bỏ nếu priority null
+                 .filter(t -> t.getPriority() != null)
                  .collect(Collectors.groupingBy(
-                     t -> t.getPriority().name(), // Group theo tên Enum (HIGH, LOW...)
-                     Collectors.mapping(mapper, Collectors.toList()) // Dùng mapper mới
+                     t -> t.getPriority().name(),
+                     Collectors.mapping(mapper, Collectors.toList())
                  ));
-
-        } else if ("status".equalsIgnoreCase(groupBy)) {
-             // Nhóm theo Trạng thái
+        } else if (GROUP_BY_STATUS.equalsIgnoreCase(groupBy)) {
              return tasks.stream()
                  .filter(t -> t.getStatus() != null)
                  .collect(Collectors.groupingBy(
                      t -> t.getStatus().getName(),
-                     Collectors.mapping(mapper, Collectors.toList()) // Dùng mapper mới
+                     Collectors.mapping(mapper, Collectors.toList())
                  ));
-                 
-        } else if ("sprint".equalsIgnoreCase(groupBy)) {
-             // Nhóm theo Sprint
+        } else if (GROUP_BY_SPRINT.equalsIgnoreCase(groupBy)) {
              return tasks.stream()
                  .collect(Collectors.groupingBy(
-                     // Nếu có sprint -> lấy tên, nếu null -> gom vào "Backlog"
-                     t -> t.getSprint() != null ? t.getSprint().getName() : "Backlog",
-                     Collectors.mapping(mapper, Collectors.toList()) // Dùng mapper mới
+                     t -> t.getSprint() != null ? t.getSprint().getName() : LABEL_BACKLOG,
+                     Collectors.mapping(mapper, Collectors.toList())
                  ));
         }
 
-        // Sửa thông báo sang tiếng Anh
-        throw new BadRequestException("Invalid groupBy parameter. Use 'assignee', 'priority', 'status' or 'sprint'.");
+        throw new BadRequestException(ERROR_INVALID_GROUP_BY);
     }
 
-    
-    // ======================================================
-    // API XEM LỊCH (CALENDAR VIEW)
-    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public List<TaskSummaryResponse> getTaskCalendar(
@@ -921,49 +887,28 @@ public class ProjectServiceImpl implements ProjectService {
             LocalDate from, LocalDate to,
             String keyword, Integer assigneeId, TaskPriority priority, TaskType taskType) {
 
-        // 1. VALIDATE HỆ THỐNG PHÂN CẤP (Hierarchy Validation)
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND_ID + projectId));
 
-        // Kiểm tra Project có thuộc Workspace này không
         if (!project.getWorkspace().getId().equals(workspaceId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Project does not belong to the specified Workspace.");
+            throw new BadRequestException(ERROR_PROJECT_WRONG_WORKSPACE);
         }
 
-        // Kiểm tra Workspace có thuộc Company này không
         if (!project.getWorkspace().getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Workspace does not belong to the specified Company.");
+            throw new BadRequestException(ERROR_WORKSPACE_WRONG_COMPANY);
         }
 
-        // 2. TẠO SPECIFICATION (Bộ lọc)
-        // Gọi hàm filterTasksForCalendar trong TaskSpecification để xử lý logic giao thoa thời gian (Date Range Overlap)
         Specification<Task> spec = TaskSpecification.filterTasksForCalendar(
-                projectId,
-                from, to, // Khoảng thời gian View (Ví dụ: 01/10 - 31/10)
-                keyword,
-                assigneeId,
-                priority,
-                taskType
+                projectId, from, to, keyword, assigneeId, priority, taskType
         );
 
-        // 3. QUERY DATABASE
-        // Lấy tất cả task thỏa mãn điều kiện, sắp xếp theo ngày bắt đầu tăng dần để hiển thị đẹp trên lịch
-        // Lưu ý: Không phân trang (Pagination) ở đây vì Calendar thường load hết event trong khung nhìn
         List<Task> tasks = taskRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "startDate"));
 
-        // 4. MAP SANG DTO & TRẢ VỀ
-        // Sử dụng hàm helper mapToTaskSummaryResponse (đã nâng cấp Nested Object) để dữ liệu đồng nhất với Board/Backlog
         return tasks.stream()
                 .map(this::mapToTaskSummaryResponse)
                 .collect(Collectors.toList());
     }
 
-    // ======================================================
-    // LOGIC MỚI: XEM DANH SÁCH ĐÃ LƯU TRỮ (VIEW ARCHIVE)
-    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<TaskSummaryResponse> getArchivedTasks(
@@ -971,63 +916,40 @@ public class ProjectServiceImpl implements ProjectService {
             String keyword, Integer assigneeId, TaskPriority priority, TaskType taskType,
             int page, int size) {
         
-        // 1. Validate Project tồn tại
         if (!projectRepository.existsById(projectId)) {
-            throw new ResourceNotFoundException("Project not found with ID: " + projectId);
+            throw new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND_ID + projectId);
         }
 
-        // 2. Gọi Specification để lọc
-        // Lưu ý tham số cuối cùng là TRUE (isArchived = true)
         Specification<Task> spec = TaskSpecification.filterTasks(
-            projectId, 
-            null,   // sprintId (Archived thường ko quan tâm sprint, hoặc để null để lấy all)
-            false,  // isBacklog (false vì archived ko phải backlog active)
-            keyword, 
-            assigneeId, 
-            priority, 
-            taskType, 
-            null,   // statusIds
-            true    // *** QUAN TRỌNG: isArchived = true ***
+            projectId, null, false, keyword, assigneeId, priority, taskType, null, true
         );
         
-        // 3. Phân trang, sắp xếp theo ngày cập nhật mới nhất (để thấy task vừa archive ở đầu)
         Pageable pageable = PageRequest.of(page, size, Sort.by("updatedAt").descending());
-        
         Page<Task> tasks = taskRepository.findAll(spec, pageable);
         
-        // 4. Map và trả về
         return new PageResponseDTO<>(tasks.map(this::mapToTaskSummaryResponse));
     }
 
-    // ------------------------------------------------------------------------
-    // NHÓM CHỨC NĂNG: QUẢN LÝ THÀNH VIÊN & LỜI MỜI
-    // ------------------------------------------------------------------------
-
-    // 1. LẤY DANH SÁCH THÀNH VIÊN (Cơ bản)
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<ProjectMemberResponse> getProjectMembers(
             Integer projectId, int page, int size, String sortBy, String sortDir) {
 
-        // 1. Định nghĩa Map sắp xếp
         Map<String, String> sortMapping = Map.of(
-            "joinedAt", "joinedAt",
+            SORT_FIELD_JOINED_AT, SORT_FIELD_JOINED_AT,
             "name", "user.fullName",
             "email", "user.email",
             "role", "role.roleName",
             "phone", "user.phoneNumber"
         );
 
-        // 2. Tạo Pageable
-        Pageable pageable = createPageable(page, size, sortBy, sortDir, "joinedAt", sortMapping);
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, SORT_FIELD_JOINED_AT, sortMapping);
 
-        // 3. Query DB, Map và trả về
         Page<ProjectMember> membersPage = projectMemberRepository.findByProject_Id(projectId, pageable);
         Page<ProjectMemberResponse> dtoPage = membersPage.map(this::mapToProjectMemberResponse);
         return new PageResponseDTO<>(dtoPage);
     }
 
-    // 2. TÌM KIẾM THÀNH VIÊN (Nâng cao)
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<ProjectMemberResponse> searchProjectMembers(
@@ -1035,122 +957,90 @@ public class ProjectServiceImpl implements ProjectService {
             String searchName, String searchEmail, String searchRoleName, String searchPhone,
             int page, int size, String sortBy, String sortDir) {
 
-        // 1. Định nghĩa Map sắp xếp
         Map<String, String> sortMapping = Map.of(
-            "joinedAt", "joinedAt",
+            SORT_FIELD_JOINED_AT, SORT_FIELD_JOINED_AT,
             "name", "user.fullName",
             "email", "user.email",
             "role", "role.roleName",
             "phone", "user.phoneNumber"
         );
 
-        // 2. Tạo Pageable
-        Pageable pageable = createPageable(page, size, sortBy, sortDir, "joinedAt", sortMapping);
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, SORT_FIELD_JOINED_AT, sortMapping);
 
-        // 3. Tạo Specification
         Specification<ProjectMember> spec = ProjectMemberSpecification.filterMembers(
             projectId, searchName, searchEmail, searchRoleName, searchPhone
         );
 
-        // 4. Query DB, Map và trả về
         Page<ProjectMember> membersPage = projectMemberRepository.findAll(spec, pageable);
         Page<ProjectMemberResponse> dtoPage = membersPage.map(this::mapToProjectMemberResponse);
         return new PageResponseDTO<>(dtoPage);
     }
 
-    /**
-     * Cập nhật vai trò của thành viên dự án.
-     */
     @Override
     @Transactional
-    @LogActivity(action = "UPDATE", entityType = "PROJECT", description = "Update Project Member Role")
+    @LogActivity(action = ACTION_UPDATE, entityType = ENTITY_PROJECT, description = DESC_UPDATE_MEMBER_ROLE)
     public ProjectMemberResponse updateProjectMemberRole(Integer projectId, Integer memberId, String newRoleCode) {
-        // 1. Lấy thông tin thành viên
         ProjectMember member = projectMemberRepository.findById(memberId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project member not found with ID: " + memberId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_MEMBER_NOT_FOUND_ID + memberId));
 
-        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên này thuộc đúng dự án
         if (!member.getProject().getId().equals(projectId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new ResourceNotFoundException("Member not found in this project.");
+            throw new ResourceNotFoundException(ERROR_MEMBER_NOT_IN_PROJECT);
         }
 
-        // 3. Kiểm tra nghiệp vụ: Không cho phép đổi vai trò của chính mình
         User admin = securityService.getCurrentAuthenticatedUser();
         if (admin.getId().equals(member.getUser().getId())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("You cannot change your own role.");
+            throw new BadRequestException(ERROR_CHANGE_OWN_ROLE);
         }
 
-        // 4. Kiểm tra nếu vai trò mới trùng với vai trò hiện tại
         if (member.getRole().getRoleCode().equals(newRoleCode)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("New role is the same as the current role, no update needed.");
+            throw new BadRequestException(ERROR_SAME_ROLE);
         }
 
-        // 5. Tìm vai trò (Role) mới
         Role newRole = roleRepository.findFirstByRoleCode(newRoleCode)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with code: " + newRoleCode));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_ROLE_NOT_FOUND + newRoleCode));
 
-        // 6. Kiểm tra nghiệp vụ: Đảm bảo vai trò mới là CẤP DỰ ÁN
         if (newRole.getLevel() != RoleLevel.PROJECT) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Invalid role. Must be a PROJECT level role.");
+            throw new BadRequestException(ERROR_INVALID_ROLE_LEVEL);
         }
 
-        // 7. Cập nhật vai trò
         member.setRole(newRole);
         ProjectMember updatedMember = projectMemberRepository.save(member);
 
-        // 8. Trả về DTO đã cập nhật
         return mapToProjectMemberResponse(updatedMember);
     }
 
-    /**
-     * LOGIC: MỜI THÀNH VIÊN VÀO DỰ ÁN (Xử lý Nội bộ/Bên ngoài).
-     */
     @Override
     @Transactional
-    @LogActivity(action = "INVITE", entityType = "PROJECT_MEMBER", description = "Invite member to Project")
+    @LogActivity(action = ACTION_INVITE, entityType = ENTITY_PROJECT_MEMBER, description = DESC_INVITE_MEMBER)
     public ProjectInvitation inviteMemberToProject(Integer projectId, InviteProjectMemberRequest request) {
-        // 1. Tìm Project và lấy thông tin người mời/Công ty
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND));
 
         User inviter = securityService.getCurrentAuthenticatedUser();
         Integer companyId = project.getWorkspace().getCompany().getId();
 
-        // 2. Tìm Role và kiểm tra cấp độ
         Role role = roleRepository.findFirstByRoleCode(request.getRoleCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + request.getRoleCode()));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_ROLE_NOT_FOUND + request.getRoleCode()));
 
         if (role.getLevel() != RoleLevel.PROJECT) {
-            throw new BadRequestException("Invalid role. Must be a PROJECT level role.");
+            throw new BadRequestException(ERROR_INVALID_ROLE_LEVEL);
         }
 
         String email = request.getEmail();
         Optional<User> existingUserOpt = userRepository.findByEmail(email);
 
-        // =====================================================================
-        // 3. XỬ LÝ LOGIC: Phân biệt Nội bộ/Bên ngoài
-        // =====================================================================
         if (existingUserOpt.isPresent()) {
             User existingUser = existingUserOpt.get();
 
-            // 3.1. Nếu đã ở trong dự án -> Báo lỗi
             if (projectMemberRepository.findByProject_IdAndUser_Id(projectId, existingUser.getId()).isPresent()) {
-                throw new BadRequestException("This user is already a member of the project.");
+                throw new BadRequestException(ERROR_ALREADY_MEMBER);
             }
 
-            // 3.2. Kiểm tra có phải thành viên công ty ACTIVE không
             boolean isCompanyMember = companyMemberRepository.existsByCompany_IdAndUser_IdAndStatus(
                     companyId, existingUser.getId(), MemberStatus.ACTIVE
             );
 
             if (isCompanyMember) {
-                // ==> TRƯỜNG HỢP NỘI BỘ: THÊM THẲNG vào dự án
                 ProjectMember newMember = ProjectMember.builder()
                         .project(project)
                         .user(existingUser)
@@ -1159,31 +1049,19 @@ public class ProjectServiceImpl implements ProjectService {
                         .build();
                 projectMemberRepository.save(newMember);
 
-                // Gửi mail thông báo
                 sendProjectNotificationEmail(inviter, existingUser, project, role);
-                return null; // Kết thúc
+                return null; 
             }
         }
-
-        // =====================================================================
-        // ==> TRƯỜNG HỢP BÊN NGOÀI (Chưa có TK hoặc Không phải nhân viên Cty)
-        // =====================================================================
         
-        // 🔴 LOGIC CHẶN LÁCH LUẬT QUOTA CÔNG TY:
-        // Người ngoài chỉ được mời với quyền GUEST. Nếu muốn set quyền ADMIN/MEMBER, phải mời vào Công ty trước.
-        if (!role.getRoleCode().equalsIgnoreCase("GUEST_PROJECT")) {
-            throw new BadRequestException(
-                "Security Policy: Outsiders can only be invited with the Guest role (GUEST_PROJECT). " +
-                "To assign higher roles like Admin or Member, they must be invited to the Company first."
-            );
+        if (!role.getRoleCode().equalsIgnoreCase(ROLE_GUEST_PROJECT)) {
+            throw new BadRequestException(ERROR_INVITE_GUEST_ONLY);
         }
 
-        // 4. Kiểm tra lời mời trùng đang chờ xử lý
         if (projectInvitationRepository.existsByProject_IdAndEmailAndStatus(projectId, email, InvitationStatus.PENDING)) {
-            throw new BadRequestException("An invitation is already pending for this email.");
+            throw new BadRequestException(ERROR_PENDING_INVITATION);
         }
 
-        // 5. Tạo Token & Lưu DB
         String token = UUID.randomUUID().toString();
         ProjectInvitation invitation = ProjectInvitation.builder()
                 .project(project)
@@ -1197,31 +1075,24 @@ public class ProjectServiceImpl implements ProjectService {
 
         ProjectInvitation projectInvitation = projectInvitationRepository.save(invitation);
 
-        // 6. Gửi Email Mời
         sendProjectInvitationEmail(inviter, email, project, role, token);
         return projectInvitation;
     }
 
-    /**
-     * 1. Xem chi tiết lời mời (Public).
-     */
     @Override
     @Transactional(readOnly = true)
     public ProjectInvitationDetailsResponse getProjectInvitationDetails(String token) {
         ProjectInvitation invitation = projectInvitationRepository.findByToken(token)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Invitation does not exist or token is invalid."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_INVALID_INVITATION));
 
         if (invitation.getStatus() != InvitationStatus.PENDING) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("This invitation is no longer valid.");
+            throw new BadRequestException(ERROR_INVITATION_PROCESSED);
         }
+        
         if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Invitation has expired.");
+            throw new BadRequestException(ERROR_INVITATION_EXPIRED);
         }
 
-        // Kiểm tra xem user có tồn tại chưa
         boolean accountExists = userRepository.existsByEmail(invitation.getEmail());
 
         return ProjectInvitationDetailsResponse.builder()
@@ -1233,31 +1104,23 @@ public class ProjectServiceImpl implements ProjectService {
                 .build();
     }
 
-    /**
-     * 2. Chấp nhận lời mời (User đã login).
-     */
     @Override
     @Transactional
-    @LogActivity(action = "JOIN", entityType = "PROJECT_MEMBER", description = "Accept project invitation")
+    @LogActivity(action = ACTION_JOIN, entityType = ENTITY_PROJECT_MEMBER, description = DESC_ACCEPT_INVITATION)
     public void acceptProjectInvitation(String token) {
         User currentUser = securityService.getCurrentAuthenticatedUser();
 
         ProjectInvitation invitation = projectInvitationRepository.findByToken(token)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid invitation."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_INVALID_INVITATION));
 
-        // Kiểm tra email khớp
         if (!invitation.getEmail().equalsIgnoreCase(currentUser.getEmail())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Account email does not match the invitation email.");
+            throw new BadRequestException(ERROR_EMAIL_MISMATCH);
         }
-        // Kiểm tra trạng thái
+        
         if (invitation.getStatus() != InvitationStatus.PENDING) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Invitation is no longer valid.");
+            throw new BadRequestException(ERROR_INVITATION_PROCESSED);
         }
 
-        // Tạo Project Member
         ProjectMember newMember = ProjectMember.builder()
                 .project(invitation.getProject())
                 .user(currentUser)
@@ -1266,19 +1129,13 @@ public class ProjectServiceImpl implements ProjectService {
                 .build();
         projectMemberRepository.save(newMember);
 
-        // Cập nhật trạng thái lời mời
         invitation.setStatus(InvitationStatus.ACCEPTED);
         projectInvitationRepository.save(invitation);
 
-        String welcomeMsg = String.format("has joined the project <strong>%s</strong> 🎉", 
-                invitation.getProject().getName());
-        
+        String welcomeMsg = String.format(LOG_JOINED_PROJECT, invitation.getProject().getName());
         ActivityLogContext.setDetail(welcomeMsg);
     }
 
-    // =================================================================================
-    // ⏳ LOGIC LẤY DANH SÁCH LỜI MỜI DỰ ÁN (CÓ LỌC, TÌM KIẾM & TẠO LINK)
-    // =================================================================================
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<ProjectInvitationResponse> getProjectInvitations(
@@ -1287,111 +1144,130 @@ public class ProjectServiceImpl implements ProjectService {
             String statusStr,
             int page, int size, String sortBy, String sortDir
     ) {
-        // 1. Kiểm tra Project tồn tại
         if (!projectRepository.existsById(projectId)) {
-            throw new ResourceNotFoundException("Project not found with id: " + projectId);
+            throw new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND_ID + projectId);
         }
 
-        // 2. Cấu hình Map ánh xạ cho việc sắp xếp (Sort)
-        // Lưu ý: Key là tên field FE gửi lên, Value là tên field trong Entity (JPA path)
         Map<String, String> sortMapping = Map.of(
-            "createdAt", "createdAt",
+            SORT_FIELD_CREATED_AT, SORT_FIELD_CREATED_AT,
             "email", "email",
             "role", "role.roleCode",
             "status", "status"
         );
 
-        // 3. Tạo Pageable
-        // (Giả sử bạn xử lý logic sort thủ công tại chỗ như code mẫu bạn gửi)
-        org.springframework.data.domain.Sort sort = sortDir.equalsIgnoreCase("asc")
-                ? org.springframework.data.domain.Sort.by(sortMapping.getOrDefault(sortBy, "createdAt")).ascending()
-                : org.springframework.data.domain.Sort.by(sortMapping.getOrDefault(sortBy, "createdAt")).descending();
+        org.springframework.data.domain.Sort sort = sortDir.equalsIgnoreCase(SORT_DIR_ASC)
+                ? org.springframework.data.domain.Sort.by(sortMapping.getOrDefault(sortBy, SORT_FIELD_CREATED_AT)).ascending()
+                : org.springframework.data.domain.Sort.by(sortMapping.getOrDefault(sortBy, SORT_FIELD_CREATED_AT)).descending();
         
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        // 4. Xử lý bộ lọc
         String searchKeyword = (keyword != null) ? keyword.trim() : "";
 
-        // Status: Mặc định là PENDING nếu không truyền
         InvitationStatus status = InvitationStatus.PENDING;
         if (statusStr != null && !statusStr.isEmpty()) {
             try {
                 status = InvitationStatus.valueOf(statusStr.toUpperCase());
             } catch (IllegalArgumentException e) {
-                // Nếu sai format, giữ mặc định PENDING hoặc xử lý tùy ý
                 status = InvitationStatus.PENDING;
             }
         }
 
-        // 5. Gọi Repository (Đảm bảo Repository đã có hàm này)
         Page<ProjectInvitation> invitationPage = projectInvitationRepository
                 .findByProject_IdAndStatusAndEmailContainingIgnoreCase(projectId, status, searchKeyword, pageable);
 
-        // 6. Map sang DTO
         Page<ProjectInvitationResponse> dtoPage = invitationPage.map(this::mapToInvitationResponse);
 
-        // 7. Trả về kết quả
         return new PageResponseDTO<>(dtoPage);
     }
 
-    private ProjectInvitationResponse mapToInvitationResponse(ProjectInvitation invitation) {
-        String fullLink = "";
-
-        // Chỉ tạo link nếu trạng thái là PENDING
-        if (invitation.getStatus() == InvitationStatus.PENDING) {
-            // Cấu trúc: [FRONTEND_URL]/accept-project-invitation?token=[TOKEN]
-            fullLink = frontendUrl + "/accept-project-invitation?token=" + invitation.getToken();
-        }
-
-        return ProjectInvitationResponse.builder()
-                .id(invitation.getId())
-                .email(invitation.getEmail())
-                .roleCode(invitation.getRole().getRoleCode()) // Code của Role
-                .status(invitation.getStatus().name())
-                .invitedAt(invitation.getCreatedAt())
-                .invitationLink(fullLink) // <--- Trường mới quan trọng
-                
-                // Mapping thông tin người mời (Kiểm tra null để tránh lỗi)
-                .inviterName(invitation.getInvitedBy() != null ? invitation.getInvitedBy().getFullName() : "System")
-                .inviterAvatar(invitation.getInvitedBy() != null ? invitation.getInvitedBy().getAvatarUrl() : null)
-                .build();
-    }
-
-
-    // HỦY LỜI MỜI 
     @Override
     @Transactional
     public void cancelProjectInvitation(Integer projectId, Integer invitationId) {
         ProjectInvitation invitation = projectInvitationRepository.findById(invitationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Invitation not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_INVALID_INVITATION));
 
         if (!invitation.getProject().getId().equals(projectId)) {
-            throw new BadRequestException("Invitation does not belong to this project.");
+            throw new BadRequestException(ERROR_INVITATION_WRONG_PROJECT);
         }
 
-        // Xóa cứng (Hard Delete) hoặc chuyển trạng thái sang CANCELLED
-        // Ở đây mình chọn xóa luôn cho sạch Database vì là lời mời chưa dùng
         projectInvitationRepository.delete(invitation);
     }
 
-    // ------------------------------------------------------------------------
-    // PRIVATE HELPER METHODS (MAPPERS & UTILS)
-    // ------------------------------------------------------------------------
+    // --- CAC HAM PRIVATE HO TRO NGHIEP VU ---
 
-    /**
-     * Helper: Tạo Pageable chung cho cả Project và ProjectMember.
-     */
+    private boolean isProvided(String value) {
+        return value != null && !value.isBlank() && !"string".equalsIgnoreCase(value.trim());
+    }
+
     private Pageable createPageable(int page, int size, String sortBy, String sortDir,
                                     String defaultSortField, Map<String, String> sortMapping) {
-
         Sort sort = SortUtils.createSort(sortBy, sortDir, defaultSortField, sortMapping);
         return PageRequest.of(page, size, sort);
     }
 
+    private void sendProjectNotificationEmail(User inviter, User user, Project project, Role role) {
+        try {
+            String projectUrl = frontendUrl + "/companies/" + project.getWorkspace().getCompany().getId() +
+                                "/workspaces/" + project.getWorkspace().getId() +
+                                "/projects/" + project.getId() + "/board";
 
-    /**
-     * Helper: Map Project Entity sang ProjectResponse DTO.
-     */
+            String subject = EMAIL_SUBJECT_ADDED + project.getName();
+            String body = String.format(
+                EMAIL_BODY_ADDED,
+                user.getFullName(), inviter.getFullName(), project.getName(), role.getRoleName(), projectUrl
+            );
+            emailService.sendEmail(user.getEmail(), subject, body);
+        } catch (Exception e) {
+            // Bo qua loi gui mail de khong lam gian doan luong xu ly chinh
+        }
+    }
+
+    private void sendProjectInvitationEmail(User inviter, String email, Project project, Role role, String token) {
+        try {
+            String acceptUrl = frontendUrl + "/accept-project-invitation?token=" + token;
+            String subject = EMAIL_SUBJECT_INVITED + project.getName();
+            String body = String.format(
+                EMAIL_BODY_INVITED,
+                inviter.getFullName(), project.getName(), role.getRoleName(), acceptUrl
+            );
+            emailService.sendEmail(email, subject, body);
+        } catch (Exception e) {
+            // Bo qua loi gui mail de khong lam gian doan luong xu ly chinh
+        }
+    }
+
+    private void initDefaultStatuses(Project project) {
+        List<com.quanlyduan.project_manager_api.model.ProjectStatus> defaultStatuses = new ArrayList<>();
+
+        defaultStatuses.add(com.quanlyduan.project_manager_api.model.ProjectStatus.builder()
+                .project(project)
+                .name(DEFAULT_STATUS_TODO)
+                .color(DEFAULT_COLOR_TODO) 
+                .sortOrder(0)
+                .isCompletedStatus(false)
+                .build());
+
+        defaultStatuses.add(com.quanlyduan.project_manager_api.model.ProjectStatus.builder()
+                .project(project)
+                .name(DEFAULT_STATUS_IN_PROGRESS)
+                .color(DEFAULT_COLOR_IN_PROGRESS) 
+                .sortOrder(1)
+                .isCompletedStatus(false)
+                .build());
+
+        defaultStatuses.add(com.quanlyduan.project_manager_api.model.ProjectStatus.builder()
+                .project(project)
+                .name(DEFAULT_STATUS_DONE)
+                .color(DEFAULT_COLOR_DONE) 
+                .sortOrder(2)
+                .isCompletedStatus(true)
+                .build());
+
+        projectStatusRepository.saveAll(defaultStatuses);
+    }
+
+    // --- LOGIC MAPPING (ENTITY <-> DTO) ---
+
     private ProjectResponse toResponse(Project p) {
         return ProjectResponse.builder()
                 .id(p.getId())
@@ -1418,9 +1294,6 @@ public class ProjectServiceImpl implements ProjectService {
                 .build();
     }
 
-    /**
-     * Helper: Map ProjectMember Entity sang ProjectMemberResponse DTO.
-     */
     private ProjectMemberResponse mapToProjectMemberResponse(ProjectMember member) {
         return ProjectMemberResponse.builder()
                 .memberId(member.getId())
@@ -1435,25 +1308,20 @@ public class ProjectServiceImpl implements ProjectService {
                 .build();
     }
 
-    /**
-     * Helper: Map Task Entity sang TaskSummaryResponse DTO (Cấu trúc Nested).
-     */
     public TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
         User assignee = task.getAssignee();
         Epic epic = task.getEpic();
         com.quanlyduan.project_manager_api.model.ProjectStatus status = task.getStatus();
 
-        // 1. Xử lý Subtask Summary
         int totalSubtasks = 0;
         int completedSubtasks = 0;
         if (task.getSubTasks() != null) {
             totalSubtasks = task.getSubTasks().size();
             completedSubtasks = (int) task.getSubTasks().stream()
-                    .filter(st -> st.getStatus() == SubTaskStatus.DONE) // Giả sử trạng thái hoàn thành là DONE
+                    .filter(st -> st.getStatus() == SubTaskStatus.DONE)
                     .count();
         }
 
-        // 2. Xử lý Tags
         List<TaskSummaryResponse.TagInfo> tagInfos = new ArrayList<>();
         if (task.getTags() != null) {
             tagInfos = task.getTags().stream()
@@ -1465,7 +1333,6 @@ public class ProjectServiceImpl implements ProjectService {
                     .collect(Collectors.toList());
         }
 
-        // 3. Build DTO
         return TaskSummaryResponse.builder()
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
@@ -1480,32 +1347,22 @@ public class ProjectServiceImpl implements ProjectService {
                 .startDate(task.getStartDate())
                 .dueDate(task.getDueDate())
                 .sortOrder(task.getSortOrder())
-
-                // Mapping Status Object
                 .status(status != null ? TaskSummaryResponse.StatusInfo.builder()
                         .id(status.getId())
                         .name(status.getName())
                         .color(status.getColor())
                         .build() : null)
-
-                // Mapping Epic Object
                 .epic(epic != null ? TaskSummaryResponse.EpicInfo.builder()
                         .id(epic.getId())
                         .name(epic.getName())
                         .color(epic.getColor())
                         .build() : null)
-
-                // Mapping Assignee Object
                 .assignee(assignee != null ? TaskSummaryResponse.UserInfo.builder()
                         .id(assignee.getId())
                         .name(assignee.getFullName())
                         .avatarUrl(assignee.getAvatarUrl())
                         .build() : null)
-
-                // Mapping Tags List
                 .tags(tagInfos)
-
-                // Mapping Subtask Summary
                 .subtaskSummary(TaskSummaryResponse.SubtaskSummary.builder()
                         .total(totalSubtasks)
                         .completed(completedSubtasks)
@@ -1513,84 +1370,22 @@ public class ProjectServiceImpl implements ProjectService {
                 .build();
     }
 
-    // --- Helper: Gửi mail thông báo (Nội bộ - đã là member Cty) ---
-    private void sendProjectNotificationEmail(User inviter, User user, Project project, Role role) {
-        try {
-            String projectUrl = frontendUrl + "/companies/" + project.getWorkspace().getCompany().getId() +
-                                "/workspaces/" + project.getWorkspace().getId() +
-                                "/projects/" + project.getId() + "/board";
+    private ProjectInvitationResponse mapToInvitationResponse(ProjectInvitation invitation) {
+        String fullLink = "";
 
-            String subject = "You have been added to the project: " + project.getName();
-            String body = String.format(
-                "Hi %s,<br><br>" +
-                "%s has included you into project <strong>%s</strong> with role <strong>%s</strong>.<br>" +
-                "Please access project with this link: <a href=\"%s\">View Project</a>",
-                user.getFullName(), inviter.getFullName(), project.getName(), role.getRoleName(), projectUrl
-            );
-            emailService.sendEmail(user.getEmail(), subject, body);
-        } catch (Exception e) {
-            System.err.println("Error sending internal project notification email: " + e.getMessage());
+        if (invitation.getStatus() == InvitationStatus.PENDING) {
+            fullLink = frontendUrl + "/accept-project-invitation?token=" + invitation.getToken();
         }
+
+        return ProjectInvitationResponse.builder()
+                .id(invitation.getId())
+                .email(invitation.getEmail())
+                .roleCode(invitation.getRole().getRoleCode())
+                .status(invitation.getStatus().name())
+                .invitedAt(invitation.getCreatedAt())
+                .invitationLink(fullLink)
+                .inviterName(invitation.getInvitedBy() != null ? invitation.getInvitedBy().getFullName() : LABEL_SYSTEM)
+                .inviterAvatar(invitation.getInvitedBy() != null ? invitation.getInvitedBy().getAvatarUrl() : null)
+                .build();
     }
-
-    // --- Helper: Gửi mail mời (Bên ngoài - cần chấp nhận) ---
-    private void sendProjectInvitationEmail(User inviter, String email, Project project, Role role, String token) {
-        try {
-            String acceptUrl = frontendUrl + "/accept-project-invitation?token=" + token;
-            String subject = "Project Invitation: " + project.getName();
-            String body = String.format(
-                "Hi,<br><br>" +
-                "%s has invited you into project<strong>%s</strong> with role <strong>%s</strong>.<br>" +
-                "Please click the link below to accept the invitation:<br>" +
-                "<a href=\"%s\">Accept Invitation</a><br><br>" +
-                "This link will expire in 7 days.",
-                inviter.getFullName(), project.getName(), role.getRoleName(), acceptUrl
-            );
-            emailService.sendEmail(email, subject, body);
-        } catch (Exception e) {
-            System.err.println("Error sending external project invitation email: " + e.getMessage());
-        }
-    }
-
-    
-
-    // ======================================================
-    // PRIVATE HELPER: TẠO STATUS MẶC ĐỊNH
-    // ======================================================
-    private void initDefaultStatuses(Project project) {
-        // Lưu ý: Sử dụng đường dẫn đầy đủ (Full Package Name) cho Entity ProjectStatus
-        // Để tránh nhầm lẫn với Enum ProjectStatus đã import ở trên đầu file
-        List<com.quanlyduan.project_manager_api.model.ProjectStatus> defaultStatuses = new ArrayList<>();
-
-        // 1. TO DO (Cần làm)
-        defaultStatuses.add(com.quanlyduan.project_manager_api.model.ProjectStatus.builder()
-                .project(project)
-                .name("To Do")
-                .color("#95a5a6") // Gray
-                .sortOrder(0)
-                .isCompletedStatus(false)
-                .build());
-
-        // 2. IN PROGRESS (Đang làm)
-        defaultStatuses.add(com.quanlyduan.project_manager_api.model.ProjectStatus.builder()
-                .project(project)
-                .name("In Progress")
-                .color("#3498db") // Blue
-                .sortOrder(1)
-                .isCompletedStatus(false)
-                .build());
-
-        // 3. DONE (Hoàn thành)
-        defaultStatuses.add(com.quanlyduan.project_manager_api.model.ProjectStatus.builder()
-                .project(project)
-                .name("Done")
-                .color("#2ecc71") // Green
-                .sortOrder(2)
-                .isCompletedStatus(true)
-                .build());
-
-        // Lưu tất cả vào DB
-        projectStatusRepository.saveAll(defaultStatuses);
-    }
-
 }

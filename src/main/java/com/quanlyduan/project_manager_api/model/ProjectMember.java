@@ -2,7 +2,11 @@ package com.quanlyduan.project_manager_api.model;
 
 import java.time.LocalDateTime;
 
-// JPA & Hibernate
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,78 +19,90 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-// Lombok
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-// Project Enums
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * Entity lưu trữ mối quan hệ thành viên giữa User và Project.
+ * Entity luu tru moi quan he thanh vien giua User va Project.
+ * Day la bang lien ket (Join Table) mo rong, xac dinh vai tro va quyen han 
+ * cua tung nguoi dung ben trong pham vi mot Du an cu the.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(
     name = "project_members", 
     uniqueConstraints = {
-        // Đảm bảo mỗi người dùng chỉ có một vai trò tại một dự án (Unique Project-User Pair)
+        /** Dam bao moi nguoi dung chi co duy nhat mot ban ghi thanh vien tai mot Du an. */
         @UniqueConstraint(columnNames = {"project_id", "user_id"})
     }
 )
 public class ProjectMember {
 
-    // ==========================================
-    // PRIMARY KEY
-    // ==========================================
+    // ======================================================
+    // 1. DINH DANH DU LIEU (PRIMARY KEY)
+    // ======================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // ID định danh
+    private Integer id;
 
-    // ==========================================
-    // RELATIONSHIPS (Quan hệ Entity)
-    // ==========================================
+    // ======================================================
+    // 2. LIEN KET THUC THE (RELATIONSHIPS)
+    // ======================================================
+    
+    /** Du an (Project) ma nguoi dung dang tham gia. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
-    private Project project; // Dự án liên quan
+    private Project project;
 
+    /** Nguoi dung tro thanh thanh vien cua du an. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user; // Người dùng liên quan
+    private User user;
 
+    /** Vai tro (Role) duoc gan cho thanh vien ben trong Du an nay (vi du: Developer, QA, Lead). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
-    private Role role; // Vai trò của thành viên trong dự án
+    private Role role;
 
-    // ==========================================
-    // MEMBER DETAILS & STATUS (Thông tin & Trạng thái)
-    // ==========================================
-    /**
-     * Map với ENUM('ACTIVE', 'REMOVED') hoặc ('ACTIVE', 'SUSPENDED', 'REMOVED').
-     * Trạng thái thành viên trong Dự án.
+    // ======================================================
+    // 3. TRANG THAI & HE THONG (STATUS & AUDIT)
+    // ======================================================
+
+    /** * Trang thai hoat dong cua thanh vien trong Du an.
+     * Gia tri: ACTIVE (Dang tham gia), REMOVED (Da roi khoi), SUSPENDED. 
      */
-    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private MemberStatus status = MemberStatus.ACTIVE;
+    private MemberStatus status;
 
-    // ==========================================
-    // TIMESTAMPS (Thời gian hệ thống)
-    // ==========================================
+    /** Thoi diem nguoi dung gia nhap vao Du an (tu dong sinh boi Hibernate). */
     @CreationTimestamp
-    @Column(name = "joined_at", updatable = false)
-    private LocalDateTime joinedAt; // Thời điểm tham gia dự án
+    @Column(name = "joined_at", updatable = false, nullable = false)
+    private LocalDateTime joinedAt;
 
+    /** Thoi diem cap nhat thong tin thanh vien lan cuoi cung. */
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
+    private LocalDateTime updatedAt;
 
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    public ProjectMember() {
+    }
+
+    public ProjectMember(Integer id, Project project, User user, Role role, 
+                         MemberStatus status, LocalDateTime joinedAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.project = project;
+        this.user = user;
+        this.role = role;
+        this.status = status;
+        this.joinedAt = joinedAt;
+        this.updatedAt = updatedAt;
+    }
 }

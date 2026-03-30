@@ -2,16 +2,12 @@ package com.quanlyduan.project_manager_api.model;
 
 import java.time.LocalDateTime;
 
-// JPA & Hibernate
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.CreationTimestamp;
-
-// Lombok
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,40 +21,37 @@ import lombok.NoArgsConstructor;
 @Table(name = "activity_logs")
 public class ActivityLog {
 
-    // ==========================================
-    // PRIMARY KEY
-    // ==========================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    // ==========================================
-    // ACTOR INFORMATION (Người thực hiện)
-    // ==========================================
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id")
     private Integer userId;
 
-    @Column(name = "action", nullable = false)
-    private String action; // CREATE, UPDATE, DELETE, COMMENT, LOGIN
+    @Column(name = "action", nullable = false, length = 50)
+    private String action;
 
-    // ==========================================
-    // TARGET ENTITY INFORMATION (Đối tượng bị tác động)
-    // ==========================================
-    @Column(name = "entity_type")
-    private String entityType; // PROJECT, TASK, SUBTASK
+    @Column(name = "entity_type", nullable = false, length = 50)
+    private String entityType;
 
     @Column(name = "entity_id")
     private Integer entityId;
-    
+
+    @Column(name = "entity_code", length = 100)
+    private String entityCode;
+
     @Column(name = "entity_name")
-    private String entityName; // Lưu tên: "Fix Bug Login", "TechVision"
+    private String entityName;
 
-    @Column(name = "entity_code")
-    private String entityCode; // Lưu mã: "ECOM-12", "CPW-11"
+    @Column(name = "new_value", columnDefinition = "LONGTEXT")
+    private String newValue;
 
-    // ==========================================
-    // HIERARCHY CONTEXT (Phân cấp dữ liệu 4 cấp độ)
-    // ==========================================
+    @Column(name = "old_value", columnDefinition = "LONGTEXT")
+    private String oldValue;
+
+    @Column(name = "performed_by_id")
+    private Integer performedById;
+
     @Column(name = "company_id")
     private Integer companyId;
 
@@ -68,32 +61,25 @@ public class ActivityLog {
     @Column(name = "project_id")
     private Integer projectId;
 
-    // ==========================================
-    // CHANGE TRACKING DETAILS (Chi tiết thay đổi)
-    // ==========================================
-    @Column(name = "old_value", columnDefinition = "TEXT")
-    private String oldValue;
+    @Column(name = "status", length = 20)
+    private String status;
 
-    @Column(name = "new_value", columnDefinition = "TEXT")
-    private String newValue; // Chứa nội dung mô tả chi tiết (ví dụ: "changed status from To Do to Done")
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    private String errorMessage;
 
-    // ==========================================
-    // SYSTEM & AUDIT INFORMATION (Thông tin hệ thống)
-    // ==========================================
-    @Column(name = "ip_address")
+    @Column(name = "execution_time_ms")
+    private Long executionTimeMs;
+
+    @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
-    @Column(name = "user_agent")
+    @Column(name = "user_agent", columnDefinition = "TEXT")
     private String userAgent;
-    
-    // Thêm @Builder.Default và khởi tạo giá trị mặc định luôn
-    @Builder.Default
-    @Column(name = "timestamp", nullable = false)
-    private LocalDateTime timestamp = LocalDateTime.now(); 
-    
-    // Hoặc nếu bạn muốn đồng nhất với created_at:
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
 
+    // Bat buoc phai co de truyen thoi gian hien tai, khac phuc loi SQL "NOT NULL"
+    @Column(name = "timestamp", nullable = false)
+    private LocalDateTime timestamp;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 }

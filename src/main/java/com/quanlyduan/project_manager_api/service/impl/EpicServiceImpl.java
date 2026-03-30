@@ -1,4 +1,3 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/EpicServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import java.util.List;
@@ -30,14 +29,41 @@ import com.quanlyduan.project_manager_api.service.EpicService;
 @Service
 public class EpicServiceImpl implements EpicService {
 
+    // Khai bao cac hang so de loai bo hardcode
+    public static final String ACTION_CREATE = "CREATE";
+    public static final String ACTION_UPDATE = "UPDATE";
+    public static final String ACTION_DELETE = "DELETE";
+
+    public static final String ENTITY_EPIC = "EPIC";
+
+    public static final String DESC_CREATE_EPIC = "Create new Epic";
+    public static final String DESC_UPDATE_EPIC = "Update Epic";
+    public static final String DESC_DELETE_EPIC = "Delete Epic";
+
+    public static final String ERROR_PROJECT_NOT_FOUND = "Project not found with ID: ";
+    public static final String ERROR_EPIC_NAME_EXISTS = "Epic name already exists in this project.";
+    public static final String ERROR_EPIC_NOT_FOUND = "Epic not found.";
+    public static final String ERROR_EPIC_NOT_FOUND_ID = "Epic not found with ID: ";
+    public static final String ERROR_MISMATCHED_PROJECT = "Mismatched project ID for this Epic.";
+    public static final String ERROR_INVALID_EPIC_STATUS = "Invalid Epic status: ";
+    public static final String ERROR_EPIC_CONTAINS_TASKS = "Cannot delete this Epic because it contains tasks. Please move or remove all tasks before deletion.";
+    public static final String ERROR_EPIC_WRONG_PROJECT = "Epic does not belong to the specified project.";
+
+    public static final String EPIC_CODE_PREFIX = "-E-";
+    public static final String DEFAULT_STATUS_OPEN = "OPEN";
+
+    public static final String LOG_RENAMED_MSG = "renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"";
+    public static final String LOG_STATUS_CHANGED_MSG = "changed status from <strong>%s</strong> to <strong>%s</strong>";
+
+    public static final double MAX_PROGRESS_PERCENTAGE = 100.0;
+
+    // Khai bao cac bien phu thuoc
     private final EpicRepository epicRepository;
     private final TaskRepository taskRepository;
     private final ProjectRepository projectRepository;
     private final SecurityService securityService;
 
-    // ======================================================
-    // CONSTRUCTOR (Dependency Injection)
-    // ======================================================
+    // Constructor khoi tao thu cong thay the cho @RequiredArgsConstructor
     public EpicServiceImpl(EpicRepository epicRepository,
                            TaskRepository taskRepository,
                            ProjectRepository projectRepository,
@@ -48,226 +74,197 @@ public class EpicServiceImpl implements EpicService {
         this.securityService = securityService;
     }
 
-    // ======================================================
-    // 1. LẤY DANH SÁCH EPIC (LIST & SEARCH)
-    // ======================================================
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+
     @Override
     @Transactional(readOnly = true)
     public List<EpicResponse> getEpicsByProject(Integer projectId, String keyword) {
-
-        // 1. Áp dụng Specification (Lọc theo Project ID và keyword)
+        // Ap dung dieu kien loc theo du an va tu khoa
         Specification<Epic> spec = EpicSpecification.filterEpics(projectId, keyword);
         List<Epic> epics = epicRepository.findAll(spec);
 
-        // 2. Chuyển đổi sang DTO và tính toán Metrics
+        // Chuyen doi danh sach Entity sang DTO va tinh toan tien do
         return epics.stream()
                 .map(this::mapToEpicResponse)
                 .collect(Collectors.toList());
     }
 
-    // ======================================================
-    // 2. TẠO EPIC MỚI (CREATE EPIC)
-    // ======================================================
     @Override
     @Transactional
-    @LogActivity(action = "CREATE", entityType = "EPIC", description = "Create new Epic")
+    @LogActivity(action = ACTION_CREATE, entityType = ENTITY_EPIC, description = DESC_CREATE_EPIC)
     public EpicResponse createEpic(Integer projectId, CreateEpicRequest request) {
-
-        // Lấy thông tin người tạo hiện tại
+        // Lay thong tin nguoi dung hien tai
         User creator = securityService.getCurrentAuthenticatedUser();
 
-        // 1. Tìm Project
+        // Tim kiem du an
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND + projectId));
 
-        // 2. KIỂM TRA TRÙNG TÊN: Tránh trùng lặp Epic name trong cùng một dự án
+        // Kiem tra trung lap ten Epic trong cung du an
         if (epicRepository.existsByProject_IdAndNameIgnoreCase(projectId, request.getName())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Epic name '" + request.getName() + "' already exists in this project.");
+            throw new BadRequestException(ERROR_EPIC_NAME_EXISTS);
         }
 
-        // 3. Sinh Mã Epic (Dựa trên Project Code và Sequence tiếp theo)
+        // Sinh ma Epic tu dong dua tren ma du an
         String projectCode = project.getProjectCode();
         long nextSequence = epicRepository.countByProject_Id(projectId) + 1;
-        String epicCode = projectCode + "-E-" + nextSequence;
+        String epicCode = projectCode + EPIC_CODE_PREFIX + nextSequence;
 
-        // 4. Tạo Entity và thiết lập giá trị mặc định
+        // Khoi tao Epic moi voi cac gia tri mac dinh
         Epic newEpic = Epic.builder()
                 .project(project)
                 .name(request.getName())
                 .description(request.getDescription())
-
-                // Màu sắc được gửi lên (có thể null)
                 .color(request.getColor())
-
                 .startDate(request.getStartDate())
                 .dueDate(request.getDueDate())
                 .epicCode(epicCode)
-
-                // MẶC ĐỊNH: OPEN
                 .status(EpicStatus.OPEN)
-
                 .createdBy(creator)
                 .build();
 
         newEpic = epicRepository.save(newEpic);
 
-        // 5. Map sang DTO và trả về
         return mapToEpicResponse(newEpic);
     }
 
-    // ======================================================
-    // 3. CẬP NHẬT EPIC (UPDATE EPIC)
-    // ======================================================
     @Override
     @Transactional
-    @LogActivity(action = "UPDATE", entityType = "EPIC", description = "Update Epic")
+    @LogActivity(action = ACTION_UPDATE, entityType = ENTITY_EPIC, description = DESC_UPDATE_EPIC)
     public EpicResponse updateEpic(Integer projectId, Integer epicId, UpdateEpicRequest request) {
+        // Tim kiem Epic can cap nhat
         Epic epic = epicRepository.findById(epicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Epic not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_EPIC_NOT_FOUND));
 
+        // Xac thuc quyen so huu cua du an voi Epic
         if (!epic.getProject().getId().equals(projectId)) {
-            throw new BadRequestException("Mismatched project ID for this Epic.");
+            throw new BadRequestException(ERROR_MISMATCHED_PROJECT);
         }
 
         StringBuilder changes = new StringBuilder();
 
-        // 1. Name
+        // Cap nhat ten Epic neu co su thay doi
         if (request.getName() != null && !request.getName().trim().isEmpty() && !request.getName().equals(epic.getName())) {
              if (epicRepository.existsByProject_IdAndNameIgnoreCase(projectId, request.getName())) {
-                 throw new BadRequestException("Epic name already exists.");
+                 throw new BadRequestException(ERROR_EPIC_NAME_EXISTS);
              }
-             if (changes.length() > 0) changes.append(", ");
-             changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", epic.getName(), request.getName()));
+             if (changes.length() > 0) {
+                 changes.append(", ");
+             }
+             changes.append(String.format(LOG_RENAMED_MSG, epic.getName(), request.getName()));
              epic.setName(request.getName());
         }
 
-        // 2. Status
+        // Cap nhat trang thai Epic
         if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
             try {
                 EpicStatus newStatus = EpicStatus.valueOf(request.getStatus().toUpperCase());
                 if (newStatus != epic.getStatus()) {
-                    if (changes.length() > 0) changes.append(", ");
-                    changes.append(String.format("changed status from <strong>%s</strong> to <strong>%s</strong>", epic.getStatus(), newStatus));
+                    if (changes.length() > 0) {
+                        changes.append(", ");
+                    }
+                    changes.append(String.format(LOG_STATUS_CHANGED_MSG, epic.getStatus(), newStatus));
                     epic.setStatus(newStatus);
                 }
             } catch (IllegalArgumentException e) {
-                throw new BadRequestException("Invalid Epic status: " + request.getStatus());
+                throw new BadRequestException(ERROR_INVALID_EPIC_STATUS + request.getStatus());
             }
         }
 
-        // 3. Other fields (Color, Dates, Description) - Update without logging specific details
-        if (request.getDescription() != null) epic.setDescription(request.getDescription());
-        if (request.getColor() != null && !request.getColor().trim().isEmpty()) epic.setColor(request.getColor());
-        if (request.getStartDate() != null) epic.setStartDate(request.getStartDate());
-        if (request.getDueDate() != null) epic.setDueDate(request.getDueDate());
+        // Cap nhat cac truong thong tin khac ma khong can ghi log chi tiet
+        if (request.getDescription() != null) {
+            epic.setDescription(request.getDescription());
+        }
+        if (request.getColor() != null && !request.getColor().trim().isEmpty()) {
+            epic.setColor(request.getColor());
+        }
+        if (request.getStartDate() != null) {
+            epic.setStartDate(request.getStartDate());
+        }
+        if (request.getDueDate() != null) {
+            epic.setDueDate(request.getDueDate());
+        }
 
+        // Ghi log vao context neu co thay doi
         if (changes.length() > 0) {
             ActivityLogContext.setDetail(changes.toString());
-        } else {
-            //  ActivityLogContext.setDetail("updated details");
         }
 
         Epic savedEpic = epicRepository.save(epic);
         return mapToEpicResponse(savedEpic);
     }
 
-    // ======================================================
-    // 4. XÓA EPIC (DELETE EPIC)
-    // ======================================================
     @Override
     @Transactional
-    @LogActivity(action = "DELETE", entityType = "EPIC", description = "Delete Epic")
+    @LogActivity(action = ACTION_DELETE, entityType = ENTITY_EPIC, description = DESC_DELETE_EPIC)
     public void deleteEpic(Integer projectId, Integer epicId) {
-        // 1. Tìm Epic
+        // Tim kiem Epic can xoa
         Epic epic = epicRepository.findById(epicId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Epic not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_EPIC_NOT_FOUND));
 
-        // 2. Validate: Epic phải thuộc về Project đang thao tác
+        // Xac thuc quyen so huu cua du an voi Epic
         if (!epic.getProject().getId().equals(projectId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Epic does not belong to this project.");
+            throw new BadRequestException(ERROR_EPIC_WRONG_PROJECT);
         }
 
-        // 3. KIỂM TRA RÀNG BUỘC: Nếu Epic đang chứa Task -> Chặn xóa
+        // Kiem tra rang buoc neu Epic dang chua cong viec thi khong cho phep xoa
         if (taskRepository.existsByEpic_Id(epicId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException(
-                "Cannot delete this Epic because it contains tasks. " +
-                "Please move or remove all tasks before deletion."
-            );
+            throw new BadRequestException(ERROR_EPIC_CONTAINS_TASKS);
         }
 
-        // 4. Nếu không có ràng buộc -> Xóa
         epicRepository.delete(epic);
     }
 
-    // ======================================================
-    // 5. XEM CHI TIẾT EPIC (GET EPIC DETAILS)
-    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public EpicResponse getEpicDetails(Integer projectId, Integer epicId) {
-        // 1. Tìm Epic
+        // Tim kiem chi tiet Epic hien tai
         Epic epic = epicRepository.findById(epicId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Epic not found with ID: " + epicId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_EPIC_NOT_FOUND_ID + epicId));
 
-        // 2. Validate: Epic phải thuộc Project
+        // Xac thuc quyen so huu
         if (!epic.getProject().getId().equals(projectId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Epic does not belong to the specified project.");
+            throw new BadRequestException(ERROR_EPIC_WRONG_PROJECT);
         }
 
-        // 3. Map và Trả về (Tái sử dụng hàm mapToEpicResponse để có cả metrics)
         return mapToEpicResponse(epic);
     }
 
-    // ======================================================
-    // ⚙️ PRIVATE UTILITY: MAPPER VÀ TÍNH TOÁN METRICS
-    // ======================================================
+    // --- LOGIC MAPPING (ENTITY <-> DTO) ---
 
-    /**
-     * Helper: Map Epic Entity sang EpicResponse DTO và tính toán Metrics liên quan.
-     */
     private EpicResponse mapToEpicResponse(Epic epic) {
-
-        // 1. Lấy danh sách Task thuộc Epic này (để tính toán)
+        // Lay danh sach cac cong viec thuoc Epic de phuc vu viec tinh toan
         List<Task> tasksInEpic = taskRepository.findByEpicId(epic.getId());
 
-        // 2. Tính toán Metrics
+        // Tinh toan cac chi so thong ke
         Integer totalTasks = tasksInEpic.size();
         Integer tasksCompleted = (int) tasksInEpic.stream()
-                // Giả định: Task được coi là hoàn thành nếu ProjectStatus có cờ isCompletedStatus = true
                 .filter(task -> task.getStatus() != null &&
                                 task.getStatus().getIsCompletedStatus() != null &&
                                 task.getStatus().getIsCompletedStatus())
                 .count();
 
-        // 3. Tính toán % hoàn thành (Progress)
+        // Tinh toan phan tram hoan thanh
         double progress = 0.0;
         if (totalTasks > 0) {
             progress = (double) tasksCompleted * 100 / totalTasks;
         }
 
-        // 4. Build và trả về DTO
+        // Chuyen doi sang DTO va tra ve ket qua
         return EpicResponse.builder()
                 .id(epic.getId())
                 .name(epic.getName())
                 .epicCode(epic.getEpicCode())
                 .description(epic.getDescription())
                 .color(epic.getColor())
-                .status(epic.getStatus() != null ? epic.getStatus().name() : "OPEN")
+                .status(epic.getStatus() != null ? epic.getStatus().name() : DEFAULT_STATUS_OPEN)
                 .projectId(epic.getProject().getId())
                 .startDate(epic.getStartDate())
                 .dueDate(epic.getDueDate())
                 .createdAt(epic.getCreatedAt())
                 .totalTasks(totalTasks)
                 .tasksCompleted(tasksCompleted)
-                // Đảm bảo phần trăm không vượt quá 100
-                .progressPercentage(Math.min(100.0, progress))
+                .progressPercentage(Math.min(MAX_PROGRESS_PERCENTAGE, progress))
                 .build();
     }
 }

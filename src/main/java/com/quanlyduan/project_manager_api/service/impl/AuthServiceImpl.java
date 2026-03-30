@@ -1,65 +1,104 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/AuthServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.Random;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.quanlyduan.project_manager_api.dto.request.ForgotPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.GoogleLoginRequest;
+import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
+import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
+import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
+import com.quanlyduan.project_manager_api.dto.request.RegisterFromProjectInviteRequest;
 import com.quanlyduan.project_manager_api.dto.request.RegisterRequest;
 import com.quanlyduan.project_manager_api.dto.request.ResetPasswordRequest;
 import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
+import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.AuthToken;
 import com.quanlyduan.project_manager_api.model.CompanyInvitation;
 import com.quanlyduan.project_manager_api.model.ProjectInvitation;
 import com.quanlyduan.project_manager_api.model.ProjectMember;
 import com.quanlyduan.project_manager_api.model.Role;
 import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.UserRole;
-import com.quanlyduan.project_manager_api.model.AuthToken;
+import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.TokenStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.TokenType;
 import com.quanlyduan.project_manager_api.model.common.enums.UserStatus;
+import com.quanlyduan.project_manager_api.repository.AuthTokenRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyInvitationRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectInvitationRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
 import com.quanlyduan.project_manager_api.repository.RoleRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.repository.UserRoleRepository;
-import com.quanlyduan.project_manager_api.repository.AuthTokenRepository;
 import com.quanlyduan.project_manager_api.security.UserPrincipal;
 import com.quanlyduan.project_manager_api.security.jwt.JwtTokenProvider;
 import com.quanlyduan.project_manager_api.service.AuthService;
 import com.quanlyduan.project_manager_api.service.EmailService;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.quanlyduan.project_manager_api.dto.request.ForgotPasswordRequest;
-import com.quanlyduan.project_manager_api.dto.request.LoginRequest;
-import com.quanlyduan.project_manager_api.dto.request.LogoutRequest;
 import com.quanlyduan.project_manager_api.service.InvitationService;
-import com.quanlyduan.project_manager_api.dto.request.RegisterFromInviteRequest;
-import com.quanlyduan.project_manager_api.dto.request.RegisterFromProjectInviteRequest;
-import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
-import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.TokenStatus;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.security.GeneralSecurityException;
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.UUID;
-import java.io.IOException;
-
-import java.util.Random;
 
 @Service
 public class AuthServiceImpl implements AuthService {
+
+    // Khai bao cac hang so de loai bo hardcode
+    public static final String ROLE_USER = "USER";
+
+    public static final String ERROR_EMAIL_IN_USE = "This email is already in use.";
+    public static final String ERROR_ROLE_USER_NOT_FOUND = "Role USER not found. Please configure DB.";
+    public static final String ERROR_USER_NOT_FOUND_AFTER_LOGIN = "Error: User not found after successful login.";
+    public static final String ERROR_USER_NOT_FOUND_EMAIL = "User not found with email: ";
+    public static final String ERROR_EMAIL_ALREADY_VERIFIED = "This email is already verified.";
+    public static final String ERROR_INVALID_OTP = "Invalid OTP.";
+    public static final String ERROR_OTP_EXPIRED = "The OTP has expired.";
+    public static final String ERROR_INVALID_RESET_CODE = "Invalid or expired reset code.";
+    public static final String ERROR_RESET_CODE_EXPIRED = "The password reset code has expired.";
+    public static final String ERROR_RESET_CODE_USED = "Invalid or already used reset code.";
+    public static final String ERROR_INVALID_GOOGLE_TOKEN = "Invalid Google ID token.";
+    public static final String ERROR_GOOGLE_EMAIL_NOT_VERIFIED = "Google email is not verified.";
+    public static final String ERROR_VERIFY_GOOGLE_TOKEN = "Could not verify Google token: ";
+    public static final String ERROR_EMAIL_EXISTS_INVITE = "Email already exists. Please login to accept the invitation.";
+    public static final String ERROR_INVALID_INVITATION_TOKEN = "Invalid invitation token.";
+    public static final String ERROR_INVITATION_PROCESSED = "This invitation has already been processed or cancelled.";
+    public static final String ERROR_INVITATION_EXPIRED = "This invitation has expired.";
+
+    public static final String CLAIM_NAME = "name";
+    public static final String CLAIM_PICTURE = "picture";
+
+    public static final String SUBJECT_VERIFY_ACCOUNT = "Verify Your Account";
+    public static final String SUBJECT_RESET_PASSWORD = "Password Reset Request";
+
+    public static final String EMAIL_VERIFY_BODY_TEMPLATE = "Hello %s,\n\nYour account verification OTP is: <h3>%s</h3>\nThis code will expire in %d minutes.\n\nThank you.";
+    public static final String EMAIL_RESET_BODY_TEMPLATE = "<p>Hello %s,</p><p>You requested a password reset. Please click the link below to create a new password:</p><p><a href=\"%s/reset-password?token=%s\">Reset Password</a></p><p>This link will expire in %d minutes.</p><p>If you did not request this action, please ignore this email.</p>";
+
+    public static final long OTP_EXPIRATION_MINUTES = 10;
+    public static final long RESET_TOKEN_EXPIRATION_MINUTES = 60;
+    public static final int OTP_BASE_VALUE = 100000;
+    public static final int OTP_RANDOM_BOUND = 900000;
+
+    // Khai bao cac bien phu thuoc va gia tri tu file cau hinh
+    @Value("${jwt.refresh-token-expiration-min}")
+    private long refreshTokenExpirationMin;
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
@@ -70,26 +109,12 @@ public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
-
-    @Value("${jwt.refresh-token-expiration-min}")
-    private long refreshTokenExpirationMin;
-
-    // TIÊM SERVICE/REPOSITORY MỚI
     private final InvitationService invitationService;
     private final CompanyInvitationRepository companyInvitationRepository;
-
     private final ProjectInvitationRepository projectInvitationRepository;
     private final ProjectMemberRepository projectMemberRepository;
 
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
-
-    private static final long OTP_EXPIRATION_MINUTES = 10;
-    private static final long RESET_TOKEN_EXPIRATION_MINUTES = 60;
-
-    // ======================================================
-    // CONSTRUCTOR (Dependency Injection)
-    // ======================================================
+    // Constructor thay the cho @RequiredArgsConstructor
     public AuthServiceImpl(UserRepository userRepository,
                            UserRoleRepository userRoleRepository,
                            AuthTokenRepository authTokenRepository,
@@ -118,497 +143,292 @@ public class AuthServiceImpl implements AuthService {
         this.projectMemberRepository = projectMemberRepository;
     }
 
-    // ======================================================
-    // 1. ĐĂNG KÝ (REGISTER)
-    // ======================================================
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+
     @Override
     @Transactional
     public void register(RegisterRequest request) {
-        // 1. Kiểm tra email tồn tại
+        // Kiem tra email da ton tai chua
         if (userRepository.existsByEmail(request.getEmail())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("This email is already in use.");
+            throw new BadRequestException(ERROR_EMAIL_IN_USE);
         }
 
-        // 2. Hash mật khẩu
+        // Ma hoa mat khau va tao nguoi dung moi
         String hashedPassword = passwordEncoder.encode(request.getPassword());
-
-        // 3. Tạo User mới
-        User newUser = User.builder()
-                .fullName(request.getFullName())
-                .email(request.getEmail())
-                .password(hashedPassword)
-                .status(UserStatus.ACTIVE)
-                .isEmailVerified(false) // Cần xác thực email
-                .build();
-
-        // 4. Lưu người dùng
+        User newUser = buildUserEntity(request.getFullName(), request.getEmail(), hashedPassword, false);
         User savedUser = userRepository.save(newUser);
 
-        // 5. Lấy Role USER từ DB
-        Role userRole = roleRepository.findFirstByRoleCode("USER")
-                .orElseThrow(() -> new ResourceNotFoundException("Role USER not found. Please configure DB."));
+        // Cap quyen mac dinh la USER
+        Role userRole = roleRepository.findFirstByRoleCode(ROLE_USER)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_ROLE_USER_NOT_FOUND));
 
-        // 6. Tạo UserRole và lưu
-        UserRole userRoleEntity = UserRole.builder()
-                .user(savedUser)
-                .role(userRole)
-                .build();
+        UserRole userRoleEntity = buildUserRoleEntity(savedUser, userRole);
         userRoleRepository.save(userRoleEntity);
 
-        // 7. Gửi email xác thực
+        // Goi ham gui email xac thuc
         sendVerificationEmail(savedUser);
     }
 
-    // ======================================================
-    // 2. ĐĂNG NHẬP (LOGIN)
-    // ======================================================
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        // 1. Xác thực người dùng (username/password)
+        // Xac thuc thong tin dang nhap
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
-        // 2. Nếu xác thực thành công, set vào SecurityContext
+        // Luu thong tin xac thuc vao nguyen canh bao mat
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // 3. Lấy thông tin User
+        // Lay thong tin nguoi dung de sinh token
         User user = userRepository.findByEmail(request.getEmail())
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Error: User not found after successful login."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_USER_NOT_FOUND_AFTER_LOGIN));
 
-        // 4. Tạo Access Token
+        // Sinh access token va refresh token
         String accessToken = jwtTokenProvider.generateAccessToken(authentication);
-
-        // 5. Tạo Refresh Token
         String refreshTokenString = jwtTokenProvider.generateRefreshToken(authentication);
 
-        // 6. Lưu Refresh Token vào CSDL
+        // Luu refresh token vao co so du lieu de quan ly
         saveRefreshTokenToDB(user, refreshTokenString);
 
-        // 7. Trả về Response
-        return LoginResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshTokenString)
-                .build();
+        return buildLoginResponse(accessToken, refreshTokenString);
     }
 
-    // ======================================================
-    // 3. ĐĂNG XUẤT (LOGOUT)
-    // ======================================================
     @Override
     @Transactional
     public void logout(LogoutRequest request) {
-        // 1. Tìm Refresh Token trong CSDL
+        // Tim token trong co so du lieu
         AuthToken storedToken = authTokenRepository
                 .findByTokenAndTokenType(request.getRefreshToken(), TokenType.REFRESH)
                 .orElse(null);
 
-        if (storedToken == null) {
-            // Nếu không tìm thấy token, trả về thành công (để idempotency)
-            return;
+        // Xoa token neu tim thay de vo hieu hoa phien dang nhap
+        if (storedToken != null) {
+            authTokenRepository.delete(storedToken);
         }
-
-        // 2. Xóa token khỏi CSDL
-        authTokenRepository.delete(storedToken);
     }
 
-
-    // ======================================================
-    // 4. XÁC THỰC MAIL (VERIFY EMAIL)
-    // ======================================================
     @Override
     @Transactional
     public void verifyEmail(VerifyEmailRequest request) {
-        // 1. Tìm người dùng
+        // Kiem tra nguoi dung va trang thai xac thuc
         User user = userRepository.findByEmail(request.getEmail())
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_USER_NOT_FOUND_EMAIL + request.getEmail()));
 
-        // 2. Kiểm tra nếu đã xác thực
         if (user.getIsEmailVerified()) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("This email is already verified.");
+            throw new BadRequestException(ERROR_EMAIL_ALREADY_VERIFIED);
         }
 
-        // 3. Tìm token (OTP)
+        // Tim va kiem tra tinh hop le cua ma OTP
         AuthToken token = authTokenRepository.findByTokenAndTokenType(request.getOtp(), TokenType.EMAIL_VERIFICATION)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid OTP."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_INVALID_OTP));
 
-        // 4. Kiểm tra token có đúng của người dùng này không
         if (!token.getUser().getId().equals(user.getId())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Invalid OTP.");
+            throw new BadRequestException(ERROR_INVALID_OTP);
         }
 
-        // 5. Kiểm tra token hết hạn
         if (token.getExpiresAt().isBefore(LocalDateTime.now())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("The OTP has expired.");
+            throw new BadRequestException(ERROR_OTP_EXPIRED);
         }
 
-        // 6. Xác thực thành công
+        // Cap nhat trang thai xac thuc va xoa ma OTP da dung
         user.setIsEmailVerified(true);
         userRepository.save(user);
-
-        // 7. Xóa token đã sử dụng
         authTokenRepository.delete(token);
     }
 
-    // ======================================================
-    // 5. QUÊN MẬT KHẨU (FORGOT PASSWORD)
-    // ======================================================
     @Override
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
-        // 1. Tìm người dùng
         Optional<User> userOptional = userRepository.findByEmail(request.getEmail());
 
-        // 2. Bảo mật: Nếu không tìm thấy, âm thầm thoát (tránh dò tìm email)
+        // Thoat am tham neu khong tim thay nguoi dung de bao mat
         if (userOptional.isEmpty()) {
             return;
         }
 
         User user = userOptional.get();
 
-        // 3. Tạo một token reset duy nhất
+        // Tao token khoi phuc duy nhat
         String tokenString = UUID.randomUUID().toString();
-
-        // 4. Lưu token vào CSDL
-        AuthToken resetToken = AuthToken.builder()
-                .user(user)
-                .token(tokenString)
-                .tokenType(TokenType.RESET_PASSWORD)
-                .status(TokenStatus.ACTIVE)
-                .expiresAt(LocalDateTime.now().plusMinutes(RESET_TOKEN_EXPIRATION_MINUTES))
-                .build();
-
+        AuthToken resetToken = buildAuthTokenEntity(user, tokenString, TokenType.RESET_PASSWORD, RESET_TOKEN_EXPIRATION_MINUTES);
         authTokenRepository.save(resetToken);
 
-        // 5. Gửi email
+        // Gui email chua duong dan khoi phuc
         sendPasswordResetEmail(user, tokenString);
     }
 
-    // ======================================================
-    // 6. ĐẶT LẠI MẬT KHẨU (RESET PASSWORD)
-    // ======================================================
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        // 1. Tìm token trong CSDL
+        // Tim token khoi phuc
         AuthToken resetToken = authTokenRepository.findByTokenAndTokenType(request.getToken(), TokenType.RESET_PASSWORD)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired reset code."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_INVALID_RESET_CODE));
 
-        // 2. Kiểm tra token đã hết hạn chưa
+        // Kiem tra han su dung va trang thai cua token
         if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
             authTokenRepository.delete(resetToken);
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("The password reset code has expired.");
+            throw new BadRequestException(ERROR_RESET_CODE_EXPIRED);
         }
 
-        // 3. Kiểm tra token đã được sử dụng/thu hồi chưa
         if (resetToken.getStatus() != TokenStatus.ACTIVE) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Invalid or already used reset code.");
+            throw new BadRequestException(ERROR_RESET_CODE_USED);
         }
 
-        // 4. Lấy người dùng liên quan
+        // Cap nhat mat khau moi
         User user = resetToken.getUser();
-
-        // 5. Hash và đặt mật khẩu mới
         String hashedPassword = passwordEncoder.encode(request.getNewPassword());
         user.setPassword(hashedPassword);
         userRepository.save(user);
 
-        // 6. Đánh dấu token này là đã thu hồi (REVOKED)
+        // Thu hoi token va toan bo cac refresh token cua nguoi dung
         resetToken.setStatus(TokenStatus.REVOKED);
         authTokenRepository.save(resetToken);
-
-        // 7. Thu hồi tất cả Refresh Token của người dùng này (Buộc đăng xuất mọi thiết bị)
         authTokenRepository.revokeAllUserRefreshTokens(user.getId());
     }
 
-    // ======================================================
-    // 7. ĐĂNG NHẬP BẰNG GOOGLE (LOGIN WITH GOOGLE)
-    // ======================================================
     @Override
     @Transactional
     public LoginResponse loginWithGoogle(GoogleLoginRequest request) {
         try {
-            // 1. Xác thực id_token với máy chủ Google
+            // Xac thuc token voi may chu Google
             GoogleIdToken idToken = googleIdTokenVerifier.verify(request.getGoogleToken());
             if (idToken == null) {
-                // Sửa thông báo sang tiếng Anh
-                throw new BadRequestException("Invalid Google ID token.");
+                throw new BadRequestException(ERROR_INVALID_GOOGLE_TOKEN);
             }
 
-            // 2. Lấy thông tin người dùng từ token
+            // Lay thong tin nguoi dung tu token tra ve
             GoogleIdToken.Payload payload = idToken.getPayload();
             String email = payload.getEmail();
-            String fullName = (String) payload.get("name");
-            String avatarUrl = (String) payload.get("picture");
+            String fullName = (String) payload.get(CLAIM_NAME);
+            String avatarUrl = (String) payload.get(CLAIM_PICTURE);
             boolean emailVerified = payload.getEmailVerified();
 
             if (!emailVerified) {
-                // Sửa thông báo sang tiếng Anh
-                throw new BadRequestException("Google email is not verified.");
+                throw new BadRequestException(ERROR_GOOGLE_EMAIL_NOT_VERIFIED);
             }
 
-            // 3. Gọi logic Đăng ký hoặc Đăng nhập chung
+            // Tien hanh xu ly dang nhap hoac dang ky moi
             return processOAuthUser(email, fullName, avatarUrl);
 
         } catch (GeneralSecurityException | IOException e) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Could not verify Google token: " + e.getMessage());
+            throw new BadRequestException(ERROR_VERIFY_GOOGLE_TOKEN + e.getMessage());
         }
     }
 
-
-    // ======================================================
-    // 8. ĐĂNG KÝ TỪ LỜI MỜI CÔNG TY (REGISTER FROM COMPANY INVITE)
-    // ======================================================
     @Override
     @Transactional
     public LoginResponse registerFromInvite(RegisterFromInviteRequest request) {
-        // 1. Xác thực token lời mời (SỬ DỤNG SERVICE CHUNG)
+        // Xac thuc token loi moi tu service dung chung
         CompanyInvitation invitation = invitationService.validateInvitationToken(request.getInvitationToken());
         String invitedEmail = invitation.getEmail();
 
-        // 2. Kiểm tra email (phòng trường hợp người dùng cũ cố tình gọi API này)
+        // Kiem tra tinh trang email hien tai
         if (userRepository.existsByEmail(invitedEmail)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Email already exists. Please login to accept the invitation.");
+            throw new BadRequestException(ERROR_EMAIL_EXISTS_INVITE);
         }
 
-        // 3. Tạo User mới
-        User newUser = User.builder()
-                .fullName(request.getFullName())
-                .email(invitedEmail)
-                .password(passwordEncoder.encode(request.getPassword()))
-                .status(UserStatus.ACTIVE)
-                .isEmailVerified(true) // Tự động xác thực
-                .build();
+        // Tao nguoi dung moi voi mat khau ma hoa va tu dong xac thuc
+        String hashedPassword = passwordEncoder.encode(request.getPassword());
+        User savedUser = userRepository.save(buildUserEntity(request.getFullName(), invitedEmail, hashedPassword, true));
 
-        User savedUser = userRepository.save(newUser);
+        // Gan quyen truy cap he thong mac dinh
+        Role userRole = roleRepository.findFirstByRoleCode(ROLE_USER)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_ROLE_USER_NOT_FOUND));
 
-        // 4. GÁN QUYỀN 'USER' CẤP HỆ THỐNG
-        Role userRole = roleRepository.findFirstByRoleCode("USER")
-            .orElseThrow(() -> new ResourceNotFoundException("Role USER not found. Please configure DB."));
+        userRoleRepository.save(buildUserRoleEntity(savedUser, userRole));
 
-        UserRole userRoleEntity = UserRole.builder()
-            .user(savedUser)
-            .role(userRole)
-            .build();
-        userRoleRepository.save(userRoleEntity);
-
-        // 5. Thêm người dùng vào công ty (SỬ DỤNG SERVICE CHUNG)
+        // Them vao cong ty va cap nhat trang thai loi moi
         invitationService.addMemberToCompany(savedUser, invitation.getCompany(), invitation.getRole());
-
-        // 6. Cập nhật lời mời
         invitation.setStatus(InvitationStatus.ACCEPTED);
         companyInvitationRepository.save(invitation);
 
-        // 7. Tự động đăng nhập và trả về token
-        UserPrincipal userPrincipal = UserPrincipal.create(savedUser);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-            userPrincipal, null, userPrincipal.getAuthorities()
-        );
-
-        String accessToken = jwtTokenProvider.generateAccessToken(authentication);
-        String refreshToken = jwtTokenProvider.generateRefreshToken(authentication);
-
-        saveRefreshTokenToDB(savedUser, refreshToken);
-
-        return LoginResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .build();
+        // Tu dong dang nhap vao he thong sau khi hoan tat
+        return autoLoginUser(savedUser);
     }
 
-    // ======================================================
-    // 9. ĐĂNG KÝ TỪ LỜI MỜI DỰ ÁN (REGISTER FROM PROJECT INVITE)
-    // ======================================================
     @Override
     @Transactional
     public LoginResponse registerFromProjectInvite(RegisterFromProjectInviteRequest request) {
-        // 1. Xác thực token lời mời (Tương tự validateInvitationToken nhưng cho Project)
+        // Xac thuc loi moi tham gia du an
         ProjectInvitation invitation = projectInvitationRepository.findByToken(request.getInvitationToken())
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid invitation token."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_INVALID_INVITATION_TOKEN));
 
         if (invitation.getStatus() != InvitationStatus.PENDING) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("This invitation has already been processed or cancelled.");
+            throw new BadRequestException(ERROR_INVITATION_PROCESSED);
         }
+        
         if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
             invitation.setStatus(InvitationStatus.EXPIRED);
             projectInvitationRepository.save(invitation);
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("This invitation has expired.");
+            throw new BadRequestException(ERROR_INVITATION_EXPIRED);
         }
 
         String invitedEmail = invitation.getEmail();
 
-        // 2. Kiểm tra email
+        // Kiem tra su ton tai cua email
         if (userRepository.existsByEmail(invitedEmail)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Email already exists. Please login to accept the invitation.");
+            throw new BadRequestException(ERROR_EMAIL_EXISTS_INVITE);
         }
 
-        // 3. Tạo User mới
-        User newUser = User.builder()
-                .fullName(request.getFullName())
-                .email(invitedEmail)
-                .password(passwordEncoder.encode(request.getPassword()))
-                .status(UserStatus.ACTIVE)
-                .isEmailVerified(true)
-                .build();
+        // Tao tai khoan nguoi dung moi
+        String hashedPassword = passwordEncoder.encode(request.getPassword());
+        User savedUser = userRepository.save(buildUserEntity(request.getFullName(), invitedEmail, hashedPassword, true));
 
-        User savedUser = userRepository.save(newUser);
+        // Gan quyen he thong
+        Role userRole = roleRepository.findFirstByRoleCode(ROLE_USER)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_ROLE_USER_NOT_FOUND));
 
-        // 4. Gán quyền 'USER' hệ thống
-        Role userRole = roleRepository.findFirstByRoleCode("USER")
-            .orElseThrow(() -> new ResourceNotFoundException("Role USER not found."));
+        userRoleRepository.save(buildUserRoleEntity(savedUser, userRole));
 
-        UserRole userRoleEntity = UserRole.builder()
-            .user(savedUser)
-            .role(userRole)
-            .build();
-        userRoleRepository.save(userRoleEntity);
-
-        // 5. KHÁC BIỆT: Thêm vào DỰ ÁN
-        ProjectMember projectMember = ProjectMember.builder()
-                .project(invitation.getProject())
-                .user(savedUser)
-                .role(invitation.getRole())
-                .status(MemberStatus.ACTIVE)
-                .build();
+        // Gan quyen thanh vien cho du an
+        ProjectMember projectMember = buildProjectMemberEntity(invitation, savedUser);
         projectMemberRepository.save(projectMember);
 
-        // 6. Cập nhật lời mời
+        // Cap nhat trang thai phan hoi
         invitation.setStatus(InvitationStatus.ACCEPTED);
         projectInvitationRepository.save(invitation);
 
-        // 7. Tự động đăng nhập và trả về token
-        UserPrincipal userPrincipal = UserPrincipal.create(savedUser);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-            userPrincipal, null, userPrincipal.getAuthorities()
-        );
-
-        String accessToken = jwtTokenProvider.generateAccessToken(authentication);
-        String refreshToken = jwtTokenProvider.generateRefreshToken(authentication);
-
-        saveRefreshTokenToDB(savedUser, refreshToken);
-
-        return LoginResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .build();
+        // Dang nhap nguoi dung tu dong va tra ve ket qua
+        return autoLoginUser(savedUser);
     }
 
-    // ======================================================
-    // ⚙️ PRIVATE HELPER METHODS
-    // ======================================================
+    // --- CAC HAM PRIVATE HO TRO NGHIEP VU ---
 
-    /**
-     * Helper: Lưu Refresh Token vào CSDL.
-     */
     private void saveRefreshTokenToDB(User user, String refreshToken) {
-        AuthToken token = AuthToken.builder()
-                .user(user)
-                .token(refreshToken)
-                .tokenType(TokenType.REFRESH)
-                .status(TokenStatus.ACTIVE)
-                // Đã sửa logic này để dùng .plusMinutes()
-                .expiresAt(LocalDateTime.now().plusMinutes(refreshTokenExpirationMin))
-                .build();
+        AuthToken token = buildAuthTokenEntity(user, refreshToken, TokenType.REFRESH, refreshTokenExpirationMin);
         authTokenRepository.save(token);
     }
 
-    /**
-     * Helper: Tạo OTP 6 chữ số ngẫu nhiên.
-     */
     private String generateOtp() {
         Random random = new Random();
-        int otpNumber = 100000 + random.nextInt(900000);
+        int otpNumber = OTP_BASE_VALUE + random.nextInt(OTP_RANDOM_BOUND);
         return String.valueOf(otpNumber);
     }
 
-    /**
-     * Helper: Gửi Email xác thực tài khoản.
-     */
     private void sendVerificationEmail(User user) {
-        // 1. Tạo OTP
         String otp = generateOtp();
-
-        // 2. Tạo đối tượng Token
-        AuthToken verificationToken = AuthToken.builder()
-                .user(user)
-                .token(otp)
-                .tokenType(TokenType.EMAIL_VERIFICATION)
-                .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRATION_MINUTES))
-                .build();
-
-        // 3. Lưu Token
+        AuthToken verificationToken = buildAuthTokenEntity(user, otp, TokenType.EMAIL_VERIFICATION, OTP_EXPIRATION_MINUTES);
         authTokenRepository.save(verificationToken);
 
-        // 4. Gửi mail (Sửa nội dung mail sang tiếng Anh)
-        String emailBody = "Hello " + user.getFullName() + ",\n\n"
-                + "Your account verification OTP is: <h3>" + otp + "</h3>\n"
-                + "This code will expire in 10 minutes.\n\n"
-                + "Thank you.";
-
-        emailService.sendEmail(user.getEmail(), "Verify Your Account", emailBody);
+        String emailBody = String.format(EMAIL_VERIFY_BODY_TEMPLATE, user.getFullName(), otp, OTP_EXPIRATION_MINUTES);
+        emailService.sendEmail(user.getEmail(), SUBJECT_VERIFY_ACCOUNT, emailBody);
     }
 
-    /**
-     * Helper: Gửi Email đặt lại mật khẩu.
-     */
     private void sendPasswordResetEmail(User user, String token) {
         try {
-            // Tạo link reset
-            String resetUrl = String.format("%s/reset-password?token=%s", frontendUrl, token);
-
-            // Sửa nội dung mail sang tiếng Anh
-            String emailBody = String.format(
-                "<p>Hello %s,</p>" +
-                "<p>You requested a password reset. Please click the link below to create a new password:</p>" +
-                "<p><a href=\"%s\">Reset Password</a></p>" +
-                "<p>This link will expire in %d minutes.</p>" +
-                "<p>If you did not request this action, please ignore this email.</p>",
-                user.getFullName(),
-                resetUrl,
-                RESET_TOKEN_EXPIRATION_MINUTES
-            );
-
-            emailService.sendEmail(
-                user.getEmail(),
-                "Password Reset Request",
-                emailBody
-            );
-
+            String emailBody = String.format(EMAIL_RESET_BODY_TEMPLATE, user.getFullName(), frontendUrl, token, RESET_TOKEN_EXPIRATION_MINUTES);
+            emailService.sendEmail(user.getEmail(), SUBJECT_RESET_PASSWORD, emailBody);
         } catch (Exception e) {
-            System.err.println("Error sending password reset email: " + e.getMessage());
+            // Bo qua ngoai le xay ra khi gui thu do loi he thong ben ngoai, dam bao khong anh huong den luong hoat dong chinh
         }
     }
 
-    /**
-     * Helper: Đăng nhập/Đăng ký người dùng OAuth (Google).
-     */
     private LoginResponse processOAuthUser(String email, String fullName, String avatarUrl) {
-        // 1. Tìm xem user đã tồn tại chưa
         Optional<User> userOptional = userRepository.findByEmail(email);
-
         User user;
+
         if (userOptional.isPresent()) {
-            // 2a. User đã tồn tại -> Cập nhật thông tin và Đăng nhập
             user = userOptional.get();
             user.setFullName(fullName);
             user.setAvatarUrl(avatarUrl);
@@ -616,45 +436,73 @@ public class AuthServiceImpl implements AuthService {
             user.setIsEmailVerified(true);
             userRepository.save(user);
         } else {
-            // 2b. User chưa tồn tại -> Đăng ký
-            User newUser = User.builder()
-                .email(email)
-                .fullName(fullName)
-                .avatarUrl(avatarUrl)
-                // Tạo mật khẩu ngẫu nhiên cho user OAuth
-                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
-                .isEmailVerified(true) // Google đã xác thực
-                .status(UserStatus.ACTIVE)
-                .build();
+            String randomPassword = passwordEncoder.encode(UUID.randomUUID().toString());
+            User newUser = buildUserEntity(fullName, email, randomPassword, true);
+            newUser.setAvatarUrl(avatarUrl);
             user = userRepository.save(newUser);
 
-            // Gán quyền USER
-            Role userRole = roleRepository.findFirstByRoleCode("USER")
-                .orElseThrow(() -> new ResourceNotFoundException("Role USER not found. Please configure DB."));
+            Role userRole = roleRepository.findFirstByRoleCode(ROLE_USER)
+                    .orElseThrow(() -> new ResourceNotFoundException(ERROR_ROLE_USER_NOT_FOUND));
 
-            // *** SỬA LỖI LOGIC: Cần kiểm tra trước khi thêm (tránh lỗi nếu user đã có role) ***
             if (userRoleRepository.findByUser_Id(user.getId()).isEmpty()) {
-                UserRole userRoleEntity = UserRole.builder()
-                    .user(user)
-                    .role(userRole)
-                    .build();
-                userRoleRepository.save(userRoleEntity);
+                userRoleRepository.save(buildUserRoleEntity(user, userRole));
             }
         }
 
-        // 3. Tạo UserPrincipal và Authentication
-        UserPrincipal userPrincipal = UserPrincipal.create(user);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-            userPrincipal, null, userPrincipal.getAuthorities()
-        );
+        return autoLoginUser(user);
+    }
 
-        // 4. Tạo JWT của chúng ta
+    private LoginResponse autoLoginUser(User user) {
+        UserPrincipal userPrincipal = UserPrincipal.create(user);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userPrincipal, null, userPrincipal.getAuthorities());
+
         String accessToken = jwtTokenProvider.generateAccessToken(authentication);
         String refreshToken = jwtTokenProvider.generateRefreshToken(authentication);
 
-        // 5. Lưu Refresh Token và trả về
         saveRefreshTokenToDB(user, refreshToken);
 
+        return buildLoginResponse(accessToken, refreshToken);
+    }
+
+    // --- LOGIC MAPPING (ENTITY <-> DTO) ---
+
+    private User buildUserEntity(String fullName, String email, String password, boolean isEmailVerified) {
+        return User.builder()
+                .fullName(fullName)
+                .email(email)
+                .password(password)
+                .status(UserStatus.ACTIVE)
+                .isEmailVerified(isEmailVerified)
+                .build();
+    }
+
+    private UserRole buildUserRoleEntity(User user, Role role) {
+        return UserRole.builder()
+                .user(user)
+                .role(role)
+                .build();
+    }
+
+    private AuthToken buildAuthTokenEntity(User user, String token, TokenType tokenType, long expirationMinutes) {
+        return AuthToken.builder()
+                .user(user)
+                .token(token)
+                .tokenType(tokenType)
+                .status(TokenStatus.ACTIVE)
+                .expiresAt(LocalDateTime.now().plusMinutes(expirationMinutes))
+                .build();
+    }
+
+    private ProjectMember buildProjectMemberEntity(ProjectInvitation invitation, User user) {
+        return ProjectMember.builder()
+                .project(invitation.getProject())
+                .user(user)
+                .role(invitation.getRole())
+                .status(MemberStatus.ACTIVE)
+                .build();
+    }
+
+    private LoginResponse buildLoginResponse(String accessToken, String refreshToken) {
         return LoginResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)

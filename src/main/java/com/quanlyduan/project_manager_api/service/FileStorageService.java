@@ -1,22 +1,29 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/FileStorageService.java
 package com.quanlyduan.project_manager_api.service;
 
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Interface Service quản lý các nghiệp vụ chung liên quan đến việc lưu trữ tệp tin (File Storage).
- * Service này chịu trách nhiệm lưu file vật lý vào hệ thống và trả về đường dẫn để lưu vào Database.
+ * Service ha tang quan ly viec luu tru va truy xuat tep tin (File Storage).
+ * Chiu trach nhiem thuc hien cac thao tac vat ly voi file tren o dia hoac Cloud Storage.
  */
 public interface FileStorageService {
-    
+
+    // ======================================================
+    // 1. LUU TRU TEP TIN (FILE STORAGE OPERATIONS)
+    // ======================================================
+
     /**
-     * Lưu file đã upload từ client vào thư mục con chỉ định.
-     * Logic này sử dụng để lưu Logo, Avatar, Cover Image, v.v.
-     * * @param file File upload từ client (MultipartFile).
-     * @param folderName Tên thư mục con (ví dụ: "avatars", "company-logos").
-     * @return Đường dẫn tương đối (hoặc tên file) để lưu vào CSDL (ví dụ: /avatars/uuid.jpg).
+     * Thuc hien luu tep tin tu Client vao he thong luu tru theo tung phan loai.
+     * Thuong dung cho cac loai tai nguyen nhu: Logo, Avatar, Cover Image hoac Tai lieu dinh kem.
+     * * @param file Tep tin tai len tu phia nguoi dung (MultipartFile)
+     * @param folderName Ten thu muc phan loai (vi du: "avatars", "company-logos")
+     * @return Duong dan tuong doi hoac Key dinh danh tep de luu vao Co so du lieu
      */
     String storeFile(MultipartFile file, String folderName);
+
+    // ======================================================
+    // 2. CAC THAO TAC MO RONG (EXTENDED OPERATIONS - PLANNED)
+    // ======================================================
     
-    // (Ghi chú: Sau này có thể bổ sung các hàm như deleteFile, loadFile, copyFile để hoàn thiện chức năng)
+    // (Ke hoach bo sung: deleteFile, loadFileAsResource, validateFileType)
 }

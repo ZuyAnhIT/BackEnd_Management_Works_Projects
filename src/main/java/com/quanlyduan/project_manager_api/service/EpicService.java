@@ -1,65 +1,67 @@
-// File: src/main/java/com.quanlyduan.project_manager_api/service/EpicService.java
 package com.quanlyduan.project_manager_api.service;
+
+import java.util.List;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateEpicRequest;
 import com.quanlyduan.project_manager_api.dto.response.EpicResponse;
-import java.util.List;
 
 /**
- * Interface Service quản lý các nghiệp vụ liên quan đến Epic (Mục tiêu lớn/Sử thi).
- * Epic là container chứa các Task con và Story trong quá trình lập kế hoạch và quản lý dự án.
+ * Service quan ly toan bo vong doi cua Epic (Su thi/Muc tieu lon).
+ * Epic dong vai tro la thung chua (Container) cho cac Story va Task, 
+ * giup phan nhom cong viec theo cac tinh nang hoac giai doan lon cua Du an.
  */
 public interface EpicService {
 
-    // ========================================================================
-    // 1. XEM & LỌC (READ & FILTER)
-    // ========================================================================
+    // ======================================================
+    // 1. TRA CUU VA TRICH XUAT (READ OPERATIONS)
+    // ======================================================
 
     /**
-     * Lấy danh sách tất cả các Epic thuộc về một dự án.
-     * Hỗ trợ tìm kiếm theo từ khóa (keyword) trong tên Epic.
-     * @param projectId ID dự án.
-     * @param keyword Từ khóa tìm kiếm (tên Epic).
-     * @return Danh sách DTO các Epic của dự án.
+     * Lay danh sach toan bo cac Epic thuoc ve mot Du an cu the.
+     * Ho tro loc nhanh theo tu khoa tim kiem trong ten Epic.
+     * * @param projectId ID dinh danh cua Du an
+     * @param keyword Tu khoa tim kiem (vi du: ten hoac ma Epic)
+     * @return Danh sach cac Epic phu hop voi tieu chi
      */
     List<EpicResponse> getEpicsByProject(Integer projectId, String keyword);
 
     /**
-     * Lấy thông tin chi tiết của một Epic.
-     * @param projectId ID của dự án (để kiểm tra bảo mật/phạm vi)
-     * @param epicId ID của Epic cần lấy
-     * @return DTO thông tin Epic
+     * Truy xuat thong tin chi tiet cua mot Epic cu the.
+     * Thuc hien kiem tra pham vi de dam bao Epic thuoc dung Du an dang xet.
+     * * @param projectId ID Du an (dung de xac thuc pham vi truy cap)
+     * @param epicId ID dinh danh cua Epic
+     * @return DTO chua thong tin chi tiet va tien do cua Epic
      */
     EpicResponse getEpicDetails(Integer projectId, Integer epicId);
 
-    // ========================================================================
-    // 2. TẠO & CẬP NHẬT (CRUD)
-    // ========================================================================
+    // ======================================================
+    // 2. KHOI TAO VA CAP NHAT (WRITE OPERATIONS)
+    // ======================================================
     
     /**
-     * Tạo một Epic mới cho Dự án.
-     * Logic nghiệp vụ: Tự động sinh mã Epic (Epic Code) và gán trạng thái mặc định (OPEN).
-     * @param projectId ID dự án.
-     * @param request DTO tạo mới.
-     * @return DTO Epic vừa tạo.
+     * Khoi tao mot Epic moi cho Du an.
+     * Logic nghiep vu: Tu dong sinh ma dinh danh (Epic Code) va thiet lap trang thai OPEN.
+     * * @param projectId ID Du an so huu Epic
+     * @param request Du lieu thong tin khoi tao Epic
+     * @return Thong tin Epic sau khi da duoc luu tru thanh cong
      */
     EpicResponse createEpic(Integer projectId, CreateEpicRequest request);
 
     /**
-     * Cập nhật thông tin Epic (Tên, Mô tả, Màu, Ngày).
-     * @param projectId ID dự án (để kiểm tra IDOR).
-     * @param epicId ID Epic cần cập nhật.
-     * @param request DTO chứa các trường cập nhật (Partial Update).
-     * @return DTO Epic sau khi cập nhật.
+     * Cap nhat cac thong tin thay doi cua mot Epic (Partial Update).
+     * * @param projectId ID Du an (dung de kiem tra tinh hop le)
+     * @param epicId ID Epic can thay doi thong tin
+     * @param request Cac truong thong tin can cap nhat (Ten, Mo ta, Mau sac, Ngay)
+     * @return Thong tin Epic sau khi da cap nhat
      */
     EpicResponse updateEpic(Integer projectId, Integer epicId, UpdateEpicRequest request);
 
     /**
-     * Xóa một Epic khỏi Dự án.
-     * Logic nghiệp vụ: Chặn xóa nếu Epic đang chứa Task (Restrict).
-     * @param projectId ID dự án (để kiểm tra IDOR).
-     * @param epicId ID Epic cần xóa.
+     * Loai bo mot Epic khoi he thong.
+     * Logic nghiep vu: He thong se tu choi xoa neu Epic dang chua cac Task con de bao ve du lieu.
+     * * @param projectId ID Du an
+     * @param epicId ID Epic can loai bo
      */
     void deleteEpic(Integer projectId, Integer epicId);
 }

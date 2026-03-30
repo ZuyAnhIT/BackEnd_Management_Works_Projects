@@ -4,7 +4,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-// JPA & Hibernate
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -16,121 +21,165 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-// Lombok
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-// Project Enums
-import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
-import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * Entity đại diện cho một Dự án.
+ * Entity dai dien cho mot Du an (Project).
+ * Day la don vi quan ly thuc thi chinh, chua dung cac Tasks, Sprints va Epics 
+ * thuoc mot Workspace cu the.
  */
+@Getter
+@Setter
+@Builder
 @Entity
 @Table(name = "projects")
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class Project {
 
-    // ==========================================
-    // PRIMARY KEY
-    // ==========================================
+    // ======================================================
+    // 1. DINH DANH DU LIEU (PRIMARY KEY)
+    // ======================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // ID định danh dự án
+    private Integer id;
 
-    // ==========================================
-    // RELATIONSHIPS (Quan hệ Entity)
-    // ==========================================
-    // Mối quan hệ: Dự án thuộc về một Workspace
+    // ======================================================
+    // 2. LIEN KET THUC THE (RELATIONSHIPS)
+    // ======================================================
+    
+    /** Workspace chu quan cua du an nay. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "workspace_id", nullable = false)
     private Workspace workspace;
 
-    // Mối quan hệ: Loại dự án (ví dụ: Marketing, Software)
+    /** Phan loai linh vuc du an (vi du: Software, Marketing). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_type_id")
     private ProjectType projectType;
 
-    // Mối quan hệ: Người quản lý dự án (Project Manager)
+    /** Nguoi chiu trach nhiem chinh dieu hanh du an (Project Manager). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manager_id")
     private User manager;
 
-    // ==========================================
-    // BASIC INFORMATION (Thông tin cơ bản)
-    // ==========================================
-    @Column(name = "name", nullable = false)
-    private String name; // Tên dự án
-
-    @Column(name = "project_code", nullable = false)
-    private String projectCode; // Mã dự án duy nhất (ví dụ: WEB)
-
-    @Column(name = "description")
-    private String description; // Mô tả dự án
-
-    @Column(name = "goal")
-    private String goal; // Mục tiêu của dự án
-
-    // ==========================================
-    // STATUS & PRIORITY (Trạng thái & Độ ưu tiên)
-    // ==========================================
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
-    @Builder.Default
-    private ProjectStatus status = ProjectStatus.NEW; // Trạng thái dự án (Mặc định: NEW)
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "priority", nullable = false)
-    @Builder.Default
-    private ProjectPriority priority = ProjectPriority.MEDIUM; // Độ ưu tiên (Mặc định: MEDIUM)
-
-    // ==========================================
-    // TIMELINE & METRICS (Dòng thời gian & Tiến độ)
-    // ==========================================
-    @Column(name = "start_date")
-    private LocalDate startDate; // Ngày bắt đầu dự kiến
-
-    @Column(name = "due_date")
-    private LocalDate dueDate; // Ngày đến hạn dự kiến
-
-    @Column(name = "completed_at")
-    private LocalDate completedAt; // Ngày dự án thực sự hoàn thành
-
-    @Column(name = "progress")
-    private BigDecimal progress; // Tiến độ dự án (dạng số thập phân)
-
-    // ==========================================
-    // UI & CONFIGURATION (Giao diện & Cấu hình)
-    // ==========================================
-    @Column(name = "cover_image_url")
-    private String coverImageUrl; // BỔ SUNG: Cột URL ảnh bìa
-
-    @Column(name = "board_config", columnDefinition = "JSON")
-    private String boardConfig; // BỔ SUNG: Cột cấu hình bảng Kanban/Scrum (Lưu dưới dạng JSON String)
-
-    // ==========================================
-    // AUDIT & TIMESTAMPS (Hệ thống & Thời gian)
-    // ==========================================
-    // Mối quan hệ: Người tạo dự án
+    /** Nguoi dung khoi tao ban ghi du an. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by_id", nullable = false)
+    @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
     private User createdBy;
 
+    // ======================================================
+    // 3. THONG TIN CO BAN (BASIC INFO)
+    // ======================================================
+    
+    /** Ten hien thi cua du an. */
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    /** * Ma code viet tat cua du an (vi du: "WEB", "CRM"). 
+     * Dung lam tien to (Prefix) de sinh ma Task tu dong.
+     */
+    @Column(name = "project_code", nullable = false)
+    private String projectCode;
+
+    /** Mo ta chi tiet ve pham vi va muc tieu chien luoc. */
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "goal", columnDefinition = "TEXT")
+    private String goal;
+
+    // ======================================================
+    // 4. TRANG THAI & DO UU TIEN (STATUS & PRIORITY)
+    // ======================================================
+    
+    /** Trang thai van hanh (vi du: NEW, IN_PROGRESS, COMPLETED). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private ProjectStatus status;
+
+    /** Muc do quan trong (vi du: LOW, MEDIUM, HIGH). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "priority", nullable = false)
+    private ProjectPriority priority;
+
+    // ======================================================
+    // 5. DONG THOI GIAN & TIEN ĐO (TIMELINE & METRICS)
+    // ======================================================
+    
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
+    /** Thoi diem du an thuc te duoc danh dau la hoan thanh. */
+    @Column(name = "completed_at")
+    private LocalDate completedAt;
+
+    /** * Tien do hoan thanh du an (Scale 0.00 - 1.00 hoac 0 - 100).
+     * Thuong duoc tinh toan dua tren so luong Task hoan thanh.
+     */
+    @Column(name = "progress")
+    private BigDecimal progress;
+
+    // ======================================================
+    // 6. GIAO DIEN & CAU HINH (UI & CONFIG)
+    // ======================================================
+    
+    /** Anh bia cua du an de render tren giao dien Dashboard. */
+    @Column(name = "cover_image_url")
+    private String coverImageUrl;
+
+    /** * Cau hinh bo cuc bang (Kanban/Scrum) luu duoi dang JSON.
+     * Cho phep tuy chinh cot, filter mac dinh cho tung du an.
+     */
+    @Column(name = "board_config", columnDefinition = "JSON")
+    private String boardConfig;
+
+    // ======================================================
+    // 7. THONG TIN HE THONG (AUDIT INFO)
+    // ======================================================
+    
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; // Audit Field: Thời điểm tạo
+    @Column(name = "created_at", updatable = false, nullable = false)
+    private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // Audit Field: Thời điểm cập nhật cuối cùng
+    private LocalDateTime updatedAt;
 
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    public Project() {
+    }
+
+    public Project(Integer id, Workspace workspace, ProjectType projectType, User manager, 
+                   User createdBy, String name, String projectCode, String description, 
+                   String goal, ProjectStatus status, ProjectPriority priority, 
+                   LocalDate startDate, LocalDate dueDate, LocalDate completedAt, 
+                   BigDecimal progress, String coverImageUrl, String boardConfig, 
+                   LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.workspace = workspace;
+        this.projectType = projectType;
+        this.manager = manager;
+        this.createdBy = createdBy;
+        this.name = name;
+        this.projectCode = projectCode;
+        this.description = description;
+        this.goal = goal;
+        this.status = status;
+        this.priority = priority;
+        this.startDate = startDate;
+        this.dueDate = dueDate;
+        this.completedAt = completedAt;
+        this.progress = progress;
+        this.coverImageUrl = coverImageUrl;
+        this.boardConfig = boardConfig;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
 }

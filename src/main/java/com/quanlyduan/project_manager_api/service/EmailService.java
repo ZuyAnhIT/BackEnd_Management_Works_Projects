@@ -1,17 +1,21 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/EmailService.java
 package com.quanlyduan.project_manager_api.service;
 
 /**
- * Interface Service quản lý các nghiệp vụ liên quan đến việc gửi Email.
- * Thường được sử dụng để gửi thông báo, xác thực tài khoản, hoặc đặt lại mật khẩu.
+ * Service quan ly toan bo nghiep vu gui thong bao qua Email.
+ * Ho tro gui cac loai tin nhan xac thuc, thong bao he thong va loi moi gia nhap to chuc.
  */
 public interface EmailService {
-    
+
+    // ======================================================
+    // 1. GUI EMAIL CO BAN (BASIC EMAIL OPERATIONS)
+    // ======================================================
+
     /**
-     * Gửi email cơ bản.
-     * @param to Địa chỉ email người nhận.
-     * @param subject Tiêu đề của email.
-     * @param body Nội dung của email (có thể là HTML hoặc plain text).
+     * Thuc hien gui mot Email den nguoi nhan cu the.
+     * Phuong thuc nay ho tro ca van ban thuan tuy (Plain Text) va dinh dang HTML.
+     * * @param to Dia chi Email cua nguoi nhan
+     * @param subject Tieu de cua thu dien tu
+     * @param body Noi dung chi tiet cua Email
      */
     void sendEmail(String to, String subject, String body);
 }

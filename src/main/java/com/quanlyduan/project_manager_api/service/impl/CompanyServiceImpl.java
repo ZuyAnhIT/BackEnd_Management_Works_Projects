@@ -1,4 +1,3 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/CompanyServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import java.time.LocalDateTime;
@@ -18,7 +17,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import com.quanlyduan.project_manager_api.service.QuotaValidationService;
 
 import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
@@ -33,7 +31,6 @@ import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
-import com.quanlyduan.project_manager_api.exception.QuotaExceededException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyInvitation;
@@ -63,10 +60,97 @@ import com.quanlyduan.project_manager_api.service.CompanyService;
 import com.quanlyduan.project_manager_api.service.EmailService;
 import com.quanlyduan.project_manager_api.service.FileStorageService;
 import com.quanlyduan.project_manager_api.service.InvitationService;
+import com.quanlyduan.project_manager_api.service.QuotaValidationService;
 import com.quanlyduan.project_manager_api.util.SortUtils;
 
 @Service
 public class CompanyServiceImpl implements CompanyService {
+
+    // Khai bao cac hang so de loai bo hardcode
+    public static final String ACTION_CREATE = "CREATE";
+    public static final String ACTION_INVITE = "INVITE";
+    public static final String ACTION_JOIN = "JOIN";
+    public static final String ACTION_UPDATE_ROLE = "UPDATE_ROLE";
+    public static final String ACTION_REMOVE = "REMOVE";
+    public static final String ACTION_UPDATE = "UPDATE";
+
+    public static final String ENTITY_COMPANY = "COMPANY";
+    public static final String ENTITY_COMPANY_MEMBER = "COMPANY_MEMBER";
+
+    public static final String DESC_CREATE_COMPANY = "Create new Company with 14-days PRO Trial";
+    public static final String DESC_INVITE_MEMBER = "Invite new member to Company";
+    public static final String DESC_ACCEPT_INVITE = "Accept company invitation";
+    public static final String DESC_UPDATE_ROLE = "Update member role";
+    public static final String DESC_REMOVE_MEMBER = "Remove member from Company";
+    public static final String DESC_UPDATE_COMPANY = "Update Company Info";
+
+    public static final String PLAN_PRO_CODE = "PRO";
+    public static final int TRIAL_DAYS = 14;
+    public static final int INVITATION_EXPIRE_DAYS = 3;
+
+    public static final String ERROR_COMPANY_EXISTS = "Company name already exists. Please choose another name.";
+    public static final String ERROR_ROLE_NOT_FOUND = "Role not found: ";
+    public static final String ERROR_SYSTEM_PLAN_MISSING = "System Error: Subscription plan 'PRO' is missing.";
+    public static final String ERROR_COMPANY_NOT_FOUND = "Company not found.";
+    public static final String ERROR_INVALID_ROLE_LEVEL = "Invalid role configuration: Provided role is not a COMPANY level role.";
+    public static final String ERROR_INVITE_SELF = "You cannot invite yourself to the company.";
+    public static final String ERROR_ALREADY_MEMBER = "This user is already an active member of the company.";
+    public static final String ERROR_PENDING_INVITATION_EXISTS = "An invitation has already been sent to this email and is awaiting response.";
+    public static final String ERROR_WRONG_INVITATION_EMAIL = "This invitation is for a different email account.";
+    public static final String ERROR_MEMBER_NOT_FOUND_ID = "Member not found with ID: ";
+    public static final String ERROR_MEMBER_NOT_IN_COMPANY = "Member not found in this company.";
+    public static final String ERROR_CHANGE_OWN_ROLE = "You cannot change your own role.";
+    public static final String ERROR_ROLE_MEMBER_REMOVED = "Cannot update role because this member has been REMOVED.";
+    public static final String ERROR_SAME_ROLE = "The new role is the same as the current role — nothing to update.";
+    public static final String ERROR_CHANGE_OWN_STATUS = "You cannot change your own status.";
+    public static final String ERROR_SAME_STATUS = "New status is the same as the current status — nothing to update.";
+    public static final String ERROR_STATUS_MEMBER_REMOVED = "Cannot change status because this member has been REMOVED.";
+    public static final String ERROR_USE_REMOVE_ENDPOINT = "Please use the 'Remove Member' endpoint to remove a member.";
+    public static final String ERROR_REMOVE_SELF = "You cannot remove yourself from the company.";
+    public static final String ERROR_ALREADY_REMOVED = "This member has already been removed.";
+    public static final String ERROR_INVITATION_NOT_FOUND = "Invitation not found with ID: ";
+    public static final String ERROR_INVITATION_WRONG_COMPANY = "Invitation does not belong to the specified company.";
+    public static final String ERROR_AUTH_INFO_NOT_FOUND = "Authenticated user information not found.";
+    public static final String ERROR_USER_NOT_FOUND_EMAIL = "User not found with email: ";
+
+    public static final String DEFAULT_UNKNOWN = "UNKNOWN";
+    public static final String DEFAULT_SYSTEM = "System";
+
+    public static final String EMAIL_WELCOME_SUBJECT = "\uD83C\uDF89 Welcome to our system - Enjoy your 14-day trial of %s plan!";
+    public static final String EMAIL_INVITE_SUBJECT = "Invitation to join workspace ";
+    
+    public static final String EMAIL_WELCOME_TEMPLATE = "<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;\">" +
+            "  <h2 style=\"color: #2c3e50; text-align: center;\">Welcome to our system!</h2>" +
+            "  <p>Hello <b>%s</b>,</p>" +
+            "  <p>Congratulations on successfully creating the workspace <b>%s</b>. To help you get the best experience, we have automatically activated a <b>14-day free trial of the %s plan</b> for your company.</p>" +
+            "  <div style=\"background-color: #f8f9fa; padding: 15px; border-left: 4px solid #3498db; margin: 20px 0;\">" +
+            "    <p style=\"margin: 0;\"><b>Current Plan:</b> %s</p>" +
+            "    <p style=\"margin: 5px 0 0 0;\"><b>Trial Expiration:</b> Until %s</p>" +
+            "  </div>" +
+            "  <p>With the %s plan, you can experience all premium features without any limitations.</p>" +
+            "  <p><i>Note: After the trial period ends, the system will automatically downgrade to the <b>FREE</b> plan if you do not upgrade. There will be no unexpected charges.</i></p>" +
+            "  <div style=\"text-align: center; margin-top: 30px;\">" +
+            "    <a href=\"%s/admin/dashboard\" style=\"background-color: #3498db; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;\">Get Started Now</a>" +
+            "  </div>" +
+            "  <hr style=\"border: none; border-top: 1px solid #e0e0e0; margin-top: 30px;\">" +
+            "  <p style=\"font-size: 12px; color: #7f8c8d; text-align: center;\">If you have any questions, please reply directly to this email for support.</p>" +
+            "</div>";
+
+    public static final String EMAIL_INVITE_TEMPLATE = "Hello,<br><br><b>%s</b> has invited you to join the project management system at <b>%s</b> with the role of %s.<br><br>" +
+            "Please click <a href=\"%s\" style=\"color: #3498db; font-weight: bold;\">HERE</a> to accept the invitation and set up your account.<br><br>" +
+            "<i>Note: This secure link will expire in 3 days.</i>";
+
+    public static final String LOG_JOINED_MSG = "has joined the company <strong>%s</strong> as <strong>%s</strong> \uD83C\uDF89";
+    public static final String LOG_RENAMED_MSG = "renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"";
+    public static final String LOG_DESC_UPDATED_MSG = "updated description";
+    public static final String LOG_LOGO_UPDATED_MSG = "updated logo";
+
+    public static final String SORT_JOINED_AT = "joinedAt";
+    public static final String SORT_CREATED_AT = "createdAt";
+
+    // Khai bao cac bien phu thuoc
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     private final CompanyRepository companyRepository;
     private final CompanyMemberRepository companyMemberRepository;
@@ -82,9 +166,7 @@ public class CompanyServiceImpl implements CompanyService {
     private final QuotaValidationService quotaValidationService;
     private final ProjectRepository projectRepository;
 
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
-
+    // Constructor khoi tao thu cong
     public CompanyServiceImpl(CompanyRepository companyRepository,
                               CompanyMemberRepository companyMemberRepository,
                               UserRepository userRepository,
@@ -96,9 +178,8 @@ public class CompanyServiceImpl implements CompanyService {
                               ProjectRepository projectRepository,
                               FileStorageService fileStorageService,
                               CompanySubscriptionRepository companySubscriptionRepository,
-                            SubscriptionPlanRepository subscriptionPlanRepository,
-                            QuotaValidationService quotaValidationService
-                    ) {
+                              SubscriptionPlanRepository subscriptionPlanRepository,
+                              QuotaValidationService quotaValidationService) {
         this.companyRepository = companyRepository;
         this.companyMemberRepository = companyMemberRepository;
         this.userRepository = userRepository;
@@ -114,31 +195,30 @@ public class CompanyServiceImpl implements CompanyService {
         this.quotaValidationService = quotaValidationService;
     }
 
-    // =================================================================================
-    // 🏢 LOGIC TẠO CÔNG TY (CREATE COMPANY) & KÍCH HOẠT TRIAL 14 NGÀY
-    // =================================================================================
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+
+    // Logic tao cong ty va kich hoat dung thu 14 ngay
     @Override
-    @Transactional // Đảm bảo tính toàn vẹn dữ liệu
-    @LogActivity(action = "CREATE", entityType = "COMPANY", description = "Create new Company with 14-days PRO Trial") 
+    @Transactional
+    @LogActivity(action = ACTION_CREATE, entityType = ENTITY_COMPANY, description = DESC_CREATE_COMPANY) 
     public Company createCompany(CreateCompanyRequest request) {
-        
-        // 1. Lấy thông tin người đang thao tác
+        // Lay thong tin nguoi dang thao tac
         User creator = getCurrentAuthenticatedUser();
 
-        // 2. Validate dữ liệu đầu vào
+        // Kiem tra du lieu dau vao
         if (companyRepository.existsByName(request.getCompanyName())) {
-            throw new BadRequestException("Company name already exists. Please choose another name.");
+            throw new BadRequestException(ERROR_COMPANY_EXISTS);
         }
 
-        // 3. Chuẩn bị dữ liệu hệ thống
+        // Chuan bi du lieu he thong
         Role adminRole = roleRepository.findFirstByRoleCode(RoleCode.COMPANY_ADMIN.name())
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found: COMPANY_ADMIN."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_ROLE_NOT_FOUND + RoleCode.COMPANY_ADMIN.name()));
 
-        // 🚀 LUỒNG MỚI (MỒI NHỬ SaaS): Lấy gói PRO để cho dùng thử thay vì gói FREE
-        SubscriptionPlan trialPlan = subscriptionPlanRepository.findByPlanCode("PRO")
-                .orElseThrow(() -> new ResourceNotFoundException("System Error: Subscription plan 'PRO' is missing."));
+        // Lay goi PRO de cho dung thu
+        SubscriptionPlan trialPlan = subscriptionPlanRepository.findByPlanCode(PLAN_PRO_CODE)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_SYSTEM_PLAN_MISSING));
 
-        // 4. Tạo bản ghi Company
+        // Tao ban ghi cong ty
         Company newCompany = Company.builder()
                 .name(request.getCompanyName())
                 .description(request.getDescription())
@@ -154,23 +234,22 @@ public class CompanyServiceImpl implements CompanyService {
         
         Company savedCompany = companyRepository.save(newCompany);
 
-        // 5. 🚀 CẤP PHÁT GÓI CƯỚC DÙNG THỬ (14 NGÀY)
+        // Cap phat goi cuoc dung thu
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime trialEndDate = now.plusDays(14); // Hết hạn sau 14 ngày
+        LocalDateTime trialEndDate = now.plusDays(TRIAL_DAYS);
 
         CompanySubscription subscription = CompanySubscription.builder()
                 .company(savedCompany)
-                .plan(trialPlan) // Cho dùng thẳng gói PRO
-                .status(SubscriptionStatus.ACTIVE) // Đang hoạt động bình thường
+                .plan(trialPlan)
+                .status(SubscriptionStatus.ACTIVE)
                 .currentPeriodStart(now)
-                .currentPeriodEnd(trialEndDate) // Đặt ngày hết hạn
-                // Bật cờ Hủy: Để sau 14 ngày Cron Job sẽ cắt thẳng về Free luôn, không cho ân hạn (PAST_DUE)
+                .currentPeriodEnd(trialEndDate)
                 .cancelAtPeriodEnd(true) 
                 .build();
                 
         companySubscriptionRepository.save(subscription);
 
-        // 6. Cấp quyền sở hữu (Admin) cho người tạo ra Công ty
+        // Cap quyen quan tri cho nguoi tao
         CompanyMember membership = CompanyMember.builder()
                 .company(savedCompany)
                 .user(creator)
@@ -180,92 +259,46 @@ public class CompanyServiceImpl implements CompanyService {
                 
         companyMemberRepository.save(membership);
 
-        // =================================================================================
-        // 7. ✉️ GỬI EMAIL CHÀO MỪNG (BẤT ĐỒNG BỘ)
-        // =================================================================================
+        // Gui email chao mung (Bat dong bo)
         sendWelcomeAndTrialEmail(creator, savedCompany, trialPlan, trialEndDate);
 
         return savedCompany;
     }
 
-    /**
-     * HÀM HELPER: Tạo template HTML và gửi Email Chào mừng
-     */
-    private void sendWelcomeAndTrialEmail(User user, Company company, SubscriptionPlan plan, LocalDateTime trialEndDate) {
-        String subject = "🎉 Chào mừng đến với hệ thống - Tặng bạn 14 ngày trải nghiệm gói " + plan.getName() + "!";
-        String formattedDate = trialEndDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
-        
-        // Tạo giao diện Email HTML chuyên nghiệp
-        String emailBody = String.format(
-            "<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;\">" +
-            "  <h2 style=\"color: #2c3e50; text-align: center;\">Chào mừng bạn gia nhập hệ thống!</h2>" +
-            "  <p>Xin chào <b>%s</b>,</p>" +
-            "  <p>Chúc mừng bạn đã tạo thành công không gian làm việc <b>%s</b>. Để giúp bạn có trải nghiệm tốt nhất, chúng tôi đã tự động kích hoạt <b>14 ngày dùng thử miễn phí gói %s</b> cho công ty của bạn.</p>" +
-            "  <div style=\"background-color: #f8f9fa; padding: 15px; border-left: 4px solid #3498db; margin: 20px 0;\">" +
-            "    <p style=\"margin: 0;\"><b>Gói hiện tại:</b> %s</p>" +
-            "    <p style=\"margin: 5px 0 0 0;\"><b>Hạn dùng thử:</b> Đến %s</p>" +
-            "  </div>" +
-            "  <p>Với gói %s, bạn có thể trải nghiệm toàn bộ các tính năng cao cấp nhất mà không gặp bất kỳ giới hạn nào.</p>" +
-            "  <p><i>Lưu ý: Sau khi thời gian dùng thử kết thúc, hệ thống sẽ tự động chuyển về gói <b>Miễn phí (FREE)</b> nếu bạn không thực hiện nâng cấp. Sẽ không có bất kỳ khoản phí nào phát sinh ngoài ý muốn.</i></p>" +
-            "  <div style=\"text-align: center; margin-top: 30px;\">" +
-            "    <a href=\"%s/admin/dashboard\" style=\"background-color: #3498db; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;\">Bắt đầu ngay</a>" +
-            "  </div>" +
-            "  <hr style=\"border: none; border-top: 1px solid #e0e0e0; margin-top: 30px;\">" +
-            "  <p style=\"font-size: 12px; color: #7f8c8d; text-align: center;\">Nếu bạn có bất kỳ câu hỏi nào, vui lòng trả lời trực tiếp email này để được hỗ trợ.</p>" +
-            "</div>",
-            user.getFullName(), company.getName(), plan.getName(), plan.getName(), formattedDate, plan.getName(), "http://localhost:3000" // Thay bằng URL Frontend của bạn (frontendUrl)
-        );
-
-        // Gọi hàm gửi mail (Hàm này đã có @Async bên EmailServiceImpl nên sẽ chạy nền)
-        emailService.sendEmail(user.getEmail(), subject, emailBody);
-    }
-
-    // =================================================================================
-    // ✉️ LOGIC TẠO LỜI MỜI THÀNH VIÊN KÈM QUOTA GUARD (SAAS)
-    // =================================================================================
-    // =================================================================================
-    // ✉️ LOGIC TẠO LỜI MỜI THÀNH VIÊN CÔNG TY
-    // =================================================================================
+    // Logic tao loi moi thanh vien cong ty kem kiem tra han muc
     @Override
     @Transactional
-    @LogActivity(action = "INVITE", entityType = "COMPANY_MEMBER", description = "Invite new member to Company")
+    @LogActivity(action = ACTION_INVITE, entityType = ENTITY_COMPANY_MEMBER, description = DESC_INVITE_MEMBER)
     public CompanyInvitation inviteMember(Integer companyId, InviteMemberRequest request) {
-
         User admin = getCurrentAuthenticatedUser();
         Company company = companyRepository.findById(companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_COMPANY_NOT_FOUND));
 
-        // =====================================================================
-        // 🚀 BƯỚC 1: QUOTA GUARD (Gọi qua Service tập trung)
-        // =====================================================================
+        // Kiem tra han muc nguoi dung
         quotaValidationService.validateUserInvitationQuota(companyId);
 
-        // =====================================================================
-        // BƯỚC 2: VALIDATE ROLE VÀ DỮ LIỆU
-        // =====================================================================
+        // Kiem tra vai tro va du lieu
         Role role = roleRepository.findFirstByRoleCode(request.getRoleCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found for code: " + request.getRoleCode()));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_ROLE_NOT_FOUND + request.getRoleCode()));
 
         if (role.getLevel() != RoleLevel.COMPANY) {
-            throw new BadRequestException("Invalid role configuration: Provided role is not a COMPANY level role.");
+            throw new BadRequestException(ERROR_INVALID_ROLE_LEVEL);
         }
 
         String invitedEmail = request.getEmail();
         if (admin.getEmail().equals(invitedEmail)) {
-            throw new BadRequestException("You cannot invite yourself to the company.");
+            throw new BadRequestException(ERROR_INVITE_SELF);
         }
 
         if (companyMemberRepository.existsByCompany_IdAndUser_Email(companyId, invitedEmail)) {
-            throw new BadRequestException("This user is already an active member of the company.");
+            throw new BadRequestException(ERROR_ALREADY_MEMBER);
         }
 
         if (companyInvitationRepository.existsByCompany_IdAndEmailAndStatus(companyId, invitedEmail, InvitationStatus.PENDING)) {
-            throw new BadRequestException("An invitation has already been sent to this email and is awaiting response.");
+            throw new BadRequestException(ERROR_PENDING_INVITATION_EXISTS);
         }
 
-        // =====================================================================
-        // BƯỚC 3: TẠO LỜI MỜI & GỬI EMAIL
-        // =====================================================================
+        // Tao loi moi
         String token = UUID.randomUUID().toString();
         CompanyInvitation invitation = CompanyInvitation.builder()
                 .company(company)
@@ -274,273 +307,195 @@ public class CompanyServiceImpl implements CompanyService {
                 .invitedBy(admin)
                 .token(token)
                 .status(InvitationStatus.PENDING)
-                .expiresAt(LocalDateTime.now().plusDays(3))
+                .expiresAt(LocalDateTime.now().plusDays(INVITATION_EXPIRE_DAYS))
                 .build();
 
         CompanyInvitation savedInvitation = companyInvitationRepository.save(invitation);
         
-        // 6. Gửi Email (Bất đồng bộ)
+        // Gui email loi moi
         String acceptUrl = frontendUrl + "/accept-invitation?token=" + token;
-        String emailBody = String.format(
-            "Xin chào,<br><br><b>%s</b> đã mời bạn tham gia hệ thống quản trị dự án tại công ty <b>%s</b> với vai trò %s.<br><br>" +
-            "Vui lòng nhấp vào <a href=\"%s\" style=\"color: #3498db; font-weight: bold;\">ĐÂY</a> để chấp nhận lời mời và thiết lập tài khoản của bạn.<br><br>" +
-            "<i>Lưu ý: Liên kết bảo mật này sẽ hết hạn sau 3 ngày kể từ khi nhận email.</i>",
-            admin.getFullName(), company.getName(), role.getRoleName(), acceptUrl
-        );
-
-        emailService.sendEmail(invitedEmail, "Lời mời tham gia không gian làm việc " + company.getName(), emailBody);
+        String emailBody = String.format(EMAIL_INVITE_TEMPLATE, admin.getFullName(), company.getName(), role.getRoleName(), acceptUrl);
+        emailService.sendEmail(invitedEmail, EMAIL_INVITE_SUBJECT + company.getName(), emailBody);
         
         return savedInvitation;
     }
 
-    // =================================================================================
-    // ✅ LOGIC CHẤP NHẬN LỜI MỜI (ACCEPT INVITATION)
-    // =================================================================================
+    // Logic chap nhan loi moi
     @Override
     @Transactional
-    @LogActivity(action = "JOIN", entityType = "COMPANY_MEMBER", description = "Accept company invitation")
+    @LogActivity(action = ACTION_JOIN, entityType = ENTITY_COMPANY_MEMBER, description = DESC_ACCEPT_INVITE)
     public CompanyDetailsResponse acceptInvitation(AcceptInvitationRequest request) {
-        // 1. Xác thực token lời mời (SỬ DỤNG SERVICE CHUNG)
-        // Hàm này đã xử lý các lỗi Token hết hạn/không tồn tại
+        // Xac thuc token loi moi thong qua service dung chung
         CompanyInvitation invitation = invitationService.validateInvitationToken(request.getInvitationToken());
 
-        // 2. Lấy người dùng đang đăng nhập
+        // Kiem tra nguoi dung dang nhap hien tai
         User currentUser = getCurrentAuthenticatedUser();
 
-        // 3. Kiểm tra xem lời mời này có đúng là dành cho người đang đăng nhập không
         if (!currentUser.getEmail().equals(invitation.getEmail())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("This invitation is for a different email account.");
+            throw new BadRequestException(ERROR_WRONG_INVITATION_EMAIL);
         }
 
-        // 4. Kiểm tra (lần nữa) xem họ đã là thành viên chưa
-        if (companyMemberRepository.existsByCompany_IdAndUser_Email(
-                invitation.getCompany().getId(), currentUser.getEmail())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("You are already a member of this company.");
+        if (companyMemberRepository.existsByCompany_IdAndUser_Email(invitation.getCompany().getId(), currentUser.getEmail())) {
+            throw new BadRequestException(ERROR_ALREADY_MEMBER);
         }
 
-        // 5. Thêm thành viên vào công ty (SỬ DỤNG SERVICE CHUNG)
+        // Them thanh vien va cap nhat trang thai
         invitationService.addMemberToCompany(currentUser, invitation.getCompany(), invitation.getRole());
-
-        // 6. Cập nhật lời mời
         invitation.setStatus(InvitationStatus.ACCEPTED);
         companyInvitationRepository.save(invitation);
 
-        String welcomeMsg = String.format("has joined the company <strong>%s</strong> as <strong>%s</strong> 🎉", 
-                invitation.getCompany().getName(), 
-                invitation.getRole().getRoleName());
-        
+        // Ghi nhat ky hoat dong
+        String welcomeMsg = String.format(LOG_JOINED_MSG, invitation.getCompany().getName(), invitation.getRole().getRoleName());
         ActivityLogContext.setDetail(welcomeMsg);
+        
         return mapCompanyToDetailsDto(invitation.getCompany());
     }
 
-    // =================================================================================
-    // 👤 LOGIC XEM CHI TIẾT THÀNH VIÊN (GET MEMBER DETAILS)
-    // =================================================================================
+    // Logic xem chi tiet thanh vien
     @Override
     @Transactional(readOnly = true)
     public CompanyMemberResponse getCompanyMemberDetails(Integer companyId, Integer memberId) {
-        // Bảo mật đã được xử lý ở Controller (@PreAuthorize)
-
-        // 1. Tìm thành viên bằng ID
         CompanyMember member = companyMemberRepository.findById(memberId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Member not found with ID: " + memberId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_MEMBER_NOT_FOUND_ID + memberId));
 
-        // 2. KIỂM TRA BẢO MẬT (IDOR): Đảm bảo thành viên này thuộc đúng công ty
         if (!member.getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new ResourceNotFoundException("Member not found in this company.");
+            throw new ResourceNotFoundException(ERROR_MEMBER_NOT_IN_COMPANY);
         }
 
-        // 3. Map và trả về
         return mapToCompanyMemberResponse(member);
     }
 
-    // =================================================================================
-    // 🔄 LOGIC CẬP NHẬT VAI TRÒ THÀNH VIÊN CẤP CÔNG TY (UPDATE MEMBER ROLE)
-    // =================================================================================
+    // Logic cap nhat vai tro thanh vien cap cong ty
     @Override
     @Transactional
-    @LogActivity(action = "UPDATE_ROLE", entityType = "COMPANY_MEMBER", description = "Update member role")
+    @LogActivity(action = ACTION_UPDATE_ROLE, entityType = ENTITY_COMPANY_MEMBER, description = DESC_UPDATE_ROLE)
     public CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode) {
-        // 1. Lấy thông tin thành viên
         CompanyMember member = companyMemberRepository.findById(memberId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Member not found with ID: " + memberId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_MEMBER_NOT_FOUND_ID + memberId));
 
-        // 2. Kiểm tra bảo mật (IDOR): Đảm bảo thành viên thuộc công ty đang thao tác
         if (!member.getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new ResourceNotFoundException("Member not found in this company.");
+            throw new ResourceNotFoundException(ERROR_MEMBER_NOT_IN_COMPANY);
         }
 
-        // 3. Không cho phép đổi vai trò của chính mình
         User admin = securityService.getCurrentAuthenticatedUser();
         if (admin.getId().equals(member.getUser().getId())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("You cannot change your own role.");
+            throw new BadRequestException(ERROR_CHANGE_OWN_ROLE);
         }
 
-        // ⭐ 4. Không thể cập nhật vai trò nếu đã REMOVED
         if (member.getStatus() == MemberStatus.REMOVED) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Cannot update role because this member has been REMOVED.");
+            throw new BadRequestException(ERROR_ROLE_MEMBER_REMOVED);
         }
 
-        // 5. Tìm vai trò mới
         Role newRole = roleRepository.findFirstByRoleCode(newRoleCode)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with code: " + newRoleCode));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_ROLE_NOT_FOUND + newRoleCode));
 
-        // 6. Vai trò phải là cấp công ty
         if (newRole.getLevel() != RoleLevel.COMPANY) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Invalid role (Not a COMPANY level role).");
+            throw new BadRequestException(ERROR_INVALID_ROLE_LEVEL);
         }
 
-        // ⭐ 7. Không cho phép cập nhật nếu TRÙNG vai trò
         if (member.getRole().getId().equals(newRole.getId())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("The new role is the same as the current role — nothing to update.");
+            throw new BadRequestException(ERROR_SAME_ROLE);
         }
         
-        // 8. Cập nhật vai trò
         member.setRole(newRole);
         return companyMemberRepository.save(member);
     }
 
-    // =================================================================================
-    // ⏸️ LOGIC CẬP NHẬT TRẠNG THÁI THÀNH VIÊN (UPDATE MEMBER STATUS)
-    // =================================================================================
+    // Logic cap nhat trang thai thanh vien
     @Override
     @Transactional
     public CompanyMemberResponse updateMemberStatus(Integer companyId, Integer memberId, UpdateMemberStatusRequest request) {
-        // 1. Lấy thông tin thành viên
         CompanyMember member = companyMemberRepository.findById(memberId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Member not found with ID: " + memberId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_MEMBER_NOT_FOUND_ID + memberId));
 
-        // 2. Kiểm tra bảo mật (IDOR)
         if (!member.getCompany().getId().equals(companyId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new ResourceNotFoundException("Member not found in this company.");
+            throw new ResourceNotFoundException(ERROR_MEMBER_NOT_IN_COMPANY);
         }
 
-        // 3. Không cho phép đổi status của chính mình
         User admin = securityService.getCurrentAuthenticatedUser();
         if (admin.getId().equals(member.getUser().getId())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("You cannot change your own status.");
+            throw new BadRequestException(ERROR_CHANGE_OWN_STATUS);
         }
 
         MemberStatus newStatus = request.getNewStatus();
 
-        // ⭐ 4. Không cho phép cập nhật nếu TRÙNG trạng thái
         if (member.getStatus() == newStatus) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("New status is the same as the current status — nothing to update.");
+            throw new BadRequestException(ERROR_SAME_STATUS);
         }
 
-        // ⭐ 5. Không cho phép thay đổi nếu trạng thái hiện tại đã là REMOVED
         if (member.getStatus() == MemberStatus.REMOVED) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Cannot change status because this member has been REMOVED.");
+            throw new BadRequestException(ERROR_STATUS_MEMBER_REMOVED);
         }
 
-        // 6. Không được dùng endpoint này để set REMOVED (chỉ dùng cho ACTIVE/SUSPENDED)
         if (newStatus == MemberStatus.REMOVED) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Please use the 'Remove Member' endpoint to remove a member.");
+            throw new BadRequestException(ERROR_USE_REMOVE_ENDPOINT);
         }
 
-        // 7. Cập nhật trạng thái
         member.setStatus(newStatus);
         CompanyMember updatedMember = companyMemberRepository.save(member);
 
         return mapToCompanyMemberResponse(updatedMember);
     }
 
-    // =================================================================================
-    // ❌ LOGIC XÓA MỀM THÀNH VIÊN (REMOVE MEMBER)
-    // =================================================================================
+    // Logic xoa mem thanh vien
     @Override
     @Transactional
-    @LogActivity(action = "REMOVE", entityType = "COMPANY_MEMBER", description = "Remove member from Company")
+    @LogActivity(action = ACTION_REMOVE, entityType = ENTITY_COMPANY_MEMBER, description = DESC_REMOVE_MEMBER)
     public void removeMemberFromCompany(Integer companyId, Integer userId) {
-        // 1. Kiểm tra xem có tự xóa chính mình không
         User admin = getCurrentAuthenticatedUser();
         if (admin.getId().equals(userId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("You cannot remove yourself from the company.");
+            throw new BadRequestException(ERROR_REMOVE_SELF);
         }
 
-        // 2. Tìm thành viên (kể cả inactive) để xóa
         CompanyMember member = companyMemberRepository.findByCompany_IdAndUser_Id(companyId, userId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Member not found in this company."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_MEMBER_NOT_IN_COMPANY));
 
-        // 3. Kiểm tra xem họ đã bị xóa chưa
         if (member.getStatus() == MemberStatus.REMOVED) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("This member has already been removed.");
+            throw new BadRequestException(ERROR_ALREADY_REMOVED);
         }
 
-        // 4. Thực hiện xóa mềm
-        member.setStatus(MemberStatus.REMOVED); // Đặt trạng thái là REMOVED
+        member.setStatus(MemberStatus.REMOVED);
         companyMemberRepository.save(member);
-
-        // 5. (Nâng cao) Tự động xóa họ khỏi TẤT CẢ Workspace và Project thuộc công ty này
-        // (Logic này chưa triển khai)
     }
 
-    // =================================================================================
-    // 📝 LOGIC LẤY CHI TIẾT CÔNG TY (GET COMPANY DETAILS)
-    // =================================================================================
+    // Logic lay chi tiet cong ty
     @Override
     @Transactional(readOnly = true)
     public CompanyDetailsResponse getCompanyDetails(Integer companyId) {
-
-        // 1. Lấy thông tin công ty
         Company company = companyRepository.findById(companyId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Company not found with ID: " + companyId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_COMPANY_NOT_FOUND));
 
-        // 2. Map sang DTO và trả về
         return mapCompanyToDetailsDto(company);
     }
 
-    // =================================================================================
-    // ✏️ LOGIC CẬP NHẬT THÔNG TIN CÔNG TY (UPDATE COMPANY)
-    // =================================================================================
+    // Logic cap nhat thong tin cong ty
     @Override
     @Transactional
-    @LogActivity(action = "UPDATE", entityType = "COMPANY", description = "Update Company Info")
+    @LogActivity(action = ACTION_UPDATE, entityType = ENTITY_COMPANY, description = DESC_UPDATE_COMPANY)
     public CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request, MultipartFile logoFile) {
         Company company = companyRepository.findById(companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_COMPANY_NOT_FOUND));
 
         StringBuilder changes = new StringBuilder();
 
-        // 1. Name
+        // Cap nhat ten cong ty
         if (request.getCompanyName() != null && !request.getCompanyName().equals(company.getName())) {
              if (companyRepository.existsByName(request.getCompanyName())) {
-                  throw new BadRequestException("Company name already exists.");
+                  throw new BadRequestException(ERROR_COMPANY_EXISTS);
              }
              if (changes.length() > 0) changes.append(", ");
-             changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", company.getName(), request.getCompanyName()));
+             changes.append(String.format(LOG_RENAMED_MSG, company.getName(), request.getCompanyName()));
              company.setName(request.getCompanyName());
         }
 
-        // 2. Description
+        // Cap nhat mo ta
         if (request.getDescription() != null && !request.getDescription().equals(company.getDescription())) {
              if (changes.length() > 0) changes.append(", ");
-             changes.append("updated description");
+             changes.append(LOG_DESC_UPDATED_MSG);
              company.setDescription(request.getDescription());
         }
 
-        // 3. Other fields
+        // Cap nhat cac truong khac
         if (request.getAddress() != null && !request.getAddress().equals(company.getAddress())) {
              company.setAddress(request.getAddress());
         }
@@ -554,70 +509,30 @@ public class CompanyServiceImpl implements CompanyService {
              company.setWebsite(request.getWebsite());
         }
 
-        // 4. Logo
+        // Cap nhat logo
         if (logoFile != null && !logoFile.isEmpty()) {
             String logoPath = fileStorageService.storeFile(logoFile, "company-logos");
             if (changes.length() > 0) changes.append(", ");
-            changes.append("updated logo");
+            changes.append(LOG_LOGO_UPDATED_MSG);
             company.setLogoUrl(logoPath);
         } else if (request.getLogo() != null && !request.getLogo().equals(company.getLogoUrl())) {
             company.setLogoUrl(request.getLogo());
         }
 
-        // Set log
         if (changes.length() > 0) {
             ActivityLogContext.setDetail(changes.toString());
-        } else {
-            //  ActivityLogContext.setDetail("updated company info");
         }
 
         Company savedCompany = companyRepository.save(company);
         return mapCompanyToDetailsDto(savedCompany);
     }
 
-    // =================================================================================
-    // 🔎 LOGIC LẤY DANH SÁCH THÀNH VIÊN CƠ BẢN (LIST MEMBERS)
-    // =================================================================================
+    // Logic lay danh sach thanh vien
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<CompanyMemberResponse> getCompanyMembers(Integer companyId, int page, int size, String sortBy, String sortDir) {
-
-        // 1. Cấu hình Map ánh xạ cho việc sắp xếp
         Map<String, String> sortMapping = Map.of(
-            "joinedAt", "joinedAt",          // Ngày tham gia (Mặc định)
-            "name", "user.fullName",         // Tên người dùng
-            "email", "user.email",           // Email
-            "role", "role.roleName",         // Tên vai trò
-            "jobTitle", "jobTitle",          // Chức vụ
-            "phone", "user.phoneNumber"      // Số điện thoại
-        );
-
-        // 2. Tạo Pageable (Sử dụng hàm helper chung)
-        Pageable pageable = createPageable(page, size, sortBy, sortDir, "joinedAt", sortMapping);
-
-        // 3. Gọi Repository lấy dữ liệu phân trang
-        Page<CompanyMember> membersPage = companyMemberRepository.findByCompany_Id(companyId, pageable);
-
-        // 4. Map sang DTO
-        Page<CompanyMemberResponse> dtoPage = membersPage.map(this::mapToCompanyMemberResponse);
-
-        // 5. Trả về
-        return new PageResponseDTO<>(dtoPage);
-    }
-
-    // =================================================================================
-    // 🔍 LOGIC TÌM KIẾM NÂNG CAO THÀNH VIÊN (SEARCH MEMBERS)
-    // =================================================================================
-    @Override
-    @Transactional(readOnly = true)
-    public PageResponseDTO<CompanyMemberResponse> searchCompanyMembers(
-            Integer companyId,
-            String searchName, String searchEmail, String searchJobTitle, String searchRoleName, MemberStatus searchStatus, String searchPhone,
-            int page, int size, String sortBy, String sortDir) {
-
-        // 1. Cấu hình Map ánh xạ (Giống hàm trên)
-        Map<String, String> sortMapping = Map.of(
-            "joinedAt", "joinedAt",
+            SORT_JOINED_AT, SORT_JOINED_AT,
             "name", "user.fullName",
             "email", "user.email",
             "role", "role.roleName",
@@ -625,27 +540,43 @@ public class CompanyServiceImpl implements CompanyService {
             "phone", "user.phoneNumber"
         );
 
-        // 2. Tạo Pageable
-        Pageable pageable = createPageable(page, size, sortBy, sortDir, "joinedAt", sortMapping);
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, SORT_JOINED_AT, sortMapping);
+        Page<CompanyMember> membersPage = companyMemberRepository.findByCompany_Id(companyId, pageable);
+        Page<CompanyMemberResponse> dtoPage = membersPage.map(this::mapToCompanyMemberResponse);
 
-        // 3. Tạo Specification (Bộ lọc động)
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    // Logic tim kiem nang cao thanh vien
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<CompanyMemberResponse> searchCompanyMembers(
+            Integer companyId,
+            String searchName, String searchEmail, String searchJobTitle, String searchRoleName, MemberStatus searchStatus, String searchPhone,
+            int page, int size, String sortBy, String sortDir) {
+
+        Map<String, String> sortMapping = Map.of(
+            SORT_JOINED_AT, SORT_JOINED_AT,
+            "name", "user.fullName",
+            "email", "user.email",
+            "role", "role.roleName",
+            "jobTitle", "jobTitle",
+            "phone", "user.phoneNumber"
+        );
+
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, SORT_JOINED_AT, sortMapping);
+        
         Specification<CompanyMember> spec = CompanyMemberSpecification.filterMembers(
             companyId, searchName, searchEmail, searchJobTitle, searchRoleName, searchStatus, searchPhone
         );
 
-        // 4. Gọi Repository với Specification
         Page<CompanyMember> membersPage = companyMemberRepository.findAll(spec, pageable);
-
-        // 5. Map sang DTO
         Page<CompanyMemberResponse> dtoPage = membersPage.map(this::mapToCompanyMemberResponse);
 
-        // 6. Trả về
         return new PageResponseDTO<>(dtoPage);
     }
 
-    // =================================================================================
-    // ⏳ LOGIC LẤY DANH SÁCH LỜI MỜI (CÓ LỌC & TÌM KIẾM) - ĐÃ NÂNG CẤP
-    // =================================================================================
+    // Logic lay danh sach loi moi hien tai
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<CompanyInvitationResponse> getCompanyInvitations(
@@ -654,61 +585,44 @@ public class CompanyServiceImpl implements CompanyService {
             String statusStr, 
             int page, int size, String sortBy, String sortDir
     ) {
-        // 1. Cấu hình Map ánh xạ cho việc sắp xếp
         Map<String, String> sortMapping = Map.of(
-            "createdAt", "createdAt",       
-            "email", "email",              
-            "role", "role.roleName",        
-            "expiresAt", "expiresAt"        
+            SORT_CREATED_AT, SORT_CREATED_AT,
+            "email", "email",
+            "role", "role.roleName",
+            "expiresAt", "expiresAt"
         );
 
-        // 2. Tạo Pageable
-        Pageable pageable = createPageable(page, size, sortBy, sortDir, "createdAt", sortMapping);
+        Pageable pageable = createPageable(page, size, sortBy, sortDir, SORT_CREATED_AT, sortMapping);
 
-        // 3. Xử lý bộ lọc
-        // - Keyword: Nếu null thì gán rỗng để tìm tất cả
         String searchKeyword = (keyword != null) ? keyword.trim() : "";
-        
-        // - Status: Mặc định là PENDING nếu không truyền hoặc truyền sai
         InvitationStatus status = InvitationStatus.PENDING;
+        
         if (statusStr != null && !statusStr.isEmpty()) {
             try {
                 status = InvitationStatus.valueOf(statusStr.toUpperCase());
             } catch (IllegalArgumentException e) {
-                // Nếu status sai, giữ mặc định PENDING
+                // Giu nguyen mac dinh neu sai dinh dang
             }
         }
 
-        // 4. Gọi Repository lấy dữ liệu
         Page<CompanyInvitation> invitationPage = companyInvitationRepository
                 .findByCompany_IdAndStatusAndEmailContainingIgnoreCase(companyId, status, searchKeyword, pageable);
 
-        // 5. Map sang DTO (Dùng hàm helper để code gọn hơn)
         Page<CompanyInvitationResponse> dtoPage = invitationPage.map(this::mapToCompanyInvitationResponse);
 
-        // 6. Trả về kết quả
         return new PageResponseDTO<>(dtoPage);
     }
 
-
-    // =================================================================================
-    // 🔗 LOGIC LẤY CHI TIẾT LỜI MỜI (PUBLIC) - Dùng cho trang chấp nhận
-    // =================================================================================
+    // Logic lay chi tiet loi moi (Public)
     @Override
     @Transactional(readOnly = true)
     public InvitationDetailsResponse getInvitationDetails(String token) {
-        // 1. Xác thực token (tái sử dụng logic từ InvitationService)
-        // Hàm này sẽ tự động ném lỗi 404 hoặc 400 nếu token sai/hết hạn
         CompanyInvitation invitation = invitationService.validateInvitationToken(token);
 
-        // 2. Lấy thông tin
         String email = invitation.getEmail();
         String companyName = invitation.getCompany().getName();
-
-        // 3. Kiểm tra user có tồn tại không (Mấu chốt)
         boolean accountExists = userRepository.existsByEmail(email);
 
-        // 4. Trả về DTO cho frontend
         return InvitationDetailsResponse.builder()
                 .email(email)
                 .companyName(companyName)
@@ -716,58 +630,52 @@ public class CompanyServiceImpl implements CompanyService {
                 .build();
     }
 
-    // =================================================================================
-    // ❌ HỦY LỜI MỜI CÔNG TY (CANCEL INVITATION)
-    // =================================================================================
+    // Logic huy loi moi cong ty
     @Override
     @Transactional
     public void cancelCompanyInvitation(Integer companyId, Integer invitationId) {
-        // 1. Tìm lời mời
         CompanyInvitation invitation = companyInvitationRepository.findById(invitationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Invitation not found with ID: " + invitationId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_INVITATION_NOT_FOUND + invitationId));
 
-        // 2. Validate: Lời mời phải thuộc đúng Company này
         if (!invitation.getCompany().getId().equals(companyId)) {
-            throw new BadRequestException("Invitation does not belong to the specified company.");
+            throw new BadRequestException(ERROR_INVITATION_WRONG_COMPANY);
         }
 
-        // 3. Xóa (Xóa cứng vì lời mời chưa được dùng coi như rác)
         companyInvitationRepository.delete(invitation);
     }
 
+    // --- CAC HAM PRIVATE HO TRO NGHIEP VU ---
 
-    // =================================================================================
-    // ⚙️ PRIVATE HELPER METHODS
-    // =================================================================================
-
-    /**
-     * Helper: Lấy thông tin người dùng đang đăng nhập.
-     */
     private User getCurrentAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || "anonymousUser".equals(authentication.getPrincipal())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Authenticated user information not found.");
+            throw new BadRequestException(ERROR_AUTH_INFO_NOT_FOUND);
         }
 
         String email = authentication.getName();
         return userRepository.findByEmail(email)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email:" + email));
+                .orElseThrow(() -> new UsernameNotFoundException(ERROR_USER_NOT_FOUND_EMAIL + email));
     }
 
-    /**
-     * Helper: Tạo Pageable chung cho các hàm Listing/Searching.
-     */
+    private void sendWelcomeAndTrialEmail(User user, Company company, SubscriptionPlan plan, LocalDateTime trialEndDate) {
+        String subject = String.format(EMAIL_WELCOME_SUBJECT, plan.getName());
+        String formattedDate = trialEndDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        
+        String emailBody = String.format(EMAIL_WELCOME_TEMPLATE,
+            user.getFullName(), company.getName(), plan.getName(), plan.getName(), formattedDate, plan.getName(), frontendUrl
+        );
+
+        emailService.sendEmail(user.getEmail(), subject, emailBody);
+    }
+
     private Pageable createPageable(int page, int size, String sortBy, String sortDir, String defaultSortField, Map<String, String> sortMapping) {
         Sort sort = SortUtils.createSort(sortBy, sortDir, defaultSortField, sortMapping);
         return PageRequest.of(page, size, sort);
     }
 
-    /**
-     * Helper: Map trạng thái thành viên (MemberStatus) sang CombinedMemberStatus (DTO).
-     */
+    // --- LOGIC MAPPING (ENTITY <-> DTO) ---
+
     private CombinedMemberStatus mapMemberStatus(MemberStatus status) {
         switch (status) {
             case ACTIVE: return CombinedMemberStatus.ACTIVE;
@@ -777,16 +685,13 @@ public class CompanyServiceImpl implements CompanyService {
         }
     }
 
-    /**
-     * Helper: Map CompanyMember Entity sang CompanyMemberResponse DTO.
-     */
     private CompanyMemberResponse mapToCompanyMemberResponse(CompanyMember member) {
         return CompanyMemberResponse.builder()
             .memberId(member.getId())
             .userId(member.getUser().getId())
             .fullName(member.getUser().getFullName())
             .email(member.getUser().getEmail())
-            .phoneNumber(member.getUser().getPhoneNumber()) // Bổ sung SĐT
+            .phoneNumber(member.getUser().getPhoneNumber())
             .avatarUrl(member.getUser().getAvatarUrl())
             .roleName(member.getRole().getRoleName())
             .jobTitle(member.getJobTitle())
@@ -795,9 +700,6 @@ public class CompanyServiceImpl implements CompanyService {
             .build();
     }
 
-    /**
-     * Helper: Map Company Entity sang CompanyDetailsResponse DTO.
-     */
     private CompanyDetailsResponse mapCompanyToDetailsDto(Company company) {
         return CompanyDetailsResponse.builder()
                 .companyId(company.getId())
@@ -812,17 +714,14 @@ public class CompanyServiceImpl implements CompanyService {
                 .build();
     }
 
-     // --- HELPER METHOD: Chuyển đổi Entity sang DTO ---
     private CompanyInvitationResponse mapToCompanyInvitationResponse(CompanyInvitation inv) {
         String link = frontendUrl + "/accept-invitation?token=" + inv.getToken();
         
         return CompanyInvitationResponse.builder()
                 .id(inv.getId())
                 .email(inv.getEmail())
-                // Null-safe check cho Role
-                .roleName(inv.getRole() != null ? inv.getRole().getRoleName() : "UNKNOWN")
-                // Null-safe check cho Người mời
-                .invitedByName(inv.getInvitedBy() != null ? inv.getInvitedBy().getFullName() : "System")
+                .roleName(inv.getRole() != null ? inv.getRole().getRoleName() : DEFAULT_UNKNOWN)
+                .invitedByName(inv.getInvitedBy() != null ? inv.getInvitedBy().getFullName() : DEFAULT_SYSTEM)
                 .status(inv.getStatus().name())
                 .expiresAt(inv.getExpiresAt())
                 .invitationLink(link)

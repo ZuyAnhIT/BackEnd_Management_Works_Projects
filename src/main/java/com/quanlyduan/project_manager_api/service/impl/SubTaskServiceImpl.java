@@ -1,4 +1,3 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/SubTaskServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
 import java.util.List;
@@ -27,16 +26,38 @@ import com.quanlyduan.project_manager_api.validation.ProjectHierarchyValidator;
 @Service
 public class SubTaskServiceImpl implements SubTaskService {
 
+    // Khai bao hang so de loai bo hardcode
+    public static final String ACTION_CREATE = "CREATE";
+    public static final String ACTION_UPDATE = "UPDATE";
+    public static final String ACTION_DELETE = "DELETE";
+
+    public static final String ENTITY_SUBTASK = "SUBTASK";
+
+    public static final String DESC_CREATE_SUBTASK = "Create new Subtask";
+    public static final String DESC_UPDATE_SUBTASK = "Update Subtask";
+    public static final String DESC_DELETE_SUBTASK = "Delete Subtask";
+
+    public static final String ERROR_ASSIGNEE_NOT_FOUND = "Assignee not found";
+
+    public static final String LOG_RENAMED = "renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"";
+    public static final String LOG_DESC_UPDATED = "updated description";
+    public static final String LOG_STATUS_CHANGED = "changed status from <strong>%s</strong> to <strong>%s</strong>";
+    public static final String LOG_UNASSIGNED = "unassigned";
+    public static final String LOG_ASSIGNED = "assigned to <strong>%s</strong>";
+
+    // Khai bao cac bien phu thuoc
     private final SubTaskRepository subTaskRepository;
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
     private final ProjectHierarchyValidator validator;
     private final SecurityService securityService;
 
-    // ======================================================
-    // CONSTRUCTOR (Dependency Injection)
-    // ======================================================
-    public SubTaskServiceImpl(SubTaskRepository subTaskRepository, UserRepository userRepository, TaskRepository taskRepository, ProjectHierarchyValidator validator, SecurityService securityService) {
+    // Constructor khoi tao thu cong thay the cho @RequiredArgsConstructor
+    public SubTaskServiceImpl(SubTaskRepository subTaskRepository, 
+                              UserRepository userRepository, 
+                              TaskRepository taskRepository, 
+                              ProjectHierarchyValidator validator, 
+                              SecurityService securityService) {
         this.subTaskRepository = subTaskRepository;
         this.userRepository = userRepository;
         this.taskRepository = taskRepository;
@@ -44,167 +65,156 @@ public class SubTaskServiceImpl implements SubTaskService {
         this.securityService = securityService;
     }
 
-    // ======================================================
-    // 1. LẤY DANH SÁCH SUBTASK (GET SUBTASKS)
-    // ======================================================
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+
     @Override
     @Transactional(readOnly = true)
     public List<SubTaskResponse> getSubTasks(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId) {
-        // 1. Validate: Kiểm tra tính hợp lệ của Task (Hierarchy)
+        // Kiem tra tinh hop le cua cong viec chinh theo phan cap
         validator.validateTask(companyId, workspaceId, projectId, taskId);
         
-        // 2. Lấy danh sách SubTask theo Task ID, sắp xếp theo thứ tự
+        // Lay danh sach cong viec con, sap xep theo thu tu va chuyen doi sang DTO
         return subTaskRepository.findByParentTask_IdOrderBySortOrderAsc(taskId).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    // ======================================================
-    // 2. XEM CHI TIẾT SUBTASK (GET SUBTASK DETAIL)
-    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public SubTaskResponse getSubTaskDetail(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId) {
-        // 1. Validate: Kiểm tra tính hợp lệ của SubTask (Hierarchy)
+        // Kiem tra tinh hop le va lay chi tiet cong viec con
         SubTask subTask = validator.validateSubTask(companyId, workspaceId, projectId, taskId, subTaskId);
         
-        // 2. Map và trả về
         return mapToResponse(subTask);
     }
 
-    // ======================================================
-    // 3. TẠO SUBTASK MỚI (CREATE SUBTASK)
-    // ======================================================
-    @LogActivity(action = "CREATE", entityType = "SUBTASK", description = "Create new Subtask")
     @Override
     @Transactional
+    @LogActivity(action = ACTION_CREATE, entityType = ENTITY_SUBTASK, description = DESC_CREATE_SUBTASK)
     public SubTaskResponse createSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, CreateSubTaskRequest request) {
-        // 1. Validate Task và Lấy Task cha
+        // Xac thuc va lay thong tin cong viec cha
         Task parentTask = validator.validateTask(companyId, workspaceId, projectId, taskId);
         
-        // 2. Validate Assignee: Kiểm tra người được giao có thuộc Project không
+        // Kiem tra nguoi duoc giao phai thuoc du an hien tai
         validator.validateProjectMember(projectId, request.getAssigneeId());
         
-        // 3. Lấy thông tin người tạo hiện tại
+        // Lay thong tin nguoi tao hien tai
         User creator = securityService.getCurrentAuthenticatedUser();
         
-        // 4. Tìm Assignee
+        // Lay thong tin nguoi duoc giao neu co
         User assignee = null;
         if (request.getAssigneeId() != null) {
             assignee = userRepository.findById(request.getAssigneeId())
-                    // Sửa thông báo sang tiếng Anh
-                    .orElseThrow(() -> new ResourceNotFoundException("Assignee not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException(ERROR_ASSIGNEE_NOT_FOUND));
         }
         
-        // 5. Tính toán vị trí (sortOrder)
-        // SortOrder mới sẽ là số lượng subtask hiện tại (bắt đầu từ 0)
+        // Tinh toan vi tri sap xep cho cong viec con moi
         Integer nextSortOrder = subTaskRepository.countByParentTask_Id(taskId);
         
-        // 6. Tạo Entity
+        // Khoi tao thuc the cong viec con
         SubTask subTask = SubTask.builder()
                 .parentTask(parentTask)
                 .title(request.getTitle())
                 .description(request.getDescription())
-                .status(SubTaskStatus.TO_DO) // Mặc định là TO_DO
+                .status(SubTaskStatus.TO_DO)
                 .assignee(assignee)
                 .estimatedHours(request.getEstimatedHours())
                 .sortOrder(nextSortOrder)
                 .createdBy(creator)
                 .build();
         
-        // 7. Lưu và trả về
         SubTask saved = subTaskRepository.save(subTask);
         
         return mapToResponse(saved);
     }
 
-    // ======================================================
-    // 4. CẬP NHẬT SUBTASK (UPDATE SUBTASK)
-    // ======================================================
-   @Override
+    @Override
     @Transactional
-    @LogActivity(action = "UPDATE", entityType = "SUBTASK", description = "Update Subtask")
+    @LogActivity(action = ACTION_UPDATE, entityType = ENTITY_SUBTASK, description = DESC_UPDATE_SUBTASK)
     public SubTaskResponse updateSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId, UpdateSubTaskRequest request) {
+        // Kiem tra va lay thong tin cong viec con can cap nhat
         SubTask subTask = validator.validateSubTask(companyId, workspaceId, projectId, taskId, subTaskId);
 
         StringBuilder changes = new StringBuilder();
 
-        // 1. Title
+        // Cap nhat tieu de
         if (request.getTitle() != null && !request.getTitle().equals(subTask.getTitle())) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", subTask.getTitle(), request.getTitle()));
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(String.format(LOG_RENAMED, subTask.getTitle(), request.getTitle()));
             subTask.setTitle(request.getTitle());
         }
 
-        // 2. Description
+        // Cap nhat mo ta
         if (request.getDescription() != null && !request.getDescription().equals(subTask.getDescription())) {
-             if (changes.length() > 0) changes.append(", ");
-             changes.append("updated description");
+             if (changes.length() > 0) {
+                 changes.append(", ");
+             }
+             changes.append(LOG_DESC_UPDATED);
              subTask.setDescription(request.getDescription());
         }
 
-        // 3. Status
+        // Cap nhat trang thai
         if (request.getStatus() != null && request.getStatus() != subTask.getStatus()) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append(String.format("changed status from <strong>%s</strong> to <strong>%s</strong>", subTask.getStatus(), request.getStatus()));
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(String.format(LOG_STATUS_CHANGED, subTask.getStatus(), request.getStatus()));
             subTask.setStatus(request.getStatus());
         }
 
-        // 4. Estimate
+        // Cap nhat thoi gian uoc tinh
         if (request.getEstimatedHours() != null && !request.getEstimatedHours().equals(subTask.getEstimatedHours())) {
              subTask.setEstimatedHours(request.getEstimatedHours());
         }
         
-        // 5. Assignee
+        // Cap nhat nguoi thuc hien
         if (request.getAssigneeId() != null) {
             Integer oldAssigneeId = subTask.getAssignee() != null ? subTask.getAssignee().getId() : 0;
             if (!request.getAssigneeId().equals(oldAssigneeId)) {
                 if (request.getAssigneeId() == 0) {
-                     if (changes.length() > 0) changes.append(", ");
-                     changes.append("unassigned");
+                     if (changes.length() > 0) {
+                         changes.append(", ");
+                     }
+                     changes.append(LOG_UNASSIGNED);
                      subTask.setAssignee(null);
                 } else {
                     validator.validateProjectMember(projectId, request.getAssigneeId());
                     User assignee = userRepository.findById(request.getAssigneeId())
-                            .orElseThrow(() -> new ResourceNotFoundException("Assignee not found"));
+                            .orElseThrow(() -> new ResourceNotFoundException(ERROR_ASSIGNEE_NOT_FOUND));
                     
-                    if (changes.length() > 0) changes.append(", ");
-                    changes.append(String.format("assigned to <strong>%s</strong>", assignee.getFullName()));
+                    if (changes.length() > 0) {
+                        changes.append(", ");
+                    }
+                    changes.append(String.format(LOG_ASSIGNED, assignee.getFullName()));
                     subTask.setAssignee(assignee);
                 }
             }
         }
 
+        // Ghi log vao context neu co thay doi
         if (changes.length() > 0) {
             ActivityLogContext.setDetail(changes.toString());
-        } else {
-            //  ActivityLogContext.setDetail("updated details");
         }
 
         SubTask saved = subTaskRepository.save(subTask);
         return mapToResponse(saved);
     }
 
-    // ======================================================
-    // 5. XÓA SUBTASK (DELETE SUBTASK)
-    // ======================================================
     @Override
     @Transactional
-    @LogActivity(action = "DELETE", entityType = "SUBTASK", description = "Delete Subtask")
+    @LogActivity(action = ACTION_DELETE, entityType = ENTITY_SUBTASK, description = DESC_DELETE_SUBTASK)
     public void deleteSubTask(Integer companyId, Integer workspaceId, Integer projectId, Integer taskId, Integer subTaskId) {
-        // 1. Validate SubTask và Lấy Entity (Đảm bảo SubTask thuộc đúng Hierarchy)
+        // Kiem tra hop le va lay thuc the cong viec con tu he thong phan cap
         SubTask subTask = validator.validateSubTask(companyId, workspaceId, projectId, taskId, subTaskId);
         
-        // 2. Thực hiện xóa cứng
+        // Thuc hien xoa khoi co so du lieu
         subTaskRepository.delete(subTask);
     }
 
-    // ======================================================
-    // ⚙️ PRIVATE HELPER: MAPPER
-    // ======================================================
-    /**
-     * Helper: Map SubTask Entity sang SubTaskResponse DTO.
-     */
+    // --- LOGIC MAPPING (ENTITY <-> DTO) ---
+    
     private SubTaskResponse mapToResponse(SubTask subTask) {
         return SubTaskResponse.builder()
                 .id(subTask.getId())
@@ -218,8 +228,6 @@ public class SubTaskServiceImpl implements SubTaskService {
                 .assigneeAvatar(subTask.getAssignee() != null ? subTask.getAssignee().getAvatarUrl() : null)
                 .estimatedHours(subTask.getEstimatedHours())
                 .sortOrder(subTask.getSortOrder())
-                
-                // Mapping Audit Fields
                 .createdById(subTask.getCreatedBy() != null ? subTask.getCreatedBy().getId() : null)
                 .createdByName(subTask.getCreatedBy() != null ? subTask.getCreatedBy().getFullName() : null)
                 .createdAt(subTask.getCreatedAt())

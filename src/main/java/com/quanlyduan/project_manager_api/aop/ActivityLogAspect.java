@@ -1,6 +1,7 @@
 package com.quanlyduan.project_manager_api.aop;
 
 import java.lang.reflect.Method;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,28 +43,38 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ActivityLogAspect {
 
-    // Khai bao cac hang so su dung trong aspect
-    private static final String UNKNOWN_VALUE = "Unknown";
-    private static final String ACTION_INVITE = "INVITE";
-    private static final String ACTION_RECEIVED_INVITE = "RECEIVED_INVITE";
-    private static final String SCOPE_SYSTEM = "system";
-    private static final String SCOPE_COMPANY = "company";
-    private static final String SCOPE_WORKSPACE = "workspace";
-    private static final String SCOPE_PROJECT = "project";
-    private static final String DEFAULT_TARGET_NAME = "the system";
+    // Khai bao cac hang so
+    public static final String UNKNOWN_VALUE = "Unknown";
+    public static final String ACTION_INVITE = "INVITE";
+    public static final String ACTION_RECEIVED_INVITE = "RECEIVED_INVITE";
+    public static final String SCOPE_SYSTEM = "system";
+    public static final String SCOPE_COMPANY = "company";
+    public static final String SCOPE_WORKSPACE = "workspace";
+    public static final String SCOPE_PROJECT = "project";
+    public static final String DEFAULT_TARGET_NAME = "the system";
+    public static final String HEADER_USER_AGENT = "User-Agent";
+    public static final String ENTITY_CODE_COLUMN = "column";
+    public static final String ENTITY_NAME_COMMENT = "Comment on Task";
+    public static final String PREFIX_SUBTASK = "SUB-";
+    
+    public static final String MSG_INVITED_TEMPLATE = "You have been invited to join %s <strong>%s</strong>. Please check your email.";
+    public static final String LOG_ERROR_SAVING = "Error saving activity log: {}";
+    public static final String LOG_ERROR_RECIPIENT = "Could not create recipient log: {}";
+    public static final String LOG_ERROR_EXTRACT_ID = "Could not extract context IDs: {}";
 
     private final ActivityLogService activityLogService;
     private final SecurityService securityService;
     private final UserRepository userRepository;
 
-    // Khoi tao thu cong thay vi dung RequiredArgsConstructor
-    public ActivityLogAspect(ActivityLogService activityLogService, SecurityService securityService, UserRepository userRepository) {
+    // Constructor khoi tao thu cong
+    public ActivityLogAspect(ActivityLogService activityLogService, 
+                             SecurityService securityService, 
+                             UserRepository userRepository) {
         this.activityLogService = activityLogService;
         this.securityService = securityService;
         this.userRepository = userRepository;
     }
 
-    // Ham public chinh xu ly logic luu log sau khi method hoan thanh
     @AfterReturning(pointcut = "@annotation(logActivity)", returning = "result")
     public void logAfterMethod(JoinPoint joinPoint, LogActivity logActivity, Object result) {
         try {
@@ -74,13 +85,14 @@ public class ActivityLogAspect {
             Integer entityId = extractId(result);
             ContextIds contextIds = extractContextIds(result);
             
-            // Tao mo ta chi tiet cho hanh dong
             String description = ActivityLogContext.getDetail();
             if (description == null || description.isEmpty()) {
                 description = generateDefaultDescription(logActivity, contextIds);
             }
 
-            // Luu log chinh cho nguoi thuc hien
+            // Ghi nhan thoi gian thuc thi de thoa man rang buoc NOT NULL cua Database
+            LocalDateTime now = LocalDateTime.now();
+
             ActivityLog logEntity = ActivityLog.builder()
                     .userId(userId)
                     .action(logActivity.action())
@@ -94,26 +106,25 @@ public class ActivityLogAspect {
                     .newValue(description)
                     .ipAddress(ipAddress)
                     .userAgent(userAgent)
+                    .timestamp(now) 
+                    .createdAt(now) 
                     .build();
 
             activityLogService.saveLog(logEntity);
 
-            // Luu log phu cho nguoi nhan neu day la hanh dong moi (invite)
             if (ACTION_INVITE.equalsIgnoreCase(logActivity.action()) && contextIds.entityName != null) {
-                createLogForRecipient(contextIds.entityName, logActivity, entityId, contextIds, ipAddress, userAgent);
+                createLogForRecipient(contextIds.entityName, logActivity, entityId, contextIds, ipAddress, userAgent, now);
             }
-            
-            ActivityLogContext.clear();
 
         } catch (Exception e) {
-            log.error("Error saving activity log: {}", e.getMessage());
+            log.error(LOG_ERROR_SAVING, e.getMessage());
+        } finally {
             ActivityLogContext.clear();
         }
     }
 
-    // --- CAC HAM PRIVATE HO TRO ---
+    // --- CAC HAM PRIVATE HO TRO (HELPERS) ---
 
-    // Lay thong tin user hien tai
     private Integer extractCurrentUserId() {
         try {
             return securityService.getCurrentUserId();
@@ -122,30 +133,27 @@ public class ActivityLogAspect {
         }
     }
 
-    // Lay dia chi IP cua client
     private String extractClientIpAddress() {
         try {
-            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
-            if (request != null && request.getRemoteAddr() != null) {
-                return request.getRemoteAddr();
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null && attributes.getRequest() != null) {
+                return attributes.getRequest().getRemoteAddr();
             }
         } catch (Exception ignored) {}
         return UNKNOWN_VALUE;
     }
 
-    // Lay thong tin trinh duyet (User-Agent) cua client
     private String extractClientUserAgent() {
         try {
-            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
-            if (request != null && request.getHeader("User-Agent") != null) {
-                return request.getHeader("User-Agent");
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null && attributes.getRequest() != null) {
+                return attributes.getRequest().getHeader(HEADER_USER_AGENT);
             }
         } catch (Exception ignored) {}
         return UNKNOWN_VALUE;
     }
 
-    // Tao log danh rieng cho nguoi duoc moi
-    private void createLogForRecipient(String email, LogActivity logActivity, Integer entityId, ContextIds contextIds, String ip, String ua) {
+    private void createLogForRecipient(String email, LogActivity logActivity, Integer entityId, ContextIds contextIds, String ip, String ua, LocalDateTime now) {
         try {
             Optional<User> recipientOpt = userRepository.findByEmail(email);
             
@@ -154,7 +162,6 @@ public class ActivityLogAspect {
                 String entityTypeUpper = logActivity.entityType().toUpperCase();
                 String scope = SCOPE_SYSTEM; 
 
-                // Xac dinh pham vi duoc moi
                 if (entityTypeUpper.contains("COMPANY")) {
                     scope = SCOPE_COMPANY;
                 } else if (entityTypeUpper.contains("WORKSPACE")) {
@@ -164,12 +171,7 @@ public class ActivityLogAspect {
                 }
 
                 String targetName = (contextIds.targetName != null) ? contextIds.targetName : DEFAULT_TARGET_NAME;
-                
-                String recipientMsg = String.format(
-                    "You have been invited to join %s <strong>%s</strong>. Please check your email.",
-                    scope, 
-                    targetName
-                );
+                String recipientMsg = String.format(MSG_INVITED_TEMPLATE, scope, targetName);
 
                 ActivityLog recipientLog = ActivityLog.builder()
                         .userId(recipient.getId())
@@ -182,29 +184,26 @@ public class ActivityLogAspect {
                         .newValue(recipientMsg)
                         .ipAddress(ip)
                         .userAgent(ua)
+                        .timestamp(now)
+                        .createdAt(now)
                         .build();
 
                 activityLogService.saveLog(recipientLog);
             }
         } catch (Exception ex) {
-            log.warn("Could not create recipient log: {}", ex.getMessage());
+            log.warn(LOG_ERROR_RECIPIENT, ex.getMessage());
         }
     }
 
-    // Trich xuat cac ID va thong tin ngu canh tu du lieu tra ve
     private ContextIds extractContextIds(Object result) {
         ContextIds ids = new ContextIds();
-        if (result == null) return ids;
-
-        Object data = result;
-        if (result instanceof ApiResponse) {
-            data = ((ApiResponse<?>) result).getData();
-        }
+        Object data = unwrapResult(result);
         
-        if (data == null) return ids;
+        if (data == null) {
+            return ids;
+        }
 
         try {
-            // Phan loai va trich xuat theo tung kieu du lieu tra ve
             if (data instanceof TaskSummaryResponse) {
                 TaskSummaryResponse t = (TaskSummaryResponse) data;
                 ids.projectId = t.getProjectId();
@@ -228,7 +227,7 @@ public class ActivityLogAspect {
                 ProjectStatusResponse s = (ProjectStatusResponse) data;
                 ids.projectId = s.getProjectId();
                 ids.entityName = s.getName();
-                ids.entityCode = "column";
+                ids.entityCode = ENTITY_CODE_COLUMN;
             } else if (data instanceof WorkspaceMember) {
                 WorkspaceMember wm = (WorkspaceMember) data;
                 ids.workspaceId = wm.getWorkspace().getId();
@@ -250,7 +249,7 @@ public class ActivityLogAspect {
             } else if (data instanceof TaskCommentResponse) {
                 TaskCommentResponse c = (TaskCommentResponse) data;
                 ids.projectId = c.getProjectId();
-                ids.entityName = "Comment on Task";
+                ids.entityName = ENTITY_NAME_COMMENT;
             } else if (data instanceof TaskAttachmentResponse) {
                 TaskAttachmentResponse a = (TaskAttachmentResponse) data;
                 ids.projectId = a.getProjectId();
@@ -259,7 +258,7 @@ public class ActivityLogAspect {
                 SubTaskResponse s = (SubTaskResponse) data;
                 ids.projectId = s.getProjectId();
                 ids.entityName = s.getTitle();
-                ids.entityCode = s.getId() != null ? "SUB-" + s.getId() : null;
+                ids.entityCode = s.getId() != null ? PREFIX_SUBTASK + s.getId() : null;
             } else if (data instanceof EpicResponse) {
                 EpicResponse e = (EpicResponse) data;
                 ids.projectId = e.getProjectId();
@@ -280,12 +279,11 @@ public class ActivityLogAspect {
                 ids.entityName = s.getName();
             }
         } catch (Exception e) {
-            log.warn("Could not extract context IDs: {}", e.getMessage());
+            log.warn(LOG_ERROR_EXTRACT_ID, e.getMessage());
         }
         return ids;
     }
 
-    // Trich xuat ID chinh cua thuc the tu doi tuong tra ve
     private Integer extractId(Object result) {
         Object data = unwrapResult(result);
         if (data == null) return null;
@@ -300,7 +298,6 @@ public class ActivityLogAspect {
         return null;
     }
 
-    // Thu tim cac truong ID khac trong truong hop khong co ham getId
     private Integer tryAlternativeIds(Object data) {
         String[] possibleMethods = {"getTaskId", "getProjectId", "getWorkspaceId", "getCompanyId", "getCommentId"};
         for (String methodName : possibleMethods) {
@@ -313,7 +310,6 @@ public class ActivityLogAspect {
         return null;
     }
 
-    // Boc tach du lieu that tu cac lop Wrapper (ResponseEntity hoac ApiResponse)
     private Object unwrapResult(Object result) {
         if (result == null) return null;
         Object data = result;
@@ -326,14 +322,12 @@ public class ActivityLogAspect {
         return data;
     }
      
-    // Format phan tieu de cua hanh dong (VD: create a task)
     private String formatActionHeader(LogActivity logActivity) {
         String action = logActivity.action().toLowerCase().replace("_", " ");
         String type = logActivity.entityType().toLowerCase().replace("_", " ");
         return action + " a " + type;
     }
 
-    // Tao mo ta mac dinh neu context khong cung cap chi tiet
     private String generateDefaultDescription(LogActivity logActivity, ContextIds context) {
         StringBuilder sb = new StringBuilder();
         sb.append(formatActionHeader(logActivity));
@@ -349,9 +343,8 @@ public class ActivityLogAspect {
         return sb.toString();
     }
 
-    // --- LOP DTO HO TRO (Dung noi bo) ---
+    // --- LOP DTO HO TRO ---
     
-    // Class chua cac ID va ten thuc the tam thoi de ghi log
     private static class ContextIds {
         Integer companyId;
         Integer workspaceId;

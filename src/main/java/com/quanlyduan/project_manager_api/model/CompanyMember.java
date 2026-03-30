@@ -2,7 +2,11 @@ package com.quanlyduan.project_manager_api.model;
 
 import java.time.LocalDateTime;
 
-// JPA & Hibernate
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,81 +19,105 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-// Lombok
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-// Project Enums
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * Entity lưu trữ mối quan hệ thành viên giữa User và Company.
- * Đây là bảng liên kết (Join Table) mở rộng.
+ * Entity luu tru moi quan he thanh vien giua User va Company.
+ * Day la bang lien ket (Join Table) mo rong, chua thong tin chi tiet ve vai tro 
+ * va vi tri cong tac cua nguoi dung trong mot to chuc.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(
     name = "company_members", 
     uniqueConstraints = { 
-        // Đảm bảo mỗi người dùng chỉ có một vai trò tại một công ty (Unique Company-User Pair)
+        /** Dam bao moi nguoi dung chi ton tai duy nhat mot ban ghi thanh vien tai mot Cong ty. */
         @UniqueConstraint(columnNames = {"company_id", "user_id"}) 
     }
 )
 public class CompanyMember { 
 
-    // ==========================================
-    // PRIMARY KEY
-    // ==========================================
+    // ======================================================
+    // 1. DINH DANH DU LIEU (PRIMARY KEY)
+    // ======================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // ID định danh của mối quan hệ
+    private Integer id;
 
-    // ==========================================
-    // RELATIONSHIPS (Quan hệ Entity)
-    // ==========================================
+    // ======================================================
+    // 2. LIEN KET THUC THE (RELATIONSHIPS)
+    // ======================================================
+    
+    /** Cong ty ma thanh vien nay thuoc ve. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
-    private Company company; // Công ty liên quan
+    private Company company;
 
+    /** Nguoi dung tro thanh thanh vien. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user; // Người dùng liên quan
+    private User user;
 
+    /** Vai tro (Role) duoc gan cho thanh vien nay ben trong Cong ty. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
-    private Role role; // Vai trò của thành viên trong công ty (liên kết với bảng Role)
+    private Role role;
 
-    // ==========================================
-    // MEMBER DETAILS (Thông tin thành viên)
-    // ==========================================
+    // ======================================================
+    // 3. CHI TIET CONG TAC (MEMBER DETAILS)
+    // ======================================================
+    
+    /** Chuc danh hoac vi tri cong viec (vi du: "Senior Dev", "PM"). */
     @Column(name = "job_title")
-    private String jobTitle; // Chức danh/Chức vụ
+    private String jobTitle;
 
+    /** Phong ban truc thuoc (vi du: "Tech", "HR"). */
     @Column(name = "department")
-    private String department; // Phòng ban
+    private String department;
 
-    @Builder.Default
+    /** * Trang thai hoat dong cua thanh vien trong Cong ty.
+     * Gia tri: ACTIVE (Dang lam viec), SUSPENDED (Tam dinh chi), REMOVED (Da nghi viec). 
+     */
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private MemberStatus status = MemberStatus.ACTIVE; // Trạng thái thành viên (ACTIVE, SUSPENDED, REMOVED)
+    private MemberStatus status;
 
-    // ==========================================
-    // TIMESTAMPS (Thời gian)
-    // ==========================================
+    // ======================================================
+    // 4. QUAN LY THOI GIAN (TIMELINE)
+    // ======================================================
+    
+    /** Thoi diem nguoi dung gia nhap vao Cong ty (tu dong sinh bơi Hibernate). */
     @CreationTimestamp
-    @Column(name = "joined_at", updatable = false)
-    private LocalDateTime joinedAt; // Thời điểm tham gia/tạo bản ghi
+    @Column(name = "joined_at", updatable = false, nullable = false)
+    private LocalDateTime joinedAt;
 
+    /** Thoi diem cap nhat thong tin thanh vien lan cuoi. */
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
+    private LocalDateTime updatedAt;
 
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    public CompanyMember() {
+    }
+
+    public CompanyMember(Integer id, Company company, User user, Role role, 
+                         String jobTitle, String department, MemberStatus status, 
+                         LocalDateTime joinedAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.company = company;
+        this.user = user;
+        this.role = role;
+        this.jobTitle = jobTitle;
+        this.department = department;
+        this.status = status;
+        this.joinedAt = joinedAt;
+        this.updatedAt = updatedAt;
+    }
 }

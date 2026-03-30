@@ -3,7 +3,11 @@ package com.quanlyduan.project_manager_api.model;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-// JPA & Hibernate
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,88 +19,113 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-// Lombok
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-// Project Enums
-import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * Entity đại diện cho một Subtask (Công việc con) thuộc một Task (Công việc cha).
+ * Entity dai dien cho mot Subtask (Cong viec con) thuoc mot Task (Cong viec cha).
+ * Dung de chia nho cac dau viec lon thanh cac checklist co the thuc thi va uoc luong thoi gian.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(name = "sub_tasks")
 public class SubTask {
 
-    // ==========================================
-    // PRIMARY KEY
-    // ==========================================
+    // ======================================================
+    // 1. DINH DANH DU LIEU (PRIMARY KEY)
+    // ======================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // ID định danh
+    private Integer id;
 
-    // ==========================================
-    // RELATIONSHIPS (Quan hệ Entity)
-    // ==========================================
-    /**
-     * Liên kết Task cha.
-     */
+    // ======================================================
+    // 2. LIEN KET THUC THE (RELATIONSHIPS)
+    // ======================================================
+    
+    /** Task cha so huu Subtask nay. Bat buoc phai ton tai Task cha. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_task_id", nullable = false)
-    private Task parentTask; // Tham chiếu đến Task cha
+    private Task parentTask;
 
+    /** Nguoi truc tiep thuc hien cong viec con nay. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")
-    private User assignee; // Người được giao Subtask này
+    private User assignee;
 
+    /** Nguoi dung khoi tao Subtask. Khong cho phep cap nhat lai. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
-    private User createdBy; // Người tạo Subtask
+    private User createdBy;
 
-    // ==========================================
-    // BASIC INFORMATION (Thông tin cơ bản)
-    // ==========================================
+    // ======================================================
+    // 3. THONG TIN CO BAN (BASIC INFO)
+    // ======================================================
+    
+    /** Tieu de ngan gon cua cong viec con (vi du: "Viet Unit Test cho API Login"). */
     @Column(name = "title", nullable = false, length = 500)
-    private String title; // Tiêu đề Subtask
+    private String title;
 
+    /** Mo ta chi tiet cac buoc thuc hien (neu can). */
     @Column(name = "description", columnDefinition = "TEXT")
-    private String description; // Mô tả Subtask
+    private String description;
 
-    // ==========================================
-    // STATUS & ESTIMATION (Trạng thái & Ước lượng)
-    // ==========================================
+    // ======================================================
+    // 4. TRANG THAI & UOC LUONG (STATUS & ESTIMATION)
+    // ======================================================
+    
+    /** * Trang thai hien tai cua Subtask.
+     * Gia tri: TO_DO, IN_PROGRESS, DONE. 
+     */
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private SubTaskStatus status; // Trạng thái Subtask (TO_DO, IN_PROGRESS, DONE)
+    @Column(name = "status", nullable = false)
+    private SubTaskStatus status;
 
+    /** * So gio uoc tinh de hoan thanh cong viec nay. 
+     * Ho tro tinh toan tong thoi gian du kien cua Task cha.
+     */
     @Column(name = "estimated_hours", precision = 10, scale = 2)
-    private BigDecimal estimatedHours; // Số giờ ước tính hoàn thành
+    private BigDecimal estimatedHours;
 
-    // ==========================================
-    // DISPLAY & ORDERING (Hiển thị & Sắp xếp)
-    // ==========================================
+    /** Thu tu hien thi cua Subtask trong danh sach checklist cua Task cha. */
     @Column(name = "sort_order")
-    private Integer sortOrder; // Thứ tự sắp xếp trong danh sách Subtask
+    private Integer sortOrder;
 
-    // ==========================================
-    // TIMESTAMPS (Thời gian hệ thống)
-    // ==========================================
+    // ======================================================
+    // 5. THONG TIN HE THONG (AUDIT INFO)
+    // ======================================================
+    
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; // Thời điểm tạo
+    @Column(name = "created_at", updatable = false, nullable = false)
+    private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
+    private LocalDateTime updatedAt;
 
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    public SubTask() {
+    }
+
+    public SubTask(Integer id, Task parentTask, User assignee, User createdBy, 
+                   String title, String description, SubTaskStatus status, 
+                   BigDecimal estimatedHours, Integer sortOrder, 
+                   LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.parentTask = parentTask;
+        this.assignee = assignee;
+        this.createdBy = createdBy;
+        this.title = title;
+        this.description = description;
+        this.status = status;
+        this.estimatedHours = estimatedHours;
+        this.sortOrder = sortOrder;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
 }

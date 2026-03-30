@@ -1,12 +1,4 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/FileStorageServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
-
-import com.quanlyduan.project_manager_api.exception.BadRequestException;
-import com.quanlyduan.project_manager_api.service.FileStorageService;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,65 +8,82 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.service.FileStorageService;
+
 @Service
 public class FileStorageServiceImpl implements FileStorageService {
 
-    // Đường dẫn gốc để lưu trữ file, đọc từ application.properties/yml, mặc định là "uploads"
+    // Khai bao cac hang so de loai bo hardcode
+    public static final String ERROR_EMPTY_FILE = "Cannot store an empty file.";
+    public static final String ERROR_INVALID_PATH = "File name contains invalid path sequence: ";
+    public static final String ERROR_STORE_FILE_PREFIX = "Could not store file ";
+    public static final String ERROR_STORE_FILE_SUFFIX = ". Please try again!";
+    
+    public static final String PATH_TRAVERSAL_SEQ = "..";
+    public static final String PATH_SEPARATOR = "/";
+    public static final String EMPTY_STRING = "";
+    public static final char EXTENSION_SEPARATOR = '.';
+
+    // Duong dan goc de luu tru file lay tu file cau hinh
     @Value("${app.upload.dir:uploads}")
     private String baseUploadDir;
 
-    // ======================================================
-    // LOGIC LƯU TRỮ FILE (STORE FILE)
-    // ======================================================
+    // Khoi tao mac dinh (Khong co @RequiredArgsConstructor do chi dung @Value)
+    public FileStorageServiceImpl() {
+    }
+
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+
     @Override
     public String storeFile(MultipartFile file, String folderName) {
-
-        // 1. Kiểm tra file rỗng
+        // Kiem tra file dau vao
         if (file.isEmpty()) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Cannot store an empty file.");
+            throw new BadRequestException(ERROR_EMPTY_FILE);
         }
 
-        // 2. Làm sạch tên file và kiểm tra bảo mật (Path Traversal)
+        // Lam sach ten file de tranh cac cuoc tan cong thay doi duong dan (Path Traversal)
         String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
-        // Kiểm tra ký tự đường dẫn không hợp lệ
-        if (originalFileName.contains("..")) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("File name contains invalid path sequence: " + originalFileName);
+        
+        if (originalFileName.contains(PATH_TRAVERSAL_SEQ)) {
+            throw new BadRequestException(ERROR_INVALID_PATH + originalFileName);
         }
 
-        // 3. Tạo tên file mới (UUID + Extension) để tránh trùng lặp
-        String fileExtension = "";
-        int dotIndex = originalFileName.lastIndexOf('.');
+        // Tao ten file moi bang UUID de dam bao tinh duy nhat
+        String fileExtension = EMPTY_STRING;
+        int dotIndex = originalFileName.lastIndexOf(EXTENSION_SEPARATOR);
+        
         if (dotIndex > 0) {
             fileExtension = originalFileName.substring(dotIndex);
         }
+        
         String newFileName = UUID.randomUUID().toString() + fileExtension;
 
         try {
-            // 4. Định nghĩa và tạo thư mục đích (ví dụ: uploads/avatars)
+            // Dinh nghia duong dan thu muc va tao moi neu chua ton tai
             Path uploadPath = Paths.get(baseUploadDir, folderName);
             
-            // Nếu thư mục chưa tồn tại, tạo mới
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
 
-            // 5. Lưu file vào đường dẫn cuối cùng
+            // Ghi file vao he thong luu tru, ghi de neu da ton tai file cung ten
             Path filePath = uploadPath.resolve(newFileName);
             try (InputStream inputStream = file.getInputStream()) {
-                // Copy stream, ghi đè nếu đã tồn tại file cùng tên
                 Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
             }
 
-            // 6. Trả về đường dẫn tương đối (để lưu vào Database)
-            // Format: /<tên_thư_mục>/<tên_file_mới>
-            return "/" + folderName + "/" + newFileName;
+            // Tra ve duong dan tuong doi de phuc vu viec truy xuat va luu co so du lieu
+            return PATH_SEPARATOR + folderName + PATH_SEPARATOR + newFileName;
 
         } catch (IOException ex) {
-            // Xử lý lỗi I/O trong quá trình lưu file
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Could not store file " + newFileName + ". Please try again!");
+            // Nem loi ngoai le khi co su co lien quan den IO
+            throw new BadRequestException(ERROR_STORE_FILE_PREFIX + newFileName + ERROR_STORE_FILE_SUFFIX);
         }
     }
 }

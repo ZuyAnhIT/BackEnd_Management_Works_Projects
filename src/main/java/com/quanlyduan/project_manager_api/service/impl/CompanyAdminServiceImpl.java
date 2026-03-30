@@ -1,23 +1,5 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
-import com.quanlyduan.project_manager_api.dto.response.company.AdminCompanyResponse;
-import com.quanlyduan.project_manager_api.dto.response.company.Tenant360Response;
-import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
-import com.quanlyduan.project_manager_api.exception.BadRequestException;
-import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
-import com.quanlyduan.project_manager_api.model.Company;
-import com.quanlyduan.project_manager_api.model.CompanySubscription;
-import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus; 
-import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.SubscriptionStatus;
-import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository; 
-import com.quanlyduan.project_manager_api.repository.CompanyRepository;
-import com.quanlyduan.project_manager_api.repository.ProjectRepository; 
-import com.quanlyduan.project_manager_api.repository.specification.CompanySpecification;
-import com.quanlyduan.project_manager_api.service.CompanyAdminService;
-import lombok.RequiredArgsConstructor;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -30,43 +12,91 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.dto.response.company.AdminCompanyResponse;
+import com.quanlyduan.project_manager_api.dto.response.company.Tenant360Response;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
+import com.quanlyduan.project_manager_api.model.Company;
+import com.quanlyduan.project_manager_api.model.CompanySubscription;
+import com.quanlyduan.project_manager_api.model.common.enums.CompanyStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.SubscriptionStatus;
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
+import com.quanlyduan.project_manager_api.repository.CompanyRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectRepository;
+import com.quanlyduan.project_manager_api.repository.specification.CompanySpecification;
+import com.quanlyduan.project_manager_api.service.CompanyAdminService;
+
 @Service
-@RequiredArgsConstructor
 public class CompanyAdminServiceImpl implements CompanyAdminService {
 
+    // Khai bao cac hang so de loai bo hardcode
+    public static final String FIELD_CREATED_AT = "createdAt";
+    public static final String FIELD_NAME = "name";
+    public static final String FIELD_CODE = "code";
+    public static final String FIELD_COMPANY_CODE = "companyCode";
+    public static final String FIELD_EMAIL = "email";
+    public static final String FIELD_STATUS = "status";
+    public static final String FIELD_STORAGE = "storage";
+    public static final String FIELD_CURRENT_STORAGE_BYTES = "currentStorageBytes";
+    
+    public static final String SORT_ASC = "asc";
+    
+    public static final String ERROR_COMPANY_NOT_FOUND = "Company not found.";
+    public static final String ERROR_INVALID_STATUS = "Invalid status value: ";
+    
+    public static final String DEFAULT_PLAN_CODE = "N/A";
+    public static final String DEFAULT_PLAN_NAME = "No Plan";
+    public static final String DEFAULT_SUB_STATUS = "NONE";
+    public static final String STATUS_PAST_DUE = "PAST_DUE";
+    
+    public static final long BYTES_IN_GB = 1073741824L;
+    public static final int UNLIMITED_VALUE = -1;
+
+    // Khai bao cac bien phu thuoc
     private final CompanyRepository companyRepository;
     private final CompanyMemberRepository companyMemberRepository;
     private final ProjectRepository projectRepository;
 
-    // =================================================================================
-    // 1. HIỂN THỊ DANH SÁCH (GET ALL)
-    // =================================================================================
+    // Constructor thay the cho annotation @RequiredArgsConstructor
+    public CompanyAdminServiceImpl(CompanyRepository companyRepository,
+                                   CompanyMemberRepository companyMemberRepository,
+                                   ProjectRepository projectRepository) {
+        this.companyRepository = companyRepository;
+        this.companyMemberRepository = companyMemberRepository;
+        this.projectRepository = projectRepository;
+    }
+
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+    
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<AdminCompanyResponse> getCompanies(int page, int size, String sortBy, String sortDir) {
-        
+        // Anh xa truong sap xep de tranh loi truy van khi khong khop ten cot trong DB
         Map<String, String> sortMapping = Map.of(
-                "createdAt", "createdAt",
-                "name", "name",
-                "code", "companyCode",
-                "email", "email",
-                "status", "status",
-                "storage", "currentStorageBytes"
+                FIELD_CREATED_AT, FIELD_CREATED_AT,
+                FIELD_NAME, FIELD_NAME,
+                FIELD_CODE, FIELD_COMPANY_CODE,
+                FIELD_EMAIL, FIELD_EMAIL,
+                FIELD_STATUS, FIELD_STATUS,
+                FIELD_STORAGE, FIELD_CURRENT_STORAGE_BYTES
         );
 
-        String actualSortField = sortMapping.getOrDefault(sortBy, "createdAt");
-        Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(actualSortField).ascending() : Sort.by(actualSortField).descending();
+        // Xac dinh truong va huong sap xep
+        String actualSortField = sortMapping.getOrDefault(sortBy, FIELD_CREATED_AT);
+        Sort sort = sortDir.equalsIgnoreCase(SORT_ASC) ? Sort.by(actualSortField).ascending() : Sort.by(actualSortField).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
+        // Lay du lieu phan trang tu co so du lieu
         Page<Company> companiesPage = companyRepository.findAll(pageable);
 
+        // Chuyen doi Entity sang DTO va tra ve ket qua
         Page<AdminCompanyResponse> dtoPage = companiesPage.map(this::mapToAdminResponse);
         return new PageResponseDTO<>(dtoPage);
     }
 
-    // =================================================================================
-    // 2. TÌM KIẾM NÂNG CAO (SEARCH)
-    // =================================================================================
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<AdminCompanyResponse> searchCompanies(
@@ -74,31 +104,114 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
             String searchStatus, String searchPlanCode, 
             int page, int size, String sortBy, String sortDir) {
 
+        // Anh xa truong sap xep tuong tu ham lay danh sach
         Map<String, String> sortMapping = Map.of(
-                "createdAt", "createdAt",
-                "name", "name",
-                "code", "companyCode",
-                "email", "email",
-                "status", "status",
-                "storage", "currentStorageBytes"
+                FIELD_CREATED_AT, FIELD_CREATED_AT,
+                FIELD_NAME, FIELD_NAME,
+                FIELD_CODE, FIELD_COMPANY_CODE,
+                FIELD_EMAIL, FIELD_EMAIL,
+                FIELD_STATUS, FIELD_STATUS,
+                FIELD_STORAGE, FIELD_CURRENT_STORAGE_BYTES
         );
 
-        String actualSortField = sortMapping.getOrDefault(sortBy, "createdAt");
-        Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(actualSortField).ascending() : Sort.by(actualSortField).descending();
+        String actualSortField = sortMapping.getOrDefault(sortBy, FIELD_CREATED_AT);
+        Sort sort = sortDir.equalsIgnoreCase(SORT_ASC) ? Sort.by(actualSortField).ascending() : Sort.by(actualSortField).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
+        // Khoi tao dieu kien tim kiem dong dua tren cac tham so dau vao
         Specification<Company> spec = CompanySpecification.filterCompaniesForAdmin(
                 searchName, searchCode, searchEmail, searchStatus, searchPlanCode);
 
+        // Truy van du lieu theo dieu kien
         Page<Company> companiesPage = companyRepository.findAll(spec, pageable);
 
         Page<AdminCompanyResponse> dtoPage = companiesPage.map(this::mapToAdminResponse);
         return new PageResponseDTO<>(dtoPage);
     }
 
-    // =================================================================================
-    // HÀM HELPER: MAP ENTITY SANG DTO
-    // =================================================================================
+    @Override
+    @Transactional(readOnly = true)
+    public Tenant360Response getTenant360View(Integer companyId) {
+        // Tim kiem cong ty hoac bao loi neu khong ton tai
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_COMPANY_NOT_FOUND));
+
+        // Tim goi cuoc dang hoat dong
+        CompanySubscription sub = company.getSubscriptions().stream()
+                .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
+                .findFirst()
+                .orElse(null);
+
+        // Khoi tao cac gia tri mac dinh neu cong ty khong co goi cuoc
+        String planCode = DEFAULT_PLAN_CODE;
+        String planName = DEFAULT_PLAN_NAME;
+        String subStatus = DEFAULT_SUB_STATUS;
+        Integer maxUsers = 0;
+        Integer maxProjects = 0;
+        long maxStorageBytes = 0;
+        BigDecimal price = BigDecimal.ZERO; 
+        LocalDateTime start = null;
+        LocalDateTime end = null;
+
+        // Cap nhat thong so tu goi cuoc hien tai cua cong ty
+        if (sub != null && sub.getPlan() != null) {
+            planCode = sub.getPlan().getPlanCode();
+            planName = sub.getPlan().getName();
+            price = sub.getPlan().getMonthlyPrice();
+            subStatus = sub.getStatus().toString();
+            start = sub.getCurrentPeriodStart();
+            end = sub.getCurrentPeriodEnd();
+            
+            maxUsers = sub.getPlan().getMaxUsers();
+            maxProjects = sub.getPlan().getMaxProjects();
+            
+            // Tinh toan gioi han luu tru sang don vi Bytes de dong bo voi du lieu thuc te
+            if (sub.getPlan().getMaxStorageGb() != UNLIMITED_VALUE) {
+                maxStorageBytes = sub.getPlan().getMaxStorageGb() * BYTES_IN_GB;
+            } else {
+                maxStorageBytes = UNLIMITED_VALUE; 
+            }
+        }
+
+        // Lay thong so su dung thuc te cua cong ty
+        long currentMembers = companyMemberRepository.countByCompany_IdAndStatusNot(companyId, MemberStatus.REMOVED);
+        long currentProjects = projectRepository.countByWorkspace_Company_IdAndStatusNot(companyId, ProjectStatus.CANCELLED); 
+        long currentStorage = company.getCurrentStorageBytes() != null ? company.getCurrentStorageBytes() : 0;
+
+        // Tinh toan cac co canh bao tinh trang dung luong/thoi gian danh cho Frontend
+        boolean isGracePeriod = (end != null && end.isBefore(LocalDateTime.now())) 
+                             || STATUS_PAST_DUE.equalsIgnoreCase(subStatus);
+
+        boolean isUserLimitExceeded = (maxUsers != UNLIMITED_VALUE) && (currentMembers >= maxUsers);
+        boolean isProjectLimitExceeded = (maxProjects != UNLIMITED_VALUE) && (currentProjects >= maxProjects);
+        boolean isStorageLimitExceeded = (maxStorageBytes != UNLIMITED_VALUE) && (currentStorage >= maxStorageBytes);
+
+        // Chuyen doi Entity sang DTO hoan chinh
+        return buildTenant360Response(company, planCode, planName, price, subStatus, start, end,
+                currentMembers, maxUsers, currentProjects, maxProjects, currentStorage, maxStorageBytes,
+                isGracePeriod, isUserLimitExceeded, isProjectLimitExceeded, isStorageLimitExceeded);
+    }
+
+    @Override
+    @Transactional
+    public void changeCompanyStatus(Integer companyId, String newStatus) {
+        // Tim cong ty can thay doi trang thai
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_COMPANY_NOT_FOUND));
+
+        // Kiem tra tinh hop le cua trang thai va cap nhat vao Database
+        try {
+            CompanyStatus statusEnum = CompanyStatus.valueOf(newStatus.toUpperCase());
+            company.setStatus(statusEnum);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException(ERROR_INVALID_STATUS + newStatus);
+        }
+        
+        companyRepository.save(company);
+    }
+
+    // --- LOGIC MAPPING (ENTITY <-> DTO) ---
+    
     private AdminCompanyResponse mapToAdminResponse(Company company) {
         AdminCompanyResponse.AdminCompanyResponseBuilder builder = AdminCompanyResponse.builder()
                 .id(company.getId())
@@ -111,6 +224,7 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
                 .status(company.getStatus().toString())
                 .createdAt(company.getCreatedAt());
 
+        // Tim kiem goi cuoc dang hoat dong de map thong tin cho admin
         CompanySubscription sub = company.getSubscriptions().stream()
                 .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
                 .findFirst()
@@ -129,112 +243,33 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
         return builder.build();
     }
 
-    // =================================================================================
-    // 3. TENANT 360-DEGREE VIEW (XEM CHI TIẾT)
-    // =================================================================================
-    @Override
-    @Transactional(readOnly = true)
-    public Tenant360Response getTenant360View(Integer companyId) {
-        Company company = companyRepository.findById(companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
-
-        // Tìm gói cước đang ACTIVE trong danh sách lịch sử
-        CompanySubscription sub = company.getSubscriptions().stream()
-                .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE)
-                .findFirst()
-                .orElse(null);
-
-        String planCode = "N/A", planName = "No Plan", subStatus = "NONE";
-        Integer maxUsers = 0, maxProjects = 0;
-        long maxStorageBytes = 0;
-        BigDecimal price = BigDecimal.ZERO; 
-        LocalDateTime start = null, end = null;
-
-        // 1. Lấy thông số từ Gói cước (Plan)
-        if (sub != null && sub.getPlan() != null) {
-            planCode = sub.getPlan().getPlanCode();
-            planName = sub.getPlan().getName();
-            price = sub.getPlan().getMonthlyPrice();
-            subStatus = sub.getStatus().toString();
-            start = sub.getCurrentPeriodStart();
-            end = sub.getCurrentPeriodEnd();
-            
-            maxUsers = sub.getPlan().getMaxUsers();
-            maxProjects = sub.getPlan().getMaxProjects();
-            
-            if (sub.getPlan().getMaxStorageGb() != -1) {
-                maxStorageBytes = sub.getPlan().getMaxStorageGb() * 1073741824L; // 1GB = 1024^3 Bytes
-            } else {
-                maxStorageBytes = -1; 
-            }
-        }
-
-        // 2. Lấy thông số sử dụng thực tế (Usage)
-        long currentMembers = companyMemberRepository.countByCompany_IdAndStatusNot(companyId, MemberStatus.REMOVED);
-        long currentProjects = projectRepository.countByWorkspace_Company_IdAndStatusNot(companyId, ProjectStatus.CANCELLED); 
-        long currentStorage = company.getCurrentStorageBytes() != null ? company.getCurrentStorageBytes() : 0;
-
-        // ========================================================================
-        // 3. TÍNH TOÁN CÁC CỜ BÁO HIỆU (FLAGS) DÀNH CHO FRONTEND
-        // ========================================================================
-        
-        // Cờ ân hạn: Nếu thời gian hết hạn đã qua (< NOW) nhưng trạng thái vẫn chưa bị chuyển thành EXPIRED/CANCELED
-        // Hoặc trạng thái hiện tại đang được đánh dấu rõ là PAST_DUE
-        boolean isGracePeriod = (end != null && end.isBefore(LocalDateTime.now())) 
-                             || "PAST_DUE".equalsIgnoreCase(subStatus);
-
-        // Các cờ giới hạn: Bật (true) nếu chạm ngưỡng hoặc vượt ngưỡng. 
-        // Bỏ qua (false) nếu max = -1 (tức là không giới hạn)
-        boolean isUserLimitExceeded = (maxUsers != -1) && (currentMembers >= maxUsers);
-        boolean isProjectLimitExceeded = (maxProjects != -1) && (currentProjects >= maxProjects);
-        boolean isStorageLimitExceeded = (maxStorageBytes != -1) && (currentStorage >= maxStorageBytes);
-
-        // 4. Trả về DTO tổng hợp
+    private Tenant360Response buildTenant360Response(Company company, String planCode, String planName, BigDecimal price,
+                                                     String subStatus, LocalDateTime start, LocalDateTime end,
+                                                     long currentMembers, Integer maxUsers, long currentProjects, Integer maxProjects,
+                                                     long currentStorage, long maxStorageBytes, boolean isGracePeriod,
+                                                     boolean isUserLimitExceeded, boolean isProjectLimitExceeded, boolean isStorageLimitExceeded) {
         return Tenant360Response.builder()
                 .companyId(company.getId())
                 .companyName(company.getName())
                 .email(company.getEmail())
                 .status(company.getStatus().toString())
                 .createdAt(company.getCreatedAt())
-                
                 .planCode(planCode)
                 .planName(planName)
                 .monthlyPrice(price)
                 .subscriptionStatus(subStatus)
                 .currentPeriodStart(start)
                 .currentPeriodEnd(end)
-                
                 .totalMembers(currentMembers)
                 .maxUsers(maxUsers)
-                
                 .totalProjects(currentProjects)
                 .maxProjects(maxProjects)
-                
                 .currentStorageBytes(currentStorage)
                 .maxStorageBytes(maxStorageBytes)
-                
                 .isGracePeriod(isGracePeriod)
                 .isUserLimitExceeded(isUserLimitExceeded)
                 .isProjectLimitExceeded(isProjectLimitExceeded)
                 .isStorageLimitExceeded(isStorageLimitExceeded)
                 .build();
-    }
-
-
-    @Override
-    @Transactional
-    public void changeCompanyStatus(Integer companyId, String newStatus) {
-        Company company = companyRepository.findById(companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Company not found."));
-
-        try {
-            CompanyStatus statusEnum = CompanyStatus.valueOf(newStatus.toUpperCase());
-            company.setStatus(statusEnum);
-        } catch (IllegalArgumentException e) {
-            // Bắt lỗi nếu lỡ truyền vào một status tào lao không có trong Enum
-            throw new BadRequestException("Invalid status value: " + newStatus);
-        }
-        
-        companyRepository.save(company);
     }
 }

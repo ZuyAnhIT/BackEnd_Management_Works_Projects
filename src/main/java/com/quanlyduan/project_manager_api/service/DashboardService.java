@@ -1,48 +1,48 @@
-// File: src/main/java/com.quanlyduan.project_manager_api/service/DashboardService.java
 package com.quanlyduan.project_manager_api.service;
+
+import java.util.List;
 
 import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyTaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyWorkspaceResponse;
 
-import java.util.List;
-
 /**
- * Interface Service quản lý các nghiệp vụ liên quan đến trang Tổng quan (Dashboard) cá nhân.
- * Trả về danh sách các tài nguyên mà người dùng hiện tại đang tham gia.
+ * Service quan ly cac nghiep vu hien thi tren trang Tong quan (Dashboard) ca nhan.
+ * Tap hop cac tai nguyen (Cong ty, Phong ban, Du an, Cong viec) ma nguoi dung hien tai dang truc tiep tham gia.
  */
 public interface DashboardService {
 
-    // ========================================================================
-    // 1. NHÓM DỮ LIỆU TỔ CHỨC (ORGANIZATION DATA)
-    // ========================================================================
+    // ======================================================
+    // 1. DU LIEU TO CHUC (ORGANIZATION DATA)
+    // ======================================================
 
     /**
-     * Lấy danh sách Công ty mà người dùng hiện tại thuộc về.
-     * @return Danh sách tóm tắt các Công ty.
+     * Truy xuat danh sach cac Cong ty ma nguoi dung hien tai la thanh vien.
+     * * @return Danh sach tom tat thong tin cac Cong ty (Tenant)
      */
     List<MyCompanyResponse> getMyCompanies();
 
     /**
-     * Lấy danh sách Workspace (Phòng ban) mà người dùng hiện tại tham gia.
-     * @return Danh sách tóm tắt các Workspace.
+     * Truy xuat danh sach cac Workspace (Phong ban) ma nguoi dung co quyen truy cap.
+     * * @return Danh sach tom tat cac Khong gian lam viec
      */
     List<MyWorkspaceResponse> getMyWorkspaces();
 
     /**
-     * Lấy danh sách Project mà người dùng hiện tại đang tham gia.
-     * @return Danh sách tóm tắt các Project.
+     * Truy xuat danh sach cac Du an (Project) ma nguoi dung dang dong gop.
+     * * @return Danh sach tom tat cac Du an dang trien khai
      */
     List<MyProjectResponse> getMyProjects();
 
-    // ========================================================================
-    // 2. NHÓM DỮ LIỆU CÔNG VIỆC (TASK DATA)
-    // ========================================================================
+    // ======================================================
+    // 2. DU LIEU CONG VIEC (PERSONAL TASK DATA)
+    // ======================================================
 
     /**
-     * Lấy danh sách các Task (chưa hoàn thành) được giao cho người dùng hiện tại.
-     * @return Danh sách Task (MyTaskResponse) để hiển thị trong widget Task của Dashboard.
+     * Truy xuat danh sach cac cong viec dang thuc hien (Active Tasks) duoc giao cho nguoi dung.
+     * Thuong dung de hien thi trong Widget "Cong viec cua toi" tren Dashboard.
+     * * @return Danh sach cac Task chua hoan thanh (In-progress/To-do)
      */
     List<MyTaskResponse> getMyTasks();
 }

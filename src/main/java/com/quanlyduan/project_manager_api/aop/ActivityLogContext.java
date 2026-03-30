@@ -1,30 +1,30 @@
 package com.quanlyduan.project_manager_api.aop;
 
 /**
- * Lớp tiện ích lưu trữ thông điệp chi tiết của hành động.
- * Sử dụng ThreadLocal để đảm bảo an toàn trong môi trường đa luồng (thread-safe).
+ * Lop tien ich luu tru thong diep chi tiet cua hanh dong.
+ * Su dung ThreadLocal de dam bao an toan trong moi truong da luong (thread-safe).
  */
 public class ActivityLogContext {
 
-    // Khai báo biến lưu trữ nội dung log cho luồng hiện tại
+    // Khai bao bien luu tru noi dung log cho luong hien tai
     private static final ThreadLocal<String> currentDetail = new ThreadLocal<>();
 
-    // Constructor thủ công (private) để ngăn chặn việc khởi tạo đối tượng cho class tiện ích
+    // Constructor thu cong (private) de ngan chan viec khoi tao doi tuong
     private ActivityLogContext() {
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
     }
 
-    // Ghi đè thông điệp chi tiết cho hành động
+    // Ghi de thong diep chi tiet cho hanh dong
     public static void setDetail(String detail) {
         currentDetail.set(detail);
     }
 
-    // Lấy ra thông điệp chi tiết đang lưu trong luồng
+    // Lay ra thong diep chi tiet dang luu trong luong
     public static String getDetail() {
         return currentDetail.get();
     }
 
-    // Xóa dữ liệu sau khi dùng xong để tránh rò rỉ bộ nhớ (memory leak)
+    // Xoa du lieu sau khi dung xong de tranh ro ri bo nho (memory leak)
     public static void clear() {
         currentDetail.remove();
     }

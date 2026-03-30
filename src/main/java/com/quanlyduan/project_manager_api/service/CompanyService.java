@@ -1,4 +1,3 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/CompanyService.java
 package com.quanlyduan.project_manager_api.service;
 
 import org.springframework.web.multipart.MultipartFile;
@@ -13,96 +12,110 @@ import com.quanlyduan.project_manager_api.dto.response.CompanyInvitationResponse
 import com.quanlyduan.project_manager_api.dto.response.CompanyMemberResponse;
 import com.quanlyduan.project_manager_api.dto.response.InvitationDetailsResponse;
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
-import com.quanlyduan.project_manager_api.dto.response.company.Tenant360Response;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyInvitation;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 
-
 /**
- * Interface Service quản lý các nghiệp vụ liên quan đến Công ty (Company).
- * Bao gồm tạo công ty, quản lý thành viên, và luồng mời.
+ * Service quan ly toan bo vong doi cua Cong ty (Company) va thanh vien (Membership).
+ * Xu ly tu khau khoi tao doanh nghiep, quan tri nhan su den quy trinh moi tham gia he thong.
  */
 public interface CompanyService {
-    
-    // ========================================================================
-    // 1. QUẢN LÝ CÔNG TY (CRUD & LIFECYCLE)
-    // ========================================================================
+
+    // ======================================================
+    // 1. QUAN LY DOANH NGHIEP (COMPANY LIFECYCLE)
+    // ======================================================
 
     /**
-     * Tạo một Công ty mới.
+     * Khoi tao mot Cong ty moi tren he thong Worknet.
+     * * @param request Thong tin co ban cua cong ty
+     * @return Entity Cong ty sau khi luu tru
      */
     Company createCompany(CreateCompanyRequest request); 
 
     /**
-     * Lấy thông tin chi tiết của Công ty.
-     * @param companyId ID công ty
-     * @return CompanyDetailsResponse DTO
+     * Truy xuat thong tin chi tiet va trang thai hien tai cua Cong ty.
+     * * @param companyId ID dinh danh cong ty
+     * @return DTO chua thong tin chi tiet cong ty
      */
     CompanyDetailsResponse getCompanyDetails(Integer companyId);
 
     /**
-     * Cập nhật thông tin công ty và logo (sử dụng MultipartFile).
+     * Cap nhat thong tin ho so va thay doi Logo doanh nghiep.
+     * * @param companyId ID dinh danh cong ty
+     * @param request Cac truong thong tin can thay doi
+     * @param logoFile Tep tin hinh anh Logo moi
+     * @return Thong tin cong ty sau khi cap nhat
      */
     CompanyDetailsResponse updateCompany(Integer companyId, UpdateCompanyRequest request, MultipartFile logoFile);
     
-    
-    // ========================================================================
-    // 2. QUẢN LÝ THÀNH VIÊN (MEMBERSHIP & ROLES)
-    // ========================================================================
+    // ======================================================
+    // 2. QUAN LY THANH VIEN (MEMBERSHIP & ROLES)
+    // ======================================================
 
     /**
-     * Mời một thành viên mới vào Công ty (Gửi Email với Token).
-     * @param companyId ID công ty
-     * @param request DTO chứa email và roleCode
+     * Gui loi moi gia nhap cong ty den mot Email cu the.
+     * * @param companyId ID cong ty phat hanh loi moi
+     * @param request Email nguoi nhan va vai tro du kien
+     * @return Entity Loi moi voi Token xac thuc duy nhat
      */
     CompanyInvitation inviteMember(Integer companyId, InviteMemberRequest request); 
 
     /**
-     * Chấp nhận lời mời tham gia Công ty (sau khi click link).
+     * Xac nhan loi moi va tro thanh thanh vien chinh thuc cua cong ty.
+     * * @param request Token xac thuc va thong tin bo sung tu nguoi dung
+     * @return Thong tin chi tiet cong ty sau khi gia nhap thanh cong
      */
     CompanyDetailsResponse acceptInvitation(AcceptInvitationRequest request);
 
     /**
-     * Lấy thông tin chi tiết của một thành viên trong công ty.
-     * @param companyId ID của công ty (để kiểm tra bảo mật)
-     * @param memberId ID của bản ghi CompanyMember
+     * Truy xuat ho so chi tiet cua mot thanh vien ben trong to chuc.
+     * * @param companyId ID cong ty (dung de kiem soat truy cap)
+     * @param memberId ID ban ghi thanh vien
+     * @return DTO ho so thanh vien
      */
     CompanyMemberResponse getCompanyMemberDetails(Integer companyId, Integer memberId);
     
     /**
-     * Cập nhật trạng thái của thành viên (ACTIVE/SUSPENDED/RESTORE).
-     * @param request DTO chứa trạng thái mới
+     * Thay doi trang thai lam viec cua thanh vien (vi du: Tam khoa hoac Khoi phuc).
+     * * @param companyId ID cong ty
+     * @param memberId ID ban ghi thanh vien
+     * @param request Trang thai moi can thiet lap
+     * @return Thong tin thanh vien sau khi cap nhat trang thai
      */
     CompanyMemberResponse updateMemberStatus(Integer companyId, Integer memberId, UpdateMemberStatusRequest request);
 
     /**
-     * Cập nhật vai trò (Role) của một thành viên trong công ty.
-     * @param newRoleCode Mã vai trò mới (ví dụ: "COMPANY_MEMBER")
-     * @return CompanyMember Entity đã cập nhật
+     * Thay doi vai tro phan quyen cho thanh vien ben trong to chuc.
+     * * @param companyId ID cong ty
+     * @param memberId ID ban ghi thanh vien
+     * @param newRoleCode Ma vai tro moi (vi du: COMPANY_ADMIN)
+     * @return Entity thanh vien sau khi gan vai tro moi
      */
     CompanyMember updateCompanyMemberRole(Integer companyId, Integer memberId, String newRoleCode);
 
     /**
-     * Xóa mềm (Soft Delete) một thành viên khỏi công ty (chuyển status thành REMOVED).
-     * @param userId ID người dùng bị xóa
+     * Ngung tu cach thanh vien cua nguoi dung khoi cong ty (Soft Delete).
+     * * @param companyId ID cong ty
+     * @param userId ID nguoi dung can loai bo
      */
     void removeMemberFromCompany(Integer companyId, Integer userId);
 
-    // ========================================================================
-    // 3. XEM DANH SÁCH (LISTING & FILTERING)
-    // ========================================================================
+    // ======================================================
+    // 3. TRA CUU VA LOC DU LIEU (LISTING & SEARCH)
+    // ======================================================
 
     /**
-     * Lấy danh sách thành viên công ty (Phân trang & Sắp xếp).
-     * @param sortBy Trường cần sắp xếp
-     * @param sortDir Hướng sắp xếp
+     * Lay danh sach thanh vien thuoc to chuc voi tinh nang phan trang.
+     * * @param companyId ID cong ty
+     * @return Trang danh sach thanh vien
      */
     PageResponseDTO<CompanyMemberResponse> getCompanyMembers(Integer companyId, int page, int size, String sortBy, String sortDir);
 
     /**
-     * Tìm kiếm thành viên công ty (Nâng cao: Tên, Email, Chức vụ, Role, SĐT).
+     * Tim kiem thanh vien nang cao dua tren nhieu tieu chi loc.
+     * * @return Ket qua tim kiem phan trang phu hop bo loc
      */
     PageResponseDTO<CompanyMemberResponse> searchCompanyMembers(
             Integer companyId, 
@@ -116,27 +129,28 @@ public interface CompanyService {
     );
 
     /**
-     * Lấy danh sách lời mời công ty có lọc và phân trang.
+     * Quan ly danh sach cac loi moi da gui tu cong ty.
+     * * @param companyId ID cong ty
+     * @return Trang danh sach cac loi moi
      */
     PageResponseDTO<CompanyInvitationResponse> getCompanyInvitations(
             Integer companyId, 
-            String keyword, // Tìm theo email
-            String status,  // Lọc theo trạng thái
+            String keyword, 
+            String status,  
             int page, int size, String sortBy, String sortDir
     );
 
     /**
-     * Lấy chi tiết lời mời (public) để frontend quyết định luồng (Login/Register).
+     * Lay thong tin loi moi tu Token (Dung cho luong Public truoc khi dang nhap).
+     * * @param token Ma xac thuc loi moi duy nhat
+     * @return Chi tiet loi moi phuc vu luong dang ky/dang nhap
      */
     InvitationDetailsResponse getInvitationDetails(String token);
     
     /**
-     * Hủy lời mời tham gia công ty.
-     * @param companyId ID công ty
-     * @param invitationId ID lời mời cần hủy
+     * Huy bo mot loi moi da gui nhung chua duoc chap nhan.
+     * * @param companyId ID cong ty
+     * @param invitationId ID ban ghi loi moi can huy
      */
     void cancelCompanyInvitation(Integer companyId, Integer invitationId);
-
-
-
 }

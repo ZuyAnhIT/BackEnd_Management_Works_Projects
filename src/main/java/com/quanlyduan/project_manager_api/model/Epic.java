@@ -4,7 +4,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-// JPA & Hibernate
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.quanlyduan.project_manager_api.model.common.enums.EpicStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -17,93 +21,119 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-// Lombok
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-// Project Enums
-import com.quanlyduan.project_manager_api.model.common.enums.EpicStatus;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * Entity đại diện cho một Epic.
- * Epic là một công việc lớn, thường bao gồm nhiều Tasks/User Stories.
+ * Entity dai dien cho mot Epic - Khoi luong cong viec lon trong mo hinh Agile.
+ * Epic gom nhom nhieu Tasks/User Stories lien quan de theo doi tien do chien luoc cua Project.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
-@Table(name = "epics") // Đặt tên bảng là epics
+@Table(name = "epics")
 public class Epic {
 
-    // ==========================================
-    // PRIMARY KEY
-    // ==========================================
+    // ======================================================
+    // 1. DINH DANH DU LIEU (PRIMARY KEY)
+    // ======================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // ID định danh
+    private Integer id;
 
-    // ==========================================
-    // RELATIONSHIPS (Quan hệ Entity - Owning Side)
-    // ==========================================
+    // ======================================================
+    // 2. LIEN KET THUC THE (RELATIONSHIPS)
+    // ======================================================
+    
+    /** Du an (Project) so huu Epic nay. Su dung LAZY fetch de toi uu. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
-    private Project project; // Dự án chứa Epic này
+    private Project project;
 
+    /** Nguoi dung khoi tao Epic. Khong cho phep cap nhat lai nguoi tao. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
-    private User createdBy; // Người tạo Epic
+    private User createdBy;
 
-    // ==========================================
-    // BASIC INFORMATION (Thông tin cơ bản)
-    // ==========================================
+    /** Danh sach cac Tasks thuoc ve Epic nay (Inverse side). */
+    @OneToMany(mappedBy = "epic", fetch = FetchType.LAZY)
+    private List<Task> tasks;
+
+    // ======================================================
+    // 3. THONG TIN CO BAN (BASIC INFO)
+    // ======================================================
+    
+    /** Ten hien thi cua Epic (vi du: "He thong Thanh toan v2"). */
     @Column(name = "name", nullable = false)
-    private String name; // Tên Epic
+    private String name;
 
+    /** Ma code dinh danh Epic (vi du: "PROJ-E-1"). */
     @Column(name = "epic_code", length = 50)
-    private String epicCode; // Mã code Epic (ví dụ: PROJ-E-1)
+    private String epicCode;
 
+    /** Mo ta chi tiet ve muc tieu va pham vi cua Epic. */
     @Column(name = "description", columnDefinition = "TEXT")
-    private String description; // Mô tả Epic
+    private String description;
 
+    /** Ma mau HEX dung de phan biet Epic tren giao dien (vi du: "#FF5733"). */
     @Column(name = "color", length = 7)
-    private String color; // Mã màu hex cho Epic (ví dụ: #FF0000)
+    private String color;
 
+    /** * Trang thai hien tai cua Epic.
+     * Gia tri: OPEN (Dang mo), IN_PROGRESS (Dang lam), DONE (Hoan tat), CANCELLED. 
+     */
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    @Builder.Default
-    private EpicStatus status = EpicStatus.OPEN; // Trạng thái của Epic (Mặc định là OPEN)
+    @Column(name = "status", nullable = false)
+    private EpicStatus status;
 
-    // ==========================================
-    // TIMELINE (Dòng thời gian dự kiến)
-    // ==========================================
+    // ======================================================
+    // 4. DONG THOI GIAN (TIMELINE)
+    // ======================================================
+    
+    /** Ngay bat dau va Ngay het han du kien cua toan bo Epic. */
     @Column(name = "start_date")
-    private LocalDate startDate; // Ngày bắt đầu dự kiến
+    private LocalDate startDate;
 
     @Column(name = "due_date")
-    private LocalDate dueDate; // Ngày kết thúc/Hạn chót dự kiến
+    private LocalDate dueDate;
 
-    // ==========================================
-    // TIMESTAMPS (Thời gian hệ thống)
-    // ==========================================
+    // ======================================================
+    // 5. THONG TIN HE THONG (AUDIT INFO)
+    // ======================================================
+    
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; // Thời điểm tạo
+    @Column(name = "created_at", updatable = false, nullable = false)
+    private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
+    private LocalDateTime updatedAt;
 
-    // ==========================================
-    // INVERSE RELATIONSHIPS (Quan hệ nghịch đảo)
-    // ==========================================
-    // MappedBy trỏ đến tên thuộc tính "epic" trong Entity Task
-    @OneToMany(mappedBy = "epic")
-    private List<Task> tasks; // Quan hệ 1-N: Một Epic có nhiều Task
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
 
+    public Epic() {
+    }
+
+    public Epic(Integer id, Project project, User createdBy, List<Task> tasks, 
+                String name, String epicCode, String description, String color, 
+                EpicStatus status, LocalDate startDate, LocalDate dueDate, 
+                LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.project = project;
+        this.createdBy = createdBy;
+        this.tasks = tasks;
+        this.name = name;
+        this.epicCode = epicCode;
+        this.description = description;
+        this.color = color;
+        this.status = status;
+        this.startDate = startDate;
+        this.dueDate = dueDate;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
 }

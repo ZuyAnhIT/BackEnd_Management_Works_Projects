@@ -1,5 +1,10 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/TaskCommentServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CommentRequest;
@@ -13,23 +18,25 @@ import com.quanlyduan.project_manager_api.repository.TaskRepository;
 import com.quanlyduan.project_manager_api.repository.UserRepository;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.TaskCommentService;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class TaskCommentServiceImpl implements TaskCommentService {
 
+    // Khai bao cac hang so de loai bo hardcode
+    public static final String ACTION_COMMENT = "COMMENT";
+    public static final String ENTITY_TASK = "TASK";
+    public static final String DESC_COMMENT_TASK = "Comment on task";
+
+    public static final String ERROR_USER_NOT_FOUND = "Current user not found.";
+    public static final String ERROR_TASK_NOT_FOUND = "Task not found with ID: ";
+
+    // Khai bao cac bien phu thuoc
     private final TaskCommentRepository commentRepository;
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final SecurityService securityService;
 
-    // ======================================================
-    // CONSTRUCTOR (Dependency Injection)
-    // ======================================================
+    // Constructor khoi tao thu cong
     public TaskCommentServiceImpl(TaskCommentRepository commentRepository,
                                   TaskRepository taskRepository,
                                   UserRepository userRepository,
@@ -40,98 +47,62 @@ public class TaskCommentServiceImpl implements TaskCommentService {
         this.securityService = securityService;
     }
 
-    // ======================================================
-    // 1. THÊM BÌNH LUẬN (ADD COMMENT)
-    // ======================================================
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+
     @Override
     @Transactional
-    @LogActivity(action = "COMMENT", entityType = "TASK", description = "Comment on task")
+    @LogActivity(action = ACTION_COMMENT, entityType = ENTITY_TASK, description = DESC_COMMENT_TASK)
     public TaskCommentResponse addComment(Integer taskId, CommentRequest request) {
-
-        // 1. Lấy user hiện tại (người bình luận)
+        // Lay thong tin nguoi dung hien tai dang thuc hien binh luan
         Integer currentUserId = securityService.getCurrentUserId();
         User currentUser = userRepository.findById(currentUserId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Current user not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_USER_NOT_FOUND));
 
-        // 2. Tìm Task
+        // Kiem tra su ton tai cua cong viec duoc binh luan
         Task task = taskRepository.findById(taskId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_TASK_NOT_FOUND + taskId));
 
-        // 3. XỬ LÝ: Logic @mentions đã bị loại bỏ như trong code gốc
-        /*
-        Set<User> mentionedUsers = new HashSet<>();
-        if (request.getMentionedUserIds() != null && !request.getMentionedUserIds().isEmpty()) {
-            List<User> foundUsers = userRepository.findAllById(request.getMentionedUserIds());
-            mentionedUsers.addAll(foundUsers);
-        }
-        */
-
-        // 4. Tạo và lưu bình luận
+        // Khoi tao thuc the binh luan moi
         TaskComment newComment = TaskComment.builder()
                 .content(request.getContent())
                 .task(task)
                 .user(currentUser)
-                // .mentionedUsers(mentionedUsers) // Bỏ qua logic mentioned users
                 .build();
 
+        // Luu vao co so du lieu
         TaskComment savedComment = commentRepository.save(newComment);
 
-        // 5. Map sang DTO và trả về
         return mapToCommentResponse(savedComment);
     }
 
-    // ======================================================
-    // 2. LẤY DANH SÁCH BÌNH LUẬN (GET COMMENTS)
-    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public List<TaskCommentResponse> getComments(Integer taskId) {
-
-        // 1. Kiểm tra Task tồn tại
+        // Kiem tra su ton tai cua cong viec truoc khi truy xuat binh luan
         if (!taskRepository.existsById(taskId)) {
-            // Sửa thông báo sang tiếng Anh
-            throw new ResourceNotFoundException("Task not found with ID: " + taskId);
+            throw new ResourceNotFoundException(ERROR_TASK_NOT_FOUND + taskId);
         }
 
-        // 2. Lấy danh sách bình luận (sắp xếp theo thời gian tạo ASC)
+        // Lay danh sach binh luan tu he thong, sap xep theo thoi gian tao tang dan
         List<TaskComment> comments = commentRepository.findByTask_IdOrderByCreatedAtAsc(taskId);
 
-        // 3. Map và trả về
+        // Chuyen doi danh sach thuc the sang DTO phan hoi
         return comments.stream()
                 .map(this::mapToCommentResponse)
                 .collect(Collectors.toList());
     }
 
-    // ======================================================
-    // ⚙️ PRIVATE HELPER: MAPPER
-    // ======================================================
+    // --- LOGIC MAPPING (ENTITY <-> DTO) ---
 
-    /**
-     * Helper: Map TaskComment Entity sang TaskCommentResponse DTO.
-     */
     private TaskCommentResponse mapToCommentResponse(TaskComment comment) {
-
-        // 1. Map thông tin người bình luận
+        // Chuyen doi thong tin cua nguoi binh luan
         TaskCommentResponse.CommentUserResponse commentUser = TaskCommentResponse.CommentUserResponse.builder()
                 .userId(comment.getUser().getId())
                 .fullName(comment.getUser().getFullName())
                 .avatarUrl(comment.getUser().getAvatarUrl())
                 .build();
 
-        // 2. XÓA BỎ LOGIC MAP DANH SÁCH MENTION
-        /*
-        List<TaskCommentResponse.CommentUserResponse> mentionedUsersList = comment.getMentionedUsers().stream()
-                    .map(user -> TaskCommentResponse.CommentUserResponse.builder()
-                            .userId(user.getId())
-                            .fullName(user.getFullName())
-                            .avatarUrl(user.getAvatarUrl())
-                            .build())
-                    .collect(Collectors.toList());
-        */
-
-        // 3. Xây dựng DTO Response cuối cùng
+        // Xay dung doi tuong phan hoi chi tiet cho binh luan
         return TaskCommentResponse.builder()
                 .commentId(comment.getId())
                 .content(comment.getContent())

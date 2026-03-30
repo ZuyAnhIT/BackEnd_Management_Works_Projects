@@ -1,4 +1,3 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/StatisticsService.java
 package com.quanlyduan.project_manager_api.service;
 
 import java.time.LocalDate;
@@ -18,22 +17,21 @@ import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 
 /**
- * Interface định nghĩa các nghiệp vụ liên quan đến Thống kê và Báo cáo.
+ * Service chuyen trach cung cap du lieu Thong ke, Bao cao va Bieu do (Analytics).
+ * Xu ly cac logic tinh toan phan bo cong viec, tien do muc tieu (Epic) va lo trinh du an (Roadmap).
  */
 public interface StatisticsService {
 
+    // ======================================================
+    // 1. THONG KE TONG QUAN (OVERVIEW STATISTICS)
+    // ======================================================
+
     /**
-     * Lấy thống kê tổng quan (Overview) với bộ lọc linh hoạt.
-     * * @param projectId        ID dự án (Bắt buộc nếu xem Project Dashboard).
-     * @param assigneeId       ID người dùng (Nếu xem Personal Dashboard, hệ thống tự truyền).
-     * @param from             Ngày bắt đầu thống kê.
-     * @param to               Ngày kết thúc thống kê.
-     * @param keyword          Từ khóa tìm kiếm task.
-     * @param filterAssigneeId ID người dùng muốn lọc (khi xem Project Dashboard).
-     * @param priority         Độ ưu tiên.
-     * @param taskType         Loại task.
-     * @param statusIds        Danh sách ID trạng thái.
-     * @return Đối tượng chứa các con số thống kê và danh sách chi tiết.
+     * Lay cac con so thong ke tong hop voi bo loc linh hoat.
+     * Dung cho Dashboard du an hoan Dashboard ca nhan.
+     * * @param projectId ID du an (Bat buoc khi xem Dashboard du an)
+     * @param assigneeId ID nguoi dung (Bat buoc khi xem Dashboard ca nhan)
+     * @return Doi tuong chua cac chi so thong ke (Count, Progress, v.v.)
      */
     StatisticsResponse getOverviewStatistics(
             Integer projectId, Integer assigneeId,
@@ -42,32 +40,34 @@ public interface StatisticsService {
             TaskPriority priority, TaskType taskType, List<Integer> statusIds
     );
 
+    // ======================================================
+    // 2. PHAN BO CONG VIEC (WORK DISTRIBUTION - PIE CHARTS)
+    // ======================================================
+
     /**
-     * Lấy dữ liệu phân bổ trạng thái (To Do, In Progress, Done...) để vẽ biểu đồ tròn (Pie Chart).
-     * Hàm này tính toán số lượng task và phần trăm tỷ lệ của từng trạng thái.
-     *
-     * @param projectId  (Tùy chọn) ID dự án.
-     * @param assigneeId (Tùy chọn) ID người được giao (để xem biểu đồ cá nhân).
-     * @return Danh sách các đối tượng chứa thông tin trạng thái, số lượng và phần trăm.
+     * Lay du lieu phan bo theo Trang thai (To Do, In Progress, Done).
+     * Phuc vu ve bieu do tron (Pie Chart) hien thi ty le hoan thanh.
      */
     List<StatusDistributionResponse> getTaskStatusDistribution(Integer projectId, Integer assigneeId);
 
     /**
-     * Lấy dữ liệu phân bổ mức độ ưu tiên (Urgent, High, Medium, Low).
+     * Lay du lieu phan bo theo Muc do uu tien (Urgent, High, Medium, Low).
      */
     List<PriorityDistributionResponse> getTaskPriorityDistribution(Integer projectId, Integer assigneeId);
 
     /**
-     * Lấy dữ liệu phân bổ loại công việc (Story, Bug, Task...).
+     * Lay du lieu phan bo theo Loai cong viec (Story, Bug, Task).
      */
     List<TaskTypeDistributionResponse> getTaskTypeDistribution(Integer projectId, Integer assigneeId);
 
+    // ======================================================
+    // 3. NAN G LUC VA TIEN DO (CAPACITY & PROGRESS)
+    // ======================================================
+
     /**
-     * Lấy dữ liệu phân bổ công việc (Workload) theo Stacked Bar Chart.
-     * * @param projectId ID dự án
-     * @param viewType "POINTS" hoặc "HOURS"
-     * @param groupBy "STATUS" hoặc "PRIORITY"
-     * @param ... các filter khác (sprintId, date range...)
+     * Lay du lieu tai cong viec (Workload) duoi dang Stacked Bar Chart.
+     * * @param viewType Loai thong so ("POINTS" hoac "HOURS")
+     * @param groupBy Tieu chi nhom du lieu ("STATUS" hoac "PRIORITY")
      */
     List<WorkloadResponse> getWorkloadDistribution(
             Integer projectId, 
@@ -77,81 +77,57 @@ public interface StatisticsService {
     );
 
     /**
-     * Lấy danh sách tiến độ của các Epic trong dự án.
-     * Tính toán dựa trên số lượng Task và Story Points đã hoàn thành so với tổng số.
-     *
-     * @param projectId  (Bắt buộc) ID của dự án.
-     * @param sprintId   (Tùy chọn) Lọc task trong một Sprint cụ thể thuộc Epic.
-     * @param from       (Tùy chọn) Lọc task bắt đầu từ ngày này.
-     * @param to         (Tùy chọn) Lọc task kết thúc trước ngày này.
-     * @param statusIds  (Tùy chọn) Chỉ tính các task thuộc các trạng thái này (ví dụ: chỉ tính task Active).
-     * @return Danh sách các đối tượng chứa thông tin tiến độ Epic.
+     * Lay thong tin tien do thuc te cua cac Epic (Muc tieu lon).
+     * Tinh toan dua tren ty le hoan thanh Story Points hoac Task Count.
      */
     List<EpicProgressResponse> getEpicProgress(
-            Integer projectId,
-            Integer sprintId,
-            LocalDate from,
-            LocalDate to,
-            List<Integer> statusIds
+            Integer projectId, Integer sprintId,
+            LocalDate from, LocalDate to, List<Integer> statusIds
     );
 
+    // ======================================================
+    // 4. LO TRINH VA LICH TRINH (ROADMAP & CALENDAR)
+    // ======================================================
+
     /**
-     * Lấy dữ liệu cho biểu đồ Roadmap/Timeline (Gantt Chart).
-     * Trả về danh sách các Epic và Sprint đã được chuẩn hóa để vẽ lên trục thời gian.
-     *
-     * @param projectId    (Bắt buộc) ID dự án.
-     * @param viewType     Loại dữ liệu hiển thị: "EPIC", "SPRINT", hoặc "ALL".
-     * @param epicIds      (Tùy chọn) Lọc theo danh sách ID Epic cụ thể.
-     * @param epicStatuses (Tùy chọn) Lọc Epic theo trạng thái (ví dụ: chỉ xem OPEN, IN_PROGRESS).
-     * @param keyword      (Tùy chọn) Tìm kiếm Epic theo tên hoặc mã.
-     * @param sprintIds    (Tùy chọn) Lọc theo danh sách ID Sprint cụ thể.
-     * @param sprintStatuses (Tùy chọn) Lọc Sprint theo trạng thái (ví dụ: chỉ xem IN_PROGRESS, COMPLETED).
-     * @param from         (Tùy chọn) Ngày bắt đầu của khung nhìn timeline (Start View).
-     * @param to           (Tùy chọn) Ngày kết thúc của khung nhìn timeline (End View).
-     * @return Danh sách các item (Epic/Sprint) có thông tin ngày tháng và tiến độ.
+     * Truy xuat du lieu cho bieu do lo trinh Roadmap (Gantt Chart).
+     * Ket hop thoi gian cua ca Epic va Sprint de hien thi tren truc timeline.
+     * * @param viewType Kieu hien thi ("EPIC", "SPRINT", hoac "ALL")
      */
     List<RoadmapItemResponse> getProjectRoadmap(
-            Integer projectId,
-            String viewType,        // EPIC, SPRINT, ALL
-            
-            List<Integer> epicIds,
-            List<EpicStatus> epicStatuses,
-            
-            List<Integer> sprintIds,
-            List<SprintStatus> sprintStatuses,
-            
-            String keyword,         // Tìm chung
-            LocalDate from,         // View Start
-            LocalDate to            // View End
+            Integer projectId, String viewType, 
+            List<Integer> epicIds, List<EpicStatus> epicStatuses,
+            List<Integer> sprintIds, List<SprintStatus> sprintStatuses,
+            String keyword, LocalDate from, LocalDate to
     );
 
     /**
-     * Lấy dữ liệu Lịch Dự Án (Calendar View).
-     * Bao gồm cả Task và Sprint.
+     * Lay du lieu su kien hien thi tren Lich du an (Calendar View).
+     * * @param showSprints Co cho phep hien thi cac khoang thoi gian Sprint hay khong
      */
     List<CalendarEventResponse> getProjectCalendar(
-            Integer projectId, // Chỉ cần ID dự án là đủ
-            LocalDate from, LocalDate to,
+            Integer projectId, LocalDate from, LocalDate to,
             String keyword, Integer assigneeId, TaskPriority priority, TaskType taskType,
             boolean showSprints
     );
 
-    // Cập nhật thêm các tham số lọc vào hàm này
+    // ======================================================
+    // 5. XUAT BAO CAO (REPORT EXPORTING)
+    // ======================================================
+
+    /**
+     * Xuat du lieu phan bo tai cong viec ra tep tin Excel.
+     */
     byte[] exportWorkloadDistributionToExcel(
-        List<WorkloadResponse> data, 
-        String viewType, 
-        String groupBy,
-        Integer sprintId,
-        LocalDate from,
-        LocalDate to
+            List<WorkloadResponse> data, String viewType, String groupBy,
+            Integer sprintId, LocalDate from, LocalDate to
     );
 
-
+    /**
+     * Xuat bao cao tien do Epic ra tep tin Excel.
+     */
     byte[] exportEpicProgressToExcel(
-        List<EpicProgressResponse> data, 
-        Integer projectId, 
-        Integer sprintId, 
-        LocalDate from, 
-        LocalDate to
+            List<EpicProgressResponse> data, Integer projectId, 
+            Integer sprintId, LocalDate from, LocalDate to
     );
 }

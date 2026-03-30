@@ -1,23 +1,4 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/UserServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
-
-import com.quanlyduan.project_manager_api.dto.request.ChangePasswordRequest;
-import com.quanlyduan.project_manager_api.dto.request.UpdateProfileRequest;
-import com.quanlyduan.project_manager_api.dto.response.CompanyMembershipDTO;
-import com.quanlyduan.project_manager_api.dto.response.ProjectMembershipDTO;
-import com.quanlyduan.project_manager_api.dto.response.UserProfileResponse;
-import com.quanlyduan.project_manager_api.dto.response.WorkspaceMembershipDTO;
-import com.quanlyduan.project_manager_api.exception.BadRequestException;
-import com.quanlyduan.project_manager_api.model.ProjectMember;
-import com.quanlyduan.project_manager_api.model.User;
-import com.quanlyduan.project_manager_api.repository.AuthTokenRepository;
-import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
-import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
-import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository;
-import com.quanlyduan.project_manager_api.repository.UserRepository;
-import com.quanlyduan.project_manager_api.repository.UserRoleRepository;
-import com.quanlyduan.project_manager_api.service.FileStorageService;
-import com.quanlyduan.project_manager_api.service.UserService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,9 +13,43 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.quanlyduan.project_manager_api.dto.request.ChangePasswordRequest;
+import com.quanlyduan.project_manager_api.dto.request.UpdateProfileRequest;
+import com.quanlyduan.project_manager_api.dto.response.CompanyMembershipDTO;
+import com.quanlyduan.project_manager_api.dto.response.ProjectMembershipDTO;
+import com.quanlyduan.project_manager_api.dto.response.UserProfileResponse;
+import com.quanlyduan.project_manager_api.dto.response.WorkspaceMembershipDTO;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
+import com.quanlyduan.project_manager_api.model.ProjectMember;
+import com.quanlyduan.project_manager_api.model.User;
+import com.quanlyduan.project_manager_api.repository.AuthTokenRepository;
+import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
+import com.quanlyduan.project_manager_api.repository.ProjectMemberRepository;
+import com.quanlyduan.project_manager_api.repository.UserRepository;
+import com.quanlyduan.project_manager_api.repository.UserRoleRepository;
+import com.quanlyduan.project_manager_api.repository.WorkspaceMemberRepository;
+import com.quanlyduan.project_manager_api.service.FileStorageService;
+import com.quanlyduan.project_manager_api.service.UserService;
+
 @Service
 public class UserServiceImpl implements UserService {
 
+    // Khai bao cac hang so de loai bo hardcode
+    public static final String ERROR_INCORRECT_PASSWORD = "Incorrect old password.";
+    public static final String ERROR_SAME_PASSWORD = "New password must be different from the old password.";
+    public static final String ERROR_PASSWORD_MISMATCH = "Password confirmation does not match.";
+    public static final String ERROR_AUTH_NOT_FOUND = "Authenticated user information not found.";
+    public static final String ERROR_USER_NOT_FOUND_EMAIL = "User not found with email: ";
+
+    public static final String ROLE_GUEST = "GUEST";
+    public static final String STATUS_ACTIVE = "ACTIVE";
+    public static final String ANONYMOUS_USER = "anonymousUser";
+
+    public static final String AVATAR_PREFIX_HTTP = "http";
+    public static final String AVATAR_API_PATH = "/api/files";
+    public static final String FOLDER_AVATARS = "avatars";
+
+    // Khai bao cac bien phu thuoc
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserRoleRepository userRoleRepository;
@@ -44,10 +59,15 @@ public class UserServiceImpl implements UserService {
     private final AuthTokenRepository authTokenRepository;
     private final FileStorageService fileStorageService;
 
-    // ======================================================
-    // CONSTRUCTOR (Dependency Injection)
-    // ======================================================
-    public UserServiceImpl(UserRepository userRepository,PasswordEncoder passwordEncoder, UserRoleRepository userRoleRepository, CompanyMemberRepository companyMemberRepository, WorkspaceMemberRepository workspaceMemberRepository, ProjectMemberRepository projectMemberRepository, AuthTokenRepository authTokenRepository, FileStorageService fileStorageService) {
+    // Constructor khoi tao thu cong thay the cho @RequiredArgsConstructor
+    public UserServiceImpl(UserRepository userRepository,
+                           PasswordEncoder passwordEncoder, 
+                           UserRoleRepository userRoleRepository, 
+                           CompanyMemberRepository companyMemberRepository, 
+                           WorkspaceMemberRepository workspaceMemberRepository, 
+                           ProjectMemberRepository projectMemberRepository, 
+                           AuthTokenRepository authTokenRepository, 
+                           FileStorageService fileStorageService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.userRoleRepository = userRoleRepository;
@@ -56,63 +76,52 @@ public class UserServiceImpl implements UserService {
         this.projectMemberRepository = projectMemberRepository;
         this.authTokenRepository = authTokenRepository;
         this.fileStorageService = fileStorageService;
-
     }
 
-    // ======================================================
-    // 1. THAY ĐỔI MẬT KHẨU (CHANGE PASSWORD)
-    // ======================================================
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+
     @Override
     @Transactional
     public void changePassword(ChangePasswordRequest request) {
-        // 1. Lấy thông tin người dùng đang đăng nhập
+        // Lay thong tin nguoi dung hien tai tu nguyen canh bao mat
         User currentUser = getCurrentAuthenticatedUser();
 
-        // 2. Validate mật khẩu cũ
+        // Xac thuc mat khau cu
         if (!passwordEncoder.matches(request.getOldPassword(), currentUser.getPassword())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Incorrect old password.");
+            throw new BadRequestException(ERROR_INCORRECT_PASSWORD);
         }
 
-        // 3. Validate mật khẩu mới (phải khác mật khẩu cũ)
+        // Xac thuc mat khau moi khong duoc trung voi mat khau cu
         if (passwordEncoder.matches(request.getNewPassword(), currentUser.getPassword())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("New password must be different from the old password.");
+            throw new BadRequestException(ERROR_SAME_PASSWORD);
         }
 
-        // 4. Validate mật khẩu xác nhận (confirm password)
+        // Kiem tra mat khau moi va xac nhan mat khau phai trung khop
         if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Password confirmation does not match.");
+            throw new BadRequestException(ERROR_PASSWORD_MISMATCH);
         }
 
-        // 5. Hash và cập nhật mật khẩu mới
+        // Ma hoa va cap nhat mat khau moi vao co so du lieu
         currentUser.setPassword(passwordEncoder.encode(request.getNewPassword()));
-
-        // 6. Lưu vào CSDL
         userRepository.save(currentUser);
 
-        // 7. Thu hồi tất cả Refresh Token (Đăng xuất khỏi mọi thiết bị khác)
+        // Thu hoi toan bo phien dang nhap truoc do de dam bao an toan
         authTokenRepository.revokeAllUserRefreshTokens(currentUser.getId());
     }
 
-    // ======================================================
-    // 2. LẤY THÔNG TIN PROFILE (GET USER PROFILE) 
-    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public UserProfileResponse getCurrentUserProfile() {
-        // 1. Lấy người dùng (từ token)
+        // Lay thong tin co ban cua nguoi dung
         User currentUser = getCurrentAuthenticatedUser();
 
-        // 2. Lấy vai trò cấp Hệ thống
+        // Truy xuat cac vai tro cap he thong cua nguoi dung
         List<String> systemRoles = userRoleRepository.findByUser_Id(currentUser.getId())
                 .stream()
                 .map(userRole -> userRole.getRole().getRoleCode())
                 .collect(Collectors.toList());
 
-        // 3. Lấy vai trò cấp Công ty (Thành viên chính thức)
-        // Dùng ArrayList để có thể add thêm Guest sau này
+        // Truy xuat cac vai tro cap cong ty
         List<CompanyMembershipDTO> companyRoles = new ArrayList<>(
                 companyMemberRepository.findByUser_Id(currentUser.getId())
                         .stream()
@@ -120,13 +129,12 @@ public class UserServiceImpl implements UserService {
                                 cm.getCompany().getId(),
                                 cm.getCompany().getName(),
                                 cm.getRole().getRoleCode(),
-                                cm.getCompany().getStatus() != null ? cm.getCompany().getStatus().toString() : "ACTIVE"
+                                cm.getCompany().getStatus() != null ? cm.getCompany().getStatus().toString() : STATUS_ACTIVE
                         ))
                         .collect(Collectors.toList())
         );
 
-        // 4. Lấy vai trò cấp Không gian làm việc (Thành viên chính thức)
-        // Dùng ArrayList để có thể add thêm Guest sau này
+        // Truy xuat cac vai tro cap khong gian lam viec
         List<WorkspaceMembershipDTO> workspaceRoles = new ArrayList<>(
                 workspaceMemberRepository.findByUser_Id(currentUser.getId())
                         .stream()
@@ -139,10 +147,10 @@ public class UserServiceImpl implements UserService {
                         .collect(Collectors.toList())
         );
 
-        // 5. Lấy danh sách thành viên Dự án (Raw Entities) để xử lý logic
+        // Truy xuat danh sach thuc the thanh vien du an
         List<ProjectMember> projectMembers = projectMemberRepository.findByUser_Id(currentUser.getId());
 
-        // Map sang DTO để trả về
+        // Chuyen doi thuc the thanh vien du an sang DTO
         List<ProjectMembershipDTO> projectRoles = projectMembers.stream()
                 .map(pm -> new ProjectMembershipDTO(
                         pm.getProject().getId(),
@@ -152,11 +160,7 @@ public class UserServiceImpl implements UserService {
                 ))
                 .collect(Collectors.toList());
 
-        // =================================================================================
-        // LOGIC thông tin cho GUEST (Suy diễn từ Project)
-        // =================================================================================
-        
-        // Tạo Set chứa ID đã tồn tại để tránh trùng lặp (Performance O(1))
+        // Suy dien va bo sung vai tro GUEST cho nguoi dung o cap cao hon neu ho chi la thanh vien o cap du an
         Set<Integer> existingCompanyIds = companyRoles.stream()
                 .map(CompanyMembershipDTO::getCompanyId)
                 .collect(Collectors.toSet());
@@ -165,46 +169,105 @@ public class UserServiceImpl implements UserService {
                 .map(WorkspaceMembershipDTO::getWorkspaceId)
                 .collect(Collectors.toSet());
 
-        // Duyệt qua từng Project user tham gia để tìm cha/ông nội còn thiếu
         for (ProjectMember pm : projectMembers) {
             var project = pm.getProject();
             var workspace = project.getWorkspace();
             var company = workspace.getCompany();
 
-            // A. Xử lý Workspace còn thiếu (User là Guest trong Project thuộc Workspace này)
+            // Bo sung khong gian lam viec thieu voi vai tro GUEST
             if (!existingWorkspaceIds.contains(workspace.getId())) {
                 workspaceRoles.add(new WorkspaceMembershipDTO(
                         workspace.getId(),
                         workspace.getName(),
                         company.getId(),
-                        "GUEST" // Đánh dấu role là GUEST
+                        ROLE_GUEST
                 ));
-                existingWorkspaceIds.add(workspace.getId()); // Đánh dấu đã xử lý
+                existingWorkspaceIds.add(workspace.getId()); 
             }
 
-            // B. Xử lý Company còn thiếu (User là Guest trong Project thuộc Company này)
+            // Bo sung cong ty thieu voi vai tro GUEST
             if (!existingCompanyIds.contains(company.getId())) {
                 companyRoles.add(new CompanyMembershipDTO(
                         company.getId(),
                         company.getName(),
-                        "GUEST",// Đánh dấu role là GUEST
-                        company.getStatus() != null ? company.getStatus().toString() : "ACTIVE"
+                        ROLE_GUEST,
+                        company.getStatus() != null ? company.getStatus().toString() : STATUS_ACTIVE
                 ));
-                existingCompanyIds.add(company.getId()); // Đánh dấu đã xử lý
-                
+                existingCompanyIds.add(company.getId()); 
             }
         }
-        // =================================================================================
 
-        // 6. Xử lý đường dẫn Avatar
+        // Xu ly duong dan hinh anh dai dien de phuc vu viec hien thi
         String avatarUrlFromDb = currentUser.getAvatarUrl();
         String finalAvatarUrl = avatarUrlFromDb;
 
-        if (avatarUrlFromDb != null && !avatarUrlFromDb.isBlank() && !avatarUrlFromDb.startsWith("http")) {
-            finalAvatarUrl = "/api/files" + avatarUrlFromDb;
+        if (avatarUrlFromDb != null && !avatarUrlFromDb.isBlank() && !avatarUrlFromDb.startsWith(AVATAR_PREFIX_HTTP)) {
+            finalAvatarUrl = AVATAR_API_PATH + avatarUrlFromDb;
         }
 
-        // 7. Xây dựng và trả về DTO
+        // Dong goi toan bo thong tin vao DTO phan hoi
+        return buildUserProfileResponse(currentUser, finalAvatarUrl, systemRoles, companyRoles, workspaceRoles, projectRoles);
+    }
+
+    @Override
+    @Transactional
+    public UserProfileResponse updateUserProfile(UpdateProfileRequest request, MultipartFile avatarFile) {
+        // Lay thong tin nguoi dung hien tai
+        User currentUser = getCurrentAuthenticatedUser();
+
+        // Cap nhat cac truong thong tin ca nhan
+        if (request.getFullName() != null) {
+            currentUser.setFullName(request.getFullName());
+        }
+        if (request.getPhoneNumber() != null) {
+            currentUser.setPhoneNumber(request.getPhoneNumber());
+        }
+        if (request.getDateOfBirth() != null) {
+            currentUser.setDateOfBirth(request.getDateOfBirth());
+        }
+        if (request.getGender() != null) {
+            currentUser.setGender(request.getGender());
+        }
+
+        // Xu ly tai len va luu tru hinh dai dien
+        if (avatarFile != null && !avatarFile.isEmpty()) {
+            String avatarPath = fileStorageService.storeFile(avatarFile, FOLDER_AVATARS);
+            currentUser.setAvatarUrl(avatarPath);
+        } 
+        else if (request.getAvatarUrl() != null) {
+            currentUser.setAvatarUrl(request.getAvatarUrl());
+        }
+
+        // Luu thong tin cap nhat vao co so du lieu
+        userRepository.save(currentUser);
+        
+        // Tra ve thong tin ho so moi nhat kem theo cac vai tro
+        return getCurrentUserProfile();
+    }
+
+    // --- CAC HAM PRIVATE HO TRO NGHIEP VU ---
+
+    private User getCurrentAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        // Kiem tra nguyen canh bao mat co chua thong tin xac thuc hop le khong
+        if (authentication == null || !authentication.isAuthenticated() || ANONYMOUS_USER.equals(authentication.getPrincipal())) {
+            throw new BadRequestException(ERROR_AUTH_NOT_FOUND);
+        }
+        
+        String email = authentication.getName();
+        
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException(ERROR_USER_NOT_FOUND_EMAIL + email));
+    }
+
+    // --- LOGIC MAPPING (ENTITY <-> DTO) ---
+
+    private UserProfileResponse buildUserProfileResponse(User currentUser, String finalAvatarUrl, 
+                                                         List<String> systemRoles, 
+                                                         List<CompanyMembershipDTO> companyRoles, 
+                                                         List<WorkspaceMembershipDTO> workspaceRoles, 
+                                                         List<ProjectMembershipDTO> projectRoles) {
         return UserProfileResponse.builder()
                 .id(currentUser.getId())
                 .fullName(currentUser.getFullName())
@@ -222,66 +285,5 @@ public class UserServiceImpl implements UserService {
                 .workspaceMemberships(workspaceRoles) 
                 .projectMemberships(projectRoles)
                 .build();
-    }
-
-
-    // ======================================================
-    // 3. CẬP NHẬT THÔNG TIN CÁ NHÂN (UPDATE USER PROFILE)
-    // ======================================================
-    @Override
-    @Transactional
-    public UserProfileResponse updateUserProfile(UpdateProfileRequest request, MultipartFile avatarFile) {
-        // 1. Lấy người dùng hiện tại
-        User currentUser = getCurrentAuthenticatedUser();
-
-        // 2. Cập nhật các trường văn bản
-        if (request.getFullName() != null) currentUser.setFullName(request.getFullName());
-        if (request.getPhoneNumber() != null) currentUser.setPhoneNumber(request.getPhoneNumber());
-        if (request.getDateOfBirth() != null) currentUser.setDateOfBirth(request.getDateOfBirth());
-        if (request.getGender() != null) currentUser.setGender(request.getGender());
-
-        // 3. Xử lý Upload Ảnh Avatar
-        if (avatarFile != null && !avatarFile.isEmpty()) {
-            // Lưu vào thư mục "avatars"
-            String avatarPath = fileStorageService.storeFile(avatarFile, "avatars");
-
-            // Cập nhật đường dẫn vào Entity User
-            currentUser.setAvatarUrl(avatarPath);
-        }
-        // Nếu request.getAvatarUrl() có giá trị (link ngoài hoặc muốn set rỗng/null)
-        else if (request.getAvatarUrl() != null) {
-             // Cho phép cập nhật link ảnh từ nguồn khác hoặc set null
-             currentUser.setAvatarUrl(request.getAvatarUrl());
-        }
-
-        // 4. Lưu và trả về
-        userRepository.save(currentUser);
-        // Tái sử dụng hàm lấy profile để có đầy đủ thông tin membership
-        return getCurrentUserProfile();
-    }
-
-
-    // ======================================================
-    // ⚙️ PRIVATE HELPER: LẤY THÔNG TIN AUTHENTICATED USER
-    // ======================================================
-    /**
-     * Helper: Lấy thông tin người dùng đã xác thực từ SecurityContext.
-     */
-    private User getCurrentAuthenticatedUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
-        // Kiểm tra xem có thông tin xác thực không
-        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("Authenticated user information not found.");
-        }
-        
-        // Lấy email (principal name) từ Authentication
-        String email = authentication.getName();
-        
-        // Tìm User trong DB
-        return userRepository.findByEmail(email)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
     }
 }
