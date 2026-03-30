@@ -1,39 +1,74 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/ProjectInvitationDetailsResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO phản hồi chi tiết của một Lời mời tham gia Dự án.
- * Được sử dụng khi người dùng click vào link trong email để hiển thị thông tin chào mừng
- * và quyết định luồng tiếp theo (Đăng ký hay Đăng nhập).
+ * DTO phan hoi chi tiet cua mot Loi moi tham gia Du an.
+ * Duoc su dung khi nguoi dung click vao link tu Email de hien thi thong tin chao mung
+ * va dieu huong luong tiep theo (Dang ky hoac Dang nhap).
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ProjectInvitationDetailsResponse {
 
-    // Email của người được mời (dùng để hiển thị và pre-fill form)
+    // ======================================================
+    // 1. THONG TIN NGU CANH (INVITATION CONTEXT)
+    // ======================================================
+
+    /** * Email cua nguoi duoc moi. 
+     * Frontend dung de pre-fill vao form va khoa (readonly) de bao mat. 
+     */
     private String email;
 
-    // Tên dự án mà họ được mời vào (để hiển thị ngữ cảnh: "Bạn được mời vào dự án X")
+    /** * Ten Du an (Project) ma ho duoc moi tham gia. 
+     * Dung de hien thi: "Ban duoc moi vao du an [projectName]".
+     */
     private String projectName;
 
-    // Tên vai trò dự kiến sẽ được gán (ví dụ: "Guest", "Developer")
+    /** * Ten vai tro du kien se duoc gan (vi du: "Developer", "Tester").
+     * Giup nguoi dung biet quyen han cua minh truoc khi chap nhan.
+     */
     private String roleName;
 
-    // Cờ quan trọng để Frontend điều hướng:
-    // - true: Email đã tồn tại trong hệ thống -> Hiển thị form Đăng nhập.
-    // - false: Email chưa tồn tại -> Hiển thị form Đăng ký tài khoản mới.
+    // ======================================================
+    // 2. LOGIC DIEU HUONG & THOI HAN (LOGIC & TIMELINE)
+    // ======================================================
+
+    /** * Co kiem tra tai khoan da ton tai trong he thong hay chua.
+     * - true: Da co tai khoan -> Frontend hien thi trang Dang nhap.
+     * - false: Chua co tai khoan -> Frontend hien thi trang Dang ky moi.
+     */
     private boolean accountExists;
 
-    // Thời gian hết hạn của token lời mời.
-    // Frontend có thể dùng để hiển thị đếm ngược hoặc thông báo lỗi nếu đã hết hạn.
+    /** * Thoi gian het han cua ma moi (Token).
+     * Frontend dung de canh bao neu loi moi da qua han hoac hien thi dem nguoc.
+     */
     private LocalDateTime expiresAt;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Giup Jackson Deserialize du lieu mot cach minh bach.
+     */
+    public ProjectInvitationDetailsResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public ProjectInvitationDetailsResponse(String email, String projectName, String roleName, 
+                                            boolean accountExists, LocalDateTime expiresAt) {
+        this.email = email;
+        this.projectName = projectName;
+        this.roleName = roleName;
+        this.accountExists = accountExists;
+        this.expiresAt = expiresAt;
+    }
 }

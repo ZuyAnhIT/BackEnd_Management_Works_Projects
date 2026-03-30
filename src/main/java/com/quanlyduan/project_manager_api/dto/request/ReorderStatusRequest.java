@@ -1,31 +1,43 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
-import jakarta.validation.constraints.NotEmpty;
-
-// Java Utils
 import java.util.List;
 
-// Lombok
-import lombok.Data;
+import jakarta.validation.constraints.NotEmpty;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho hành động sắp xếp lại vị trí của các cột trạng thái (Status Columns).
- * Thường được sử dụng khi người dùng thực hiện thao tác kéo thả toàn bộ cột trên bảng công việc (Board).
+ * DTO nhan du lieu de sap xep lai thu tu cac cot trang thai (Status Columns).
+ * Thuong duoc su dung khi nguoi dung keo tha de thay doi vi tri cot tren bang cong viec (Board).
  */
-@Data
+@Getter
+@Setter
 public class ReorderStatusRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin sắp xếp cột)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String LIST_EMPTY_MSG = "Ordered status IDs list must not be empty";
+
+    // ======================================================
+    // THONG TIN YEU CAU (REQUEST DATA)
+    // ======================================================
 
     /**
-     * Danh sách ID của các trạng thái đã được sắp xếp theo thứ tự mới mong muốn.
-     * Ví dụ: Gửi lên [10, 5, 8] nghĩa là cột có ID=10 sẽ nằm vị trí đầu tiên (Index 0), sau đó đến 5 và 8.
-     * Bắt buộc phải có ít nhất một ID trong danh sách.
+     * Danh sach ID cua cac trang thai theo thu tu moi mong muon.
+     * Vi du: [10, 5, 8] nghia la cot ID=10 se nam o vi tri dau tien (Index 0).
+     * Bat buoc phai co it nhat mot ID de thuc hien hanh dong.
      */
-    @NotEmpty(message = "Ordered status IDs list must not be empty")
-    private List<Integer> orderedStatusIds; 
+    @NotEmpty(message = LIST_EMPTY_MSG)
+    private List<Integer> orderedStatusIds;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Spring/Jackson co the khoi tao doi tuong tu chuoi JSON.
+     */
+    public ReorderStatusRequest() {
+    }
 }

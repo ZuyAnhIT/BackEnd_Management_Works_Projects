@@ -1,92 +1,101 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Enums
+import java.time.LocalDateTime;
+
 import com.quanlyduan.project_manager_api.model.common.enums.TaskPriority;
 import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
 
-// Validation
 import jakarta.validation.constraints.NotBlank;
-
-// Java Utils
-import java.time.LocalDateTime;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu khi tạo mới một Công việc (Task).
- * Thiết kế linh hoạt để hỗ trợ cả cơ chế "Tạo nhanh" (chỉ cần Title) và "Tạo đầy đủ".
+ * DTO nhan du lieu tu Client de tao moi mot Cong viec (Task).
+ * Thiet ke linh hoat de ho tro ca co che Tao nhanh (chi can Tieu de) va Tao day du.
  */
-@Data
+@Getter
+@Setter
 public class CreateTaskRequest {
 
-    // ==========================================
-    // REQUIRED DATA (Thông tin bắt buộc)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String TITLE_BLANK_MSG = "Task title must not be blank";
+
+    // ======================================================
+    // 1. THONG TIN BAT BUOC (REQUIRED)
+    // ======================================================
 
     /**
-     * Tiêu đề công việc.
-     * Bắt buộc phải có, không được để trống.
+     * Tieu de cua cong viec.
+     * Bat buoc phai co de dinh danh nhiem vu trong he thong.
      */
-    @NotBlank(message = "Task title must not be blank") 
+    @NotBlank(message = TITLE_BLANK_MSG) 
     private String title;
 
-    // ==========================================
-    // OPTIONAL DATA (Thông tin tùy chọn cơ bản)
-    // ==========================================
+    // ======================================================
+    // 2. THONG TIN CHI TIET (DETAILS)
+    // ======================================================
 
     /**
-     * Mô tả chi tiết nội dung công việc.
-     * (Tùy chọn)
+     * Mo ta chi tiet noi dung hoac cach thuc thuc hien cong viec.
      */
     private String description;
 
     /**
-     * Phân loại công việc (Ví dụ: TASK, BUG, STORY).
-     * (Tùy chọn) Nếu để null, tầng Service sẽ tự động gán giá trị mặc định (Ví dụ: TASK).
+     * Phan loai cong viec (vi du: TASK, BUG, STORY).
+     * Neu de null, tang Service se tu dong gan gia tri mac dinh la TASK.
      */
     private TaskType taskType; 
 
     /**
-     * Mức độ ưu tiên của công việc.
-     * (Tùy chọn) Nếu để null, tầng Service sẽ tự động gán giá trị mặc định (Ví dụ: MEDIUM).
+     * Muc do uu tien cua cong viec doi voi du an.
+     * Neu de null, tang Service se tu dong gan gia tri mac dinh la MEDIUM.
      */
     private TaskPriority priority; 
 
-    // ==========================================
-    // RELATIONSHIPS & METRICS (Liên kết và đo lường)
-    // ==========================================
+    // ======================================================
+    // 3. QUAN HE LIEN KET (RELATIONSHIPS)
+    // ======================================================
 
     /**
-     * ID của Sprint chứa Task này.
-     * (Tùy chọn)
-     * - Nếu có giá trị: Task được thêm trực tiếp vào Sprint đó.
-     * - Nếu là Null: Task sẽ được đẩy vào danh sách chờ (Backlog) của dự án.
+     * ID cua Sprint chua cong viec nay.
+     * Neu null, Task se duoc dua vao danh sach cho (Backlog).
      */
     private Integer sprintId; 
 
     /**
-     * ID của Epic chứa Task này.
-     * (Tùy chọn) Dùng để gom nhóm các Task vào một tính năng/mục tiêu lớn hơn.
+     * ID cua Epic chua Task nay nham nhom vao mot tinh nang lon hon.
      */
     private Integer epicId;      
 
     /**
-     * ID của người được giao thực hiện công việc (Assignee).
-     * (Tùy chọn)
+     * ID cua nguoi duoc phan cong thuc hien (Assignee).
      */
     private Integer assigneeId;  
 
+    // ======================================================
+    // 4. CHI SO VA THOI HAN (METRICS & DEADLINE)
+    // ======================================================
+
     /**
-     * Điểm ước lượng độ phức tạp hoặc khối lượng công việc (Story Points).
-     * (Tùy chọn) Được sử dụng phổ biến trong quy trình Scrum để tính toán Velocity.
+     * Diem uoc luong do phuc tap cua cong viec (Story Points).
+     * Dung de tinh toan nang suat (Velocity) trong quy trinh Agile.
      */
     private Integer storyPoints; 
 
     /**
-     * Hạn chót hoàn thành công việc (Due Date).
-     * (Tùy chọn)
+     * Han chot phai hoan thanh cong viec (Due Date).
      */
     private LocalDateTime dueDate; 
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Spring/Jackson co the khoi tao doi tuong tu chuoi JSON.
+     */
+    public CreateTaskRequest() {
+    }
 }

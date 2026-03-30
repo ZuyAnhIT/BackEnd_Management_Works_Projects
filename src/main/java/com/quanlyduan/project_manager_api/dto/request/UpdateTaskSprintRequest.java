@@ -1,25 +1,48 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/UpdateTaskSprintRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho hành động di chuyển Task vào/ra khỏi Sprint (Kéo thả dọc).
- * Hỗ trợ:
- * 1. Chuyển Task từ Backlog vào Sprint.
- * 2. Chuyển Task từ Sprint này sang Sprint khác.
- * 3. Chuyển Task từ Sprint về lại Backlog.
- * 4. Sắp xếp lại vị trí (Sort Order) của Task trong danh sách đích.
+ * DTO nhan du lieu cho hanh dong di chuyen Task vao/ra khoi Sprint.
+ * Ho tro: 
+ * 1. Backlog -> Sprint.
+ * 2. Sprint A -> Sprint B.
+ * 3. Sprint -> Backlog.
+ * 4. Thay doi thu tu (Reorder) trong danh sach.
  */
-@Data
+@Getter
+@Setter
 public class UpdateTaskSprintRequest {
-    
-    // ID của Sprint đích.
-    // - Nếu có giá trị (ví dụ: 10): Chuyển Task vào Sprint 10.
-    // - Nếu là null: Chuyển Task về Backlog (Gỡ khỏi mọi Sprint).
+
+    // ======================================================
+    // 1. THONG TIN DICH DEN (TARGET DESTINATION)
+    // ======================================================
+
+    /**
+     * ID cua Sprint dich ma Task se duoc chuyen den.
+     * - Co gia tri: Chuyen Task vao Sprint tuong ung.
+     * - NULL: Chuyen Task ve Backlog (Go khoi moi Sprint).
+     */
     private Integer sprintId;
 
-    // Vị trí mong muốn của Task trong danh sách đích (0, 1, 2...).
-    // Tùy chọn: Nếu null, hệ thống sẽ mặc định thêm vào cuối danh sách.
+    // ======================================================
+    // 2. THONG TIN THU TU (ORDERING)
+    // ======================================================
+
+    /**
+     * Vi tri sap xep moi (Index) cua Task trong danh sach dich (0, 1, 2...).
+     * Neu de null, he thong se mac dinh day Task xuong cuoi danh sach.
+     */
     private Integer newSortOrder;
+
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public UpdateTaskSprintRequest() {
+    }
 }

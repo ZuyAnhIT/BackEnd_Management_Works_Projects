@@ -1,62 +1,85 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/SprintResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * DTO phản hồi thông tin cơ bản của một Sprint.
- * Thường được sử dụng trong các thao tác CRUD Sprint (Tạo, Cập nhật, Bắt đầu...).
+ * DTO phan hoi thong tin co ban cua mot Sprint.
+ * Duoc su dung trong cac thao tac CRUD (Tao, Cap nhat, Bat dau Sprint) de phan hoi trang thai moi nhat.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class SprintResponse {
 
-    // ========================================================================
-    // 1. THÔNG TIN ĐỊNH DANH
-    // ========================================================================
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY)
+    // ======================================================
 
-    // ID định danh của Sprint
+    /** ID dinh danh duy nhat cua Sprint trong CSDL. */
     private Integer id;
 
-    // ID của Dự án chứa Sprint này
+    /** ID cua Du an (Project) chua Sprint nay. */
     private Integer projectId;
 
-    // ========================================================================
-    // 2. THÔNG TIN CƠ BẢN
-    // ========================================================================
+    // ======================================================
+    // 2. THONG TIN CO BAN (BASIC INFO)
+    // ======================================================
 
-    // Tên Sprint (ví dụ: "Sprint 1")
+    /** Ten goi cua Sprint (vi du: "Sprint 1", "Sprint Alpha"). */
     private String name;
 
-    // Mục tiêu của Sprint (Sprint Goal)
+    /** Muc tieu ngan han can dat duoc trong Sprint (Sprint Goal). */
     private String goal;
 
-    // Trạng thái hiện tại (NOT_STARTED, IN_PROGRESS, COMPLETED)
+    /** Trang thai hien tai (vi du: NOT_STARTED, IN_PROGRESS, COMPLETED). */
     private String status;
 
-    // ========================================================================
-    // 3. THÔNG TIN THỜI GIAN
-    // ========================================================================
+    // ======================================================
+    // 3. THOI GIAN (TIMELINE)
+    // ======================================================
 
-    // Thời gian bắt đầu thực tế/dự kiến
+    /** Thoi diem bat dau du kien/thuc te va thoi diem ket thuc. */
     private LocalDateTime startDate;
-
-    // Thời gian kết thúc dự kiến
     private LocalDateTime endDate;
 
-    // ========================================================================
-    // 4. DANH SÁCH CÔNG VIỆC
-    // ========================================================================
+    // ======================================================
+    // 4. DANH SACH CONG VIEC (TASK LIST)
+    // ======================================================
 
-    // Danh sách các Task thuộc Sprint này.
-    // Lưu ý: Nếu chỉ cần danh sách tóm tắt, cân nhắc sử dụng TaskSummaryResponse trong tương lai.
+    /** * Danh sach cac Task thuoc Sprint nay.
+     * Dung de cap nhat lai State cua danh sach cong viec tai Frontend sau khi CRUD Sprint.
+     */
     private List<TaskResponse> tasks;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Giup Jackson Deserialize JSON mot cach minh bach.
+     */
+    public SprintResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public SprintResponse(Integer id, Integer projectId, String name, String goal, 
+                          String status, LocalDateTime startDate, LocalDateTime endDate, 
+                          List<TaskResponse> tasks) {
+        this.id = id;
+        this.projectId = projectId;
+        this.name = name;
+        this.goal = goal;
+        this.status = status;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.tasks = tasks;
+    }
 }

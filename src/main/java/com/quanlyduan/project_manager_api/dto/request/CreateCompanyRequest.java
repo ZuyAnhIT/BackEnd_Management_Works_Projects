@@ -1,58 +1,75 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu khi người dùng tạo một Công ty (Company) mới.
+ * DTO nhan du lieu tu Client de tao moi mot Cong ty (Company).
+ * Chua cac thong tin co ban va thong tin lien he ban dau cua to chuc.
  */
-@Data
+@Getter
+@Setter
 public class CreateCompanyRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin công ty)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final int NAME_MIN_SIZE = 3;
+    public static final int NAME_MAX_SIZE = 255;
+    
+    public static final String NAME_BLANK_MSG = "Company name must not be blank";
+    public static final String NAME_SIZE_MSG = "Company name must be between " + NAME_MIN_SIZE + " and " + NAME_MAX_SIZE + " characters";
+
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTIFICATION)
+    // ======================================================
 
     /**
-     * Tên công ty.
-     * Bắt buộc phải có, độ dài từ 3 đến 255 ký tự.
+     * Ten day du cua cong ty.
+     * Bat buoc phai cung cap de khoi tao to chuc.
      */
-    @NotBlank(message = "Company name must not be blank")
-    @Size(min = 3, max = 255, message = "Company name must be between 3 and 255 characters")
+    @NotBlank(message = NAME_BLANK_MSG)
+    @Size(min = NAME_MIN_SIZE, max = NAME_MAX_SIZE, message = NAME_SIZE_MSG)
     private String companyName;
 
     /**
-     * Mô tả tổng quan về công ty.
-     * (Tùy chọn)
+     * Mo ta ngan gon ve linh vuc hoac thong tin chung cua cong ty.
      */
     private String description;
 
+    // ======================================================
+    // 2. THONG TIN LIEN HE VA DIA CHI (CONTACT & ADDRESS)
+    // ======================================================
+
     /**
-     * Địa chỉ trụ sở chính của công ty.
-     * (Tùy chọn)
+     * Dia chi tru so chinh hoac van phong giao dich.
      */
     private String address;
 
     /**
-     * Số điện thoại liên hệ của công ty.
-     * (Tùy chọn)
+     * So dien thoai lien he chinh thuc.
      */
     private String phoneNumber;
 
     /**
-     * Email liên hệ chung của công ty.
-     * (Tùy chọn)
+     * Dia chi email lien he chung (vi du: info@company.com).
      */
     private String email;
 
     /**
-     * Đường dẫn Website của công ty.
-     * (Tùy chọn)
+     * Duong dan den trang web chinh thuc cua cong ty.
      */
     private String website;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public CreateCompanyRequest() {
+    }
 }

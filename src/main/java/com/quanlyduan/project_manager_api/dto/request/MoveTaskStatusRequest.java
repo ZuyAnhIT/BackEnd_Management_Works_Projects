@@ -1,33 +1,50 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.NotNull;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho hành động di chuyển Task sang một cột trạng thái khác.
- * Thường được sử dụng khi người dùng thực hiện thao tác kéo thả (Drag & Drop) trên bảng công việc (Board).
+ * DTO nhan du lieu cho hanh dong di chuyen Task sang mot cot trang thai khac.
+ * Thuong duoc su dung khi nguoi dung thuc hien thao tac keo tha (Drag & Drop) tren bang cong viec (Board).
  */
-@Data
+@Getter
+@Setter
 public class MoveTaskStatusRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin di chuyển)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String STATUS_ID_NULL_MSG = "New status ID must not be null";
+
+    // ======================================================
+    // 1. THONG TIN DICH DEN (TARGET DESTINATION)
+    // ======================================================
 
     /**
-     * ID của trạng thái (cột) mới mà Task sẽ được chuyển đến.
-     * Bắt buộc phải có, không được để null.
+     * ID cua trang thai (cot) moi ma Task se duoc chuyen den.
+     * Bat buoc phai co de backend xac dinh duoc dich den cua Task.
      */
-    @NotNull(message = "New status ID must not be null")
+    @NotNull(message = STATUS_ID_NULL_MSG)
     private Integer newStatusId;
 
+    // ======================================================
+    // 2. THONG TIN SAP XEP (ORDERING)
+    // ======================================================
+
     /**
-     * Vị trí sắp xếp (Index) mong muốn của Task sau khi thả vào cột mới (Ví dụ: 0, 1, 2...).
-     * (Tùy chọn) Nếu để null, hệ thống sẽ mặc định đẩy Task này xuống vị trí cuối cùng của cột.
+     * Vi tri sap xep (Index) mong muon cua Task sau khi tha vao cot moi (vi du: 0, 1, 2...).
+     * Neu de null, he thong se mac dinh day Task nay xuong vi tri cuoi cung cua cot do.
      */
     private Integer newSortOrder;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Spring/Jackson co the khoi tao doi tuong tu chuoi JSON.
+     */
+    public MoveTaskStatusRequest() {
+    }
 }

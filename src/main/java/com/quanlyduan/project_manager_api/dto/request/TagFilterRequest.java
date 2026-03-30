@@ -1,49 +1,72 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/TagFilterRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
-import lombok.Data;
-import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
+
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * DTO chứa các tiêu chí để lọc danh sách Thẻ (Tag).
- * Được sử dụng để truyền tham số tìm kiếm từ Controller xuống Service/Repository (thường dùng với Specification).
+ * DTO chua cac tieu chi de loc danh sach The (Tag).
+ * Duoc su dung de truyen tham so tim kiem tu Controller xuong Service/Repository qua Specification.
  */
-@Data
+@Getter
+@Setter
 public class TagFilterRequest {
 
-    // ========================================================================
-    // 1. TÌM KIẾM TỪ KHÓA (TEXT SEARCH)
-    // ========================================================================
+    // ======================================================
+    // 1. TIM KIEM TU KHOA (TEXT SEARCH)
+    // ======================================================
     
-    // Từ khóa tìm kiếm chung.
-    // Logic xử lý: Thường dùng để tìm gần đúng (LIKE %keyword%) trong Tên thẻ hoặc Mô tả.
+    /**
+     * Tu khoa tim kiem chung.
+     * Logic: Tim kiem gan dung (LIKE %keyword%) trong Ten the hoac Mo ta.
+     */
     private String keyword; 
 
-    // ========================================================================
-    // 2. LỌC THEO THUỘC TÍNH (ATTRIBUTE FILTER)
-    // ========================================================================
+    // ======================================================
+    // 2. LOC THEO THUOC TINH (ATTRIBUTE FILTER)
+    // ======================================================
 
-    // Danh sách tên thẻ cụ thể.
-    // Logic xử lý: Dùng toán tử IN để lọc chính xác (ví dụ: user chọn nhiều checkbox).
+    /**
+     * Danh sach cac ten the cu the muon loc.
+     * Logic: Su dung toan tu IN de loc chinh xac theo tap hop (vi du: tu checkbox).
+     */
     private List<String> names; 
 
-    // ID của người tạo thẻ.
-    // Logic xử lý: Lọc chính xác theo ID người dùng (Equal).
+    /**
+     * ID cua nguoi dung da tao the.
+     * Logic: Loc chinh xac theo ID nguoi dung (Equal).
+     */
     private Integer createdById;
 
-    // ========================================================================
-    // 3. LỌC THEO THỜI GIAN (DATE RANGE FILTER)
-    // ========================================================================
+    // ======================================================
+    // 3. LOC THEO THOI GIAN (DATE RANGE FILTER)
+    // ======================================================
 
-    // Thời điểm bắt đầu (Từ ngày).
-    // Logic xử lý: Tìm các thẻ được tạo SAU hoặc BẰNG thời điểm này (>=).
+    /**
+     * Thoi diem bat dau (Tu ngay).
+     * Logic: Tim cac the duoc tao SAU hoac BANG thoi diem nay (>=).
+     */
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime createdFrom;
 
-    // Thời điểm kết thúc (Đến ngày).
-    // Logic xử lý: Tìm các thẻ được tạo TRƯỚC hoặc BẰNG thời điểm này (<=).
+    /**
+     * Thoi diem ket thuc (Den ngay).
+     * Logic: Tim cac the duoc tao TRUOC hoac BANG thoi diem nay (<=).
+     */
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime createdTo;
+
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Spring co the bind Query Parameters vao Object.
+     */
+    public TagFilterRequest() {
+    }
 }

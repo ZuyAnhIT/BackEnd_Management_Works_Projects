@@ -1,41 +1,74 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/BoardColumnResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.List;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO phản hồi cấu trúc của một Cột (Column/Status) trên bảng Kanban/Scrum.
- * Chứa thông tin về trạng thái và danh sách các Task đang nằm trong trạng thái đó.
+ * DTO phan hoi cau truc cua mot Cot (Column/Status) tren bang Kanban hoac Scrum.
+ * Chua thong tin dinh nghia trang thai va danh sach cac Card (Task) tuong ung.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class BoardColumnResponse {
 
-    // ID định danh của trạng thái (ProjectStatus ID)
+    // ======================================================
+    // 1. DINH NGHIA TRANG THAI (STATUS DEFINITION)
+    // ======================================================
+
+    /** ID dinh danh cua trang thai (ProjectStatus ID). */
     private Integer statusId;
 
-    // Tên hiển thị của cột (ví dụ: "To Do", "In Progress")
+    /** Ten hien thi cua cot (vi du: "To Do", "In Progress", "Done"). */
     private String statusName;
 
-    // Mã màu đại diện cho cột (ví dụ: "#3498db")
+    /** Ma mau HEX dai dien cho cot de dong bo UI (vi du: "#3498db"). */
     private String color;
 
-    // Thứ tự hiển thị của cột trên giao diện (từ trái qua phải)
+    // ======================================================
+    // 2. CAU HINH HIEN THI & LOGIC (UI & LOGIC CONFIG)
+    // ======================================================
+
+    /** Thu tu sap xep cua cot tren giao dien (tinh tu trai qua phai). */
     private Integer order;
 
-    // Cờ đánh dấu: Đây có phải là cột "Hoàn thành" (Done) không?
-    // Nếu true: Các task nằm ở đây được coi là đã xong.
+    /** * Co danh dau cot "Hoan thanh". 
+     * Neu true, cac task keo vao day se duoc he thong tinh toan la da xong. 
+     */
     private Boolean isCompleted;
 
-    // Sử dụng TaskSummaryResponse 
-    // TaskSummaryResponse chứa cấu trúc JSON lồng nhau (nested objects cho status, assignee, epic...)
-    // và các thông tin bổ sung như tags, subtaskSummary phù hợp để hiển thị dạng Thẻ (Card) trên Board.
+    // ======================================================
+    // 3. DANH SACH CONG VIEC (TASK LIST)
+    // ======================================================
+
+    /** * Danh sach cac thẻ cong viec dang nam trong cot nay.
+     * Su dung TaskSummaryResponse de hien thi day du thong tin: Assignee, Tags, Epic... 
+     */
     private List<TaskSummaryResponse> tasks;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay de Jackson thuc hien Deserialize.
+     */
+    public BoardColumnResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public BoardColumnResponse(Integer statusId, String statusName, String color, 
+                               Integer order, Boolean isCompleted, 
+                               List<TaskSummaryResponse> tasks) {
+        this.statusId = statusId;
+        this.statusName = statusName;
+        this.color = color;
+        this.order = order;
+        this.isCompleted = isCompleted;
+        this.tasks = tasks;
+    }
 }

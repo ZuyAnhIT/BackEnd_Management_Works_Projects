@@ -1,18 +1,41 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/RoleUpdateRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho yêu cầu cập nhật vai trò (Role) của một thành viên.
- * Được sử dụng chung cho các cấp độ: Công ty, Không gian làm việc, và Dự án.
+ * DTO nhan du lieu de cap nhat vai tro (Role) cua mot thanh vien.
+ * Duoc su dung chung cho cac cap do: Cong ty, Khong gian lam viec, va Du an.
  */
-@Data
+@Getter
+@Setter
 public class RoleUpdateRequest {
-    
-    // Mã vai trò mới muốn gán (Bắt buộc)
-    // Ví dụ: "COMPANY_ADMIN", "PROJECT_MEMBER", "GUEST_PROJECT"
-    @NotBlank(message = "Role code must not be blank")
+
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String ROLE_BLANK_MSG = "Role code must not be blank";
+
+    // ======================================================
+    // THONG TIN YEU CAU (REQUEST DATA)
+    // ======================================================
+
+    /**
+     * Ma vai tro moi muon gan cho thanh vien.
+     * Vi du: "COMPANY_ADMIN", "PROJECT_MEMBER", "GUEST_PROJECT".
+     * Bat buoc phai co de backend thuc hien phan quyen lai.
+     */
+    @NotBlank(message = ROLE_BLANK_MSG)
     private String roleCode;
+
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Spring/Jackson co the khoi tao doi tuong tu JSON.
+     */
+    public RoleUpdateRequest() {
+    }
 }

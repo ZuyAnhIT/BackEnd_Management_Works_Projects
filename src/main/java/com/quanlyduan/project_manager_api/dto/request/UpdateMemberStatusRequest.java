@@ -1,21 +1,43 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/UpdateMemberStatusRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+
 import jakarta.validation.constraints.NotNull;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho yêu cầu cập nhật trạng thái hoạt động của thành viên.
- * Được sử dụng để Tạm dừng (Suspend), Kích hoạt lại (Activate) hoặc Khôi phục (Restore) thành viên.
- * Lưu ý: Không dùng để Xóa (Remove), xóa có API riêng.
+ * DTO nhan du lieu de cap nhat trang thai hoat dong cua thanh vien.
+ * Duoc su dung cho cac hanh dong nhu Tam dung (Suspend) hoac Kich hoat lai (Activate).
  */
-@Data
+@Getter
+@Setter
 public class UpdateMemberStatusRequest {
 
-    // Trạng thái mới muốn áp dụng cho thành viên (Bắt buộc)
-    // Các giá trị hợp lệ thường là: ACTIVE, SUSPENDED
-    // Giá trị REMOVED thường bị chặn ở tầng Service vì cần dùng API xóa riêng.
-    @NotNull(message = "New status must not be null")
-    private MemberStatus newStatus; 
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String STATUS_NULL_MSG = "New status must not be null";
+
+    // ======================================================
+    // THONG TIN YEU CAU (REQUEST DATA)
+    // ======================================================
+
+    /**
+     * Trang thai moi muon ap dung cho thanh vien (vi du: ACTIVE, SUSPENDED).
+     * Bat buoc phai co de backend thuc hien cap nhat.
+     * Luu y: Gia tri REMOVED thuong bi chan tai Service vi co API xoa rieng.
+     */
+    @NotNull(message = STATUS_NULL_MSG)
+    private MemberStatus newStatus;
+
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Spring/Jackson co the khoi tao doi tuong tu chuoi JSON.
+     */
+    public UpdateMemberStatusRequest() {
+    }
 }

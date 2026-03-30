@@ -1,71 +1,85 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/ApiResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
- * Lớp bao đóng (Wrapper) chuẩn cho mọi phản hồi từ API.
- * Giúp Frontend luôn nhận được một cấu trúc dữ liệu nhất quán: { success, message, data }.
- * @param <T> Kiểu dữ liệu của payload (ví dụ: UserResponse, List<Project>...).
+ * Lop bao dong (Wrapper) chuan cho moi phan hoi tu API.
+ * Giup Frontend luon nhan duoc mot cau truc du lieu nhat quan: { success, message, data }.
+ * * @param <T> Kieu du lieu cua payload (vi du: UserResponse, List<Project>...).
  */
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class ApiResponse<T> {
 
-    // Trạng thái thành công của request (true: Thành công, false: Thất bại)
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String DEFAULT_SUCCESS_MSG = "Operation successful";
+    public static final String DEFAULT_ERROR_MSG = "An error occurred";
+
+    // ======================================================
+    // CAU TRUC DU LIEU (RESPONSE FIELDS)
+    // ======================================================
+
+    /** Trang thai thanh cong cua request (true: Thanh cong, false: That bai). */
     private boolean success;
 
-    // Thông báo mô tả kết quả (ví dụ: "Operation successful", "Validation failed")
+    /** Thong bao mo ta ket qua (vi du: "Validation failed", "User created"). */
     private String message;
 
-    // Dữ liệu chính trả về (Payload). Có thể là null nếu có lỗi hoặc không có dữ liệu.
+    /** * Du lieu chinh tra ve (Payload). 
+     * Co the la null neu co loi hoac API chi thuc hien lenh ma khong can tra du lieu. 
+     */
     private T data;
 
-    // ========================================================================
-    // STATIC FACTORY METHODS (Hàm tiện ích để tạo đối tượng nhanh)
-    // ========================================================================
+    // ======================================================
+    // STATIC FACTORY METHODS (UTILITIES)
+    // ======================================================
 
     /**
-     * Tạo phản hồi thành công (Success Response).
-     * @param message Thông báo thành công.
-     * @param data Dữ liệu trả về.
+     * Tao phan hoi thanh cong kem du lieu.
      */
     public static <T> ApiResponse<T> success(String message, T data) {
         return ApiResponse.<T>builder()
                 .success(true)
-                .message(message)
+                .message(message != null ? message : DEFAULT_SUCCESS_MSG)
                 .data(data)
                 .build();
     }
 
     /**
-     * Tạo phản hồi lỗi cơ bản (Error Response).
-     * Dữ liệu data sẽ là null.
-     * @param message Thông báo lỗi.
+     * Tao phan hoi thanh cong khong kem du lieu.
+     */
+    public static <T> ApiResponse<T> success(String message) {
+        return success(message, null);
+    }
+
+    /**
+     * Tao phan hoi loi co ban (Data se la null).
      */
     public static <T> ApiResponse<T> error(String message) {
         return ApiResponse.<T>builder()
                 .success(false)
-                .message(message)
+                .message(message != null ? message : DEFAULT_ERROR_MSG)
                 .data(null)
                 .build();
     }
     
     /**
-     * Tạo phản hồi lỗi kèm dữ liệu chi tiết (Detailed Error Response).
-     * Thường dùng để trả về danh sách lỗi Validation (ví dụ: password quá ngắn, email sai định dạng...).
-     * @param message Thông báo lỗi chung.
-     * @param data Chi tiết lỗi (ví dụ: Map<String, String> errors).
+     * Tao phan hoi loi kem du lieu chi tiet (Dung cho loi Validation).
+     * @param data Chi tiet cac truong bi loi (vi du: Map<String, String>).
      */
     public static <T> ApiResponse<T> error(String message, T data) {
         return ApiResponse.<T>builder()
                 .success(false)
-                .message(message)
+                .message(message != null ? message : DEFAULT_ERROR_MSG)
                 .data(data)
                 .build();
     }

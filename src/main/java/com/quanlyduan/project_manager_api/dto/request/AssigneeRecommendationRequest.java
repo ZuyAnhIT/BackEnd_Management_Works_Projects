@@ -1,54 +1,61 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Enums
-import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
-
-// Java Utils
 import java.util.List;
 
-// Lombok
-import lombok.Data;
+import com.quanlyduan.project_manager_api.model.common.enums.TaskType;
+
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO chứa thông tin yêu cầu gợi ý người thực hiện (Assignee) phù hợp nhất cho một công việc.
- * Thường được sử dụng để làm dữ liệu đầu vào cho các tính năng AI/Smart Recommendation.
+ * DTO chua thong tin yeu cau goi y nguoi thuc hien (Assignee) phu hop nhat cho mot cong viec.
+ * Ho tro du lieu dau vao cho cac tinh nang AI hoac Smart Recommendation.
  */
-@Data
+@Getter
+@Setter
 public class AssigneeRecommendationRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin công việc)
-    // ==========================================
+    // ======================================================
+    // THONG TIN CONG VIEC (TASK DETAILS)
+    // ======================================================
 
     /**
-     * Tiêu đề công việc.
-     * VD: "Fix lỗi thanh toán VNPAY"
+     * Tieu de cong viec can goi y.
+     * Vi du: Fix loi thanh toan.
      */
     private String title;
 
     /**
-     * Mô tả chi tiết nội dung hoặc lỗi gặp phải.
-     * VD: "API trả về lỗi 500 khi callback từ VNPAY..."
+     * Mo ta chi tiet noi dung hoac loi gap phai.
+     * Cung cap ngu canh (context) chinh cho thuat toan phan tich.
      */
     private String description;
 
     /**
-     * Loại công việc cần xử lý.
-     * VD: BUG, TASK, STORY...
+     * Loai cong viec can xu ly.
+     * Ho tro AI phan loai (vi du: BUG thuong giao cho Dev hien tai, STORY giao cho Lead).
      */
     private TaskType taskType;
 
     /**
-     * Danh sách các thẻ (tags) liên quan đến chuyên môn hoặc module hệ thống.
-     * VD: ["Backend", "Payment", "Java", "Spring Boot"]
+     * Danh sach cac the (tags) lien quan den chuyen mon hoac module he thong.
+     * Vi du: Backend, Payment, Java.
      */
     private List<String> tags;
 
     /**
-     * Điểm ước lượng độ phức tạp của công việc (Story Points).
-     * Dữ liệu này giúp thuật toán tính toán tải công việc hiện tại của nhân sự, tránh tình trạng giao việc quá tải (overload).
-     * VD: 5
+     * Diem uoc luong do phuc tap cua cong viec.
+     * Du lieu nay giup thuat toan tinh toan tai cong viec hien tai cua nhan su, tranh qua tai.
      */
     private Integer storyPoints;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh ho tro Spring/Jackson map du lieu tu JSON.
+     */
+    public AssigneeRecommendationRequest() {
+    }
 }

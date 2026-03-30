@@ -1,44 +1,60 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.NotBlank;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu khi người dùng tạo một Không gian làm việc (Workspace) mới.
+ * DTO nhan du lieu tu Client de tao moi mot Khong gian lam viec (Workspace).
+ * Workspace la noi quan ly tap trung cac du an va thanh vien thuoc mot phong ban hoac linh vuc cu the.
  */
-@Data
+@Getter
+@Setter
 public class CreateWorkspaceRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin Workspace)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String NAME_BLANK_MSG = "Workspace name must not be blank";
+
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTIFICATION)
+    // ======================================================
 
     /**
-     * Tên không gian làm việc.
-     * Bắt buộc phải có, không được để trống.
+     * Ten cua Khong gian lam viec.
+     * Bat buoc phai co de khoi tao va hien thi tren danh sach Workspace.
      */
-    @NotBlank(message = "Workspace name must not be blank")
+    @NotBlank(message = NAME_BLANK_MSG)
     private String workspaceName;
 
     /**
-     * Mô tả chi tiết về mục đích hoặc nội dung của không gian làm việc.
-     * (Tùy chọn)
+     * Mo ta chi tiet ve muc dich su dung hoac cac quy dinh trong Workspace nay.
      */
     private String description;
 
+    // ======================================================
+    // 2. THONG TIN HIEN THI (UI/DISPLAY)
+    // ======================================================
+
     /**
-     * Đường dẫn URL của ảnh bìa (Cover Image).
-     * (Tùy chọn - Thường là link ảnh đã upload lên cloud storage hoặc ảnh mẫu có sẵn do hệ thống cung cấp).
+     * Duong dan URL den anh bia (Cover Image) cua Workspace.
+     * Thuong la link tu Cloud Storage hoac link anh mau he thong cung cap.
      */
     private String coverImage;
 
     /**
-     * Mã màu HEX đại diện cho không gian làm việc để hiển thị trên UI.
-     * (Tùy chọn - Ví dụ: #3498db, #e74c3c).
+     * Ma mau HEX (vi du: #3498db) de dai dien cho Workspace tren giao dien nguoi dung.
      */
     private String color;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public CreateWorkspaceRequest() {
+    }
 }

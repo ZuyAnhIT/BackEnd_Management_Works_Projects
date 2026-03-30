@@ -1,27 +1,40 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.NotBlank;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO dùng để nhận yêu cầu chấp nhận lời mời.
- * Được sử dụng chung cho cả quy trình mời vào Công ty, Workspace và Dự án.
+ * DTO nhan yeu cau chap nhan loi moi tu nguoi dung.
+ * Su dung chung cho quy trinh moi vao Cong ty, Khong gian lam viec hoac Du an.
  */
-@Data
+@Getter
+@Setter
 public class AcceptInvitationRequest {
 
-    // ==========================================
-    // REQUEST DATA
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO
+    // ======================================================
+    public static final String TOKEN_NOT_BLANK_MSG = "Invitation token must not be blank";
+
+    // ======================================================
+    // THONG TIN YEU CAU (REQUEST DATA)
+    // ======================================================
 
     /**
-     * Chuỗi Token định danh lời mời.
-     * (Thường được trích xuất từ URL đính kèm trong Email gửi đến người dùng).
+     * Chuoi token dinh danh loi moi.
+     * Thuong duoc trich xuat tu URL dinh kem trong Email gui den nguoi dung.
      */
-    @NotBlank(message = "Invitation token must not be blank")
+    @NotBlank(message = TOKEN_NOT_BLANK_MSG)
     private String invitationToken;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh ho tro Spring/Jackson map du lieu tu JSON.
+     */
+    public AcceptInvitationRequest() {
+    }
 }

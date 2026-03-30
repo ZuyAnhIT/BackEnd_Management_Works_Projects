@@ -1,17 +1,34 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/UpdateTaskEpicRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho yêu cầu cập nhật Epic của một Công việc (Task).
- * Được sử dụng trong các thao tác kéo thả Task vào/ra khỏi Panel Epic trên giao diện.
+ * DTO nhan du lieu de cap nhat Epic cho mot Cong viec (Task).
+ * Thuong dung trong cac thao tac keo tha Task vao/ra khoi Panel Epic tren giao dien Board.
  */
-@Data
+@Getter
+@Setter
 public class UpdateTaskEpicRequest {
-    
-    // ID của Epic mục tiêu.
-    // - Nếu có giá trị: Gán Task vào Epic đó.
-    // - Nếu là null: Gỡ Task khỏi Epic hiện tại (Unassign).
+
+    // ======================================================
+    // THONG TIN YEU CAU (REQUEST DATA)
+    // ======================================================
+
+    /**
+     * ID cua Epic muc tieu muon gan cho Task.
+     * - Neu truyen ID: He thong se gan Task vao Epic do.
+     * - Neu truyen NULL: He thong se go Task khoi Epic hien tai (Unassign).
+     */
     private Integer epicId;
+
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public UpdateTaskEpicRequest() {
+    }
 }

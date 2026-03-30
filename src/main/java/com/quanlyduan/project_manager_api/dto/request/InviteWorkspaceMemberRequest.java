@@ -1,37 +1,55 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu khi thực hiện mời một thành viên vào Không gian làm việc (Workspace).
- * Lưu ý ràng buộc nghiệp vụ: Người được mời bắt buộc phải là thành viên của Công ty quản lý Workspace này trước đó.
+ * DTO nhan du lieu de moi thanh vien tham gia vao Khong gian lam viec (Workspace).
+ * Luu y: Nguoi duoc moi bat buoc phai la thanh vien cua Cong ty quan ly Workspace nay.
  */
-@Data
+@Getter
+@Setter
 public class InviteWorkspaceMemberRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin lời mời Workspace)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String EMAIL_BLANK_MSG = "Email must not be blank";
+    public static final String EMAIL_INVALID_MSG = "Invalid email format";
+    public static final String ROLE_CODE_BLANK_MSG = "Workspace role code must not be blank";
+
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTIFICATION)
+    // ======================================================
 
     /**
-     * Địa chỉ Email của người được mời vào Workspace.
-     * Bắt buộc phải nhập và tuân thủ đúng định dạng email tiêu chuẩn (VD: user@example.com).
+     * Dia chi Email cua nguoi duoc moi vao Workspace.
+     * Bat buoc phai trung khop voi Email thanh vien da ton tai trong Cong ty.
      */
-    @NotBlank(message = "Email must not be blank")
-    @Email(message = "Invalid email format")
+    @NotBlank(message = EMAIL_BLANK_MSG)
+    @Email(message = EMAIL_INVALID_MSG)
     private String email;
 
+    // ======================================================
+    // 2. THONG TIN PHAN QUYEN (AUTHORIZATION)
+    // ======================================================
+
     /**
-     * Mã vai trò cấp Workspace dự kiến sẽ phân quyền cho người dùng.
-     * Ví dụ: "WORKSPACE_ADMIN", "WORKSPACE_MEMBER".
-     * Bắt buộc phải cung cấp.
+     * Ma vai tro cap Workspace (Workspace Role) se phan quyen cho nguoi dung.
+     * Vi du: WORKSPACE_ADMIN, WORKSPACE_MEMBER.
      */
-    @NotBlank(message = "Role code must not be blank")
+    @NotBlank(message = ROLE_CODE_BLANK_MSG)
     private String roleCode;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh ho tro viec Deserialize JSON tu Client.
+     */
+    public InviteWorkspaceMemberRequest() {
+    }
 }

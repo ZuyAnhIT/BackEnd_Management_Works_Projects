@@ -1,76 +1,114 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/MyWorkspaceResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
-
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * DTO phản hồi thông tin tóm tắt về một Không gian làm việc (Workspace) mà người dùng đang tham gia.
- * Được sử dụng chủ yếu trong API Dashboard (/api/dashboard/workspaces) để hiển thị danh sách nhanh.
+ * DTO phan hoi thong tin tom tat ve mot Khong gian lam viec (Workspace) ma nguoi dung tham gia.
+ * Su dung chu yeu cho giao dien Dashboard de hien thi danh sach nhanh va phan quyen truy cap.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class MyWorkspaceResponse {
 
-    // ========================================================================
-    // 1. THÔNG TIN KHÔNG GIAN LÀM VIỆC (WORKSPACE INFO)
-    // ========================================================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String STATUS_ACTIVE = "ACTIVE";
+    public static final String STATUS_ARCHIVED = "ARCHIVED";
 
-    // ID định danh của Workspace
+    // ======================================================
+    // 1. THONG TIN KHONG GIAN LAM VIEC (WORKSPACE INFO)
+    // ======================================================
+
+    /** ID dinh danh duy nhat cua Workspace. */
     private Integer workspaceId;
 
-    // Tên hiển thị của Workspace
+    /** Ten hien thi (vi du: "Doi ngu Phat trien", "Marketing"). */
     private String workspaceName;
 
-    // Mã định danh (ví dụ: "DEV-TEAM")
+    /** Ma dinh danh viet tat (vi du: "DEV-TEAM"). */
     private String workspaceCode;
 
-    // Mô tả ngắn gọn
+    /** Mo ta ngan gon ve chuc nang cua Workspace. */
     private String workspaceDescription;
 
-    // Đường dẫn ảnh bìa (Cover Image)
+    /** Duong dan URL den anh bia (Cover) de lam dep giao dien the (Card). */
     private String workspaceCoverImage;
 
-    // Mã màu đại diện (Hex code)
+    /** Ma mau dai dien (HEX) dung cho cac thanh UI hoac Avatar nhom. */
     private String workspaceColor;
 
-    // Trạng thái của Workspace (ACTIVE, ARCHIVED...)
+    /** Trang thai van hanh: ACTIVE, ARCHIVED, v.v. */
     private String workspaceStatus;
 
-    // ========================================================================
-    // 2. THÔNG TIN CÔNG TY CHỦ QUẢN (PARENT COMPANY INFO)
-    // ========================================================================
+    // ======================================================
+    // 2. CONG TY CHU QUAN (PARENT COMPANY INFO)
+    // ======================================================
+    // Giup nguoi dung phan biet Workspace nay thuoc ve to chuc nao.
 
-    // ID của Công ty chứa Workspace này
+    /** ID va Ten cua Cong ty (Tenant) so huu Workspace nay. */
     private Integer companyId;
-
-    // Tên của Công ty
     private String companyName;
 
-    // Logo của Công ty
+    /** Logo cua Cong ty de hien thi kem theo ten. */
     private String companyLogoUrl;
 
-    // ========================================================================
-    // 3. THÔNG TIN TƯ CÁCH THÀNH VIÊN (MEMBERSHIP INFO)
-    // ========================================================================
+    // ======================================================
+    // 3. TU CACH THANH VIEN (MEMBERSHIP INFO)
+    // ======================================================
 
-    // Mã vai trò của người dùng trong Workspace này (ví dụ: "WORKSPACE_ADMIN").
-    // Dùng để phân quyền trên giao diện (Frontend).
+    /** * Ma vai tro (vi du: "WORKSPACE_ADMIN") va Ten hien thi (vi du: "Quan tri vien"). 
+     * Frontend dung de an/hien cac nut chuc nang quan tri Workspace.
+     */
     private String roleCode;
-
-    // Tên hiển thị của vai trò (ví dụ: "Quản trị viên").
     private String roleName;
 
-    // Trạng thái thành viên của người dùng trong Workspace này (ACTIVE, REMOVED...).
+    /** Trang thai cua nguoi dung trong Workspace (ACTIVE, REMOVED). */
     private MemberStatus membershipStatus;
 
-    // Thời điểm người dùng tham gia Workspace.
+    /** Thoi diem nguoi dung chinh thuc gia nhap vao Workspace nay. */
     private LocalDateTime joinedAt;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Giup Jackson Deserialize JSON mot cach minh bach.
+     */
+    public MyWorkspaceResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public MyWorkspaceResponse(Integer workspaceId, String workspaceName, String workspaceCode, 
+                               String workspaceDescription, String workspaceCoverImage, 
+                               String workspaceColor, String workspaceStatus, 
+                               Integer companyId, String companyName, String companyLogoUrl, 
+                               String roleCode, String roleName, 
+                               MemberStatus membershipStatus, LocalDateTime joinedAt) {
+        this.workspaceId = workspaceId;
+        this.workspaceName = workspaceName;
+        this.workspaceCode = workspaceCode;
+        this.workspaceDescription = workspaceDescription;
+        this.workspaceCoverImage = workspaceCoverImage;
+        this.workspaceColor = workspaceColor;
+        this.workspaceStatus = workspaceStatus;
+        this.companyId = companyId;
+        this.companyName = companyName;
+        this.companyLogoUrl = companyLogoUrl;
+        this.roleCode = roleCode;
+        this.roleName = roleName;
+        this.membershipStatus = membershipStatus;
+        this.joinedAt = joinedAt;
+    }
 }

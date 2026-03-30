@@ -1,34 +1,67 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/LoginResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO phản hồi sau khi người dùng đăng nhập thành công.
- * Chứa các thông tin xác thực cần thiết (Token) để Client lưu trữ và sử dụng cho các request tiếp theo.
+ * DTO phan hoi sau khi nguoi dung dang nhap thanh cong.
+ * Chua cac thong tin xac thuc (JWT Tokens) de Client luu tru va su dung cho cac request tiep theo.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor // Bổ sung NoArgsConstructor để đảm bảo tương thích với các thư viện JSON parser
-@AllArgsConstructor
 public class LoginResponse {
 
-    // Access Token (Token truy cập):
-    // - Dùng để xác thực trong Header của mỗi request (Authorization: Bearer <token>).
-    // - Có thời hạn ngắn (ví dụ: 30 phút - 1 giờ).
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String DEFAULT_TOKEN_TYPE = "Bearer";
+
+    // ======================================================
+    // 1. THONG TIN XAC THUC (AUTHENTICATION TOKENS)
+    // ======================================================
+
+    /** * Access Token (Token truy cap).
+     * Dung de xac thuc trong Header moi request (Authorization: Bearer <token>).
+     * Thuong co thoi han ngan (vi du: 1 gio).
+     */
     private String accessToken;
 
-    // Refresh Token (Token làm mới):
-    // - Dùng để lấy cấp lại Access Token mới khi cái cũ hết hạn mà không cần đăng nhập lại.
-    // - Có thời hạn dài (ví dụ: 7 ngày - 30 ngày).
-    // - Cần được lưu trữ an toàn (ví dụ: HttpOnly Cookie hoặc Secure Storage).
+    /** * Refresh Token (Token lam moi).
+     * Dung de cap lai Access Token moi khi cai cu het han ma khong can dang nhap lai.
+     * Thuong co thoi han dai (vi du: 7 ngay) va can duoc luu tru bao mat.
+     */
     private String refreshToken;
 
-    // Loại Token (Mặc định là "Bearer").
-    // Client sẽ ghép chuỗi này với Access Token khi gửi request.
-    @Builder.Default
-    private String tokenType = "Bearer";
+    // ======================================================
+    // 2. CAU HINH TOKEN (TOKEN CONFIGURATION)
+    // ======================================================
+
+    /** * Loai Token (Mac dinh la "Bearer").
+     * Client se ghep chuoi nay voi Access Token khi gui request len Server.
+     */
+    private String tokenType;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Giup Jackson Deserialize du lieu mot cach minh bach.
+     */
+    public LoginResponse() {
+        // Khoi tao gia tri mac dinh cho tokenType
+        this.tokenType = DEFAULT_TOKEN_TYPE;
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public LoginResponse(String accessToken, String refreshToken, String tokenType) {
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
+        this.tokenType = (tokenType != null) ? tokenType : DEFAULT_TOKEN_TYPE;
+    }
 }

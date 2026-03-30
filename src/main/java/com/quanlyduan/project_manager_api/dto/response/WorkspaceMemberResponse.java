@@ -1,55 +1,86 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/WorkspaceMemberResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO phản hồi thông tin chi tiết của một Thành viên trong Không gian làm việc (Workspace).
- * Dùng để hiển thị danh sách thành viên và phân quyền trong phòng ban.
+ * DTO phan hoi thong tin chi tiet cua mot Thanh vien trong Khong gian lam viec (Workspace).
+ * Duoc su dung de hien thi danh sach nhan su, quan ly phan quyen va trang thai hoat dong trong Workspace.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class WorkspaceMemberResponse {
 
-    // ========================================================================
-    // 1. THÔNG TIN ĐỊNH DANH & CÁ NHÂN (IDENTITY & USER INFO)
-    // ========================================================================
+    // ======================================================
+    // 1. DINH DANH & CA NHAN (IDENTITY & PERSONAL INFO)
+    // ======================================================
 
-    // ID của bản ghi thành viên Workspace (Dùng cho thao tác quản lý)
+    /** * ID ban ghi thanh vien trong Workspace. 
+     * Dung cho cac thao tac quan tri nhu: Cap nhat vai tro, Xoa khoi Workspace. 
+     */
     private Integer memberId;
 
-    // ID của tài khoản người dùng (User ID)
+    /** * ID tai khoan nguoi dung (User ID). 
+     * Dung de lien ket den ho so ca nhan hoac thuc hien cac tac vu xuyen suot he thong. 
+     */
     private Integer userId;
     
-    // Họ và tên đầy đủ
+    /** Ho va ten day du cua thanh vien. */
     private String fullName;
 
-    // Địa chỉ Email
+    /** Dia chi Email lien he chinh thuc. */
     private String email;
 
-    // Số điện thoại liên hệ
+    /** So dien thoai lien lac (neu co). */
     private String phoneNumber; 
     
-    // Đường dẫn ảnh đại diện
+    /** Duong dan URL den anh dai dien (Avatar). */
     private String avatarUrl;
 
-    // ========================================================================
-    // 2. NGỮ CẢNH WORKSPACE (CONTEXT)
-    // ========================================================================
+    // ======================================================
+    // 2. NGU CANH WORKSPACE (WORKSPACE CONTEXT)
+    // ======================================================
 
-    // Tên vai trò của người dùng trong Workspace (ví dụ: "Workspace Admin", "Member")
+    /** Ten vai tro trong Workspace (vi du: "Workspace Admin", "Member"). */
     private String roleName;
 
-    // Trạng thái hoạt động trong Workspace (ACTIVE, REMOVED)
+    /** * Trang thai hoat dong cua thanh vien ben trong Workspace nay. 
+     * Gia tri: ACTIVE (Dang hoat dong), REMOVED (Da roi khoi). 
+     */
     private MemberStatus status;
 
-    // Thời điểm người dùng tham gia Workspace
+    /** Thoi diem thanh vien bat dau tham gia vao Workspace. */
     private LocalDateTime joinedAt;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson Deserialize JSON mot cach minh bach.
+     */
+    public WorkspaceMemberResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public WorkspaceMemberResponse(Integer memberId, Integer userId, String fullName, 
+                                   String email, String phoneNumber, String avatarUrl, 
+                                   String roleName, MemberStatus status, LocalDateTime joinedAt) {
+        this.memberId = memberId;
+        this.userId = userId;
+        this.fullName = fullName;
+        this.email = email;
+        this.phoneNumber = phoneNumber;
+        this.avatarUrl = avatarUrl;
+        this.roleName = roleName;
+        this.status = status;
+        this.joinedAt = joinedAt;
+    }
 }

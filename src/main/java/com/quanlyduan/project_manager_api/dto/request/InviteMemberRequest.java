@@ -1,37 +1,51 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu khi thực hiện mời một thành viên mới tham gia vào Công ty (hoặc Dự án).
- * Dữ liệu này sẽ được dùng để tạo thiếp mời (Invitation) gửi qua Email.
+ * DTO nhan du lieu de gui loi moi thanh vien tham gia vao he thong.
+ * Du lieu nay duoc su dung de khoi tao ban ghi loi moi (Invitation) va gui email thong bao.
  */
-@Data
+@Getter
+@Setter
 public class InviteMemberRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin lời mời)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String EMAIL_BLANK_MSG = "Email must not be blank";
+    public static final String EMAIL_INVALID_MSG = "Invalid email format";
+    public static final String ROLE_CODE_BLANK_MSG = "Role code must not be blank";
+
+    // ======================================================
+    // THONG TIN YEU CAU (REQUEST DATA)
+    // ======================================================
 
     /**
-     * Địa chỉ Email của người được mời.
-     * Bắt buộc phải nhập và tuân thủ đúng định dạng chuẩn (VD: user@example.com).
+     * Dia chi Email cua nguoi duoc moi.
+     * Bat buoc phai dung dinh dang email tieu chuan de he thong gui thu moi.
      */
-    @NotBlank(message = "Email must not be blank")
-    @Email(message = "Invalid email format")
+    @NotBlank(message = EMAIL_BLANK_MSG)
+    @Email(message = EMAIL_INVALID_MSG)
     private String email;
 
     /**
-     * Mã vai trò (Role Code) dự kiến sẽ phân quyền cho người dùng sau khi họ chấp nhận lời mời.
-     * Ví dụ: "COMPANY_ADMIN", "COMPANY_MEMBER", "PROJECT_MANAGER".
-     * Bắt buộc phải cung cấp.
+     * Ma vai tro (Role Code) du kien phan quyen cho nguoi dung.
+     * Vi du: COMPANY_ADMIN, PROJECT_MANAGER.
      */
-    @NotBlank(message = "Role code must not be blank")
+    @NotBlank(message = ROLE_CODE_BLANK_MSG)
     private String roleCode;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh ho tro viec Deserialize JSON tu Client.
+     */
+    public InviteMemberRequest() {
+    }
 }

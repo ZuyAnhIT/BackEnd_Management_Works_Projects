@@ -1,62 +1,81 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/TagResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO phản hồi thông tin chi tiết của một Thẻ (Tag) trong dự án.
- * Thẻ được sử dụng để phân loại Task (ví dụ: "Backend", "Frontend", "Urgent").
+ * DTO phan hoi thong tin chi tiet cua mot The (Tag) trong du an.
+ * Tag duoc su dung de phan loai Task (vi du: "Backend", "Urgent") va ho tro loc du lieu.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class TagResponse {
 
-    // ========================================================================
-    // 1. THÔNG TIN ĐỊNH DANH (IDENTITY)
-    // ========================================================================
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY)
+    // ======================================================
 
-    // ID định danh của Tag
+    /** ID dinh danh duy nhat cua Tag. */
     private Integer id;
 
-    // ID của Dự án chứa Tag này
+    /** ID cua Du an (Project) so huu Tag nay. */
     private Integer projectId;
 
-    // ========================================================================
-    // 2. THÔNG TIN CƠ BẢN (BASIC INFO)
-    // ========================================================================
+    // ======================================================
+    // 2. THONG TIN CO BAN (BASIC INFO)
+    // ======================================================
 
-    // Tên hiển thị của Tag (ví dụ: "Bug")
+    /** Ten hien thi cua Tag (vi du: "UI/UX", "High Priority"). */
     private String name;
 
-    // Mã màu hiển thị (Hex code)
+    /** Ma mau HEX dung de to mau cho nhan Tag tren giao dien (vi du: "#e74c3c"). */
     private String color;
 
-    // Mô tả ý nghĩa của Tag
+    /** Mo ta chi tiet ve y nghia hoac cach su dung Tag nay. */
     private String description;
 
-    // ========================================================================
-    // 3. THÔNG TIN HỆ THỐNG (AUDIT INFO)
-    // ========================================================================
+    // ======================================================
+    // 3. THONG TIN HE THONG (AUDIT INFO)
+    // ======================================================
 
-    // ID người tạo Tag
+    /** Thong tin nguoi khoi tao Tag. */
     private Integer createdById;
-
-    // Tên hiển thị người tạo
     private String createdByName;
-
-    // Đường dẫn Avatar người tạo (để hiển thị tooltip hoặc icon nhỏ)
     private String createdByAvatar;
 
-    // Thời điểm tạo
+    /** Thoi diem tao va lan cap nhat cuoi cung cua ban ghi. */
     private LocalDateTime createdAt;
-
-    // Thời điểm cập nhật lần cuối
     private LocalDateTime updatedAt;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson Deserialize JSON mot cach minh bach.
+     */
+    public TagResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public TagResponse(Integer id, Integer projectId, String name, String color, 
+                       String description, Integer createdById, String createdByName, 
+                       String createdByAvatar, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.projectId = projectId;
+        this.name = name;
+        this.color = color;
+        this.description = description;
+        this.createdById = createdById;
+        this.createdByName = createdByName;
+        this.createdByAvatar = createdByAvatar;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
 }

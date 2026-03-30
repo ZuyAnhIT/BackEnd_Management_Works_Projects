@@ -1,26 +1,40 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.NotBlank;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu khi người dùng tạo một bình luận mới cho Task.
+ * DTO nhan du lieu khi nguoi dung gui mot binh luan moi cho cong viec (Task).
+ * Dam bao noi dung thao luan luon duoc cung cap truoc khi luu vao he thong.
  */
-@Data
+@Getter
+@Setter
 public class CommentRequest {
 
-    // ==========================================
-    // REQUEST DATA
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String CONTENT_BLANK_MSG = "Comment content must not be blank";
+
+    // ======================================================
+    // THONG TIN YEU CAU (REQUEST DATA)
+    // ======================================================
 
     /**
-     * Nội dung bình luận.
-     * Bắt buộc phải có, không được để trống hoặc chỉ chứa các ký tự khoảng trắng.
+     * Noi dung cua binh luan.
+     * Bat buoc phai co, khong duoc de trong hoac chi chua cac ky tu khoang trang.
      */
-    @NotBlank(message = "Comment content must not be blank")
+    @NotBlank(message = CONTENT_BLANK_MSG)
     private String content;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Jackson co the khoi tao doi tuong tu chuoi JSON.
+     */
+    public CommentRequest() {
+    }
 }

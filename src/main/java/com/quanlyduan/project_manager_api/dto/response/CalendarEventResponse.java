@@ -1,64 +1,102 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/CalendarEventResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.Builder;
-import lombok.Data;
 import java.time.LocalDateTime;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+/**
+ * DTO phan hoi du lieu su kien cho giao dien Lich (Calendar).
+ * Cau truc nay tuong thich voi cac thu vien Calendar pho bien, ho tro hien thi Task va Sprint.
+ */
+@Getter
+@Setter
 @Builder
 public class CalendarEventResponse {
-    
+
     // ======================================================
-    // 1. CÁC TRƯỜNG CƠ BẢN (STANDARD CALENDAR FIELDS)
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String TYPE_TASK = "TASK";
+    public static final String TYPE_SPRINT = "SPRINT";
+
+    // ======================================================
+    // 1. CAC TRUONG CHUAN CALENDAR (STANDARD FIELDS)
     // ======================================================
     
-    // ID duy nhất trên giao diện (VD: "task-101", "sprint-5")
-    // Giúp phân biệt khi click vào event
+    /** ID duy nhat tren giao dien (vi du: "task-101", "sprint-5"). */
     private String id; 
     
-    // ID gốc trong Database (101, 5)
+    /** ID goc trong Database (dung de truy van chi tiet). */
     private Integer originalId;
     
-    // Tiêu đề hiển thị trên thanh sự kiện
+    /** Tieu de hien thi tren thanh su kien. */
     private String title;
     
-    // Thời gian bắt đầu
+    /** Thoi gian bat dau va ket thuc. */
     private LocalDateTime start;
-    
-    // Thời gian kết thúc
     private LocalDateTime end;
     
-    // Cờ báo hiệu sự kiện kéo dài cả ngày (Sprint thường là true)
+    /** Co bao hieu su kien keo dai ca ngay (thuong dung cho Sprint). */
     private boolean allDay;
 
     // ======================================================
-    // 2. GIAO DIỆN & PHÂN LOẠI (UI & TYPE)
+    // 2. GIAO DIEN & PHAN LOAI (UI & TYPE)
     // ======================================================
     
-    // Loại: "TASK" hoặc "SPRINT"
+    /** Loai su kien: TASK hoac SPRINT. */
     private String type; 
     
-    // Màu nền (Background)
+    /** Cau hinh mau sac hien thi dong bo voi trang thai hoac loai su kien. */
     private String backgroundColor;
-    
-    // Màu viền (Border)
     private String borderColor;
-    
-    // Màu chữ (Text)
     private String textColor;
 
     // ======================================================
-    // 3. THÔNG TIN BỔ SUNG (META DATA CHO TOOLTIP)
+    // 3. THONG TIN BO SUNG (METADATA CHO TOOLTIP)
     // ======================================================
     
-    // Tên trạng thái (VD: "In Progress")
+    /** Ten trang thai hien tai (vi du: "In Progress"). */
     private String statusName;
     
-    // Độ ưu tiên (VD: "URGENT") - Chỉ dùng cho Task
+    /** Do uu tien (chi dung cho Task, vi du: "URGENT"). */
     private String priority;
     
-    // Người thực hiện - Chỉ dùng cho Task
+    /** Thong tin nguoi thuc hien (chi dung cho Task). */
     private String assigneeName;
     private String assigneeAvatar;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize.
+     */
+    public CalendarEventResponse() {
+    }
+
+    /**
+     * Constructor day du phuc vu cho @Builder.
+     */
+    public CalendarEventResponse(String id, Integer originalId, String title, 
+                                 LocalDateTime start, LocalDateTime end, boolean allDay, 
+                                 String type, String backgroundColor, String borderColor, 
+                                 String textColor, String statusName, String priority, 
+                                 String assigneeName, String assigneeAvatar) {
+        this.id = id;
+        this.originalId = originalId;
+        this.title = title;
+        this.start = start;
+        this.end = end;
+        this.allDay = allDay;
+        this.type = type;
+        this.backgroundColor = backgroundColor;
+        this.borderColor = borderColor;
+        this.textColor = textColor;
+        this.statusName = statusName;
+        this.priority = priority;
+        this.assigneeName = assigneeName;
+        this.assigneeAvatar = assigneeAvatar;
+    }
 }

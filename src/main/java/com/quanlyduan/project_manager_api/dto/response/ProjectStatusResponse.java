@@ -1,54 +1,78 @@
- // File: src/main/java/com/quanlyduan/project_manager_api/dto/response/ProjectStatusResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO phản hồi thông tin cấu hình của một Trạng thái (Cột) trong Dự án.
- * Được sử dụng để vẽ giao diện Board (Kanban/Scrum) và hiển thị danh sách trạng thái trong cài đặt.
+ * DTO phan hoi thong tin cau hinh cua mot Trang thai (Cot) trong Du an.
+ * Duoc su dung de ve giao dien Board (Kanban/Scrum) va thiet lap quy trinh lam viec (Workflow).
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ProjectStatusResponse {
 
-    // ========================================================================
-    // 1. THÔNG TIN ĐỊNH DANH (IDENTITY)
-    // ========================================================================
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY)
+    // ======================================================
 
-    // ID định danh của trạng thái (Primary Key).
-    // Dùng để thực hiện các thao tác Update, Delete hoặc Move Task.
+    /** ID dinh danh duy nhat cua Trang thai trong CSDL. */
     private Integer id;
 
-    // ID của dự án chứa trạng thái này.
+    /** ID cua Du an, Workspace va Cong ty chu quan. */
     private Integer projectId;
     private Integer workspaceId; 
     private Integer companyId;
 
-    // ========================================================================
-    // 2. THÔNG TIN HIỂN THỊ (DISPLAY INFO)
-    // ========================================================================
+    // ======================================================
+    // 2. THONG TIN HIEN THI (DISPLAY INFO)
+    // ======================================================
 
-    // Tên hiển thị của trạng thái (ví dụ: "To Do", "In Progress", "Done").
+    /** Ten hien thi cua cot trang thai (vi du: "To Do", "In Progress", "Done"). */
     private String name;
 
-    // Mã màu HEX dùng để tô màu cho cột hoặc nhãn trạng thái (ví dụ: "#3498db").
+    /** Ma mau HEX dung de to mau cho tieu de cot hoac nhan (vi du: "#3498db"). */
     private String color;
 
-    // ========================================================================
-    // 3. THÔNG TIN CẤU HÌNH (CONFIG INFO)
-    // ========================================================================
+    // ======================================================
+    // 3. THONG TIN CAU HINH (CONFIG INFO)
+    // ======================================================
 
-    // Số thứ tự sắp xếp của cột trên giao diện Board (0, 1, 2...).
-    // Cột có số nhỏ hơn sẽ nằm bên trái.
+    /** * Thu tu sap xep cua cot tren giao dien Board (0, 1, 2...). 
+     * Cot co gia tri nho hon se duoc hien thi ben trai.
+     */
     private Integer sortOrder;
 
-    // Cờ đánh dấu: Đây có phải là trạng thái "Hoàn thành" hay không?
-    // true: Task nằm ở cột này được tính là đã xong (Progress 100%).
-    // false: Task vẫn đang trong quy trình xử lý.
+    /** * Co danh dau day la trang thai cuoi cung (Hoan thanh).
+     * true: Task thuoc cot nay duoc tinh la hoan thanh (Progress 100%).
+     */
     private Boolean isCompletedStatus;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson co the Deserialize JSON mot cach minh bach.
+     */
+    public ProjectStatusResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public ProjectStatusResponse(Integer id, Integer projectId, Integer workspaceId, 
+                                 Integer companyId, String name, String color, 
+                                 Integer sortOrder, Boolean isCompletedStatus) {
+        this.id = id;
+        this.projectId = projectId;
+        this.workspaceId = workspaceId;
+        this.companyId = companyId;
+        this.name = name;
+        this.color = color;
+        this.sortOrder = sortOrder;
+        this.isCompletedStatus = isCompletedStatus;
+    }
 }

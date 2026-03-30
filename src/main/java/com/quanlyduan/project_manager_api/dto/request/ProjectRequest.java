@@ -1,107 +1,108 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// JSON Processing
-import com.fasterxml.jackson.databind.JsonNode;
-
-// Enums
-import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
-
-// Validation
-import jakarta.validation.constraints.NotBlank;
-
-// Java Utils
 import java.time.LocalDate;
 
-// Lombok
-import lombok.Data;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu khi tạo mới một Dự án (Project).
- * Chứa các thông tin cơ bản, cấu hình hệ thống và kế hoạch triển khai ban đầu.
+ * DTO nhan du lieu tu Client de tao moi hoac cap nhat mot Du an (Project).
+ * Chua cac thong tin co ban, cau hinh he thong va ke hoach trien khai ban dau.
  */
-@Data
+@Getter
+@Setter
 public class ProjectRequest {
 
-    // ==========================================
-    // 1. THÔNG TIN CƠ BẢN (BASIC INFO)
-    // ========================================================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String NAME_BLANK_MSG = "Project name must not be blank";
+    public static final String CODE_BLANK_MSG = "Project code must not be blank";
+
+    // ======================================================
+    // 1. THONG TIN CO BAN (BASIC INFO)
+    // ======================================================
 
     /**
-     * Tên dự án.
-     * Bắt buộc phải có, không được để trống.
+     * Ten day du cua du an.
+     * Bat buoc phai co de dinh danh du an tren he thong.
      */
-    @NotBlank(message = "Project name must not be blank")
+    @NotBlank(message = NAME_BLANK_MSG)
     private String name;
 
     /**
-     * Mã định danh dự án (Ví dụ: "WEB", "APP", "CRM").
-     * Mã này thường dùng để tạo tiền tố cho Task ID (VD: WEB-1, WEB-2).
-     * Bắt buộc phải có, không được để trống.
+     * Ma dinh danh du an (vi du: WEB, APP, CRM).
+     * Dung de tao tien to cho ma cong viec (vi du: WEB-1, WEB-2).
      */
-    @NotBlank(message = "Project code must not be blank")
+    @NotBlank(message = CODE_BLANK_MSG)
     private String projectCode;
 
     /**
-     * Mô tả chi tiết về dự án.
-     * (Tùy chọn)
+     * Mo ta chi tiet ve noi dung hoac pham vi cua du an.
      */
     private String description;
 
     /**
-     * Mục tiêu chính cần đạt được của dự án.
-     * (Tùy chọn)
+     * Muc tieu cot loi can dat duoc khi ket thuc du an.
      */
     private String goal;
 
     /**
-     * Đường dẫn URL của ảnh bìa (Cover Image).
-     * (Tùy chọn) Thường là link ảnh đã được upload qua một API riêng biệt.
+     * Duong dan URL den anh bia (Cover Image) cua du an.
      */
     private String coverImageUrl;
 
-    // ==========================================
-    // 2. CẤU HÌNH & THAM CHIẾU (CONFIG & REFERENCES)
-    // ========================================================================
+    // ======================================================
+    // 2. CAU HINH & THAM CHIEU (CONFIG & REFERENCES)
+    // ======================================================
 
     /**
-     * Cấu hình bảng công việc (Board Configuration).
-     * Sử dụng JsonNode để nhận trực tiếp Object JSON (Dynamic structure) từ Client mà không cần parse String.
-     * (Tùy chọn)
+     * Cau hinh bang cong viec (Board Configuration).
+     * Su dung JsonNode de nhan truc tiep cau truc JSON dong tu Client.
      */
     private JsonNode boardConfig; 
 
     /**
-     * ID của Loại dự án (Ví dụ: Kanban, Scrum, Bug Tracking).
-     * (Tùy chọn)
+     * ID cua Loai du an (vi du: Kanban, Scrum).
      */
     private Integer projectTypeId; 
 
     /**
-     * ID của Người quản lý dự án (Project Manager).
-     * (Tùy chọn)
+     * ID cua Nguoi quan ly du an (Project Manager).
      */
     private Integer managerId;     
 
-    // ==========================================
-    // 3. THÔNG TIN KẾ HOẠCH (PLANNING)
-    // ========================================================================
+    // ======================================================
+    // 3. THONG TIN KE HOACH (PLANNING)
+    // ======================================================
 
     /**
-     * Mức độ ưu tiên của dự án (LOW, MEDIUM, HIGH, URGENT).
-     * (Tùy chọn) Nếu để null, tầng Service sẽ tự động gán giá trị mặc định (thường là MEDIUM).
+     * Muc do uu tien cua du an (LOW, MEDIUM, HIGH, URGENT).
+     * Neu de null, tang Service se tu dong gan gia tri mac dinh la MEDIUM.
      */
     private ProjectPriority priority;
     
     /**
-     * Ngày bắt đầu dự kiến của dự án.
-     * (Tùy chọn)
+     * Ngay bat dau du kien trien khai dự án.
      */
     private LocalDate startDate;
     
     /**
-     * Ngày kết thúc dự kiến (Deadline/Due Date) của dự án.
-     * (Tùy chọn)
+     * Ngay ket thuc du kien (Deadline) cua du an.
      */
     private LocalDate dueDate;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public ProjectRequest() {
+    }
 }

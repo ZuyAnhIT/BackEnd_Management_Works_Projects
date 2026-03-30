@@ -1,39 +1,55 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.NotBlank;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu khi tạo mới một Thẻ (Tag) trong dự án.
- * Tag được dùng để gắn nhãn, phân loại và lọc các công việc (Task).
+ * DTO nhan du lieu tu Client de tao moi mot The (Tag) trong du an.
+ * Tag duoc dung de gan nhan, phan loai va loc cac cong viec (Task) mot cach nhanh chong.
  */
-@Data
+@Getter
+@Setter
 public class CreateTagRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin Thẻ/Nhãn)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String NAME_BLANK_MSG = "Tag name must not be blank";
+
+    // ======================================================
+    // 1. THONG TIN HIEN THI (UI/DISPLAY)
+    // ======================================================
 
     /**
-     * Tên thẻ (Tag name).
-     * Bắt buộc phải có, không được để trống.
+     * Ten cua the (Tag name).
+     * Bat buoc phai co de nguoi dung co the nhan biet va tim kiem.
      */
-    @NotBlank(message = "Tag name must not be blank")
+    @NotBlank(message = NAME_BLANK_MSG)
     private String name;
 
     /**
-     * Mã màu HEX hiển thị trên giao diện người dùng.
-     * (Tùy chọn - Ví dụ: #FF5733)
+     * Ma mau HEX (vi du: #FF5733) de hien thi nhan tren giao dien.
+     * Neu de trong, he thong se tu dong gan mau mac dinh.
      */
     private String color;
 
+    // ======================================================
+    // 2. THONG TIN CHI TIET (DETAILS)
+    // ======================================================
+
     /**
-     * Mô tả chi tiết về ý nghĩa hoặc mục đích sử dụng của thẻ.
-     * (Tùy chọn)
+     * Mo ta chi tiet ve y nghia hoac quy uoc su dung cua the nay.
      */
     private String description;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Spring/Jackson co the khoi tao doi tuong tu JSON.
+     */
+    public CreateTagRequest() {
+    }
 }

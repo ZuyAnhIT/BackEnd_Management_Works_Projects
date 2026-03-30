@@ -1,43 +1,60 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu khi tạo mới một Trạng thái dự án.
- * Đại diện cho một cột (Column) trên bảng công việc (Board).
+ * DTO nhan du lieu tu Client de tao moi mot Trang thai du an.
+ * Dai dien cho mot cot (Column) tren bang cong viec (Board) cua du an.
  */
-@Data
+@Getter
+@Setter
 public class CreateProjectStatusRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin trạng thái)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final int NAME_MAX_SIZE = 100;
+    
+    public static final String NAME_BLANK_MSG = "Status name must not be blank";
+    public static final String NAME_SIZE_MSG = "Status name must not exceed " + NAME_MAX_SIZE + " characters";
+
+    // ======================================================
+    // 1. THONG TIN HIEN THI (UI/DISPLAY)
+    // ======================================================
 
     /**
-     * Tên trạng thái (Ví dụ: "To Do", "In Progress", "Done").
-     * Bắt buộc phải nhập, tối đa 100 ký tự.
+     * Ten trang thai hien thi tren cot cua Board.
+     * Bat buoc phai co de nguoi dung phan biet cac giai doan cong viec.
      */
-    @NotBlank(message = "Status name must not be blank")
-    @Size(max = 100, message = "Status name must not exceed 100 characters")
+    @NotBlank(message = NAME_BLANK_MSG)
+    @Size(max = NAME_MAX_SIZE, message = NAME_SIZE_MSG)
     private String name;
 
     /**
-     * Mã màu HEX đại diện cho trạng thái để hiển thị trên UI.
-     * Ví dụ: #3498db (Xanh), #e74c3c (Đỏ).
-     * (Tùy chọn)
+     * Ma mau HEX (vi du: #3498db) de phan biet cac trang thai tren giao dien.
      */
     private String color;
 
+    // ======================================================
+    // 2. LOGIC HE THONG (SYSTEM LOGIC)
+    // ======================================================
+
     /**
-     * Cờ đánh dấu xác định đây có phải là trạng thái "Hoàn thành" hay không.
-     * - true: Task nằm ở trạng thái này được hệ thống coi là đã hoàn tất.
-     * - false: Task vẫn đang trong quá trình thực hiện hoặc chờ xử lý.
+     * Co danh dau trang thai nay co duoc coi la da hoan thanh hay khong.
+     * Giup he thong tinh toan tien do (Progress) cua Project hoac Sprint.
      */
     private Boolean isCompletedStatus;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public CreateProjectStatusRequest() {
+    }
 }

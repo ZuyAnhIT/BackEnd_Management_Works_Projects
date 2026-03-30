@@ -1,37 +1,55 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu khi thực hiện mời một thành viên tham gia vào Dự án (Project).
- * Áp dụng chung cho cả việc phân công thành viên nội bộ công ty và mời khách (Guest) từ bên ngoài.
+ * DTO nhan du lieu de moi thanh vien tham gia vao mot Du an (Project).
+ * Ap dung cho ca viec phan cong thanh vien noi bo va moi khach (Guest) tu ben ngoai.
  */
-@Data
+@Getter
+@Setter
 public class InviteProjectMemberRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin lời mời dự án)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String EMAIL_BLANK_MSG = "Email must not be blank";
+    public static final String EMAIL_INVALID_MSG = "Invalid email format";
+    public static final String ROLE_CODE_BLANK_MSG = "Project role code must not be blank";
+
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTIFICATION)
+    // ======================================================
 
     /**
-     * Địa chỉ Email của người được mời vào dự án.
-     * Bắt buộc phải nhập và tuân thủ đúng định dạng chuẩn (VD: user@example.com).
+     * Dia chi Email cua nguoi duoc moi vao du an.
+     * Bat buoc phai dung dinh dang email tieu chuan de he thong gui thong bao hoac loi moi.
      */
-    @NotBlank(message = "Email must not be blank")
-    @Email(message = "Invalid email format")
-    private String email; 
+    @NotBlank(message = EMAIL_BLANK_MSG)
+    @Email(message = EMAIL_INVALID_MSG)
+    private String email;
+
+    // ======================================================
+    // 2. THONG TIN PHAN QUYEN (AUTHORIZATION)
+    // ======================================================
 
     /**
-     * Mã vai trò cấp Dự án dự kiến sẽ phân quyền cho người dùng này.
-     * Ví dụ: "PROJECT_ADMIN", "PROJECT_MEMBER", "GUEST_PROJECT".
-     * Bắt buộc phải cung cấp.
+     * Ma vai tro cap Du an (Project Role) se phan quyen cho nguoi dung.
+     * Vi du: PROJECT_ADMIN, PROJECT_MEMBER, GUEST_PROJECT.
      */
-    @NotBlank(message = "Role code must not be blank")
-    private String roleCode; 
+    @NotBlank(message = ROLE_CODE_BLANK_MSG)
+    private String roleCode;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh ho tro viec Deserialize JSON tu Client.
+     */
+    public InviteProjectMemberRequest() {
+    }
 }

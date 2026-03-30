@@ -1,59 +1,83 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/WorkspaceResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO phản hồi thông tin tóm tắt của một Không gian làm việc (Workspace).
- * Dùng cho danh sách (list view) hoặc khi xem chi tiết Workspace.
+ * DTO phan hoi thong tin tom tat cua mot Khong gian lam viec (Workspace).
+ * Duoc su dung cho danh sach hien thi (List View) hoac thong tin tong quan khi vao Workspace.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class WorkspaceResponse {
 
-    // ========================================================================
-    // 1. ĐỊNH DANH & CẤP BẬC (IDENTITY & HIERARCHY)
-    // ========================================================================
+    // ======================================================
+    // 1. DINH DANH & CAP BAC (IDENTITY & HIERARCHY)
+    // ======================================================
 
-    // ID định danh của Workspace (Primary Key)
+    /** ID dinh danh duy nhat cua Workspace trong he thong. */
     private Integer workspaceId;
 
-    // ID của Công ty chứa Workspace này (Context cha)
+    /** ID cua Cong ty (Company) chu quan chua Workspace nay. */
     private Integer companyId;
 
-    // ========================================================================
-    // 2. THÔNG TIN CƠ BẢN & TRỰC QUAN (BASIC INFO & VISUALS)
-    // ========================================================================
+    // ======================================================
+    // 2. THONG TIN HIEN THI (BASIC INFO & VISUALS)
+    // ======================================================
 
-    // Tên hiển thị của Workspace
+    /** Ten hien thi cua Workspace (vi du: "Phong Ky thuat", "Doi Marketing"). */
     private String workspaceName;
 
-    // Mô tả chi tiết
+    /** Mo ta ngan gon ve muc dich hoac nhiem vu cua Workspace. */
     private String description;
     
-    // Đường dẫn ảnh bìa (Cover Image URL)
+    /** Duong dan URL den anh bia (Cover Image) de lam dep giao dien. */
     private String coverImage;
 
-    // Mã màu đại diện (ví dụ: #3498db)
+    /** Ma mau HEX dai dien (vi du: "#3498db") dung de phan biet nhanh tren Sidebar. */
     private String color;
 
-    // ========================================================================
-    // 3. TRẠNG THÁI & HỆ THỐNG (STATE & AUDIT)
-    // ========================================================================
+    // ======================================================
+    // 3. TRANG THAI & HE THONG (STATE & AUDIT)
+    // ======================================================
 
-    // ID của người đã tạo Workspace này
+    /** ID cua nguoi dung da khoi tao Workspace nay. */
     private Integer createdById;
 
-    // Trạng thái hiện tại của Workspace (ACTIVE, ARCHIVED, DELETED)
+    /** Trang thai hoat dong (vi du: ACTIVE, ARCHIVED, DELETED). */
     private String status;
 
-    // Thời điểm tạo bản ghi
+    /** Thoi diem ban ghi duoc tao lap. */
     private LocalDateTime createdAt;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson Deserialize JSON mot cach minh bach.
+     */
+    public WorkspaceResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public WorkspaceResponse(Integer workspaceId, Integer companyId, String workspaceName, 
+                             String description, String coverImage, String color, 
+                             Integer createdById, String status, LocalDateTime createdAt) {
+        this.workspaceId = workspaceId;
+        this.companyId = companyId;
+        this.workspaceName = workspaceName;
+        this.description = description;
+        this.coverImage = coverImage;
+        this.color = color;
+        this.createdById = createdById;
+        this.status = status;
+        this.createdAt = createdAt;
+    }
 }
