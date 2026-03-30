@@ -3,7 +3,11 @@ package com.quanlyduan.project_manager_api.model;
 import java.time.LocalDateTime;
 import java.util.Set;
 
-// JPA & Hibernate
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -16,92 +20,120 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-// Lombok
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-// Project Enums
-import com.quanlyduan.project_manager_api.model.common.enums.SprintStatus;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * Entity đại diện cho một Sprint trong quy trình Scrum/Agile.
- * Sprint là một khoảng thời gian cố định để hoàn thành một lượng công việc đã chọn.
+ * Entity dai dien cho mot Sprint trong quy trinh Scrum/Agile.
+ * Sprint la mot khoang thoi gian co dinh (Time-box) de hoan thanh mot luong 
+ * cong viec xac dinh tu Backlog.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(name = "sprints")
 public class Sprint {
 
-    // ==========================================
-    // PRIMARY KEY
-    // ==========================================
+    // ======================================================
+    // 1. DINH DANH DU LIEU (PRIMARY KEY)
+    // ======================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // ID định danh
+    private Integer id;
 
-    // ==========================================
-    // RELATIONSHIPS (Quan hệ Entity - Owning Side)
-    // ==========================================
+    // ======================================================
+    // 2. LIEN KET THUC THE (RELATIONSHIPS)
+    // ======================================================
+    
+    /** Du an (Project) so huu Sprint nay. Su dung LAZY fetch de toi uu. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
-    private Project project; // Dự án chứa Sprint này
+    private Project project;
 
+    /** Nguoi dung khoi tao Sprint. Thuong la Scrum Master hoac PM. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
-    private User createdBy; // Người tạo Sprint
+    private User createdBy;
 
-    // ==========================================
-    // BASIC INFORMATION (Thông tin cơ bản)
-    // ==========================================
+    /** Danh sach cac Tasks thuoc ve Sprint nay (Inverse side). */
+    @OneToMany(mappedBy = "sprint", fetch = FetchType.LAZY)
+    private Set<Task> tasks;
+
+    // ======================================================
+    // 3. THONG TIN CO BAN (BASIC INFO)
+    // ======================================================
+    
+    /** Ten hien thi cua Sprint (vi du: "Sprint 01 - MVP Release"). */
     @Column(name = "name", nullable = false)
-    private String name; // Tên Sprint (Ví dụ: Sprint 1, Q3-2025)
+    private String name;
 
+    /** Ma code dinh danh nhanh (vi du: "PROJ-S1"). */
     @Column(name = "sprint_code", length = 50)
-    private String sprintCode; // Mã code Sprint (Ví dụ: PROJ-S1)
+    private String sprintCode;
 
+    /** Muc tieu cot loi can dat duoc sau khi ket thuc Sprint. */
     @Column(name = "goal", columnDefinition = "TEXT")
-    private String goal; // Mục tiêu của Sprint này
+    private String goal;
 
-    // ==========================================
-    // STATUS & TIMELINE (Trạng thái & Dòng thời gian)
-    // ==========================================
+    // ======================================================
+    // 4. TRANG THAI & DONG THOI GIAN (STATUS & TIMELINE)
+    // ======================================================
+    
+    /** * Trang thai hien tai cua Sprint.
+     * Gia tri: NOT_STARTED, IN_PROGRESS, COMPLETED, CANCELLED. 
+     */
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private SprintStatus status; // Trạng thái Sprint (NOT_STARTED, IN_PROGRESS, COMPLETED, CANCELLED)
+    @Column(name = "status", nullable = false)
+    private SprintStatus status;
 
+    /** Thoi diem bat dau va ket thuc thuc te/du kien. */
     @Column(name = "start_date")
-    private LocalDateTime startDate; // Ngày bắt đầu thực tế/dự kiến
+    private LocalDateTime startDate;
 
     @Column(name = "end_date")
-    private LocalDateTime endDate; // Ngày kết thúc thực tế/dự kiến
+    private LocalDateTime endDate;
 
+    /** Do dai co dinh cua Sprint tinh theo ngay (vi du: 14 ngay cho 2 tuan). */
     @Column(name = "duration_days")
-    private Integer durationDays; // Độ dài Sprint theo ngày (Ví dụ: 14 ngày)
+    private Integer durationDays;
 
-    // ==========================================
-    // TIMESTAMPS (Thời gian hệ thống)
-    // ==========================================
+    // ======================================================
+    // 5. THONG TIN HE THONG (AUDIT INFO)
+    // ======================================================
+    
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; // Thời điểm tạo
+    @Column(name = "created_at", updatable = false, nullable = false)
+    private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
+    private LocalDateTime updatedAt;
 
-    // ==========================================
-    // INVERSE RELATIONSHIPS (Quan hệ nghịch đảo)
-    // ==========================================
-    // MappedBy trỏ đến tên thuộc tính "sprint" trong Entity Task
-    @OneToMany(mappedBy = "sprint")
-    private Set<Task> tasks; // Quan hệ 1-N: Một Sprint có nhiều Task
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
 
+    public Sprint() {
+    }
+
+    public Sprint(Integer id, Project project, User createdBy, Set<Task> tasks, 
+                  String name, String sprintCode, String goal, SprintStatus status, 
+                  LocalDateTime startDate, LocalDateTime endDate, Integer durationDays, 
+                  LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.project = project;
+        this.createdBy = createdBy;
+        this.tasks = tasks;
+        this.name = name;
+        this.sprintCode = sprintCode;
+        this.goal = goal;
+        this.status = status;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.durationDays = durationDays;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
 }

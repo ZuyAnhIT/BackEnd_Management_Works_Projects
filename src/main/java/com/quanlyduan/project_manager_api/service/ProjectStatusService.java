@@ -1,65 +1,66 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/ProjectStatusService.java
 package com.quanlyduan.project_manager_api.service;
+
+import java.util.List;
 
 import com.quanlyduan.project_manager_api.dto.request.CreateProjectStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.ReorderStatusRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateStatusRequest;
 import com.quanlyduan.project_manager_api.dto.response.ProjectStatusResponse;
-import java.util.List;
 
 /**
- * Interface Service quản lý các nghiệp vụ liên quan đến Trạng thái (Cột) của Dự án.
- * Đây là các API cho phép quản lý cấu trúc Board (thêm, xóa, sắp xếp cột).
+ * Service quan ly toan bo nghiep vu lien quan den Trang thai (Cot) cua Du an.
+ * Cung cap cac API de thiet lap cau truc Bang (Board) nhu: them, sua, xoa va sap xep cot.
  */
 public interface ProjectStatusService {
-    
-    // ========================================================================
-    // 1. NHÓM XEM & LỌC (READ)
-    // ========================================================================
+
+    // ======================================================
+    // 1. TRA CUU VA HIEN THI (READ OPERATIONS)
+    // ======================================================
 
     /**
-     * Lấy danh sách tất cả các Trạng thái (cột) thuộc về một dự án.
-     * Dữ liệu trả về đã được sắp xếp theo sortOrder để vẽ giao diện Board.
-     * @param projectId ID dự án.
-     * @return Danh sách DTO đã sắp xếp.
+     * Truy xuat danh sach toan bo cac Trang thai (Cot) thuoc ve mot Du an.
+     * Du lieu tra ve duoc sap xep san theo thu tu (sortOrder) de hien thi tren giao dien Board.
+     * * @param projectId ID dinh danh cua Du an
+     * @return Danh sach cac DTO Trang thai da sap xep
      */
     List<ProjectStatusResponse> getProjectStatuses(Integer projectId);
 
-    // ========================================================================
-    // 2. NHÓM TẠO & CẬP NHẬT & SẮP XẾP (MUTATION/CRUD)
-    // ========================================================================
+    // ======================================================
+    // 2. KHOI TAO VA CAP NHAT (WRITE OPERATIONS)
+    // ======================================================
 
     /**
-     * Tạo một Trạng thái (cột) mới cho dự án.
-     * Logic nghiệp vụ: Tự động tính toán vị trí cuối cùng (sortOrder).
-     * @param projectId ID dự án.
-     * @param request DTO tạo mới.
-     * @return DTO status vừa tạo.
+     * Khoi tao mot Trang thai (Cot) moi cho Du an.
+     * Logic nghiep vu: He thong tu dong tinh toan va gan vi tri cuoi cung (sortOrder).
+     * * @param projectId ID Du an so huu trang thai
+     * @param request Thong tin cau hinh trang thai moi
+     * @return DTO Trang thai vua duoc khoi tao
      */
     ProjectStatusResponse createStatus(Integer projectId, CreateProjectStatusRequest request);
 
     /**
-     * Cập nhật thông tin chi tiết trạng thái (Tên, Mã màu, Cờ Hoàn thành).
-     * @param projectId ID dự án (kiểm tra IDOR).
-     * @param statusId ID trạng thái cần sửa.
-     * @param request DTO thông tin cập nhật (Partial Update).
-     * @return DTO đã cập nhật.
+     * Cap nhat thong tin chi tiet cua mot trang thai (Partial Update).
+     * Cho phep thay doi: Ten, Ma mau, va Co danh dau hoan thanh (isDone).
+     * * @param projectId ID Du an (dung de kiem tra tinh hop le/IDOR)
+     * @param statusId ID dinh danh cua Trang thai can sua
+     * @param request Cac truong thong tin can cap nhat
+     * @return DTO Trang thai sau khi da cap nhat
      */
     ProjectStatusResponse updateStatus(Integer projectId, Integer statusId, UpdateStatusRequest request);
     
     /**
-     * Sắp xếp lại thứ tự các trạng thái (cột) trong dự án.
-     * Hàm này thực hiện logic cập nhật `sortOrder` cho nhiều trạng thái cùng lúc (Kéo thả cột).
-     * @param projectId ID dự án.
-     * @param request DTO chứa danh sách ID theo thứ tự mới.
+     * Thay doi thu tu sap xep cua cac Cot trong Du an (Drag & Drop Column).
+     * Thuc hien cap nhat hang loat gia tri `sortOrder` dua tren danh sach ID moi.
+     * * @param projectId ID Du an thuc hien sap xep
+     * @param request Danh sach cac ID Trang thai theo thu tu moi tu trai sang phai
      */
     void reorderStatuses(Integer projectId, ReorderStatusRequest request);
     
     /**
-     * Xóa một Trạng thái (cột).
-     * Logic nghiệp vụ: Chỉ xóa được nếu cột rỗng (không có task).
-     * @param projectId ID dự án (kiểm tra bảo mật).
-     * @param statusId ID trạng thái cần xóa.
+     * Loai bo mot Trang thai (Cot) khoi Du an.
+     * Logic nghiep vu: He thong chi cho phep xoa khi Cot khong chua bat ky Cong viec (Task) nao.
+     * * @param projectId ID Du an (dung de bao mat pham vi)
+     * @param statusId ID Trang thai can loai bo
      */
     void deleteStatus(Integer projectId, Integer statusId);
 }

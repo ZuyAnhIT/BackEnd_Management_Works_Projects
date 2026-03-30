@@ -1,36 +1,52 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/AnalyticsService.java
 package com.quanlyduan.project_manager_api.service;
+
+import java.util.List;
 
 import com.quanlyduan.project_manager_api.dto.request.AssigneeRecommendationRequest;
 import com.quanlyduan.project_manager_api.dto.response.AssigneeRecommendationResponse;
 import com.quanlyduan.project_manager_api.dto.response.ProjectForecastResponse;
 import com.quanlyduan.project_manager_api.dto.response.StandupReportResponse;
 
-import java.util.List;
-
 /**
- * Service chuyên xử lý các logic tính toán, phân tích dữ liệu 
- * để hỗ trợ AI Chatbot hoặc Báo cáo nâng cao.
+ * Service chuyen xu ly cac logic tinh toan va phan tich du lieu chuyen sau.
+ * Ho tro tinh nang goi y nhan su, du bao tien do va bao cao Daily Standup cho AI Chatbot.
  */
 public interface AnalyticsService {
 
+    // ======================================================
+    // 1. PHAN TICH NHAN SU (PEOPLE ANALYTICS)
+    // ======================================================
+
     /**
-     * Phân tích và gợi ý người thực hiện phù hợp nhất cho một task mới.
-     * Dựa trên: Mức độ liên quan (Kỹ năng/Lịch sử) và Tải công việc hiện tại.
-     *
-     * @param projectId ID dự án
-     * @param request Thông tin task dự kiến tạo
-     * @return Danh sách các ứng viên được xếp hạng theo điểm số phù hợp
+     * Phan tich va goi y nguoi thuc hien phu hop nhat cho mot cong viec moi.
+     * He thong dua tren ky nang, lich su hoan thanh va tai cong viec (Workload).
+     * * @param projectId ID cua du an dang xet
+     * @param request Thong tin chi tiet ve cong viec du kien tao
+     * @return Danh sach ung vien duoc xep hang theo diem so phu hop
      */
     List<AssigneeRecommendationResponse> getAssigneeRecommendations(Integer projectId, AssigneeRecommendationRequest request);
 
+    // ======================================================
+    // 2. DU BAO & TIEN DO (FORECASTING & PROGRESS)
+    // ======================================================
+
     /**
-     * Dự báo tiến độ dự án theo 3 kịch bản: Tốt nhất, Khả thi, Xấu nhất.
+     * Du bao thoi diem hoan thanh du an dua tren du lieu lich su (Velocity).
+     * Cung cap 3 kich ban: Best Case, Most Likely, va Worst Case.
+     * * @param projectId ID cua du an can du bao
+     * @return Thong tin du bao tien do chi tiet
      */
     ProjectForecastResponse getProjectForecast(Integer projectId);
-    
+
+    // ======================================================
+    // 3. BAO CAO TUONG TAC (OPERATIONAL REPORTS)
+    // ======================================================
+
     /**
-     * Lấy dữ liệu họp Daily Standup (Ai làm gì hôm qua, Ai làm gì hôm nay).
+     * Tong hop du lieu phuc vu buoi hop Daily Standup.
+     * Thong ke cac cong viec da hoan thanh hom qua va ke hoach cho hom nay.
+     * * @param projectId ID cua du an can lay bao cao
+     * @return Du lieu bao cao Standup theo tung thanh vien
      */
     StandupReportResponse getDailyStandupReport(Integer projectId);
 }

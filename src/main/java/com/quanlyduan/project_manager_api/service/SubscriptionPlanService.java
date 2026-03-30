@@ -8,48 +8,82 @@ import com.quanlyduan.project_manager_api.dto.response.plan.PlanResponse;
 import com.quanlyduan.project_manager_api.dto.response.plan.PublicPlanResponse;
 
 /**
- * Giao diện Service xử lý các nghiệp vụ liên quan đến Gói cước SaaS (Subscription Plan).
- * Dành riêng cho phân hệ Quản trị nền tảng (Super Admin).
+ * Service quan ly cac nghiep vu lien quan den Goi cuoc SaaS (Subscription Plan).
+ * Cung cap cac tinh nang quan tri cho Super Admin va tra cuu cho Khach hang.
  */
 public interface SubscriptionPlanService {
 
+    // ======================================================
+    // 1. QUAN TRI HE THONG (ADMIN OPERATIONS)
+    // ======================================================
+
     /**
-     * Tạo một Gói cước mới trên hệ thống.
-     *
-     * @param request DTO chứa thông tin gói cước cần tạo
-     * @return PlanResponse DTO chứa thông tin gói cước sau khi đã lưu thành công
+     * Khoi tao mot Goi cuoc moi tren he thong Worknet.
+     * * @param request Thong tin chi tiet ve han muc va gia ca cua goi
+     * @return Thong tin goi cuoc sau khi luu tru thanh cong
      */
     PlanResponse createPlan(CreatePlanRequest request);
 
     /**
-     * Cập nhật thông tin một Gói cước đã có.
-     *
-     * @param planId ID của gói cước cần sửa
-     * @param request DTO chứa thông tin mới của gói cước
-     * @return PlanResponse DTO chứa thông tin gói cước sau khi cập nhật
+     * Cap nhat thong so cua mot Goi cuoc hien co.
+     * * @param planId ID dinh danh cua goi cuoc
+     * @param request Cac truong thong tin can thay doi
+     * @return Thong tin goi cuoc sau khi cap nhat
      */
     PlanResponse updatePlan(Integer planId, UpdatePlanRequest request);
 
-    // Lấy danh sách phân trang cơ bản
+    /**
+     * Truy xuat danh sach toan bo cac goi cuoc voi day du thong so (Danh cho Admin).
+     */
     PageResponseDTO<PlanResponse> getPlans(int page, int size, String sortBy, String sortDir);
 
-    // Lấy danh sách có tìm kiếm, lọc
-    PageResponseDTO<PlanResponse> searchPlans(String searchName, String searchPlanCode, Boolean searchStatus, int page, int size, String sortBy, String sortDir);
+    /**
+     * Tim kiem nang cao danh sach goi cuoc dua tren Ten, Ma code hoac Trang thai.
+     */
+    PageResponseDTO<PlanResponse> searchPlans(
+            String searchName, String searchPlanCode, Boolean searchStatus, 
+            int page, int size, String sortBy, String sortDir);
 
-    // Lấy danh sách gói cước (Dành cho Khách hàng)
-    PageResponseDTO<PublicPlanResponse> getPublicPlans(int page, int size, String sortBy, String sortDir);
-
-    // Tìm kiếm gói cước (Dành cho Khách hàng)
-    PageResponseDTO<PublicPlanResponse> searchPublicPlans(String searchName, int page, int size, String sortBy, String sortDir);
-
-    // Lấy chi tiết gói cước cho Admin (Trả về toàn bộ thông tin)
+    /**
+     * Lay ho so chi tiet cua mot goi cuoc (Full Information).
+     */
     PlanResponse getPlanById(Integer planId);
 
-    // Lấy chi tiết gói cước cho Khách hàng (Chỉ trả về gói đang Active, ẩn thông tin nhạy cảm)
+    // ======================================================
+    // 2. NGHI KIEU KHACH HANG (PUBLIC & CUSTOMER OPERATIONS)
+    // ======================================================
+
+    /**
+     * Lay danh sach cac goi cuoc dang hoat dong de khach hang tham khao.
+     * Du lieu da duoc luoc bo cac thong tin quan tri nhay cam.
+     */
+    PageResponseDTO<PublicPlanResponse> getPublicPlans(int page, int size, String sortBy, String sortDir);
+
+    /**
+     * Tim kiem goi cuoc theo ten (Dinh dang cong khai cho khach hang).
+     */
+    PageResponseDTO<PublicPlanResponse> searchPublicPlans(
+            String searchName, int page, int size, String sortBy, String sortDir);
+
+    /**
+     * Xem chi tiet mot goi cuoc cu the (Chi ap dung cho cac goi dang ACTIVE).
+     */
     PublicPlanResponse getPublicPlanById(Integer planId);
 
-    // Khách hàng yêu cầu hủy gói (Không gia hạn nữa)
-    void cancelActiveSubscription(Integer companyId);
+    // ======================================================
+    // 3. QUAN LY THUE BAO DOANH NGHIEP (SUBSCRIPTION MANAGEMENT)
+    // ======================================================
 
+    /**
+     * Truy xuat thong tin ve goi cuoc hien tai ma doanh nghiep dang su dung.
+     * * @param companyId ID dinh danh cua Cong ty
+     * @return Thong tin thue bao, ngay het han va trang thai gia han
+     */
     MySubscriptionResponse getMySubscriptionInfo(Integer companyId);
+
+    /**
+     * Yeu cau ngung gia han goi cuoc hien tai (Huy thue bao).
+     * * @param companyId ID dinh danh cua Cong ty yeu cau huy
+     */
+    void cancelActiveSubscription(Integer companyId);
 }

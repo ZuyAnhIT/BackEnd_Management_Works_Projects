@@ -1,4 +1,3 @@
-// File: src/main/java/com.quanlyduan.project_manager_api/service/AuthService.java
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.request.ForgotPasswordRequest;
@@ -13,82 +12,82 @@ import com.quanlyduan.project_manager_api.dto.request.VerifyEmailRequest;
 import com.quanlyduan.project_manager_api.dto.response.LoginResponse;
 
 /**
- * Interface Service quản lý các nghiệp vụ liên quan đến Xác thực (Authentication) và Ủy quyền (Authorization) cơ bản.
- * Bao gồm đăng ký, đăng nhập, và quản lý mật khẩu.
+ * Interface Service quan ly toan bo nghiep vu Xac thuc va Uy quyen.
+ * Xu ly cac luong dang ky thong thuong, dang ky qua loi moi, dang nhap da phuong thuc va bao mat tai khoan.
  */
 public interface AuthService {
-    
-    // ========================================================================
-    // 1. ĐĂNG KÝ & XÁC THỰC (REGISTRATION & VERIFICATION)
-    // ========================================================================
+
+    // ======================================================
+    // 1. DANG KY VA XAC THUC (REGISTRATION & VERIFICATION)
+    // ======================================================
 
     /**
-     * Đăng ký tài khoản người dùng mới (Standard Registration).
-     * @param request DTO chứa thông tin đăng ký.
+     * Dang ky tai khoan nguoi dung moi theo quy trinh tieu chuan.
+     * * @param request Du lieu dang ky tai khoan
      */
     void register(RegisterRequest request);
     
     /**
-     * Xác thực Email bằng mã OTP.
-     * @param request DTO chứa email và mã OTP.
+     * Kich hoat tai khoan bang cach xac thuc Email qua ma OTP.
+     * * @param request Thong tin email va ma xac thuc
      */
     void verifyEmail(VerifyEmailRequest request);
 
-    // ========================================================================
-    // 2. ĐĂNG NHẬP & ĐĂNG XUẤT (LOGIN & LOGOUT)
-    // ========================================================================
+    // ======================================================
+    // 2. DANG NHAP VA DANG XUAT (LOGIN & LOGOUT)
+    // ======================================================
 
     /**
-     * Đăng nhập bằng Email và Mật khẩu.
-     * @param request DTO chứa email và mật khẩu.
-     * @return LoginResponse chứa Access Token và Refresh Token.
+     * Dang nhap he thong bang Email va Mat khau.
+     * * @param request Thong tin dang nhap
+     * @return Phan hoi chua Access Token va Refresh Token
      */
     LoginResponse login(LoginRequest request);
 
     /**
-     * Đăng nhập bằng tài khoản Google (OAuth2/OIDC).
-     * @param request DTO chứa Google ID Token.
-     * @return LoginResponse chứa Tokens.
+     * Dang nhap nhanh su dung tai khoan Google (OAuth2).
+     * * @param request Google ID Token duoc cung cap tu Frontend
+     * @return Phan hoi chua thong tin phien dang nhap moi
      */
     LoginResponse loginWithGoogle(GoogleLoginRequest request);
 
     /**
-     * Đăng xuất.
-     * @param request DTO chứa Refresh Token cần vô hiệu hóa.
+     * Dang xuat va vo hieu hoa phien lam viec hien tai.
+     * * @param request Thong tin Token can huy bo
      */
     void logout(LogoutRequest request);
 
-    // ========================================================================
-    // 3. QUẢN LÝ MẬT KHẨU (PASSWORD MANAGEMENT)
-    // ========================================================================
+    // ======================================================
+    // 3. QUAN LY MAT KHAU (PASSWORD MANAGEMENT)
+    // ======================================================
 
     /**
-     * Gửi liên kết hoặc mã đặt lại mật khẩu đến email.
-     * @param request DTO chứa email người dùng.
+     * Yeu cau cap lai mat khau qua Email xac nhan.
+     * * @param request Email cua tai khoan can khoi phuc
      */
     void forgotPassword(ForgotPasswordRequest request);
 
     /**
-     * Đặt lại mật khẩu mới bằng token xác thực.
-     * @param request DTO chứa token và mật khẩu mới.
+     * Thiet lap mat khau moi sau khi da xac thuc yeu cau khoi phuc.
+     * * @param request Token xac thuc va mat khau moi
      */
     void resetPassword(ResetPasswordRequest request);
 
-    // ========================================================================
-    // 4. ĐĂNG KÝ TỪ LỜI MỜI (INVITATION FLOWS)
-    // ========================================================================
+    // ======================================================
+    // 4. LUONG DANG KY QUA LOI MOI (INVITATION FLOWS)
+    // ======================================================
 
     /**
-     * Đăng ký tài khoản mới từ lời mời tham gia CÔNG TY.
-     * @param request DTO chứa thông tin đăng ký và token lời mời.
-     * @return LoginResponse chứa Tokens.
+     * Dang ky tai khoan moi va tu dong gia nhap CONG TY theo loi moi.
+     * * @param request Thong tin dang ky kem theo Invitation Token cua Cong ty
+     * @return Phan hoi dang nhap sau khi dang ky thanh cong
      */
     LoginResponse registerFromInvite(RegisterFromInviteRequest request); 
 
     /**
-     * Đăng ký tài khoản mới từ lời mời tham gia DỰ ÁN (Khách/Người ngoài).
-     * @param request DTO chứa thông tin đăng ký và token lời mời dự án.
-     * @return LoginResponse chứa Tokens.
+     * Dang ky tai khoan moi va gia nhap truc tiep vao DU AN (danh cho Khach/doi tac).
+     * * @param request Thong tin dang ky kem theo Invitation Token cua Du an
+     * @return Phan hoi dang nhap sau khi dang ky thanh cong
      */
     LoginResponse registerFromProjectInvite(RegisterFromProjectInviteRequest request);
 }

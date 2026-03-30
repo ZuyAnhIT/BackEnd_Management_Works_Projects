@@ -3,7 +3,10 @@ package com.quanlyduan.project_manager_api.model;
 import java.time.LocalDateTime;
 import java.util.Set;
 
-// JPA & Hibernate
+import org.hibernate.annotations.CreationTimestamp;
+
+import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -16,67 +19,101 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.CreationTimestamp;
-
-// Lombok
-import lombok.Data;
-
-// Project Enums
-import com.quanlyduan.project_manager_api.model.common.enums.RoleLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * Entity đại diện cho một Vai trò (Role) trong hệ thống.
- * Vai trò được định nghĩa theo cấp độ (Level) và chứa tập hợp các Quyền hạn (Permissions).
+ * Entity dai dien cho mot Vai tro (Role) trong he thong.
+ * Vai tro duoc dinh nghia theo cap do (RoleLevel) va chua tap hop cac Quyen han (Permissions).
+ * Day la thanh phan cot loi cua mo hinh phan quyen RBAC.
  */
-@Data
+@Getter
+@Setter
+@Builder
 @Entity
 @Table(name = "roles")
 public class Role {
 
-    // ==========================================
-    // PRIMARY KEY
-    // ==========================================
+    // ======================================================
+    // 1. DINH DANH DU LIEU (PRIMARY KEY)
+    // ======================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // ID định danh
+    private Integer id;
 
-    // ==========================================
-    // ROLE DETAILS (Thông tin vai trò)
-    // ==========================================
-    @Column(name = "role_code", nullable = false, unique = true)
-    private String roleCode; // Mã vai trò (Ví dụ: COMPANY_ADMIN)
-
-    @Column(name = "role_name", nullable = false)
-    private String roleName; // Tên hiển thị (Ví dụ: Quản trị viên Công ty)
-
-    @Column(name = "description")
-    private String description; // Mô tả vai trò
-
-    // ==========================================
-    // ROLE LEVEL (Cấp độ vai trò)
-    // ==========================================
-    @Enumerated(EnumType.STRING)
-    @Column(name = "level", nullable = false)
-    private RoleLevel level; // Cấp độ vai trò (SYSTEM, COMPANY, WORKSPACE, PROJECT)
-
-    // ==========================================
-    // TIMESTAMPS (Thời gian hệ thống)
-    // ==========================================
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; // Thời điểm tạo
-
-    // ==========================================
-    // RELATIONSHIPS (Quan hệ Entity)
-    // ==========================================
-    // Quan hệ Many-to-Many với Permission
-    // Bảng trung gian: role_permissions
+    // ======================================================
+    // 2. LIEN KET QUYEN HAN (PERMISSIONS RELATIONSHIP)
+    // ======================================================
+    
+    /** * Tap hop cac quyen han (Permissions) duoc gan cho vai tro nay.
+     * Su dung Set de dam bao khong co quyen bi trung lap.
+     */
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "role_permissions",
-        joinColumns = @JoinColumn(name = "role_id"), // Khóa chính của bảng Role trong bảng trung gian
-        inverseJoinColumns = @JoinColumn(name = "permission_id") // Khóa chính của bảng Permission trong bảng trung gian
+        joinColumns = @JoinColumn(name = "role_id"),
+        inverseJoinColumns = @JoinColumn(name = "permission_id")
     )
-    private Set<Permission> permissions; // Tập hợp các quyền hạn mà vai trò này có
+    private Set<Permission> permissions;
 
+    // ======================================================
+    // 3. THONG TIN VAI TRO (ROLE DETAILS)
+    // ======================================================
+    
+    /** Ma vai tro duy nhat (vi du: "COMPANY_ADMIN", "PROJECT_LEAD"). */
+    @Column(name = "role_code", nullable = false, unique = true)
+    private String roleCode;
+
+    /** Ten hien thi cho nguoi dung (vi du: "Quan tri vien Cong ty"). */
+    @Column(name = "role_name", nullable = false)
+    private String roleName;
+
+    /** Mo ta ngan gon ve pham vi va trach nhiem cua vai tro. */
+    @Column(name = "description")
+    private String description;
+
+    // ======================================================
+    // 4. CAP ĐO VAI TRO (ROLE LEVEL)
+    // ======================================================
+    
+    /** * Cap do pham vi cua vai tro.
+     * Gia tri: SYSTEM (Toan he thong), COMPANY, WORKSPACE, PROJECT.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "level", nullable = false)
+    private RoleLevel level;
+
+    // ======================================================
+    // 5. THONG TIN HE THONG (AUDIT INFO)
+    // ======================================================
+    
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false, nullable = false)
+    private LocalDateTime createdAt;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay cho Hibernate.
+     */
+    public Role() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong minh bach.
+     */
+    public Role(Integer id, Set<Permission> permissions, String roleCode, 
+                String roleName, String description, RoleLevel level, 
+                LocalDateTime createdAt) {
+        this.id = id;
+        this.permissions = permissions;
+        this.roleCode = roleCode;
+        this.roleName = roleName;
+        this.description = description;
+        this.level = level;
+        this.createdAt = createdAt;
+    }
 }

@@ -1,78 +1,78 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/InvitationServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
+
+import java.time.LocalDateTime;
+
+import org.springframework.stereotype.Service;
 
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.exception.ResourceNotFoundException;
-import com.quanlyduan.project_manager_api.model.*;
+import com.quanlyduan.project_manager_api.model.Company;
+import com.quanlyduan.project_manager_api.model.CompanyInvitation;
+import com.quanlyduan.project_manager_api.model.CompanyMember;
+import com.quanlyduan.project_manager_api.model.Role;
+import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.common.enums.InvitationStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyInvitationRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.service.InvitationService;
-import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
 
 @Service
 public class InvitationServiceImpl implements InvitationService {
 
+    // Khai bao cac hang so de loai bo hardcode
+    public static final String ERROR_INVALID_TOKEN = "Invalid invitation token.";
+    public static final String ERROR_INVITATION_PROCESSED = "This invitation has already been processed or cancelled.";
+    public static final String ERROR_INVITATION_EXPIRED = "This invitation has expired.";
+
+    // Khai bao cac bien phu thuoc
     private final CompanyInvitationRepository companyInvitationRepository;
     private final CompanyMemberRepository companyMemberRepository;
 
-    // ======================================================
-    // CONSTRUCTOR (Dependency Injection)
-    // ======================================================
+    // Constructor khoi tao thu cong
     public InvitationServiceImpl(CompanyInvitationRepository companyInvitationRepository,
                                  CompanyMemberRepository companyMemberRepository) {
         this.companyInvitationRepository = companyInvitationRepository;
         this.companyMemberRepository = companyMemberRepository;
     }
 
-    // ======================================================
-    // 1. XÁC THỰC TOKEN LỜI MỜI (VALIDATE INVITATION TOKEN)
-    // ======================================================
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+
     @Override
     public CompanyInvitation validateInvitationToken(String token) {
-        // 1. Tìm lời mời theo Token
+        // Tim kiem loi moi dua tren token truyen vao
         CompanyInvitation invitation = companyInvitationRepository.findByToken(token)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid invitation token."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_INVALID_TOKEN));
 
-        // 2. Kiểm tra trạng thái: Phải là PENDING
+        // Kiem tra trang thai cua loi moi phai la dang cho xu ly
         if (invitation.getStatus() != InvitationStatus.PENDING) {
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("This invitation has already been processed or cancelled.");
+            throw new BadRequestException(ERROR_INVITATION_PROCESSED);
         }
 
-        // 3. Kiểm tra ngày hết hạn
+        // Kiem tra thoi han hieu luc cua loi moi
         if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
-            // Cập nhật trạng thái lời mời thành EXPIRED
+            // Cap nhat trang thai thanh het han neu da qua thoi diem hieu luc
             invitation.setStatus(InvitationStatus.EXPIRED);
             companyInvitationRepository.save(invitation);
             
-            // Ném lỗi
-            // Sửa thông báo sang tiếng Anh
-            throw new BadRequestException("This invitation has expired.");
+            throw new BadRequestException(ERROR_INVITATION_EXPIRED);
         }
         
-        // 4. Hợp lệ, trả về đối tượng lời mời
+        // Tra ve doi tuong loi moi neu tat ca cac dieu kien deu hop le
         return invitation;
     }
 
-    // ======================================================
-    // 2. THÊM THÀNH VIÊN VÀO CÔNG TY (ADD MEMBER TO COMPANY)
-    // ======================================================
     @Override
     public void addMemberToCompany(User user, Company company, Role role) {
-        // Tạo đối tượng CompanyMember
+        // Khoi tao doi tuong thanh vien moi voi trang thai hoat dong mac dinh
         CompanyMember membership = CompanyMember.builder()
                 .user(user)
                 .company(company)
                 .role(role)
-                .status(MemberStatus.ACTIVE) // Mặc định thành viên mới tham gia là ACTIVE
+                .status(MemberStatus.ACTIVE)
                 .build();
 
-        // Lưu thông tin thành viên
+        // Luu thong tin thanh vien vao he thong
         companyMemberRepository.save(membership);
     }
 }

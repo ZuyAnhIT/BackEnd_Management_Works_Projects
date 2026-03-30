@@ -2,7 +2,8 @@ package com.quanlyduan.project_manager_api.model;
 
 import java.time.LocalDateTime;
 
-// JPA & Hibernate
+import org.hibernate.annotations.CreationTimestamp;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -13,55 +14,74 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import org.hibernate.annotations.CreationTimestamp;
-
-// Lombok
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * Entity lưu trữ mối quan hệ Many-to-Many giữa User và Role.
- * Thường được sử dụng để gán các Role cấp độ SYSTEM cho người dùng.
+ * Entity trung gian luu tru moi quan he Many-to-Many giua User va Role.
+ * Chu yeu dung de gan cac Vai tro cap do HE THONG (SYSTEM) cho nguoi dung.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(
     name = "user_roles", 
     uniqueConstraints = { 
-        // Đảm bảo một người dùng không thể có cùng 1 role 2 lần (Unique User-Role Pair)
+        /** Dam bao moi nguoi dung chi co duy nhat mot ban ghi cho mot Vai tro cu the. */
         @UniqueConstraint(columnNames = {"user_id", "role_id"}) 
     }
 )
 public class UserRole { 
 
-    // ==========================================
-    // PRIMARY KEY
-    // ==========================================
+    // ======================================================
+    // 1. DINH DANH DU LIEU (PRIMARY KEY)
+    // ======================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // ID định danh
+    private Integer id;
 
-    // ==========================================
-    // RELATIONSHIPS (Quan hệ Entity)
-    // ==========================================
+    // ======================================================
+    // 2. LIEN KET THUC THE (RELATIONSHIPS)
+    // ======================================================
+    
+    /** Nguoi dung duoc gan vai tro. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user; // Người dùng sở hữu vai trò
+    private User user;
 
+    /** Vai tro (thuong la cap SYSTEM) duoc gan cho nguoi dung. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
-    private Role role; // Vai trò (Role) được gán (thường là Role cấp SYSTEM)
+    private Role role;
 
-    // ==========================================
-    // TIMESTAMPS (Thời gian hệ thống)
-    // ==========================================
+    // ======================================================
+    // 3. THONG TIN HE THONG (AUDIT INFO)
+    // ======================================================
+    
+    /** Thoi diem vai tro duoc gan cho nguoi dung (tu dong sinh boi Hibernate). */
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; // Thời điểm tạo mối quan hệ
+    @Column(name = "created_at", updatable = false, nullable = false)
+    private LocalDateTime createdAt;
 
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay cho Hibernate.
+     */
+    public UserRole() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong minh bach.
+     */
+    public UserRole(Integer id, User user, Role role, LocalDateTime createdAt) {
+        this.id = id;
+        this.user = user;
+        this.role = role;
+        this.createdAt = createdAt;
+    }
 }

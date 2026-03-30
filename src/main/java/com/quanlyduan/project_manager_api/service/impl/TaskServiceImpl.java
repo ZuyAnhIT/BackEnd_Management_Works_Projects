@@ -1,15 +1,11 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/impl/TaskServiceImpl.java
 package com.quanlyduan.project_manager_api.service.impl;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -17,23 +13,31 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.DataValidationConstraint;
+import org.apache.poi.ss.usermodel.DataValidationHelper;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddressList;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.opencsv.bean.CsvToBean;
-import com.opencsv.bean.CsvToBeanBuilder;
 import com.quanlyduan.project_manager_api.aop.ActivityLogContext;
 import com.quanlyduan.project_manager_api.aop.LogActivity;
 import com.quanlyduan.project_manager_api.dto.request.CreateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.request.MoveTaskStatusRequest;
-import com.quanlyduan.project_manager_api.dto.request.TaskImportCsvRow;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskEpicRequest;
 import com.quanlyduan.project_manager_api.dto.request.UpdateTaskRequest;
 import com.quanlyduan.project_manager_api.dto.response.ImportTaskResultResponse;
@@ -67,6 +71,84 @@ import com.quanlyduan.project_manager_api.service.TaskService;
 @Service
 public class TaskServiceImpl implements TaskService {
 
+    // Khai bao cac hang so thong bao loi
+    public static final String ERROR_TASK_NOT_FOUND = "Task not found.";
+    public static final String ERROR_TASK_NOT_FOUND_ID = "Task not found with ID: ";
+    public static final String ERROR_SPRINT_NOT_FOUND = "Sprint not found.";
+    public static final String ERROR_SPRINT_NOT_FOUND_ID = "Sprint not found with ID: ";
+    public static final String ERROR_PROJECT_NOT_FOUND = "Project not found.";
+    public static final String ERROR_STATUS_NOT_FOUND = "Status not found";
+    public static final String ERROR_EPIC_NOT_FOUND = "Epic not found";
+    public static final String ERROR_ASSIGNEE_NOT_FOUND = "Assignee user not found";
+    public static final String ERROR_USER_NOT_FOUND = "User not found";
+    public static final String ERROR_PROJECT_MISMATCH_SPRINT = "Task and Sprint must belong to the same project.";
+    public static final String ERROR_PROJECT_MISMATCH_STATUS = "New status does not belong to the task's project.";
+    public static final String ERROR_PROJECT_MISMATCH_EPIC = "Epic invalid";
+    public static final String ERROR_NO_STATUS_BOARD = "This project has no status board configuration.";
+    public static final String ERROR_INVALID_EXCEL = "Please upload a valid Excel file (.xlsx)";
+    public static final String ERROR_READING_EXCEL = "Error reading Excel: ";
+    public static final String ERROR_GENERATE_TEMPLATE = "Fail to generate template: ";
+
+    // Khai bao cac hang so hanh dong log
+    public static final String ACTION_UPDATE = "UPDATE";
+    public static final String ACTION_CREATE = "CREATE";
+    public static final String ACTION_MOVE_STATUS = "MOVE_STATUS";
+    public static final String ACTION_DELETE = "DELETE";
+    public static final String ACTION_IMPORT = "IMPORT";
+    public static final String ENTITY_TASK = "TASK";
+
+    public static final String DESC_DRAG_DROP = "Drag and drop Task with Sprint";
+    public static final String DESC_CREATE_TASK = "Create new Task";
+    public static final String DESC_MOVE_STATUS = "Change task status";
+    public static final String DESC_UPDATE_TASK = "Update task information";
+    public static final String DESC_UPDATE_EPIC = "Update Task Epic";
+    public static final String DESC_DELETE_TASK = "Delete task";
+    public static final String DESC_IMPORT_TASK = "Import tasks from JSON";
+
+    // Khai bao cac hang so ghi log chi tiet
+    public static final String LOG_RENAMED = "renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"";
+    public static final String LOG_DESC_UPDATED = "updated description";
+    public static final String LOG_TYPE_CHANGED = "changed type to <strong>%s</strong>";
+    public static final String LOG_PRIORITY_CHANGED = "changed priority to <strong>%s</strong>";
+    public static final String LOG_POINTS_CHANGED = "changed points to <strong>%d</strong>";
+    public static final String LOG_ESTIMATE_CHANGED = "changed estimate to <strong>%s</strong>h";
+    public static final String LOG_START_DATE_CHANGED = "changed start date";
+    public static final String LOG_DUE_DATE_CHANGED = "changed due date";
+    public static final String LOG_STATUS_CHANGED = "changed status from <strong>%s</strong> to <strong>%s</strong>";
+    public static final String LOG_REORDERED = "reordered in <strong>%s</strong> column";
+    public static final String LOG_MOVED_BACKLOG = "moved to <strong>Backlog</strong>";
+    public static final String LOG_MOVED_SPRINT = "moved to sprint <strong>%s</strong>";
+    public static final String LOG_REMOVED_EPIC = "removed from Epic";
+    public static final String LOG_ADDED_EPIC = "added to epic <strong>%s</strong>";
+    public static final String LOG_CHANGED_EPIC = "changed epic from <strong>%s</strong> to <strong>%s</strong>";
+    public static final String LOG_UNASSIGNED = "unassigned";
+    public static final String LOG_ASSIGNED = "assigned to <strong>%s</strong>";
+
+    public static final String LABEL_NONE = "None";
+
+    // Khai bao cac hang so cho Excel Import/Export
+    public static final String EXCEL_SHEET_NAME = "Tasks Import";
+    public static final String[] EXCEL_COLUMNS = {"Title", "Description", "Assignee Email", "Priority", "Status", "Start Date", "Due Date", "Story Points", "Estimated Hours"};
+    public static final String[] EXCEL_DROPDOWN_PRIORITY = {"LOW", "MEDIUM", "HIGH", "URGENT"};
+    public static final String[] EXCEL_DROPDOWN_STATUS = {"To Do", "In Progress", "Done", "Backlog"};
+    public static final String EXCEL_FILE_EXTENSION_XLSX = ".xlsx";
+    public static final String EXCEL_FILE_EXTENSION_XLS = ".xls";
+    
+    public static final int EXCEL_COL_WIDTH_MULTIPLIER = 256;
+    public static final int EXCEL_WIDTH_DESC = 50;
+    public static final int EXCEL_WIDTH_DATE = 20;
+    public static final int EXCEL_WIDTH_DEFAULT = 25;
+    
+    public static final String VALIDATION_TITLE_REQUIRED = "Title is required";
+    public static final String VALIDATION_USER_NOT_IN_PROJECT = "User '%s' is not in project";
+    public static final String VALIDATION_INVALID_START_DATE = "Invalid Start Date";
+    public static final String VALIDATION_INVALID_DUE_DATE = "Invalid Due Date";
+    public static final String VALIDATION_DATE_ORDER = "Start Date must be before Due Date";
+    public static final String VALIDATION_INVALID_PRIORITY = "Invalid Priority";
+    public static final String VALIDATION_POINTS_NAN = "Points must be number";
+    public static final String VALIDATION_HOURS_NAN = "Hours must be number";
+
+    // Khai bao cac bien phu thuoc
     private final TaskRepository taskRepository;
     private final TaskCommentRepository taskCommentRepository;
     private final ProjectRepository projectRepository;
@@ -77,11 +159,9 @@ public class TaskServiceImpl implements TaskService {
     private final EpicRepository epicRepository;
     private final ProjectStatusRepository projectStatusRepository;
 
-    // ======================================================
-    // CONSTRUCTOR (Dependency Injection)
-    // ======================================================
+    // Constructor khoi tao thu cong thay the cho @RequiredArgsConstructor
     public TaskServiceImpl(TaskRepository taskRepository,
-                            TaskCommentRepository taskCommentRepository,
+                           TaskCommentRepository taskCommentRepository,
                            ProjectRepository projectRepository,
                            ProjectMemberRepository projectMemberRepository,
                            SprintRepository sprintRepository,
@@ -100,55 +180,46 @@ public class TaskServiceImpl implements TaskService {
         this.projectStatusRepository = projectStatusRepository;
     }
 
-    // ======================================================
-    // 1. KÉO THẢ TASK (SPRINT + VỊ TRÍ)
-    // ======================================================
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+
     @Override
     @Transactional
-    @LogActivity(action = "UPDATE", entityType = "TASK", description = "Drag and drop Task with Sprint")
+    @LogActivity(action = ACTION_UPDATE, entityType = ENTITY_TASK, description = DESC_DRAG_DROP)
     public TaskResponse updateTaskSprint(Integer taskId, Integer newSprintId, Integer newSortOrder) {
-        // 1. Tìm Task
+        // Tim kiem cong viec
         Task task = taskRepository.findById(taskId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_TASK_NOT_FOUND));
 
         Integer projectId = task.getProject().getId();
 
-        // 2. Xác định Sprint đích (hoặc Backlog)
+        // Xac dinh Sprint dich hoac dua ve Backlog
         Sprint targetSprint = null;
         if (newSprintId != null) {
             targetSprint = sprintRepository.findById(newSprintId)
-                    // Sửa thông báo sang tiếng Anh
-                    .orElseThrow(() -> new ResourceNotFoundException("Sprint not found."));
-            // Validate: Task và Sprint phải cùng Project
+                    .orElseThrow(() -> new ResourceNotFoundException(ERROR_SPRINT_NOT_FOUND));
+            
             if (!targetSprint.getProject().getId().equals(projectId)) {
-                // Sửa thông báo sang tiếng Anh
-                throw new BadRequestException("Task and Sprint must belong to the same project.");
+                throw new BadRequestException(ERROR_PROJECT_MISMATCH_SPRINT);
             }
         }
 
-        // 3. Xử lý Vị trí (SortOrder)
+        // Xu ly vi tri sap xep
         if (newSortOrder == null) {
-            // Nếu không gửi vị trí -> Mặc định xuống cuối cùng
+            // Day xuong cuoi cung neu khong chi dinh vi tri
             if (targetSprint != null) {
-                // Cuối Sprint
                 newSortOrder = taskRepository.findMaxSortOrderBySprintId(newSprintId) + 1;
             } else {
-                // Cuối Backlog
                 newSortOrder = taskRepository.findMaxSortOrderByProjectIdAndSprintIsNull(projectId) + 1;
             }
         } else {
-            // Nếu có vị trí cụ thể -> Phải đẩy các task đang đứng đó lùi xuống
+            // Day cac cong viec khac lui xuong de chen vao
             if (targetSprint != null) {
-                // Chuyển vị trí trong Sprint
                 taskRepository.shiftSortOrderInSprint(newSprintId, newSortOrder);
             } else {
-                // Chuyển vị trí trong Backlog
                 taskRepository.shiftSortOrderInBacklog(projectId, newSortOrder);
             }
         }
 
-        // 4. Cập nhật Task
         task.setSprint(targetSprint);
         task.setSortOrder(newSortOrder);
 
@@ -156,112 +227,92 @@ public class TaskServiceImpl implements TaskService {
         return mapToTaskResponse(savedTask);
     }
 
-    // ======================================================
-    // 2. TẠO TASK MỚI (CREATE TASK)
-    // ======================================================
     @Override
     @Transactional
-    @LogActivity(action = "CREATE", entityType = "TASK", description = "Create new Task")
+    @LogActivity(action = ACTION_CREATE, entityType = ENTITY_TASK, description = DESC_CREATE_TASK)
     public TaskSummaryResponse createTask(Integer projectId, CreateTaskRequest request) {
-
-        // 1. Lấy thông tin người tạo
+        // Lay thong tin nguoi tao
         User creator = securityService.getCurrentAuthenticatedUser();
 
-        // 2. Lấy dự án
+        // Kiem tra du an
         Project project = projectRepository.findById(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND));
 
-        // 3. TỰ ĐỘNG TÌM TRẠNG THÁI (CỘT) MẶC ĐỊNH (Vị trí đầu tiên)
+        // Tim trang thai cot mac dinh de gan vao cong viec moi
         ProjectStatus defaultStatus = projectStatusRepository.findFirstByProject_IdOrderBySortOrderAsc(projectId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("This project has no status board configuration."));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_NO_STATUS_BOARD));
 
-        // 4. XỬ LÝ SPRINT (Backlog hoặc Sprint cụ thể)
+        // Xu ly chuyen vao Sprint neu co
         Sprint sprint = null;
         if (request.getSprintId() != null) {
             sprint = sprintRepository.findById(request.getSprintId())
-                    // Sửa thông báo sang tiếng Anh
-                    .orElseThrow(() -> new ResourceNotFoundException("Sprint not found with ID: " + request.getSprintId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(ERROR_SPRINT_NOT_FOUND_ID + request.getSprintId()));
 
-            // Validate: Sprint phải thuộc Project này
             if (!sprint.getProject().getId().equals(projectId)) {
-                // Sửa thông báo sang tiếng Anh
-                throw new BadRequestException("Sprint does not belong to this project.");
+                throw new BadRequestException(ERROR_PROJECT_MISMATCH_SPRINT);
             }
         }
 
-        // 5. Xử lý các trường tùy chọn (Epic, Assignee)
+        // Xu ly Epic va nguoi thuc hien
         Epic epic = null;
         if (request.getEpicId() != null) {
             epic = epicRepository.findById(request.getEpicId())
-                    // Sửa thông báo sang tiếng Anh
-                    .orElseThrow(() -> new ResourceNotFoundException("Epic not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException(ERROR_EPIC_NOT_FOUND));
         }
+        
         User assignee = null;
         if (request.getAssigneeId() != null) {
             assignee = userRepository.findById(request.getAssigneeId())
-                    // Sửa thông báo sang tiếng Anh
-                    .orElseThrow(() -> new ResourceNotFoundException("Assignee user not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException(ERROR_ASSIGNEE_NOT_FOUND));
         }
 
-        // 6. SINH MÃ TASK TỰ ĐỘNG (Ví dụ: WEB-1, WEB-2)
+        // Sinh ma tu dong cho cong viec
         long taskCount = taskRepository.countByProjectId(projectId);
         String newCode = project.getProjectCode() + "-" + (taskCount + 1);
 
-        // 7. Tạo Task Entity (Gán mặc định nếu thiếu)
+        // Khoi tao cong viec
         Task newTask = Task.builder()
                 .project(project)
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .taskCode(newCode)
-
-                // Mặc định là TASK nếu không chọn
                 .taskType(request.getTaskType() != null ? request.getTaskType() : TaskType.TASK)
-
-                // Mặc định vào cột đầu tiên
                 .status(defaultStatus)
-
-                // Mặc định là MEDIUM nếu không chọn
                 .priority(request.getPriority() != null ? request.getPriority() : TaskPriority.MEDIUM)
-
-                .sprint(sprint) // Null (Backlog) hoặc Object (Sprint)
+                .sprint(sprint) 
                 .epic(epic)
                 .assignee(assignee)
                 .assigner(creator)
                 .createdBy(creator)
                 .storyPoints(request.getStoryPoints())
                 .dueDate(request.getDueDate())
-                .sortOrder((int) taskCount) // Mặc định xếp cuối cùng
+                .sortOrder((int) taskCount) 
                 .build();
 
         Task savedTask = taskRepository.save(newTask);
-
-        // 8. Map sang DTO và trả về
         return mapToTaskSummaryResponse(savedTask);
     }
 
-    // ======================================================
-    // 3. DI CHUYỂN TASK (STATUS + VỊ TRÍ TRÊN BOARD)
-    // ======================================================
     @Override
     @Transactional
-    @LogActivity(action = "MOVE_STATUS", entityType = "TASK", description = "Change task status")
+    @LogActivity(action = ACTION_MOVE_STATUS, entityType = ENTITY_TASK, description = DESC_MOVE_STATUS)
     public TaskResponse moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request) {
+        // Kiem tra cong viec ton tai
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_TASK_NOT_FOUND_ID + taskId));
 
         Integer projectId = task.getProject().getId();
         Integer newStatusId = request.getNewStatusId();
 
+        // Kiem tra trang thai moi ton tai va hop le
         ProjectStatus newStatus = projectStatusRepository.findById(newStatusId)
-                .orElseThrow(() -> new ResourceNotFoundException("Status not found with ID: " + newStatusId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_STATUS_NOT_FOUND));
 
         if (!newStatus.getProject().getId().equals(projectId)) {
-            throw new BadRequestException("New status does not belong to the task's project.");
+            throw new BadRequestException(ERROR_PROJECT_MISMATCH_STATUS);
         }
 
-        // Logic Sort Order
+        // Tinh toan lai vi tri cua cac cong viec khac trong cot dich
         Integer newSortOrder = request.getNewSortOrder();
         if (newSortOrder == null) {
             newSortOrder = taskRepository.findMaxSortOrderByStatusId(projectId, newStatusId) + 1;
@@ -269,26 +320,22 @@ public class TaskServiceImpl implements TaskService {
             taskRepository.shiftSortOrderInStatus(projectId, newStatusId, newSortOrder);
         }
 
-        // --- LOGIC GHI LOG CHI TIẾT ---
-        String oldStatusName = (task.getStatus() != null) ? task.getStatus().getName() : "None";
+        String oldStatusName = (task.getStatus() != null) ? task.getStatus().getName() : LABEL_NONE;
         String newStatusName = newStatus.getName();
 
-        // Chỉ ghi log nếu trạng thái thực sự thay đổi
+        // Ghi log chi tiet viec dich chuyen trang thai hoac thay doi vi tri
         if (!oldStatusName.equals(newStatusName)) {
-             ActivityLogContext.setDetail(String.format(
-                "changed status from <strong>%s</strong> to <strong>%s</strong>", 
-                oldStatusName, newStatusName
-            ));
+             ActivityLogContext.setDetail(String.format(LOG_STATUS_CHANGED, oldStatusName, newStatusName));
         } else {
-             ActivityLogContext.setDetail("reordered in <strong>" + newStatusName + "</strong> column");
+             ActivityLogContext.setDetail(String.format(LOG_REORDERED, newStatusName));
         }
-        // ------------------------------
 
         task.setStatus(newStatus);
         task.setSortOrder(newSortOrder);
 
+        // Cap nhat thoi gian hoan thanh dua tren tinh chat cua cot trang thai
         if (newStatus.getIsCompletedStatus()) {
-            task.setCompletedAt(java.time.LocalDateTime.now());
+            task.setCompletedAt(LocalDateTime.now());
         } else {
             task.setCompletedAt(null);
         }
@@ -297,284 +344,280 @@ public class TaskServiceImpl implements TaskService {
         return mapToTaskResponse(savedTask);
     }
 
-    // ======================================================
-    // 4. CẬP NHẬT TASK (UPDATE ALL FIELDS) - FULL CODE
-    // ======================================================
-
     @Override
     @Transactional
-    @LogActivity(action = "UPDATE", entityType = "TASK", description = "Update task information")
+    @LogActivity(action = ACTION_UPDATE, entityType = ENTITY_TASK, description = DESC_UPDATE_TASK)
     public TaskResponse updateTask(Integer taskId, UpdateTaskRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_TASK_NOT_FOUND_ID + taskId));
         
         Integer projectId = task.getProject().getId();
         StringBuilder changes = new StringBuilder();
 
-        // ==========================================
-        // 1. SCALAR FIELDS (So sánh an toàn)
-        // ==========================================
-
-        // Title
+        // Cap nhat tieu de
         if (request.getTitle() != null && !request.getTitle().isBlank() 
                 && !request.getTitle().equals(task.getTitle())) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append(String.format("renamed from \"<strong>%s</strong>\" to \"<strong>%s</strong>\"", task.getTitle(), request.getTitle()));
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(String.format(LOG_RENAMED, task.getTitle(), request.getTitle()));
             task.setTitle(request.getTitle());
         }
 
-        // Description
-        // Lưu ý: Swagger hay gửi chuỗi "string" mặc định, ta nên check khác "string" nếu muốn kỹ hơn
-        if (request.getDescription() != null 
-                && !request.getDescription().equals(task.getDescription())) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append("updated description");
+        // Cap nhat mo ta
+        if (request.getDescription() != null && !request.getDescription().equals(task.getDescription())) {
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(LOG_DESC_UPDATED);
             task.setDescription(request.getDescription());
         }
 
-        // Task Type
+        // Cap nhat loai cong viec
         if (request.getTaskType() != null && request.getTaskType() != task.getTaskType()) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append(String.format("changed type to <strong>%s</strong>", request.getTaskType()));
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(String.format(LOG_TYPE_CHANGED, request.getTaskType()));
             task.setTaskType(request.getTaskType());
         }
 
-        // Priority
+        // Cap nhat do uu tien
         if (request.getPriority() != null && request.getPriority() != task.getPriority()) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append(String.format("changed priority to <strong>%s</strong>", request.getPriority()));
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(String.format(LOG_PRIORITY_CHANGED, request.getPriority()));
             task.setPriority(request.getPriority());
         }
 
-        // Story Points (So sánh số)
+        // Cap nhat khoi luong cong viec (Point)
         if (request.getStoryPoints() != null && !Objects.equals(request.getStoryPoints(), task.getStoryPoints())) {
-            if (changes.length() > 0) changes.append(", ");
-            changes.append(String.format("changed points to <strong>%d</strong>", request.getStoryPoints()));
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            changes.append(String.format(LOG_POINTS_CHANGED, request.getStoryPoints()));
             task.setStoryPoints(request.getStoryPoints());
         }
 
-        // Estimated Hours (So sánh BigDecimal an toàn: dùng compareTo để 10.0 == 10.00)
+        // Cap nhat thoi gian du kien
         if (request.getEstimatedHours() != null) {
             boolean isDifferent;
-            if (task.getEstimatedHours() == null) isDifferent = true;
-            else isDifferent = request.getEstimatedHours().compareTo(task.getEstimatedHours()) != 0;
+            if (task.getEstimatedHours() == null) {
+                isDifferent = true;
+            } else {
+                isDifferent = request.getEstimatedHours().compareTo(task.getEstimatedHours()) != 0;
+            }
 
             if (isDifferent) {
-                if (changes.length() > 0) changes.append(", ");
-                changes.append(String.format("changed estimate to <strong>%s</strong>h", request.getEstimatedHours()));
+                if (changes.length() > 0) {
+                    changes.append(", ");
+                }
+                changes.append(String.format(LOG_ESTIMATE_CHANGED, request.getEstimatedHours()));
                 task.setEstimatedHours(request.getEstimatedHours());
             }
         }
 
-        // Dates (Quan trọng: Sử dụng isEqual để so sánh thời gian)
+        // Cap nhat ngay bat dau
         if (request.getStartDate() != null) {
             boolean isDifferent = (task.getStartDate() == null) || !request.getStartDate().isEqual(task.getStartDate());
             if (isDifferent) {
-                if (changes.length() > 0) changes.append(", ");
-                changes.append("changed start date");
+                if (changes.length() > 0) {
+                    changes.append(", ");
+                }
+                changes.append(LOG_START_DATE_CHANGED);
                 task.setStartDate(request.getStartDate());
             }
         }
 
+        // Cap nhat ngay dao han
         if (request.getDueDate() != null) {
             boolean isDifferent = (task.getDueDate() == null) || !request.getDueDate().isEqual(task.getDueDate());
             if (isDifferent) {
-                if (changes.length() > 0) changes.append(", ");
-                changes.append("changed due date");
+                if (changes.length() > 0) {
+                    changes.append(", ");
+                }
+                changes.append(LOG_DUE_DATE_CHANGED);
                 task.setDueDate(request.getDueDate());
             }
         }
 
-        // ==========================================
-        // 2. RELATIONS (Quan hệ)
-        // ==========================================
-
-        // A. Status
+        // Cap nhat trang thai
         if (request.getStatusId() != null) {
             Integer oldStatusId = task.getStatus() != null ? task.getStatus().getId() : 0;
             if (!request.getStatusId().equals(oldStatusId)) {
                 ProjectStatus newStatus = projectStatusRepository.findById(request.getStatusId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Status not found"));
-                if (!newStatus.getProject().getId().equals(projectId)) throw new BadRequestException("Status invalid");
+                        .orElseThrow(() -> new ResourceNotFoundException(ERROR_STATUS_NOT_FOUND));
+                
+                if (!newStatus.getProject().getId().equals(projectId)) {
+                    throw new BadRequestException(ERROR_PROJECT_MISMATCH_STATUS);
+                }
 
-                if (changes.length() > 0) changes.append(", ");
-                String oldName = task.getStatus() != null ? task.getStatus().getName() : "None";
-                changes.append(String.format("changed status from <strong>%s</strong> to <strong>%s</strong>", oldName, newStatus.getName()));
+                if (changes.length() > 0) {
+                    changes.append(", ");
+                }
+                String oldName = task.getStatus() != null ? task.getStatus().getName() : LABEL_NONE;
+                changes.append(String.format(LOG_STATUS_CHANGED, oldName, newStatus.getName()));
                 
                 task.setStatus(newStatus);
             }
         }
 
-        // B. Sprint
+        // Cap nhat Sprint
         if (request.getSprintId() != null) {
             Integer oldSprintId = task.getSprint() != null ? task.getSprint().getId() : 0;
-            // Nếu gửi lên 0 (muốn gỡ sprint) và hiện tại đang có sprint (id khác 0) -> Thay đổi
-            // Nếu gửi lên X, hiện tại là Y -> Thay đổi
+            
             if (!request.getSprintId().equals(oldSprintId)) {
                 if (request.getSprintId() == 0) {
-                    if (changes.length() > 0) changes.append(", ");
-                    changes.append("moved to <strong>Backlog</strong>");
+                    if (changes.length() > 0) {
+                        changes.append(", ");
+                    }
+                    changes.append(LOG_MOVED_BACKLOG);
                     task.setSprint(null);
                 } else {
                     Sprint sprint = sprintRepository.findById(request.getSprintId())
-                            .orElseThrow(() -> new ResourceNotFoundException("Sprint not found"));
-                    if (!sprint.getProject().getId().equals(projectId)) throw new BadRequestException("Sprint invalid");
+                            .orElseThrow(() -> new ResourceNotFoundException(ERROR_SPRINT_NOT_FOUND));
+                            
+                    if (!sprint.getProject().getId().equals(projectId)) {
+                        throw new BadRequestException(ERROR_PROJECT_MISMATCH_SPRINT);
+                    }
 
-                    if (changes.length() > 0) changes.append(", ");
-                    changes.append(String.format("moved to sprint <strong>%s</strong>", sprint.getName()));
+                    if (changes.length() > 0) {
+                        changes.append(", ");
+                    }
+                    changes.append(String.format(LOG_MOVED_SPRINT, sprint.getName()));
                     task.setSprint(sprint);
                 }
             }
         }
 
-        // C. Epic
+        // Cap nhat Epic
         if (request.getEpicId() != null) {
              Integer oldEpicId = task.getEpic() != null ? task.getEpic().getId() : 0;
+             
              if (!request.getEpicId().equals(oldEpicId)) {
                  if (request.getEpicId() == 0) {
-                     if (changes.length() > 0) changes.append(", ");
-                     changes.append("removed from Epic");
+                     if (changes.length() > 0) {
+                         changes.append(", ");
+                     }
+                     changes.append(LOG_REMOVED_EPIC);
                      task.setEpic(null);
                  } else {
                      Epic epic = epicRepository.findById(request.getEpicId())
-                             .orElseThrow(() -> new ResourceNotFoundException("Epic not found"));
-                     if (!epic.getProject().getId().equals(projectId)) throw new BadRequestException("Epic invalid");
+                             .orElseThrow(() -> new ResourceNotFoundException(ERROR_EPIC_NOT_FOUND));
+                             
+                     if (!epic.getProject().getId().equals(projectId)) {
+                         throw new BadRequestException(ERROR_PROJECT_MISMATCH_EPIC);
+                     }
 
-                     if (changes.length() > 0) changes.append(", ");
-                     changes.append(String.format("added to epic <strong>%s</strong>", epic.getName()));
+                     if (changes.length() > 0) {
+                         changes.append(", ");
+                     }
+                     changes.append(String.format(LOG_ADDED_EPIC, epic.getName()));
                      task.setEpic(epic);
                  }
              }
         }
 
-        // D. Assignee
+        // Cap nhat nguoi thuc hien
         if (request.getAssigneeId() != null) {
              Integer oldAssigneeId = task.getAssignee() != null ? task.getAssignee().getId() : 0;
+             
              if (!request.getAssigneeId().equals(oldAssigneeId)) {
                  if (request.getAssigneeId() == 0) {
-                     if (changes.length() > 0) changes.append(", ");
-                     changes.append("unassigned");
+                     if (changes.length() > 0) {
+                         changes.append(", ");
+                     }
+                     changes.append(LOG_UNASSIGNED);
                      task.setAssignee(null);
                  } else {
                      User assignee = userRepository.findById(request.getAssigneeId())
-                             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                             .orElseThrow(() -> new ResourceNotFoundException(ERROR_USER_NOT_FOUND));
                      
-                     if (changes.length() > 0) changes.append(", ");
-                     changes.append(String.format("assigned to <strong>%s</strong>", assignee.getFullName()));
+                     if (changes.length() > 0) {
+                         changes.append(", ");
+                     }
+                     changes.append(String.format(LOG_ASSIGNED, assignee.getFullName()));
                      task.setAssignee(assignee);
                  }
              }
         }
 
-        // ==========================================
-        // 3. SET LOG & SAVE
-        // ==========================================
-
         if (changes.length() > 0) {
             ActivityLogContext.setDetail(changes.toString());
-        } else {
-            // ActivityLogContext.setDetail("updated details");
         }
 
         Task updatedTask = taskRepository.save(task);
         return mapToTaskResponse(updatedTask);
     }
 
-    // ======================================================
-    // 5. GÁN/GỠ EPIC VÀO TASK
-    // ======================================================
     @Override
     @Transactional
-    @LogActivity(action = "UPDATE", entityType = "TASK", description = "Update Task Epic")
+    @LogActivity(action = ACTION_UPDATE, entityType = ENTITY_TASK, description = DESC_UPDATE_EPIC)
     public TaskResponse updateTaskEpic(Integer taskId, UpdateTaskEpicRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_TASK_NOT_FOUND_ID + taskId));
 
         Integer newEpicId = request.getEpicId();
         
-        // --- LOGIC LOG CHI TIẾT ---
-        String oldEpicName = task.getEpic() != null ? task.getEpic().getName() : "None";
-        String newEpicName = "None";
-        // --------------------------
+        String oldEpicName = task.getEpic() != null ? task.getEpic().getName() : LABEL_NONE;
+        String newEpicName = LABEL_NONE;
 
         if (newEpicId == null || newEpicId == 0) {
-            // Trường hợp 1: GỠ EPIC
             task.setEpic(null);
-            ActivityLogContext.setDetail("removed from epic <strong>" + oldEpicName + "</strong>");
+            ActivityLogContext.setDetail(String.format("removed from epic <strong>%s</strong>", oldEpicName));
 
         } else {
-            // Trường hợp 2: GÁN EPIC
             Epic epic = epicRepository.findById(newEpicId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Epic not found with ID: " + newEpicId));
+                    .orElseThrow(() -> new ResourceNotFoundException(ERROR_EPIC_NOT_FOUND));
 
             if (!task.getProject().getId().equals(epic.getProject().getId())) {
-                throw new BadRequestException("Epic does not belong to this project.");
+                throw new BadRequestException(ERROR_PROJECT_MISMATCH_EPIC);
             }
             
             newEpicName = epic.getName();
             task.setEpic(epic);
             
-            ActivityLogContext.setDetail(String.format(
-                "changed epic from <strong>%s</strong> to <strong>%s</strong>", 
-                oldEpicName, newEpicName
-            ));
+            ActivityLogContext.setDetail(String.format(LOG_CHANGED_EPIC, oldEpicName, newEpicName));
         }
 
         Task updatedTask = taskRepository.save(task);
         return mapToTaskResponse(updatedTask);
     }
 
-    // ======================================================
-    // 6. XEM CHI TIẾT TASK
-    // ======================================================
     @Override
     @Transactional(readOnly = true)
     public TaskResponse getTaskDetails(Integer taskId) {
-        // 1. Tìm Task
         Task task = taskRepository.findById(taskId)
-                // Sửa thông báo sang tiếng Anh
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_TASK_NOT_FOUND_ID + taskId));
 
-        // 2. Map sang DTO chi tiết
         return mapToTaskResponse(task);
     }
-    // Delete Task
-     @Override
+    
+    @Override
     @Transactional
-    @LogActivity(action = "DELETE", entityType = "TASK", description = "Delete task")
+    @LogActivity(action = ACTION_DELETE, entityType = ENTITY_TASK, description = DESC_DELETE_TASK)
     public TaskResponse deleteTask(Integer taskId) {
-        // BƯỚC 1: Tìm Task trước (Để lấy dữ liệu trả về và để xóa)
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_TASK_NOT_FOUND_ID + taskId));
 
-        // BƯỚC 2: Map sang Response DTO (Lưu lại thông tin trước khi xóa)
-        // Lưu ý: Phải map trước khi xóa các quan hệ con nếu cần thông tin con
         TaskResponse response = mapToTaskResponse(task);
 
-        // BƯỚC 3: XỬ LÝ LỖI "Row was updated or deleted..." (Vấn đề cũ của bạn)
-        // Xóa thủ công comments trước để tránh xung đột Hibernate
+        // Xoa cac binh luan thu cong de tranh xung dot tu phia Hibernate truoc khi xoa cong viec chinh
         if (task.getComments() != null && !task.getComments().isEmpty()) {
-            // Cần inject TaskCommentRepository ở trên Constructor
              taskCommentRepository.deleteAll(task.getComments());
-             
-             // Xóa list trong memory để Hibernate không bị loạn
              task.setComments(new ArrayList<>()); 
         }
 
-        // BƯỚC 4: Xóa Task
-        // Dùng delete(entity) thay vì deleteById(id) để tận dụng object đã load
         taskRepository.delete(task);
 
-        // BƯỚC 5: Trả về thông tin task vừa xóa
         return response;
     }
-    // =================================================================
-    // 1. TẠO FILE EXCEL MẪU
-    // =================================================================
+    
     @Override
     public byte[] generateImportTemplate() {
         try (Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Tasks Import");
+            Sheet sheet = workbook.createSheet(EXCEL_SHEET_NAME);
 
             CellStyle headerStyle = workbook.createCellStyle();
             Font headerFont = workbook.createFont();
@@ -584,124 +627,154 @@ public class TaskServiceImpl implements TaskService {
             headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
             Row headerRow = sheet.createRow(0);
-            String[] columns = {"Title", "Description", "Assignee Email", "Priority", "Status", "Start Date", "Due Date", "Story Points", "Estimated Hours"};
 
-            for (int i = 0; i < columns.length; i++) {
+            for (int i = 0; i < EXCEL_COLUMNS.length; i++) {
                 Cell cell = headerRow.createCell(i);
-                cell.setCellValue(columns[i]);
+                cell.setCellValue(EXCEL_COLUMNS[i]);
                 cell.setCellStyle(headerStyle);
-                // Set độ rộng cột (Đơn vị 1/256)
-                if (i == 1) sheet.setColumnWidth(i, 50 * 256); // Desc
-                else if (i == 5 || i == 6) sheet.setColumnWidth(i, 20 * 256); // Dates (Hết lỗi ####)
-                else sheet.setColumnWidth(i, 25 * 256);
+                
+                // Thiet lap do rong cho cac cot theo quy chuan
+                if (i == 1) {
+                    sheet.setColumnWidth(i, EXCEL_WIDTH_DESC * EXCEL_COL_WIDTH_MULTIPLIER); 
+                } else if (i == 5 || i == 6) {
+                    sheet.setColumnWidth(i, EXCEL_WIDTH_DATE * EXCEL_COL_WIDTH_MULTIPLIER); 
+                } else {
+                    sheet.setColumnWidth(i, EXCEL_WIDTH_DEFAULT * EXCEL_COL_WIDTH_MULTIPLIER);
+                }
             }
 
+            // Tao du lieu mau
             Row row = sheet.createRow(1);
             row.createCell(0).setCellValue("Fix Login Bug");
             row.createCell(1).setCellValue("Fix error 401 on login");
             row.createCell(2).setCellValue("dev1@techvision.com");
             row.createCell(3).setCellValue("HIGH");
             row.createCell(4).setCellValue("To Do");
-            row.createCell(5).setCellValue("2025-12-01"); // Định dạng chuỗi YYYY-MM-DD
+            row.createCell(5).setCellValue("2025-12-01"); 
             row.createCell(6).setCellValue("2025-12-31");
             row.createCell(7).setCellValue(5);
             row.createCell(8).setCellValue(8.0);
             
-            // Dropdowns
+            // Xy ly dropdown list trong Excel
             DataValidationHelper helper = sheet.getDataValidationHelper();
-            // Priority
-            DataValidationConstraint priorityConstraint = helper.createExplicitListConstraint(new String[]{"LOW", "MEDIUM", "HIGH", "URGENT"});
+            
+            DataValidationConstraint priorityConstraint = helper.createExplicitListConstraint(EXCEL_DROPDOWN_PRIORITY);
             sheet.addValidationData(helper.createValidation(priorityConstraint, new CellRangeAddressList(1, 1000, 3, 3)));
-            // Status
-            DataValidationConstraint statusConstraint = helper.createExplicitListConstraint(new String[]{"To Do", "In Progress", "Done", "Backlog"});
+            
+            DataValidationConstraint statusConstraint = helper.createExplicitListConstraint(EXCEL_DROPDOWN_STATUS);
             sheet.addValidationData(helper.createValidation(statusConstraint, new CellRangeAddressList(1, 1000, 4, 4)));
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);
             return out.toByteArray();
         } catch (IOException e) {
-            throw new BadRequestException("Fail to generate template: " + e.getMessage());
+            throw new BadRequestException(ERROR_GENERATE_TEMPLATE + e.getMessage());
         }
     }
 
-    // =================================================================
-    // 2. PREVIEW IMPORT (CORE LOGIC SỬA LỖI)
-    // =================================================================
     @Override
     @Transactional(readOnly = true)
     public List<TaskImportPreviewResponse> previewImportTasks(Integer projectId, MultipartFile file) {
-        // Check định dạng file
         String fileName = file.getOriginalFilename();
-        if (fileName == null || (!fileName.endsWith(".xlsx") && !fileName.endsWith(".xls"))) {
-             // Nếu muốn hỗ trợ cả CSV thì cần logic if/else riêng, nhưng ở đây ta ưu tiên Excel
-             throw new BadRequestException("Please upload a valid Excel file (.xlsx)");
+        if (fileName == null || (!fileName.endsWith(EXCEL_FILE_EXTENSION_XLSX) && !fileName.endsWith(EXCEL_FILE_EXTENSION_XLS))) {
+             throw new BadRequestException(ERROR_INVALID_EXCEL);
         }
 
         Map<String, User> projectMembersMap = projectMemberRepository.findByProject_Id(projectId, Pageable.unpaged())
-                .stream().filter(pm -> pm.getStatus() == MemberStatus.ACTIVE).map(ProjectMember::getUser)
+                .stream()
+                .filter(pm -> pm.getStatus() == MemberStatus.ACTIVE)
+                .map(ProjectMember::getUser)
                 .collect(Collectors.toMap(u -> u.getEmail().toLowerCase(), u -> u));
 
         List<TaskImportPreviewResponse> previewList = new ArrayList<>();
-        DataFormatter dataFormatter = new DataFormatter(); // Helper định dạng của POI
+        DataFormatter dataFormatter = new DataFormatter(); 
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
             int rowIndex = 0;
 
             for (Row row : sheet) {
-                if (rowIndex == 0) { rowIndex++; continue; } // Bỏ qua Header
+                if (rowIndex == 0) { 
+                    rowIndex++; 
+                    continue; 
+                }
 
-                // 1. Đọc dữ liệu (Dùng Helper getCellValue để tránh lỗi)
                 String title = getCellValue(row.getCell(0), dataFormatter);
-                if (title.isEmpty()) break; // Hết dữ liệu -> Dừng
+                if (title.isEmpty()) {
+                    break; 
+                }
 
                 String description = getCellValue(row.getCell(1), dataFormatter);
                 String assigneeEmail = getCellValue(row.getCell(2), dataFormatter);
                 String priority = getCellValue(row.getCell(3), dataFormatter);
                 String status = getCellValue(row.getCell(4), dataFormatter);
                 
-                // 🔥 Đọc Date thông minh: Thử đọc Object Date trước, nếu không được thì đọc String
                 LocalDateTime startDt = parseExcelDate(row.getCell(5));
                 String startDateStr = getCellValue(row.getCell(5), dataFormatter);
-                if (startDt == null && !startDateStr.isEmpty()) startDt = parseDateFlexible(startDateStr);
+                if (startDt == null && !startDateStr.isEmpty()) {
+                    startDt = parseDateFlexible(startDateStr);
+                }
 
                 LocalDateTime dueDt = parseExcelDate(row.getCell(6));
                 String dueDateStr = getCellValue(row.getCell(6), dataFormatter);
-                if (dueDt == null && !dueDateStr.isEmpty()) dueDt = parseDateFlexible(dueDateStr);
+                if (dueDt == null && !dueDateStr.isEmpty()) {
+                    dueDt = parseDateFlexible(dueDateStr);
+                }
 
                 String pointsStr = getCellValue(row.getCell(7), dataFormatter);
                 String hoursStr = getCellValue(row.getCell(8), dataFormatter);
 
-                // 2. Validate
+                // Kiem tra du lieu dau vao
                 List<String> errors = new ArrayList<>();
 
-                if (title.isEmpty()) errors.add("Title is required");
+                if (title.isEmpty()) {
+                    errors.add(VALIDATION_TITLE_REQUIRED);
+                }
 
                 if (!assigneeEmail.isEmpty()) {
                     if (!projectMembersMap.containsKey(assigneeEmail.toLowerCase())) {
-                        errors.add("User '" + assigneeEmail + "' is not in project");
+                        errors.add(String.format(VALIDATION_USER_NOT_IN_PROJECT, assigneeEmail));
                     }
                 }
 
-                if (!startDateStr.isEmpty() && startDt == null) errors.add("Invalid Start Date");
-                if (!dueDateStr.isEmpty() && dueDt == null) errors.add("Invalid Due Date");
+                if (!startDateStr.isEmpty() && startDt == null) {
+                    errors.add(VALIDATION_INVALID_START_DATE);
+                }
+                
+                if (!dueDateStr.isEmpty() && dueDt == null) {
+                    errors.add(VALIDATION_INVALID_DUE_DATE);
+                }
 
                 if (startDt != null && dueDt != null && startDt.isAfter(dueDt)) {
-                    errors.add("Start Date must be before Due Date");
+                    errors.add(VALIDATION_DATE_ORDER);
                 }
                 
                 if (!priority.isEmpty()) {
-                    try { TaskPriority.valueOf(priority.toUpperCase()); } 
-                    catch (Exception e) { errors.add("Invalid Priority"); }
+                    try { 
+                        TaskPriority.valueOf(priority.toUpperCase()); 
+                    } catch (Exception e) { 
+                        errors.add(VALIDATION_INVALID_PRIORITY); 
+                    }
                 }
 
                 Integer points = null;
-                try { if(!pointsStr.isEmpty()) points = (int) Double.parseDouble(pointsStr); } catch(Exception e) { errors.add("Points must be number"); }
+                try { 
+                    if (!pointsStr.isEmpty()) {
+                        points = (int) Double.parseDouble(pointsStr); 
+                    }
+                } catch(Exception e) { 
+                    errors.add(VALIDATION_POINTS_NAN); 
+                }
                 
                 Double hours = null;
-                try { if(!hoursStr.isEmpty()) hours = Double.parseDouble(hoursStr); } catch(Exception e) { errors.add("Hours must be number"); }
+                try { 
+                    if (!hoursStr.isEmpty()) {
+                        hours = Double.parseDouble(hoursStr); 
+                    }
+                } catch(Exception e) { 
+                    errors.add(VALIDATION_HOURS_NAN); 
+                }
 
-                // Chuẩn hóa String ngày tháng để trả về Frontend
                 String startDisplay = startDt != null ? startDt.toLocalDate().toString() : startDateStr;
                 String dueDisplay = dueDt != null ? dueDt.toLocalDate().toString() : dueDateStr;
 
@@ -722,185 +795,168 @@ public class TaskServiceImpl implements TaskService {
                 rowIndex++;
             }
         } catch (Exception e) {
-            throw new BadRequestException("Error reading Excel: " + e.getMessage());
+            throw new BadRequestException(ERROR_READING_EXCEL + e.getMessage());
         }
         return previewList;
     }
 
-// =================================================================
-// LOGIC SAVE (BƯỚC 2 - Nhận JSON đã sửa từ FE)
-// =================================================================
-@Override
-@Transactional
-@LogActivity(action = "IMPORT", entityType = "TASK", description = "Import tasks from JSON")
-public ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskImportPreviewResponse> rows) {
-    // 1. Prepare Data Maps (Cache for performance)
-    Project project = projectRepository.findById(projectId)
-            .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
-            
-    Map<String, User> memberMap = projectMemberRepository.findByProject_Id(projectId, Pageable.unpaged())
-            .stream()
-            .filter(pm -> pm.getStatus() == MemberStatus.ACTIVE)
-            .map(ProjectMember::getUser)
-            .collect(Collectors.toMap(u -> u.getEmail().toLowerCase(), u -> u));
-    
-    Map<String, ProjectStatus> statusMap = projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId)
-            .stream().collect(Collectors.toMap(s -> s.getName().toLowerCase(), s -> s));
-            
-    // Fallback default status
-    ProjectStatus defaultStatus = statusMap.values().stream()
-            .min(Comparator.comparingInt(ProjectStatus::getSortOrder))
-            .orElseThrow(() -> new ResourceNotFoundException("No status found"));
-
-    User creator = securityService.getCurrentAuthenticatedUser();
-    long currentSort = taskRepository.countByProjectId(projectId);
-    List<Task> tasksToSave = new ArrayList<>();
-
-    // 2. Processing Rows (Lenient Mode)
-    for (TaskImportPreviewResponse row : rows) {
-        // Skip only if Title is missing (Mandatory field)
-        if (row.getTitle() == null || row.getTitle().trim().isEmpty()) {
-            continue; 
-        }
-
-        // --- LENIENT MAPPING LOGIC ---
-
-        // 1. Assignee: Map if exists, else NULL
-        User assignee = null;
-        if (row.getAssigneeEmail() != null && !row.getAssigneeEmail().isBlank()) {
-            // Try to find user. If map returns null (not found), assignee remains null.
-            assignee = memberMap.get(row.getAssigneeEmail().trim().toLowerCase());
-        }
-
-        // 2. Status: Map if exists, else DEFAULT
-        ProjectStatus status = defaultStatus;
-        if (row.getStatusName() != null && statusMap.containsKey(row.getStatusName().trim().toLowerCase())) {
-            status = statusMap.get(row.getStatusName().trim().toLowerCase());
-        }
-
-        // 3. Priority: Map if valid, else MEDIUM
-        TaskPriority priority = TaskPriority.MEDIUM;
-        try {
-            if (row.getPriority() != null) {
-                priority = TaskPriority.valueOf(row.getPriority().toUpperCase());
-            }
-        } catch (Exception ignored) {
-            // Invalid priority -> Fallback to MEDIUM (or NULL if your DB allows)
-        }
-
-        LocalDateTime startDate = null;
-        try {
-            if (row.getStartDate() != null && !row.getStartDate().isBlank()) {
-                startDate = LocalDate.parse(row.getStartDate()).atStartOfDay();
-            }
-        } catch (Exception ignored) {}
-
-        // 4. Date: Map if valid, else NULL
-        LocalDateTime dueDate = null;
-        try {
-            if (row.getDueDate() != null && !row.getDueDate().isBlank()) {
-                dueDate = LocalDate.parse(row.getDueDate()).atStartOfDay();
-            }
-        } catch (Exception ignored) {
-            // Invalid date format -> Set to NULL (Safe)
-        }
-
-        // --- BUILD ENTITY ---
-        Task task = Task.builder()
-                .project(project)
-                .taskCode(project.getProjectCode() + "-" + (++currentSort))
-                .title(row.getTitle())
-                .description(row.getDescription())
-                .assignee(assignee) // Will be User or Null
-                .status(status)     // Will be Selected or Default
-                .priority(priority) // Will be Selected or Medium
-                .taskType(TaskType.TASK)
-                .startDate(startDate)
-                .dueDate(dueDate)   // Will be Date or Null
-                .storyPoints(row.getStoryPoints())
-                .estimatedHours(row.getEstimatedHours() != null ? BigDecimal.valueOf(row.getEstimatedHours()) : null)
-                .sortOrder((int)currentSort)
-                .createdBy(creator)
-                .assigner(creator)
-                .build();
+    @Override
+    @Transactional
+    @LogActivity(action = ACTION_IMPORT, entityType = ENTITY_TASK, description = DESC_IMPORT_TASK)
+    public ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskImportPreviewResponse> rows) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND));
+                
+        Map<String, User> memberMap = projectMemberRepository.findByProject_Id(projectId, Pageable.unpaged())
+                .stream()
+                .filter(pm -> pm.getStatus() == MemberStatus.ACTIVE)
+                .map(ProjectMember::getUser)
+                .collect(Collectors.toMap(u -> u.getEmail().toLowerCase(), u -> u));
         
-        tasksToSave.add(task);
-    }
+        Map<String, ProjectStatus> statusMap = projectStatusRepository.findByProject_IdOrderBySortOrderAsc(projectId)
+                .stream()
+                .collect(Collectors.toMap(s -> s.getName().toLowerCase(), s -> s));
+                
+        ProjectStatus defaultStatus = statusMap.values().stream()
+                .min(Comparator.comparingInt(ProjectStatus::getSortOrder))
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_STATUS_NOT_FOUND));
 
-    // 3. Batch Save
-    taskRepository.saveAll(tasksToSave);
-    
-    return ImportTaskResultResponse.builder()
-            .successCount(tasksToSave.size())
-            .totalRows(rows.size())
-            .errorCount(0)
-            .errors(Collections.emptyList())
-            .build();
-    }
-    // --- HELPER 1: Đọc giá trị Cell an toàn & Trim ---
-    private String getCellValue(Cell cell, DataFormatter formatter) {
-        if (cell == null) return "";
-        String val = formatter.formatCellValue(cell);
-        return val.replace("\u00A0", " ").trim();
-    }
+        User creator = securityService.getCurrentAuthenticatedUser();
+        long currentSort = taskRepository.countByProjectId(projectId);
+        List<Task> tasksToSave = new ArrayList<>();
 
-    // --- HELPER 2: Parse Date từ Cell Excel (Xử lý vụ Ctrl+S) ---
-    private LocalDateTime parseExcelDate(Cell cell) {
-        if (cell == null) return null;
-        try {
-            // Nếu là ô Date thực sự, lấy giá trị gốc
-            if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-                return cell.getLocalDateTimeCellValue();
+        for (TaskImportPreviewResponse row : rows) {
+            if (row.getTitle() == null || row.getTitle().trim().isEmpty()) {
+                continue; 
             }
-        } catch (Exception e) { return null; }
-        return null;
-    }
-        // Parse Date từ String (Flexible)
-        private LocalDateTime parseDateFlexible(String dateStr) {
-            if (dateStr == null || dateStr.isBlank()) return null;
-            String[] patterns = {"yyyy-MM-dd", "M/d/yyyy", "MM/dd/yyyy", "d/M/yyyy", "dd/MM/yyyy"};
-            for (String pattern : patterns) {
-                try {
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
-                    return LocalDate.parse(dateStr, formatter).atStartOfDay();
-                } catch (Exception e) {}
+
+            User assignee = null;
+            if (row.getAssigneeEmail() != null && !row.getAssigneeEmail().isBlank()) {
+                assignee = memberMap.get(row.getAssigneeEmail().trim().toLowerCase());
             }
-            return null;
+
+            ProjectStatus status = defaultStatus;
+            if (row.getStatusName() != null && statusMap.containsKey(row.getStatusName().trim().toLowerCase())) {
+                status = statusMap.get(row.getStatusName().trim().toLowerCase());
+            }
+
+            TaskPriority priority = TaskPriority.MEDIUM;
+            try {
+                if (row.getPriority() != null) {
+                    priority = TaskPriority.valueOf(row.getPriority().toUpperCase());
+                }
+            } catch (Exception ignored) {
+            }
+
+            LocalDateTime startDate = null;
+            try {
+                if (row.getStartDate() != null && !row.getStartDate().isBlank()) {
+                    startDate = LocalDate.parse(row.getStartDate()).atStartOfDay();
+                }
+            } catch (Exception ignored) {
+            }
+
+            LocalDateTime dueDate = null;
+            try {
+                if (row.getDueDate() != null && !row.getDueDate().isBlank()) {
+                    dueDate = LocalDate.parse(row.getDueDate()).atStartOfDay();
+                }
+            } catch (Exception ignored) {
+            }
+
+            Task task = Task.builder()
+                    .project(project)
+                    .taskCode(project.getProjectCode() + "-" + (++currentSort))
+                    .title(row.getTitle())
+                    .description(row.getDescription())
+                    .assignee(assignee) 
+                    .status(status)     
+                    .priority(priority) 
+                    .taskType(TaskType.TASK)
+                    .startDate(startDate)
+                    .dueDate(dueDate)   
+                    .storyPoints(row.getStoryPoints())
+                    .estimatedHours(row.getEstimatedHours() != null ? BigDecimal.valueOf(row.getEstimatedHours()) : null)
+                    .sortOrder((int)currentSort)
+                    .createdBy(creator)
+                    .assigner(creator)
+                    .build();
+            
+            tasksToSave.add(task);
         }
-    // ======================================================
-    // 7. LƯU TRỮ TASK
-    // ======================================================
+
+        taskRepository.saveAll(tasksToSave);
+        
+        return ImportTaskResultResponse.builder()
+                .successCount(tasksToSave.size())
+                .totalRows(rows.size())
+                .errorCount(0)
+                .errors(Collections.emptyList())
+                .build();
+    }
+
     @Override
     @Transactional
     public void archiveTask(Integer taskId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_TASK_NOT_FOUND_ID + taskId));
         
-        // Có thể thêm logic kiểm tra quyền ở đây hoặc ở Controller
         task.setIsArchived(true);
         taskRepository.save(task);
     }
 
-    // ======================================================
-    // 6. KHÔI PHỤC TASK
-    // ======================================================
     @Override
     @Transactional
     public void restoreTask(Integer taskId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with ID: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_TASK_NOT_FOUND_ID + taskId));
         
         task.setIsArchived(false);
         taskRepository.save(task);
     }
 
-    // ======================================================
-    // ⚙️ HÀM HELPER MAPPING
-    // ======================================================
+    // --- CAC HAM PRIVATE HO TRO NGHIEP VU ---
 
-    /**
-     * Helper: Map Task Entity sang TaskResponse DTO (Chi tiết - Nâng cao).
-     */
+    private String getCellValue(Cell cell, DataFormatter formatter) {
+        if (cell == null) {
+            return "";
+        }
+        String val = formatter.formatCellValue(cell);
+        return val.replace("\u00A0", " ").trim();
+    }
+
+    private LocalDateTime parseExcelDate(Cell cell) {
+        if (cell == null) {
+            return null;
+        }
+        try {
+            if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+                return cell.getLocalDateTimeCellValue();
+            }
+        } catch (Exception e) { 
+            return null; 
+        }
+        return null;
+    }
+        
+    private LocalDateTime parseDateFlexible(String dateStr) {
+        if (dateStr == null || dateStr.isBlank()) {
+            return null;
+        }
+        String[] patterns = {"yyyy-MM-dd", "M/d/yyyy", "MM/dd/yyyy", "d/M/yyyy", "dd/MM/yyyy"};
+        for (String pattern : patterns) {
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+                return LocalDate.parse(dateStr, formatter).atStartOfDay();
+            } catch (Exception e) {
+                // Thu dinh dang tiep theo
+            }
+        }
+        return null;
+    }
+
+    // --- LOGIC MAPPING (ENTITY <-> DTO) ---
+
     @Override
     public TaskResponse mapToTaskResponse(Task task) {
         ProjectStatus status = task.getStatus();
@@ -913,12 +969,10 @@ public ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskIm
         Epic epic = task.getEpic();
         Task parent = task.getParentTask();
 
-        // 1. Xử lý Subtask Summary
         int totalSubtasks = (task.getSubTasks() != null) ? task.getSubTasks().size() : 0;
         int completedSubtasks = (task.getSubTasks() != null) ?
                 (int) task.getSubTasks().stream().filter(st -> st.getStatus() == SubTaskStatus.DONE).count() : 0;
 
-        // 2. Xử lý Tags (Chuyển Set<Tag> sang List<TagInfo>)
         List<TaskResponse.TagInfo> tagInfos = new ArrayList<>();
         if (task.getTags() != null) {
             tagInfos = task.getTags().stream()
@@ -930,7 +984,6 @@ public ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskIm
                     .collect(Collectors.toList());
         }
 
-        // 3. Build DTO
         return TaskResponse.builder()
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
@@ -940,72 +993,56 @@ public ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskIm
                 .description(task.getDescription())
                 .taskType(task.getTaskType())
                 .priority(task.getPriority())
-
-                // --- Nested Objects ---
                 .status(status != null ? TaskResponse.StatusInfo.builder()
                         .id(status.getId())
                         .name(status.getName())
                         .color(status.getColor())
                         .isCompleted(status.getIsCompletedStatus())
                         .build() : null)
-
                 .project(project != null ? TaskResponse.ProjectInfo.builder()
                         .id(project.getId())
                         .name(project.getName())
                         .build() : null)
-
                 .sprint(sprint != null ? TaskResponse.SprintInfo.builder()
                         .id(sprint.getId())
                         .name(sprint.getName())
                         .build() : null)
-
                 .epic(epic != null ? TaskResponse.EpicInfo.builder()
                         .id(epic.getId())
                         .name(epic.getName())
                         .color(epic.getColor())
                         .build() : null)
-                
                 .parentTask(parent != null ? TaskResponse.TaskInfo.builder()
                         .id(parent.getId())
                         .taskCode(parent.getTaskCode())
                         .title(parent.getTitle())
                         .build() : null)
-
-                // --- Users ---
                 .assignee(assignee != null ? TaskResponse.UserInfo.builder()
                         .id(assignee.getId())
                         .name(assignee.getFullName())
                         .avatarUrl(assignee.getAvatarUrl())
                         .build() : null)
-
                 .assigner(assigner != null ? TaskResponse.UserInfo.builder()
                         .id(assigner.getId())
                         .name(assigner.getFullName())
                         .avatarUrl(assigner.getAvatarUrl())
                         .build() : null)
-                
                 .reviewer(reviewer != null ? TaskResponse.UserInfo.builder()
                         .id(reviewer.getId())
                         .name(reviewer.getFullName())
                         .avatarUrl(reviewer.getAvatarUrl())
                         .build() : null)
-
-                // --- Extra Info ---
                 .tags(tagInfos)
                 .subtaskSummary(TaskResponse.SubtaskSummary.builder()
                         .total(totalSubtasks)
                         .completed(completedSubtasks)
                         .build())
-
-                // --- Metrics ---
                 .storyPoints(task.getStoryPoints())
                 .estimatedHours(task.getEstimatedHours())
                 .loggedHours(task.getLoggedHours())
                 .startDate(task.getStartDate())
                 .dueDate(task.getDueDate())
                 .completedAt(task.getCompletedAt())
-
-                // --- Audit ---
                 .createdById(createdBy != null ? createdBy.getId() : null)
                 .createdByName(createdBy != null ? createdBy.getFullName() : null)
                 .createdAt(task.getCreatedAt())
@@ -1013,25 +1050,20 @@ public ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskIm
                 .build();
     }
     
-    /**
-     * Helper: Map Task Entity sang TaskSummaryResponse DTO (Cấu trúc Nested).
-     */
     private TaskSummaryResponse mapToTaskSummaryResponse(Task task) {
         User assignee = task.getAssignee();
         Epic epic = task.getEpic();
-        com.quanlyduan.project_manager_api.model.ProjectStatus status = task.getStatus();
+        ProjectStatus status = task.getStatus();
 
-        // 1. Xử lý Subtask Summary
         int totalSubtasks = 0;
         int completedSubtasks = 0;
         if (task.getSubTasks() != null) {
             totalSubtasks = task.getSubTasks().size();
             completedSubtasks = (int) task.getSubTasks().stream()
-                    .filter(st -> st.getStatus() == SubTaskStatus.DONE) // Giả sử trạng thái hoàn thành là DONE
+                    .filter(st -> st.getStatus() == SubTaskStatus.DONE)
                     .count();
         }
 
-        // 2. Xử lý Tags
         List<TaskSummaryResponse.TagInfo> tagInfos = new ArrayList<>();
         if (task.getTags() != null) {
             tagInfos = task.getTags().stream()
@@ -1043,7 +1075,6 @@ public ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskIm
                     .collect(Collectors.toList());
         }
 
-        // 3. Build DTO
         return TaskSummaryResponse.builder()
                 .id(task.getId())
                 .taskCode(task.getTaskCode())
@@ -1058,32 +1089,22 @@ public ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskIm
                 .startDate(task.getStartDate())
                 .dueDate(task.getDueDate())
                 .sortOrder(task.getSortOrder())
-
-                // Mapping Status Object
                 .status(status != null ? TaskSummaryResponse.StatusInfo.builder()
                         .id(status.getId())
                         .name(status.getName())
                         .color(status.getColor())
                         .build() : null)
-
-                // Mapping Epic Object
                 .epic(epic != null ? TaskSummaryResponse.EpicInfo.builder()
                         .id(epic.getId())
                         .name(epic.getName())
                         .color(epic.getColor())
                         .build() : null)
-
-                // Mapping Assignee Object
                 .assignee(assignee != null ? TaskSummaryResponse.UserInfo.builder()
                         .id(assignee.getId())
                         .name(assignee.getFullName())
                         .avatarUrl(assignee.getAvatarUrl())
                         .build() : null)
-  
-                // Mapping Tags List
                 .tags(tagInfos)
-
-                // Mapping Subtask Summary
                 .subtaskSummary(TaskSummaryResponse.SubtaskSummary.builder()
                         .total(totalSubtasks)
                         .completed(completedSubtasks)

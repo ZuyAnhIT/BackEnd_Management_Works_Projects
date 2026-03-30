@@ -1,10 +1,20 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanlyduan.project_manager_api.dto.request.plan.CreatePlanRequest;
 import com.quanlyduan.project_manager_api.dto.request.plan.UpdatePlanRequest;
+import com.quanlyduan.project_manager_api.dto.response.MySubscriptionResponse;
+import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
 import com.quanlyduan.project_manager_api.dto.response.plan.PlanResponse;
 import com.quanlyduan.project_manager_api.dto.response.plan.PublicPlanResponse;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -14,33 +24,41 @@ import com.quanlyduan.project_manager_api.model.CompanySubscription;
 import com.quanlyduan.project_manager_api.model.SubscriptionPlan;
 import com.quanlyduan.project_manager_api.model.User;
 import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
 import com.quanlyduan.project_manager_api.model.common.enums.SubscriptionStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
 import com.quanlyduan.project_manager_api.repository.SubscriptionPlanRepository;
+import com.quanlyduan.project_manager_api.repository.specification.SubscriptionPlanSpecification;
 import com.quanlyduan.project_manager_api.security.SecurityService;
 import com.quanlyduan.project_manager_api.service.SubscriptionPlanService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
-import com.quanlyduan.project_manager_api.repository.specification.SubscriptionPlanSpecification;
-import com.quanlyduan.project_manager_api.dto.response.MySubscriptionResponse;
-import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
-import lombok.RequiredArgsConstructor;
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import com.quanlyduan.project_manager_api.model.common.enums.ProjectStatus;
+
 import lombok.extern.slf4j.Slf4j;
+
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
 
+    // Khai bao cac hang so de loai bo hardcode
+    public static final String ERROR_PLAN_CODE_EXISTS = "Plan code '%s' already exists.";
+    public static final String ERROR_PLAN_CODE_IN_USE = "Plan code '%s' is already in use by another plan.";
+    public static final String ERROR_INVALID_JSON_FEATURES = "Invalid JSON format for features.";
+    public static final String ERROR_PLAN_NOT_FOUND = "Subscription plan not found with ID: ";
+    public static final String ERROR_PLAN_NOT_ACTIVE = "Subscription plan not found or no longer active.";
+    public static final String ERROR_COMPANY_NOT_FOUND = "Không tìm thấy Công ty.";
+    public static final String ERROR_NO_ACTIVE_SUB_TO_CANCEL = "Công ty hiện không có gói cước nào đang hoạt động để hủy.";
+    public static final String ERROR_SUB_ALREADY_CANCELLED = "Gói cước này đã được yêu cầu hủy vào cuối kỳ từ trước rồi.";
+
+    public static final String LOG_CANCEL_SUB = "Khách hàng đã yêu cầu hủy gói [{}]. Gói sẽ tự động kết thúc vào ngày: {}";
+
+    public static final String STATUS_NONE = "NONE";
+    public static final String LABEL_NO_PLAN = "Chưa đăng ký gói";
+
+    public static final long BYTES_PER_GB = 1073741824L;
+    public static final int UNLIMITED_QUOTA = -1;
+
+    // Khai bao cac bien phu thuoc
     private final SubscriptionPlanRepository planRepository;
     private final SecurityService securityService;
     private final ObjectMapper objectMapper; 
@@ -48,29 +66,45 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
     private final CompanyMemberRepository companyMemberRepository;
     private final ProjectRepository projectRepository;
 
+    // Constructor khoi tao thu cong thay the cho @RequiredArgsConstructor
+    public SubscriptionPlanServiceImpl(SubscriptionPlanRepository planRepository,
+                                       SecurityService securityService,
+                                       ObjectMapper objectMapper,
+                                       CompanyRepository companyRepository,
+                                       CompanyMemberRepository companyMemberRepository,
+                                       ProjectRepository projectRepository) {
+        this.planRepository = planRepository;
+        this.securityService = securityService;
+        this.objectMapper = objectMapper;
+        this.companyRepository = companyRepository;
+        this.companyMemberRepository = companyMemberRepository;
+        this.projectRepository = projectRepository;
+    }
+
+    // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
+
     @Override
     @Transactional
     public PlanResponse createPlan(CreatePlanRequest request) {
-        
-        // 1. Lấy thông tin Super Admin đang thực hiện thao tác
+        // Lay thong tin quan tri vien dang thuc hien thao tac
         User currentAdmin = securityService.getCurrentAuthenticatedUser();
 
-        // 2. Validate mã gói
+        // Kiem tra tinh duy nhat cua ma goi cuoc
         if (planRepository.existsByPlanCode(request.getPlanCode())) {
-            throw new BadRequestException("Plan code '" + request.getPlanCode() + "' already exists.");
+            throw new BadRequestException(String.format(ERROR_PLAN_CODE_EXISTS, request.getPlanCode()));
         }
 
-        // 3. Xử lý JsonNode features thành String để lưu DB
+        // Chuyen doi danh sach tinh nang thanh chuoi JSON de luu vao co so du lieu
         String featuresString = null;
         if (request.getFeatures() != null) {
             try {
                 featuresString = objectMapper.writeValueAsString(request.getFeatures());
             } catch (JsonProcessingException e) {
-                throw new BadRequestException("Invalid JSON format for features.");
+                throw new BadRequestException(ERROR_INVALID_JSON_FEATURES);
             }
         }
 
-        // 4. Build Entity
+        // Khoi tao va luu goi cuoc moi
         SubscriptionPlan newPlan = SubscriptionPlan.builder()
                 .planCode(request.getPlanCode())
                 .name(request.getName())
@@ -90,43 +124,30 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
 
         SubscriptionPlan savedPlan = planRepository.save(newPlan);
 
-        // 5. Trả về Response
-        return PlanResponse.builder()
-                .id(savedPlan.getId())
-                .planCode(savedPlan.getPlanCode())
-                .name(savedPlan.getName())
-                .monthlyPrice(savedPlan.getMonthlyPrice())
-                .maxUsers(savedPlan.getMaxUsers())
-                .maxWorkspaces(savedPlan.getMaxWorkspaces())
-                .maxProjects(savedPlan.getMaxProjects())
-                .maxStorageGb(savedPlan.getMaxStorageGb())
-                .features(request.getFeatures()) // Trả lại nguyên gốc JSON cho Frontend
-                .isActive(savedPlan.getIsActive())
-                .sortOrder(savedPlan.getSortOrder())
-                .createdAt(savedPlan.getCreatedAt())
-                .build();
+        // Goi ham ho tro de tra ve ket qua bao gom JSON goc
+        return buildPlanResponseWithRawFeatures(savedPlan, request.getFeatures());
     }
 
     @Override
     @Transactional
     public PlanResponse updatePlan(Integer planId, UpdatePlanRequest request) {
-        
+        // Tim kiem goi cuoc can cap nhat
         SubscriptionPlan existingPlan = planRepository.findById(planId)
-                .orElseThrow(() -> new ResourceNotFoundException("Subscription plan not found with ID: " + planId));
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PLAN_NOT_FOUND + planId));
 
         User currentAdmin = securityService.getCurrentAuthenticatedUser();
 
-        // 1. Plan Code (Phải check trùng lặp nếu có đổi)
+        // Kiem tra va cap nhat ma goi cuoc neu can
         if (request.getPlanCode() != null && !request.getPlanCode().trim().isEmpty() 
             && !existingPlan.getPlanCode().equals(request.getPlanCode())) {
             
             if (planRepository.existsByPlanCodeAndIdNot(request.getPlanCode(), planId)) {
-                throw new BadRequestException("Plan code '" + request.getPlanCode() + "' is already in use by another plan.");
+                throw new BadRequestException(String.format(ERROR_PLAN_CODE_IN_USE, request.getPlanCode()));
             }
             existingPlan.setPlanCode(request.getPlanCode());
         }
 
-        // 2. Name & Description
+        // Cap nhat ten va mo ta
         if (request.getName() != null && !request.getName().trim().isEmpty()) {
             existingPlan.setName(request.getName());
         }
@@ -134,36 +155,227 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
             existingPlan.setDescription(request.getDescription());
         }
 
-        // 3. Prices
-        if (request.getMonthlyPrice() != null) existingPlan.setMonthlyPrice(request.getMonthlyPrice());
-        if (request.getYearlyPrice() != null) existingPlan.setYearlyPrice(request.getYearlyPrice());
+        // Cap nhat thong tin gia ca
+        if (request.getMonthlyPrice() != null) {
+            existingPlan.setMonthlyPrice(request.getMonthlyPrice());
+        }
+        if (request.getYearlyPrice() != null) {
+            existingPlan.setYearlyPrice(request.getYearlyPrice());
+        }
 
-        // 4. Limits & Quotas
-        if (request.getMaxUsers() != null) existingPlan.setMaxUsers(request.getMaxUsers());
-        if (request.getMaxWorkspaces() != null) existingPlan.setMaxWorkspaces(request.getMaxWorkspaces());
-        if (request.getMaxProjects() != null) existingPlan.setMaxProjects(request.getMaxProjects());
-        if (request.getMaxStorageGb() != null) existingPlan.setMaxStorageGb(request.getMaxStorageGb());
+        // Cap nhat cac han muc
+        if (request.getMaxUsers() != null) {
+            existingPlan.setMaxUsers(request.getMaxUsers());
+        }
+        if (request.getMaxWorkspaces() != null) {
+            existingPlan.setMaxWorkspaces(request.getMaxWorkspaces());
+        }
+        if (request.getMaxProjects() != null) {
+            existingPlan.setMaxProjects(request.getMaxProjects());
+        }
+        if (request.getMaxStorageGb() != null) {
+            existingPlan.setMaxStorageGb(request.getMaxStorageGb());
+        }
 
-        // 5. Features (JSON Node)
+        // Cap nhat danh sach tinh nang bang chuoi JSON
         if (request.getFeatures() != null) {
             try {
                 existingPlan.setFeatures(objectMapper.writeValueAsString(request.getFeatures()));
             } catch (JsonProcessingException e) {
-                throw new BadRequestException("Invalid JSON format for features.");
+                throw new BadRequestException(ERROR_INVALID_JSON_FEATURES);
             }
         }
 
-        // 6. Settings
-        if (request.getIsActive() != null) existingPlan.setIsActive(request.getIsActive());
-        if (request.getSortOrder() != null) existingPlan.setSortOrder(request.getSortOrder());
+        // Cap nhat trang thai hoat dong va vi tri sap xep
+        if (request.getIsActive() != null) {
+            existingPlan.setIsActive(request.getIsActive());
+        }
+        if (request.getSortOrder() != null) {
+            existingPlan.setSortOrder(request.getSortOrder());
+        }
 
-        // Ghi lại dấu vết người cập nhật
+        // Ghi nhan nguoi thuc hien cap nhat
         existingPlan.setUpdatedBy(currentAdmin);
 
         SubscriptionPlan savedPlan = planRepository.save(existingPlan);
 
-        // Trả về response (Ánh xạ các trường từ savedPlan)
-        // ... (bạn dùng lại đoạn code return PlanResponse.builder()... như cũ nhé)
+        // Uu tien tra ve JSON dau vao neu co de giu nguyen dinh dang, nguoc lai phan tich tu DB
+        JsonNode responseFeatures = request.getFeatures() != null ? request.getFeatures() : 
+                                    (savedPlan.getFeatures() != null ? parseJsonString(savedPlan.getFeatures()) : null);
+
+        return buildPlanResponseWithRawFeatures(savedPlan, responseFeatures);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<PlanResponse> getPlans(int page, int size, String sortBy, String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<SubscriptionPlan> plansPage = planRepository.findAll(pageable);
+        Page<PlanResponse> dtoPage = plansPage.map(this::mapToPlanResponse);
+        
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<PlanResponse> searchPlans(
+            String searchName, String searchPlanCode, Boolean searchStatus, 
+            int page, int size, String sortBy, String sortDir) {
+
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Specification<SubscriptionPlan> spec = SubscriptionPlanSpecification.filterPlans(searchName, searchPlanCode, searchStatus);
+        Page<SubscriptionPlan> plansPage = planRepository.findAll(spec, pageable);
+
+        Page<PlanResponse> dtoPage = plansPage.map(this::mapToPlanResponse);
+        
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<PublicPlanResponse> getPublicPlans(int page, int size, String sortBy, String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Chi lay danh sach cac goi cuoc dang duoc mo ban
+        Page<SubscriptionPlan> plansPage = planRepository.findByIsActiveTrue(pageable);
+        Page<PublicPlanResponse> dtoPage = plansPage.map(this::mapToPublicPlanResponse);
+        
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<PublicPlanResponse> searchPublicPlans(String searchName, int page, int size, String sortBy, String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Tim kiem goi cuoc theo ten nhung bat buoc phai dang hoat dong
+        Specification<SubscriptionPlan> spec = SubscriptionPlanSpecification.filterPublicPlans(searchName);
+        Page<SubscriptionPlan> plansPage = planRepository.findAll(spec, pageable);
+
+        Page<PublicPlanResponse> dtoPage = plansPage.map(this::mapToPublicPlanResponse);
+        
+        return new PageResponseDTO<>(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PlanResponse getPlanById(Integer planId) {
+        // Cung cap toan bo thong tin chi tiet cho quan tri vien
+        SubscriptionPlan plan = planRepository.findById(planId)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PLAN_NOT_FOUND + planId));
+        
+        return mapToPlanResponse(plan); 
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PublicPlanResponse getPublicPlanById(Integer planId) {
+        // Chi cung cap thong tin neu goi cuoc dang duoc ban cho nguoi dung thuong
+        SubscriptionPlan plan = planRepository.findByIdAndIsActiveTrue(planId)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_PLAN_NOT_ACTIVE));
+        
+        return mapToPublicPlanResponse(plan); 
+    }
+
+    @Override
+    @Transactional
+    public void cancelActiveSubscription(Integer companyId) {
+        // Tim kiem cong ty
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_COMPANY_NOT_FOUND));
+
+        // Tim kiem goi cuoc dang hoat dong hien tai
+        CompanySubscription activeSub = company.getSubscriptions().stream()
+                .filter(sub -> sub.getStatus() == SubscriptionStatus.ACTIVE)
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException(ERROR_NO_ACTIVE_SUB_TO_CANCEL));
+
+        // Kiem tra tinh trang huy truoc do
+        if (Boolean.TRUE.equals(activeSub.getCancelAtPeriodEnd())) {
+            throw new BadRequestException(ERROR_SUB_ALREADY_CANCELLED);
+        }
+
+        // Kich hoat che do huy vao cuoi ky (Theo tieu chuan he thong SaaS)
+        activeSub.setCancelAtPeriodEnd(true);
+        companyRepository.save(company);
+
+        log.info(LOG_CANCEL_SUB, activeSub.getPlan().getName(), activeSub.getCurrentPeriodEnd());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MySubscriptionResponse getMySubscriptionInfo(Integer companyId) {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException(ERROR_COMPANY_NOT_FOUND));
+
+        // Tim goi cuoc hoat dong hoac qua han de thong ke
+        CompanySubscription activeSub = company.getSubscriptions().stream()
+                .filter(sub -> sub.getStatus() == SubscriptionStatus.ACTIVE || sub.getStatus() == SubscriptionStatus.PAST_DUE)
+                .findFirst()
+                .orElse(null);
+
+        if (activeSub == null || activeSub.getPlan() == null) {
+            return MySubscriptionResponse.builder()
+                    .planName(LABEL_NO_PLAN)
+                    .subscriptionStatus(STATUS_NONE)
+                    .build();
+        }
+
+        // Thong ke so luong tai nguyen thuc te ma cong ty dang su dung
+        long currentMembers = companyMemberRepository.countByCompany_IdAndStatusNot(companyId, MemberStatus.REMOVED);
+        long currentProjects = projectRepository.countByWorkspace_Company_IdAndStatusNot(companyId, ProjectStatus.CANCELLED);
+        long currentStorage = company.getCurrentStorageBytes() != null ? company.getCurrentStorageBytes() : 0;
+        
+        // Quy doi tu don vi GB sang Bytes
+        long maxStorageBytes = activeSub.getPlan().getMaxStorageGb() == UNLIMITED_QUOTA 
+                ? UNLIMITED_QUOTA 
+                : activeSub.getPlan().getMaxStorageGb() * BYTES_PER_GB; 
+
+        return MySubscriptionResponse.builder()
+                .planName(activeSub.getPlan().getName())
+                .planCode(activeSub.getPlan().getPlanCode())
+                .monthlyPrice(activeSub.getPlan().getMonthlyPrice())
+                .yearlyPrice(activeSub.getPlan().getYearlyPrice())
+                
+                .subscriptionStatus(activeSub.getStatus().toString())
+                .currentPeriodStart(activeSub.getCurrentPeriodStart())
+                .currentPeriodEnd(activeSub.getCurrentPeriodEnd())
+                .isCancelAtPeriodEnd(Boolean.TRUE.equals(activeSub.getCancelAtPeriodEnd()))
+                
+                .currentMembers(currentMembers)
+                .maxMembers(activeSub.getPlan().getMaxUsers())
+                
+                .currentProjects(currentProjects)
+                .maxProjects(activeSub.getPlan().getMaxProjects())
+                
+                .currentStorageBytes(currentStorage)
+                .maxStorageBytes(maxStorageBytes)
+                .build();
+    }
+
+    // --- CAC HAM PRIVATE HO TRO NGHIEP VU ---
+
+    private JsonNode parseJsonString(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return null; 
+        }
+        
+        try {
+            return objectMapper.readTree(json);
+        } catch (JsonProcessingException e) {
+            return null; 
+        }
+    }
+
+    // --- LOGIC MAPPING (ENTITY <-> DTO) ---
+
+    private PlanResponse buildPlanResponseWithRawFeatures(SubscriptionPlan savedPlan, JsonNode features) {
         return PlanResponse.builder()
                 .id(savedPlan.getId())
                 .planCode(savedPlan.getPlanCode())
@@ -175,8 +387,7 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
                 .maxWorkspaces(savedPlan.getMaxWorkspaces())
                 .maxProjects(savedPlan.getMaxProjects())
                 .maxStorageGb(savedPlan.getMaxStorageGb())
-                .features(request.getFeatures() != null ? request.getFeatures() : 
-                         (savedPlan.getFeatures() != null ? parseJsonString(savedPlan.getFeatures()) : null))
+                .features(features)
                 .isActive(savedPlan.getIsActive())
                 .sortOrder(savedPlan.getSortOrder())
                 .createdAt(savedPlan.getCreatedAt())
@@ -184,59 +395,6 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
                 .build();
     }
 
-    // Hàm tiện ích nhỏ để parse String từ DB về JsonNode cho Response (nếu cần)
-    private JsonNode parseJsonString(String json) {
-        // 👉 THÊM DÒNG NÀY: Chặn ngay nếu json là null hoặc rỗng
-        if (json == null || json.trim().isEmpty()) {
-            return null; 
-        }
-        
-        try {
-            return objectMapper.readTree(json);
-        } catch (JsonProcessingException e) {
-            return null; // Hoặc bạn có thể throw Exception tùy logic
-        }
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public PageResponseDTO<PlanResponse> getPlans(int page, int size, String sortBy, String sortDir) {
-        // 1. Tạo đối tượng Pageable (Có Sort)
-        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        // 2. Gọi Repository lấy dữ liệu
-        Page<SubscriptionPlan> plansPage = planRepository.findAll(pageable);
-
-        // 3. Map sang DTO và trả về
-        Page<PlanResponse> dtoPage = plansPage.map(this::mapToPlanResponse);
-        return new PageResponseDTO<>(dtoPage);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public PageResponseDTO<PlanResponse> searchPlans(
-            String searchName, String searchPlanCode, Boolean searchStatus, 
-            int page, int size, String sortBy, String sortDir) {
-
-        // 1. Tạo đối tượng Pageable
-        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        // 2. Tạo Specification
-        Specification<SubscriptionPlan> spec = SubscriptionPlanSpecification.filterPlans(searchName, searchPlanCode, searchStatus);
-
-        // 3. Lọc qua Repository
-        Page<SubscriptionPlan> plansPage = planRepository.findAll(spec, pageable);
-
-        // 4. Map sang DTO và trả về
-        Page<PlanResponse> dtoPage = plansPage.map(this::mapToPlanResponse);
-        return new PageResponseDTO<>(dtoPage);
-    }
-
-    // ==========================================
-    // Hàm Helper để tái sử dụng việc Map Entity -> Response
-    // ==========================================
     private PlanResponse mapToPlanResponse(SubscriptionPlan plan) {
         return PlanResponse.builder()
                 .id(plan.getId())
@@ -257,36 +415,6 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
                 .build();
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public PageResponseDTO<PublicPlanResponse> getPublicPlans(int page, int size, String sortBy, String sortDir) {
-        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        // Gọi hàm chỉ lấy gói Active
-        Page<SubscriptionPlan> plansPage = planRepository.findByIsActiveTrue(pageable);
-
-        Page<PublicPlanResponse> dtoPage = plansPage.map(this::mapToPublicPlanResponse);
-        return new PageResponseDTO<>(dtoPage);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public PageResponseDTO<PublicPlanResponse> searchPublicPlans(String searchName, int page, int size, String sortBy, String sortDir) {
-        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        // Gọi Specification đã ép cứng isActive = true
-        Specification<SubscriptionPlan> spec = SubscriptionPlanSpecification.filterPublicPlans(searchName);
-        Page<SubscriptionPlan> plansPage = planRepository.findAll(spec, pageable);
-
-        Page<PublicPlanResponse> dtoPage = plansPage.map(this::mapToPublicPlanResponse);
-        return new PageResponseDTO<>(dtoPage);
-    }
-
-    // ==========================================
-    // Hàm Helper ánh xạ sang Public DTO
-    // ==========================================
     private PublicPlanResponse mapToPublicPlanResponse(SubscriptionPlan plan) {
         return PublicPlanResponse.builder()
                 .id(plan.getId())
@@ -299,109 +427,7 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
                 .maxWorkspaces(plan.getMaxWorkspaces())
                 .maxProjects(plan.getMaxProjects())
                 .maxStorageGb(plan.getMaxStorageGb())
-                .features(parseJsonString(plan.getFeatures())) // Dùng lại hàm parse JSON cũ đã fix lỗi
-                .build();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public PlanResponse getPlanById(Integer planId) {
-        // Admin: Lấy ra mọi gói, kể cả gói isActive = false
-        SubscriptionPlan plan = planRepository.findById(planId)
-                .orElseThrow(() -> new ResourceNotFoundException("Subscription plan not found with ID: " + planId));
-        
-        return mapToPlanResponse(plan); // Dùng lại hàm map của Admin
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public PublicPlanResponse getPublicPlanById(Integer planId) {
-        // Khách hàng: Chỉ lấy được gói đang mở bán. 
-        // Nếu truyền ID của một gói đã khóa, hệ thống sẽ báo 404 Not Found như thể nó không tồn tại.
-        SubscriptionPlan plan = planRepository.findByIdAndIsActiveTrue(planId)
-                .orElseThrow(() -> new ResourceNotFoundException("Subscription plan not found or no longer active."));
-        
-        return mapToPublicPlanResponse(plan); // Dùng lại hàm map của Public
-    }
-
-    @Override
-    @Transactional
-    public void cancelActiveSubscription(Integer companyId) {
-        // 1. Tìm công ty
-        Company company = companyRepository.findById(companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Công ty."));
-
-        // 2. Lấy gói cước đang ACTIVE (Đang sử dụng) của công ty
-        CompanySubscription activeSub = company.getSubscriptions().stream()
-                .filter(sub -> sub.getStatus() == SubscriptionStatus.ACTIVE)
-                .findFirst()
-                .orElseThrow(() -> new BadRequestException("Công ty hiện không có gói cước nào đang hoạt động để hủy."));
-
-        // 3. Kiểm tra xem khách đã bấm hủy trước đó chưa
-        if (Boolean.TRUE.equals(activeSub.getCancelAtPeriodEnd())) {
-            throw new BadRequestException("Gói cước này đã được yêu cầu hủy vào cuối kỳ từ trước rồi.");
-        }
-
-        // 4. BẬT CỜ HỦY VÀO CUỐI KỲ (Chuẩn SaaS)
-        activeSub.setCancelAtPeriodEnd(true);
-
-        // 5. Lưu xuống Database
-        // (Do Entity Company đã map cascade = CascadeType.ALL với danh sách Subscriptions nên chỉ cần save Company)
-        companyRepository.save(company);
-
-        log.info("Khách hàng đã yêu cầu hủy gói [{}]. Gói sẽ tự động kết thúc vào ngày: {}", 
-                 activeSub.getPlan().getName(), activeSub.getCurrentPeriodEnd());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public MySubscriptionResponse getMySubscriptionInfo(Integer companyId) {
-        Company company = companyRepository.findById(companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Công ty."));
-
-        // 1. Lấy gói cước đang hoạt động (ACTIVE hoặc PAST_DUE)
-        CompanySubscription activeSub = company.getSubscriptions().stream()
-                .filter(sub -> sub.getStatus() == SubscriptionStatus.ACTIVE || sub.getStatus() == SubscriptionStatus.PAST_DUE)
-                .findFirst()
-                .orElse(null);
-
-        // Kịch bản: Công ty không có gói nào (Hoặc đang dùng mặc định)
-        if (activeSub == null || activeSub.getPlan() == null) {
-            return MySubscriptionResponse.builder()
-                    .planName("Chưa đăng ký gói")
-                    .subscriptionStatus("NONE")
-                    .build();
-        }
-
-        // 2. Tính toán tài nguyên đang sử dụng thực tế
-        long currentMembers = companyMemberRepository.countByCompany_IdAndStatusNot(companyId, MemberStatus.REMOVED);
-        long currentProjects = projectRepository.countByWorkspace_Company_IdAndStatusNot(companyId, ProjectStatus.CANCELLED);
-        long currentStorage = company.getCurrentStorageBytes() != null ? company.getCurrentStorageBytes() : 0;
-        
-        long maxStorageBytes = activeSub.getPlan().getMaxStorageGb() == -1 
-                ? -1 
-                : activeSub.getPlan().getMaxStorageGb() * 1073741824L; // Quy đổi GB sang Bytes
-
-        // 3. Trả về DTO
-        return MySubscriptionResponse.builder()
-                .planName(activeSub.getPlan().getName())
-                .planCode(activeSub.getPlan().getPlanCode())
-                .monthlyPrice(activeSub.getPlan().getMonthlyPrice())
-                .yearlyPrice(activeSub.getPlan().getYearlyPrice())
-                
-                .subscriptionStatus(activeSub.getStatus().toString())
-                .currentPeriodStart(activeSub.getCurrentPeriodStart())
-                .currentPeriodEnd(activeSub.getCurrentPeriodEnd())
-                .isCancelAtPeriodEnd(Boolean.TRUE.equals(activeSub.getCancelAtPeriodEnd()))
-                
-                .currentMembers(currentMembers)
-                .maxMembers(activeSub.getPlan().getMaxUsers())
-                
-                .currentProjects(currentProjects)
-                .maxProjects(activeSub.getPlan().getMaxProjects())
-                
-                .currentStorageBytes(currentStorage)
-                .maxStorageBytes(maxStorageBytes)
+                .features(parseJsonString(plan.getFeatures())) 
                 .build();
     }
 }

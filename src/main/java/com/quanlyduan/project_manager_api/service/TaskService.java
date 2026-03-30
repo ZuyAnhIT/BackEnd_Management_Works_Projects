@@ -1,4 +1,3 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/service/TaskService.java
 package com.quanlyduan.project_manager_api.service;
 
 import java.util.List;
@@ -16,84 +15,109 @@ import com.quanlyduan.project_manager_api.dto.response.TaskSummaryResponse;
 import com.quanlyduan.project_manager_api.model.Task;
 
 /**
- * Interface Service quản lý các nghiệp vụ liên quan đến Công việc (Task).
- * Bao gồm CRUD, quản lý vòng đời (Sprint, Status) và các thao tác kéo thả.
+ * Service quan ly toan bo nghiep vu lien quan den Cong viec (Task).
+ * Xu ly vong doi cua Task tu khi khoi tao, dieu chuyen giua cac Sprint/Status 
+ * den cac tinh nang nang cao nhu nhap du lieu hang loat (Import).
  */
 public interface TaskService {
 
-    // ========================================================================
-    // 1. NHÓM TẠO/CẬP NHẬT/XEM (CRUD)
-    // ========================================================================
+    // ======================================================
+    // 1. QUAN LY CO BAN (CRUD OPERATIONS)
+    // ======================================================
 
     /**
-     * Tạo một Task mới trong dự án (Hỗ trợ Quick Create).
-     * @param projectId ID dự án mà task thuộc về.
-     * @param request DTO chứa thông tin task (chỉ title là bắt buộc).
-     * @return TaskSummaryResponse DTO của task vừa tạo.
+     * Khoi tao mot Cong viec moi trong pham vi Du an.
+     * Ho tro Quick Create (chi can tieu de) de toi uu trai nghiem nguoi dung.
+     * * @param projectId ID Du an so huu Task
+     * @param request Thong tin khoi tao Task
+     * @return DTO tom tat cua Task vua tao
      */
     TaskSummaryResponse createTask(Integer projectId, CreateTaskRequest request);
 
     /**
-     * Lấy chi tiết đầy đủ của một Task.
-     * @param taskId ID Task cần xem.
-     * @return TaskResponse DTO chi tiết.
+     * Truy xuat ho so chi tiet cua mot Cong viec.
+     * * @param taskId ID dinh danh cua Task
+     * @return DTO phan hoi chua day du metadata, assignee, tags va subtasks
      */
     TaskResponse getTaskDetails(Integer taskId);
 
     /**
-     * Cập nhật thông tin Task (Sửa tiêu đề, mô tả, hạn chót, metrics...).
-     * @param taskId ID Task cần cập nhật.
-     * @param request DTO chứa các trường cập nhật (Partial Update).
-     * @return TaskResponse sau khi cập nhật.
+     * Cap nhat thong tin hanh chinh cua Task (Partial Update).
+     * * @param taskId ID Task can cap nhat
+     * @param request Cac truong thong tin thay doi (Tieu de, Mo ta, Priority...)
+     * @return Ho so Task sau khi cap nhat
      */
     TaskResponse updateTask(Integer taskId, UpdateTaskRequest request);
-    
-    // ========================================================================
-    // 2. NHÓM THAO TÁC KÉO THẢ (DRAG & DROP ACTIONS)
-    // ========================================================================
 
     /**
-     * Cập nhật Sprint cho một Task (Kéo thả Task vào/ra khỏi Sprint/Backlog).
-     * @param taskId ID của task.
-     * @param sprintId ID của Sprint mới (hoặc null nếu về Backlog).
-     * @param newSortOrder Vị trí sắp xếp mới của Task trong danh sách đích.
+     * Xoa vinh vien mot Cong viec khoi he thong.
+     * * @param taskId ID Task can xoa
+     */
+    TaskResponse deleteTask(Integer taskId);
+
+    // ======================================================
+    // 2. DIEU HUONG VA KEO THA (LIFECYCLE & DRAG-DROP)
+    // ======================================================
+
+    /**
+     * Dieu chuyen Task giua cac Sprint hoac dua ve Backlog.
+     * Thuc hien cap nhat lai thu tu sap xep (sortOrder) tai vi tri moi.
+     * * @param taskId ID cua Task
+     * @param sprintId ID Sprint dich (null neu chuyen ve Backlog)
+     * @param newSortOrder Vi tri moi trong danh sach
      */
     TaskResponse updateTaskSprint(Integer taskId, Integer sprintId, Integer newSortOrder);
     
     /**
-     * Di chuyển Task sang một trạng thái (cột) khác trên Board.
-     * @param taskId ID của task cần di chuyển.
-     * @param request DTO chứa ID trạng thái mới và vị trí sắp xếp mới (newSortOrder).
+     * Thay doi trang thai (Cot) cua Task tren giao dien Board.
+     * * @param taskId ID cua Task
+     * @param request DTO chua ID trang thai moi va vi tri sap xep
      */
     TaskResponse moveTaskToStatus(Integer taskId, MoveTaskStatusRequest request);
     
     /**
-     * Gán hoặc gỡ Epic khỏi Task.
-     * @param taskId ID của Task cần cập nhật.
-     * @param request Chứa epicId (hoặc null để gỡ).
-     * @return TaskResponse sau khi cập nhật.
+     * Gan hoac go lien ket giua Task va Epic (Muc tieu lon).
+     * * @param request Chua epicId (null neu muon go lien ket)
      */
     TaskResponse updateTaskEpic(Integer taskId, UpdateTaskEpicRequest request);
-    TaskResponse deleteTask(Integer taskId);
-
-    // Lưu trữ task
-    void archiveTask(Integer taskId);
-
-    // Khôi phục task
-    void restoreTask(Integer taskId);
-
-    // ========================================================================
-    // 3. HÀM HELPER
-    // ========================================================================
 
     /**
-     * Hàm helper để map Task (Entity) sang TaskResponse (DTO chi tiết).
-     * @param task Entity Task.
-     * @return TaskResponse DTO.
+     * Dua Task vao kho luu tru (Archived) - Khong hien thi tren Board/Backlog.
      */
-    TaskResponse mapToTaskResponse(Task task);
+    void archiveTask(Integer taskId);
+
+    /**
+     * Khoi phuc Task tu kho luu tru tro lai trang thai hoat dong.
+     */
+    void restoreTask(Integer taskId);
+
+    // ======================================================
+    // 3. NHAP DU LIEU HANG LOAT (BULK IMPORT)
+    // ======================================================
+
+    /**
+     * Tao tep tin mau Excel de nguoi dung nhap lieu Task.
+     */
     byte[] generateImportTemplate();
     
+    /**
+     * Doc tep tin Excel va tra ve danh sach xem truoc kem thong bao loi (neu co).
+     */
     List<TaskImportPreviewResponse> previewImportTasks(Integer projectId, MultipartFile file);
+
+    /**
+     * Thuc hien luu hang loat cac Task da duoc xac thuc tu danh sach xem truoc.
+     */
     ImportTaskResultResponse saveImportedTasks(Integer projectId, List<TaskImportPreviewResponse> validatedRows);
+
+    // ======================================================
+    // 4. LOGIC MAPPING (INTERNAL CONVERSION)
+    // ======================================================
+
+    /**
+     * Chuyen doi thuc the Task sang DTO chi tiet.
+     * * @param task Entity Task can convert
+     * @return TaskResponse DTO
+     */
+    TaskResponse mapToTaskResponse(Task task);
 }

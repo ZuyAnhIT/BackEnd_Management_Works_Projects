@@ -6,28 +6,28 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Chú thích dùng để đánh dấu các hàm (method) cần được ghi nhận lịch sử hoạt động.
- * ActivityLogAspect sẽ quét các hàm có chú thích này để tự động lưu log.
+ * Chu thich dung de danh dau cac ham (method) can duoc ghi nhan lich su hoat dong.
+ * ActivityLogAspect se quet cac ham co chu thich nay de tu dong luu log.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface LogActivity {
 
     /**
-     * Tên hành động được thực hiện.
-     * Ví dụ: "CREATE", "UPDATE", "DELETE", "INVITE"
+     * Ten hanh dong duoc thuc hien.
+     * Vi du: "CREATE", "UPDATE", "DELETE", "INVITE"
      */
     String action();
 
     /**
-     * Loại thực thể chịu tác động của hành động.
-     * Ví dụ: "TASK", "PROJECT", "WORKSPACE"
+     * Loai thuc the chiu tac dong cua hanh dong.
+     * Vi du: "TASK", "PROJECT", "WORKSPACE"
      */
     String entityType();
 
     /**
-     * Mô tả chi tiết mặc định cho hành động (không bắt buộc).
-     * Sẽ được sử dụng nếu ActivityLogContext không cung cấp chi tiết động.
+     * Mo ta chi tiet mac dinh cho hanh dong (khong bat buoc).
+     * Se duoc su dung neu ActivityLogContext khong cung cap chi tiet dong.
      */
     String description() default "";
 }

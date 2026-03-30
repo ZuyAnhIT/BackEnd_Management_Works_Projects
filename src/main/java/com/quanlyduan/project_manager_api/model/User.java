@@ -4,7 +4,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-// JPA & Hibernate
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.quanlyduan.project_manager_api.model.common.enums.Gender;
+import com.quanlyduan.project_manager_api.model.common.enums.UserStatus;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,96 +20,127 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-// Lombok
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-// Project Enums
-import com.quanlyduan.project_manager_api.model.common.enums.Gender;
-import com.quanlyduan.project_manager_api.model.common.enums.UserStatus;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * Entity đại diện cho người dùng (User) trong hệ thống.
+ * Entity dai dien cho Nguoi dung (User) - Chu the chinh cua he thong.
+ * Quan ly thong tin dang nhap, ho so ca nhan va trang thai hoat dong trong Worknet.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
-@Table(name = "users") // Đặt tên bảng là users
+@Table(name = "users")
 public class User {
 
-    // ==========================================
-    // PRIMARY KEY
-    // ==========================================
+    // ======================================================
+    // 1. DINH DANH DU LIEU (PRIMARY KEY)
+    // ======================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // ID định danh
+    private Integer id;
 
-    // ==========================================
-    // AUTHENTICATION & CORE INFO (Thông tin cốt lõi & Đăng nhập)
-    // ==========================================
+    // ======================================================
+    // 2. XAC THUC & THONG TIN COT LOI (AUTH & CORE INFO)
+    // ======================================================
+    
+    /** Email dung lam username duy nhat de dang nhap. */
     @Column(nullable = false, unique = true)
-    private String email; // Email (dùng làm username, phải là duy nhất)
+    private String email;
 
+    /** Mat khau da duoc ma hoa (BCrypt/Argon2). */
     @Column(name = "password", nullable = false)
-    private String password; // Mật khẩu đã hash
+    private String password;
 
+    /** Ho va ten day du cua nguoi dung. */
     @Column(name = "full_name", nullable = false)
-    private String fullName; // Họ và tên đầy đủ
+    private String fullName;
 
-    // ==========================================
-    // PROFILE INFORMATION (Thông tin cá nhân)
-    // ==========================================
+    // ======================================================
+    // 3. HO SO CA NHAN (PROFILE INFORMATION)
+    // ======================================================
+    
+    /** Duong dan anh dai dien tren Storage Cloud. */
     @Column(name = "avatar_url")
-    private String avatarUrl; // URL ảnh đại diện
+    private String avatarUrl;
 
     @Column(name = "phone_number")
-    private String phoneNumber; // Số điện thoại
+    private String phoneNumber;
 
     @Column(name = "date_of_birth")
-    private LocalDate dateOfBirth; // Ngày sinh
+    private LocalDate dateOfBirth;
 
+    /** Gioi tinh nguoi dung (MALE, FEMALE, OTHER). */
     @Enumerated(EnumType.STRING)
     @Column(name = "gender")
-    private Gender gender; // Giới tính
+    private Gender gender;
 
-    // ==========================================
-    // ACCOUNT STATUS & FLAGS (Trạng thái tài khoản)
-    // ==========================================
-    @Builder.Default
+    // ======================================================
+    // 4. TRANG THAI TAI KHOAN (ACCOUNT STATUS)
+    // ======================================================
+    
+    /** * Trang thai van hanh cua tai khoan.
+     * Gia tri: ACTIVE (Hoat dong), LOCKED (Bi khoa), DELETED (Da xoa mem). 
+     */
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private UserStatus status = UserStatus.ACTIVE; // Trạng thái tài khoản (ACTIVE, LOCKED, DELETED)
+    private UserStatus status;
 
-    @Builder.Default
+    /** Xac dinh nguoi dung da kich hoat tai khoan qua Email chua. */
     @Column(name = "is_email_verified", nullable = false)
-    private Boolean isEmailVerified = false; // Cờ xác định email đã được xác minh chưa
+    private Boolean isEmailVerified;
 
-    // ==========================================
-    // TIMESTAMPS & AUDIT (Thời gian hệ thống)
-    // ==========================================
+    // ======================================================
+    // 5. THONG TIN HE THONG (AUDIT INFO)
+    // ======================================================
+    
+    /** Ghi nhan lan cuoi cung nguoi dung truy cap he thong. */
     @Column(name = "last_login_at")
-    private LocalDateTime lastLoginAt; // Thời điểm đăng nhập gần nhất
+    private LocalDateTime lastLoginAt;
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; // Thời điểm tạo tài khoản
+    @Column(name = "created_at", updatable = false, nullable = false)
+    private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // Thời điểm cập nhật cuối cùng
+    private LocalDateTime updatedAt;
 
-    // ==========================================
-    // INVERSE RELATIONSHIPS (Quan hệ nghịch đảo)
-    // ==========================================
-    // Quan hệ nghịch đảo: Một User có nhiều AuthToken (Refresh Token, OTP,...)
+    // ======================================================
+    // 6. QUAN HE PHU (INVERSE RELATIONSHIPS)
+    // ======================================================
+    
+    /** Danh sach cac Token xac thuc (Refresh Token, OTP). */
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AuthToken> tokens;
 
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    public User() {
+    }
+
+    public User(Integer id, String email, String password, String fullName, 
+                String avatarUrl, String phoneNumber, LocalDate dateOfBirth, 
+                Gender gender, UserStatus status, Boolean isEmailVerified, 
+                LocalDateTime lastLoginAt, LocalDateTime createdAt, 
+                LocalDateTime updatedAt, List<AuthToken> tokens) {
+        this.id = id;
+        this.email = email;
+        this.password = password;
+        this.fullName = fullName;
+        this.avatarUrl = avatarUrl;
+        this.phoneNumber = phoneNumber;
+        this.dateOfBirth = dateOfBirth;
+        this.gender = gender;
+        this.status = status;
+        this.isEmailVerified = isEmailVerified;
+        this.lastLoginAt = lastLoginAt;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.tokens = tokens;
+    }
 }
