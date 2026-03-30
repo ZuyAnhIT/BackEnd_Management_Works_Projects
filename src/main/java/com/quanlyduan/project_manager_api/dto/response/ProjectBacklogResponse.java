@@ -1,50 +1,76 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/ProjectBacklogResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.Builder;
-import lombok.Data;
 import java.util.List;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO phản hồi dữ liệu tổng hợp cho màn hình Backlog (Scrum Board).
- * Cấu trúc màn hình này thường chia làm 2 phần chính:
- * 1. Các Sprint đang chạy/sắp chạy (Active Sprints) - thường ở phía trên.
- * 2. Danh sách công việc tồn đọng (Product Backlog) - thường ở phía dưới.
+ * DTO phan hoi du lieu tong hop cho man hinh Backlog (Scrum/Agile).
+ * Cau truc gom: Danh sach cac Sprint dang thuc thi va Danh sach Cong viec ton dong (Product Backlog).
  */
-@Data
+@Getter
+@Setter
 @Builder
 public class ProjectBacklogResponse {
-    
-    // ========================================================================
-    // PHẦN 1: ACTIVE SPRINTS
-    // ========================================================================
 
-    // Danh sách các Sprint đang ở trạng thái IN_PROGRESS hoặc NOT_STARTED.
-    // Mỗi Sprint trong list này đã bao gồm danh sách Task con của nó.
-    // Thường phần này KHÔNG phân trang (load hết các sprint active).
+    // ======================================================
+    // 1. CAC SPRINT DANG HOAT DONG (ACTIVE SPRINTS)
+    // ======================================================
+    
+    /** * Danh sach cac Sprint dang trong trang thai IN_PROGRESS hoac NOT_STARTED. 
+     * Moi Sprint da bao gom danh sach cac Task con ben trong. 
+     */
     private List<SprintDetailsResponse> activeSprints;
     
-    // ========================================================================
-    // PHẦN 2: PRODUCT BACKLOG
-    // ========================================================================
+    // ======================================================
+    // 2. DANH SACH CONG VIEC TON ĐONG (PRODUCT BACKLOG)
+    // ======================================================
 
-    // Danh sách các Task chưa được gán vào bất kỳ Sprint nào (sprint_id IS NULL).
-    // Phần này CÓ phân trang (Infinite Scroll hoặc Load More).
+    /** * Danh sach cac Task chua duoc gan vao bat ky Sprint nao (Product Backlog).
+     * Phan nay duoc phan trang de dam bao hieu nang khi so luong Task lon.
+     */
     private List<TaskSummaryResponse> backlogTasks;
 
-    // ========================================================================
-    // PHẦN 3: METADATA PHÂN TRANG (CHO BACKLOG)
-    // ========================================================================
+    // ======================================================
+    // 3. METADATA PHAN TRANG (BACKLOG PAGINATION)
+    // ======================================================
 
-    // Số trang hiện tại của danh sách Backlog.
+    /** Chi so trang hien tai cua danh sach Backlog (0-based). */
     private int backlogPageNumber;
 
-    // Kích thước trang (số lượng task backlog trả về lần này).
+    /** Kich thuoc trang (So luong Task tra ve trong mot lan load). */
     private int backlogPageSize;
 
-    // Tổng số lượng task đang nằm trong Backlog.
+    /** Tong so luong Task hien co trong Product Backlog. */
     private long backlogTotalElements;
 
-    // Tổng số trang của Backlog.
+    /** Tong so trang co the tai (totalElements / pageSize). */
     private int backlogTotalPages;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Giup Jackson Deserialize du lieu mot cach minh bach.
+     */
+    public ProjectBacklogResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public ProjectBacklogResponse(List<SprintDetailsResponse> activeSprints, 
+                                  List<TaskSummaryResponse> backlogTasks, 
+                                  int backlogPageNumber, int backlogPageSize, 
+                                  long backlogTotalElements, int backlogTotalPages) {
+        this.activeSprints = activeSprints;
+        this.backlogTasks = backlogTasks;
+        this.backlogPageNumber = backlogPageNumber;
+        this.backlogPageSize = backlogPageSize;
+        this.backlogTotalElements = backlogTotalElements;
+        this.backlogTotalPages = backlogTotalPages;
+    }
 }

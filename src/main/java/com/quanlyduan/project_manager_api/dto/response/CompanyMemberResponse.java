@@ -1,72 +1,100 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/CompanyMemberResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
-
-import com.quanlyduan.project_manager_api.model.common.enums.CombinedMemberStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * DTO phản hồi thông tin chi tiết của một Thành viên trong Công ty.
- * DTO này được sử dụng chung cho cả:
- * 1. Thành viên chính thức (User đã có trong bảng company_members).
- * 2. Lời mời đang chờ (User chưa chấp nhận, lấy từ bảng company_invitations).
- */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class CompanyMemberResponse {
-    
-    // ========================================================================
-    // 1. THÔNG TIN ĐỊNH DANH (IDENTITY)
-    // ========================================================================
+import com.quanlyduan.project_manager_api.model.common.enums.CombinedMemberStatus;
 
-    // ID định danh của bản ghi trong bảng 'company_members'.
-    // Lưu ý: Sẽ là NULL nếu đây là một lời mời đang chờ (Pending Invitation) chưa được chấp nhận.
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+
+/**
+ * DTO phan hoi thong tin chi tiet cua mot Thanh vien trong Cong ty.
+ * Duoc su dung chung cho ca Thanh vien chinh thuc va Loi moi dang cho (Pending).
+ */
+@Getter
+@Setter
+@Builder
+public class CompanyMemberResponse {
+
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY)
+    // ======================================================
+
+    /** * ID ban ghi trong bang 'company_members'.
+     * Luu y: Se la NULL neu day la mot loi moi (Pending Invitation) chua duoc chap nhan. 
+     */
     private Integer memberId; 
 
-    // ID của tài khoản người dùng (User ID).
-    // Lưu ý: Sẽ là NULL nếu người được mời chưa có tài khoản trong hệ thống.
+    /** * ID tai khoan nguoi dung (User ID).
+     * Luu y: Se la NULL neu nguoi duoc moi chua co tai khoan tren he thong. 
+     */
     private Integer userId;
 
-    // ========================================================================
-    // 2. THÔNG TIN CÁ NHÂN (PERSONAL INFO)
-    // ========================================================================
+    // ======================================================
+    // 2. THONG TIN CA NHAN (PERSONAL INFO)
+    // ======================================================
 
-    // Họ và tên hiển thị.
+    /** Ho va ten hien thi tren giao dien. */
     private String fullName; 
 
-    // Địa chỉ Email liên hệ.
+    /** Email lien he (Dung de tra cuu hoac gui thong bao). */
     private String email;
 
-    // Số điện thoại liên hệ.
+    /** So dien thoai lien lac. */
     private String phoneNumber;
 
-    // Đường dẫn ảnh đại diện (Avatar).
+    /** Duong dan URL den anh dai dien (Avatar). */
     private String avatarUrl; 
     
-    // ========================================================================
-    // 3. THÔNG TIN CÔNG VIỆC & VAI TRÒ (WORK & ROLE INFO)
-    // ========================================================================
+    // ======================================================
+    // 3. VAI TRO & THOI GIAN (ROLE & TIMELINE)
+    // ======================================================
 
-    // Tên vai trò trong công ty (ví dụ: "Quản trị viên", "Thành viên").
+    /** Ten vai tro trong cong ty (vi du: Admin, Member). */
     private String roleName; 
     
-    // Chức danh công việc cụ thể (ví dụ: "Frontend Dev", "HR Manager").
+    /** Chuc danh cong viec cu the (vi du: Backend Developer). */
     private String jobTitle; 
 
-    // Thời điểm tham gia công ty (hoặc thời điểm gửi lời mời).
+    /** Thoi diem tham gia (official) hoac thoi diem gui loi moi (pending). */
     private LocalDateTime joinedAt; 
     
-    // ========================================================================
-    // 4. TRẠNG THÁI (STATUS)
-    // ========================================================================
+    // ======================================================
+    // 4. TRANG THAI (STATUS)
+    // ======================================================
 
-    // Trạng thái tổng hợp của thành viên.
-    // Bao gồm: ACTIVE (Hoạt động), SUSPENDED (Tạm dừng), REMOVED (Đã xóa), PENDING (Đang chờ).
+    /** * Trang thai tong hop cua thanh vien.
+     * Gia tri: ACTIVE, SUSPENDED, REMOVED, PENDING.
+     */
     private CombinedMemberStatus status;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     */
+    public CompanyMemberResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public CompanyMemberResponse(Integer memberId, Integer userId, String fullName, 
+                                 String email, String phoneNumber, String avatarUrl, 
+                                 String roleName, String jobTitle, LocalDateTime joinedAt, 
+                                 CombinedMemberStatus status) {
+        this.memberId = memberId;
+        this.userId = userId;
+        this.fullName = fullName;
+        this.email = email;
+        this.phoneNumber = phoneNumber;
+        this.avatarUrl = avatarUrl;
+        this.roleName = roleName;
+        this.jobTitle = jobTitle;
+        this.joinedAt = joinedAt;
+        this.status = status;
+    }
 }

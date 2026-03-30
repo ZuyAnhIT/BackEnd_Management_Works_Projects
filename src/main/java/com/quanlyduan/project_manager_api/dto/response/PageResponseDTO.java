@@ -1,58 +1,82 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/PageResponseDTO.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.util.List;
 import org.springframework.data.domain.Page;
 
-import java.util.List;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * Generic DTO for paginated responses.
- * Standardizes the output format for all list APIs with pagination.
- * * DTO chuẩn dùng để trả về dữ liệu phân trang cho toàn bộ hệ thống.
- * Sử dụng Generic <T> để có thể chứa bất kỳ loại đối tượng nào (User, Task, Project...).
+ * Generic DTO cho cac phan hoi phan trang (Paginated Responses).
+ * Chuan hoa cau truc dau ra cho toan bo cac API danh sach trong he thong.
+ * @param <T> Kieu du lieu cua phan tu (vi du: UserResponse, TaskResponse...).
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class PageResponseDTO<T> {
 
-    // The actual list of data for the current page.
-    // VN: Danh sách dữ liệu chính của trang hiện tại (Payload).
+    // ======================================================
+    // 1. DU LIEU CHINH (CORE DATA)
+    // ======================================================
+
+    /** Danh sach du lieu cua trang hien tai (Payload). */
     private List<T> content;
 
-    // Current page index (0-based).
-    // VN: Chỉ số trang hiện tại (Bắt đầu từ 0). Frontend cần +1 nếu muốn hiển thị cho người dùng.
+    // ======================================================
+    // 2. CHI SO PHAN TRANG (PAGINATION METRICS)
+    // ======================================================
+
+    /** Chi so trang hien tai (0-based). */
     private int pageNumber;
 
-    // Number of items per page.
-    // VN: Kích thước trang (Số lượng phần tử tối đa trên 1 trang).
+    /** So luong phan tu toi da tren mot trang (Page Size). */
     private int pageSize;
 
-    // Total number of items across all pages.
-    // VN: Tổng số bản ghi có trong cơ sở dữ liệu (thỏa mãn điều kiện lọc).
+    /** Tong so ban ghi co trong Database thoa man dieu kien loc. */
     private long totalElements;
 
-    // Total number of pages.
-    // VN: Tổng số trang được tính toán dựa trên totalElements và pageSize.
+    /** Tong so trang duoc tinh toan (totalElements / pageSize). */
     private int totalPages;
 
-    // Indicates if this is the last page.
-    // VN: Cờ đánh dấu: true nếu là trang cuối cùng -> Frontend ẩn nút "Next".
+    // ======================================================
+    // 3. CO DIEU HUONG (NAVIGATION FLAGS)
+    // ======================================================
+
+    /** Co danh dau trang cuoi cung -> Frontend an nut "Next". */
     private boolean last;
 
-    // Indicates if this is the first page.
-    // VN: Cờ đánh dấu: true nếu là trang đầu tiên -> Frontend ẩn nút "Previous".
+    /** Co danh dau trang dau tien -> Frontend an nut "Previous". */
     private boolean first;
 
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
     /**
-     * Utility constructor to map from Spring Data's Page object to this DTO.
-     * VN: Constructor tiện ích giúp chuyển đổi nhanh từ đối tượng Page (của Spring JPA) sang DTO này.
-     * @param page Đối tượng Page trả về từ Repository.
+     * Constructor mac dinh (No-args) viet tay.
+     */
+    public PageResponseDTO() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public PageResponseDTO(List<T> content, int pageNumber, int pageSize, 
+                           long totalElements, int totalPages, boolean last, boolean first) {
+        this.content = content;
+        this.pageNumber = pageNumber;
+        this.pageSize = pageSize;
+        this.totalElements = totalElements;
+        this.totalPages = totalPages;
+        this.last = last;
+        this.first = first;
+    }
+
+    /**
+     * Constructor tien ich giup mapping nhanh tu doi tuong Page cua Spring Data JPA.
+     * @param page Doi tuong Page tra ve tu Repository/Service.
      */
     public PageResponseDTO(Page<T> page) {
         this.content = page.getContent();

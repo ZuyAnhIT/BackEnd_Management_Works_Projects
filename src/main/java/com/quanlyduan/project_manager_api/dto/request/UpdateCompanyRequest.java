@@ -1,37 +1,82 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/UpdateCompanyRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho yêu cầu cập nhật thông tin Công ty.
- * Hỗ trợ cập nhật từng phần (Partial Update):
- * - Nếu client gửi giá trị null cho một trường, hệ thống sẽ giữ nguyên giá trị cũ trong Database.
- * - Nếu client gửi giá trị mới, hệ thống sẽ cập nhật.
+ * DTO nhan du lieu de cap nhat thong tin Cong ty.
+ * Ho tro co che Partial Update: Chi cap nhat nhung truong co gia tri khac null tu Client.
  */
-@Data
+@Getter
+@Setter
 public class UpdateCompanyRequest {
 
-    // Tên công ty mới (Tùy chọn, nhưng nếu có giá trị thì phải đúng độ dài)
-    @Size(min = 3, max = 255, message = "Company name must be between 3 and 255 characters")
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final int MIN_NAME_SIZE = 3;
+    public static final int MAX_NAME_SIZE = 255;
+    
+    public static final String NAME_SIZE_MSG = "Company name must be between " 
+            + MIN_NAME_SIZE + " and " + MAX_NAME_SIZE + " characters";
+
+    // ======================================================
+    // 1. THONG TIN CO BAN (BASIC INFO)
+    // ======================================================
+
+    /**
+     * Ten moi cua cong ty.
+     * Neu co gia tri, bat buoc phai dat do dai quy dinh.
+     */
+    @Size(min = MIN_NAME_SIZE, max = MAX_NAME_SIZE, message = NAME_SIZE_MSG)
     private String companyName;
 
-    // Mô tả mới (Tùy chọn)
+    /**
+     * Mo ta moi ve linh vuc hoac quy mo hoat dong.
+     */
     private String description;
 
-    // Đường dẫn Logo mới (Tùy chọn - thường là URL string hoặc xử lý qua multipart riêng)
+    // ======================================================
+    // 2. NHAN DIEN THUONG HIEU (BRANDING)
+    // ======================================================
+
+    /**
+     * Duong dan URL den anh Logo moi.
+     */
     private String logo;
 
-    // Địa chỉ trụ sở mới (Tùy chọn)
+    /**
+     * Dia chi website chinh thuc cua cong ty.
+     */
+    private String website;
+
+    // ======================================================
+    // 3. THONG TIN LIEN HE (CONTACT)
+    // ======================================================
+
+    /**
+     * Dia chi tru so chinh hoac chi nhanh moi.
+     */
     private String address;
 
-    // Số điện thoại liên hệ mới (Tùy chọn)
+    /**
+     * So dien thoai lien he moi.
+     */
     private String phoneNumber;
 
-    // Email liên hệ mới (Tùy chọn)
+    /**
+     * Email giao dich chinh thuc moi.
+     */
     private String email;
 
-    // Website mới (Tùy chọn)
-    private String website;
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public UpdateCompanyRequest() {
+    }
 }

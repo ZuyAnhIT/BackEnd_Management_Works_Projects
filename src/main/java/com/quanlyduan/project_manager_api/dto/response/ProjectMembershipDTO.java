@@ -1,44 +1,66 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/ProjectMembershipDTO.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO con (Nested DTO) chứa thông tin về tư cách thành viên của người dùng trong một Dự án cụ thể.
- * Thường được sử dụng trong danh sách "My Projects" hoặc thông tin Profile mở rộng.
+ * DTO con (Nested DTO) chua thong tin ve tu cach thanh vien cua nguoi dung trong mot Du an.
+ * Thuong duoc nhung vao danh sach "Du an cua toi" hoac thong tin Profile mo rong.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ProjectMembershipDTO {
 
-    // ========================================================================
-    // 1. THÔNG TIN DỰ ÁN (PROJECT INFO)
-    // ========================================================================
+    // ======================================================
+    // 1. THONG TIN DU AN (PROJECT INFO)
+    // ======================================================
 
-    // ID định danh của dự án
+    /** ID dinh danh duy nhat cua Du an. */
     private Integer projectId;
 
-    // Tên hiển thị của dự án
+    /** Ten hien thi cua Du an (vi du: "App Mobile Phase 2"). */
     private String projectName;
 
-    // ========================================================================
-    // 2. THÔNG TIN CẤP CHA (HIERARCHY INFO)
-    // ========================================================================
+    // ======================================================
+    // 2. THONG TIN CAP CHA (HIERARCHY INFO)
+    // ======================================================
 
-    // ID của Không gian làm việc (Workspace) chứa dự án này.
-    // Frontend dùng để tạo đường dẫn breadcrumb hoặc link điều hướng.
+    /** * ID cua Khong gian lam viec (Workspace) chua du an nay.
+     * Frontend dung truong nay de tao duong dan Breadcrumb hoac link dieu huong quay lai Workspace.
+     */
     private Integer workspaceId; 
 
-    // ========================================================================
-    // 3. THÔNG TIN VAI TRÒ (ROLE INFO)
-    // ========================================================================
+    // ======================================================
+    // 3. THONG TIN VAI TRO (ROLE INFO)
+    // ======================================================
 
-    // Mã vai trò của người dùng trong dự án này.
-    // Ví dụ: "PROJECT_ADMIN", "PROJECT_MEMBER", "GUEST_PROJECT".
-    private String roleCode; 
+    /** * Ma vai tro cua nguoi dung trong du an nay.
+     * Vi du: "PROJECT_ADMIN", "PROJECT_MEMBER", "GUEST".
+     * Dung de phan quyen truy cap cac tinh nang ben trong du an.
+     */
+    private String roleCode;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson co the khoi tao doi tuong tu JSON mot cach minh bach.
+     */
+    public ProjectMembershipDTO() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public ProjectMembershipDTO(Integer projectId, String projectName, 
+                                Integer workspaceId, String roleCode) {
+        this.projectId = projectId;
+        this.projectName = projectName;
+        this.workspaceId = workspaceId;
+        this.roleCode = roleCode;
+    }
 }

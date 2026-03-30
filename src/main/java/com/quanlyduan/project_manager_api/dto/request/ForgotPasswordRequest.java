@@ -1,29 +1,43 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận yêu cầu luồng "Quên mật khẩu" từ phía người dùng.
- * Yêu cầu người dùng cung cấp email đã đăng ký để hệ thống gửi liên kết chứa Token đặt lại mật khẩu.
+ * DTO nhan yeu cau khoi phuc mat khau tu phia nguoi dung.
+ * Nguoi dung cung cap email de he thong kiem tra va gui lien ket dat lai mat khau.
  */
-@Data
+@Getter
+@Setter
 public class ForgotPasswordRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin định danh)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String EMAIL_BLANK_MSG = "Email must not be blank";
+    public static final String EMAIL_INVALID_MSG = "Invalid email format";
+
+    // ======================================================
+    // THONG TIN DINH DANH (IDENTIFICATION)
+    // ======================================================
 
     /**
-     * Địa chỉ Email của người dùng cần khôi phục mật khẩu.
-     * Bắt buộc phải nhập và phải tuân thủ đúng định dạng email tiêu chuẩn (VD: user@example.com).
+     * Dia chi Email cua nguoi dung can khoi phuc mat khau.
+     * Bat buoc phai dung dinh dang email tieu chuan (vi du: user@example.com).
      */
-    @NotBlank(message = "Email must not be blank")
-    @Email(message = "Invalid email format")
+    @NotBlank(message = EMAIL_BLANK_MSG)
+    @Email(message = EMAIL_INVALID_MSG)
     private String email;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh ho tro viec Deserialize JSON tu Client.
+     */
+    public ForgotPasswordRequest() {
+    }
 }

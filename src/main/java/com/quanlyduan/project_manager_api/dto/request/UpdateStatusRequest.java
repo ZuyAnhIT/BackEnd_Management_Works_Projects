@@ -1,25 +1,55 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/UpdateStatusRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho yêu cầu cập nhật thông tin của một Trạng thái (Cột trên Board).
- * Hỗ trợ cập nhật từng phần (Partial Update):
- * - Chỉ những trường có giá trị (không null) mới được cập nhật vào Database.
+ * DTO nhan du lieu de cap nhat thong tin cua mot Trang thai (Cot tren Board).
+ * Ho tro co che Partial Update: Chi nhung truong co gia tri (khong null) moi duoc cap nhat vao he thong.
  */
-@Data
+@Getter
+@Setter
 public class UpdateStatusRequest {
-    
-    // Tên trạng thái mới (Tùy chọn, tối đa 100 ký tự)
-    @Size(max = 100, message = "Status name must not exceed 100 characters")
+
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final int NAME_MAX_SIZE = 100;
+    public static final String NAME_SIZE_MSG = "Status name must not exceed " + NAME_MAX_SIZE + " characters";
+
+    // ======================================================
+    // 1. THONG TIN HIEN THI (UI INFO)
+    // ======================================================
+
+    /**
+     * Ten moi cua trang thai (vi du: To Do, Doing, Done).
+     */
+    @Size(max = NAME_MAX_SIZE, message = NAME_SIZE_MSG)
     private String name;
 
-    // Mã màu hiển thị mới (Tùy chọn - ví dụ: #e74c3c)
+    /**
+     * Ma mau HEX moi hien thi cho cot trang thai (vi du: #e74c3c).
+     */
     private String color; 
 
-    // Cờ đánh dấu: Đây có phải là trạng thái "Hoàn thành" không? (Tùy chọn)
-    // Nếu true: Các Task khi được kéo vào cột này sẽ được hệ thống ghi nhận là đã hoàn thành (Completed).
+    // ======================================================
+    // 2. LOGIC HE THONG (SYSTEM LOGIC)
+    // ======================================================
+
+    /**
+     * Co danh dau trang thai "Hoan thanh".
+     * Neu true: Cac Task duoc keo vao cot nay se tu dong duoc danh dau la da hoan thanh.
+     */
     private Boolean isCompletedStatus; 
+
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public UpdateStatusRequest() {
+    }
 }

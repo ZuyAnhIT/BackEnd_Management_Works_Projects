@@ -1,44 +1,68 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu đăng ký tài khoản mới trực tiếp từ người dùng (Public Registration).
+ * DTO nhan du lieu dang ky tai khoan moi truc tiep tu nguoi dung (Public Registration).
+ * Day la buoc dau tien trong luong Onboarding de nguoi dung tu thiet lap tai khoan ca nhan.
  */
-@Data
+@Getter
+@Setter
 public class RegisterRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin đăng ký)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final int MIN_PASSWORD_LENGTH = 6;
+    
+    public static final String NAME_BLANK_MSG = "Full name must not be blank";
+    public static final String EMAIL_BLANK_MSG = "Email must not be blank";
+    public static final String EMAIL_INVALID_MSG = "Invalid email format";
+    public static final String PASSWORD_BLANK_MSG = "Password must not be blank";
+    public static final String PASSWORD_SIZE_MSG = "Password must contain at least " + MIN_PASSWORD_LENGTH + " characters";
+
+    // ======================================================
+    // 1. THONG TIN CA NHAN (PERSONAL INFO)
+    // ======================================================
 
     /**
-     * Họ và tên đầy đủ của người dùng.
-     * Bắt buộc phải nhập, không được để trống.
+     * Ho va ten day du cua nguoi dung.
+     * Bat buoc phai co de hien thi tren profile va cac hoat dong trong du an.
      */
-    @NotBlank(message = "Full name must not be blank")
+    @NotBlank(message = NAME_BLANK_MSG)
     private String fullName;
 
+    // ======================================================
+    // 2. THONG TIN XAC THUC (AUTHENTICATION)
+    // ======================================================
+
     /**
-     * Địa chỉ Email sử dụng để đăng ký và đăng nhập sau này.
-     * Bắt buộc phải nhập và tuân thủ đúng định dạng (VD: user@example.com).
+     * Dia chi Email su dung de dang ky va dang nhap sau nay.
+     * Bat buoc dung dinh dang email tieu chuan de Backend gui mail xac nhan (neu co).
      */
-    @NotBlank(message = "Email must not be blank")
-    @Email(message = "Invalid email format")
+    @NotBlank(message = EMAIL_BLANK_MSG)
+    @Email(message = EMAIL_INVALID_MSG)
     private String email;
 
     /**
-     * Mật khẩu đăng nhập cho tài khoản mới.
-     * Bắt buộc phải nhập và có độ dài tối thiểu là 6 ký tự để đảm bảo an toàn cơ bản.
+     * Mat khau dang nhap cho tai khoan moi.
+     * Bat buoc dat do dai toi thieu de dam bao an toan co ban cho tai khoan.
      */
-    @NotBlank(message = "Password must not be blank")
-    @Size(min = 6, message = "Password must contain at least 6 characters")
+    @NotBlank(message = PASSWORD_BLANK_MSG)
+    @Size(min = MIN_PASSWORD_LENGTH, message = PASSWORD_SIZE_MSG)
     private String password;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh ho tro viec Deserialize JSON tu Client.
+     */
+    public RegisterRequest() {
+    }
 }

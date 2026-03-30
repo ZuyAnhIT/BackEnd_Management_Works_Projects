@@ -1,31 +1,59 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/InvitationDetailsResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO phản hồi chi tiết của một lời mời (khi người dùng nhấp vào link mời trong email).
- * API này thường được gọi công khai (Public) để Frontend quyết định giao diện tiếp theo.
+ * DTO phan hoi chi tiet cua mot loi moi khi nguoi dung nhap vao link tu Email.
+ * Day la API cong khai (Public) giup Frontend dieu huong nguoi dung den trang Dang nhap hoac Dang ky.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class InvitationDetailsResponse {
 
-    // Email của người được mời.
-    // Frontend dùng trường này để tự động điền vào ô Email (và có thể khóa ô này lại).
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY INFO)
+    // ======================================================
+
+    /** * Email cua nguoi duoc moi. 
+     * Frontend dung truong nay de tu dong dien vao o Email va khoa (readonly) de dam bao tinh bao mat.
+     */
     private String email;
 
-    // Tên công ty đã gửi lời mời.
-    // Dùng để hiển thị thông báo chào mừng: "Công ty [companyName] đã mời bạn tham gia..."
+    /** * Ten cong ty da gui loi moi. 
+     * Dung de hien thi loi chao: "Chao mung ban den voi [companyName] tren Worknet".
+     */
     private String companyName;
 
-    // Cờ kiểm tra tài khoản tồn tại.
-    // - true: Email này đã có tài khoản -> Frontend chuyển hướng sang trang Đăng nhập.
-    // - false: Email này chưa có tài khoản -> Frontend chuyển hướng sang trang Đăng ký.
+    // ======================================================
+    // 2. LOGIC DIEU HUONG (NAVIGATION LOGIC)
+    // ======================================================
+
+    /** * Co kiem tra su ton tai cua tai khoan trong he thong.
+     * - true: Da co tai khoan -> Frontend hien thi nut "Dang nhap de tiep tuc".
+     * - false: Chua co tai khoan -> Frontend hien thi form "Hoan tat dang ky".
+     */
     private boolean accountExists;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson co the khoi tao doi tuong tu JSON mot cach minh bach.
+     */
+    public InvitationDetailsResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public InvitationDetailsResponse(String email, String companyName, boolean accountExists) {
+        this.email = email;
+        this.companyName = companyName;
+        this.accountExists = accountExists;
+    }
 }

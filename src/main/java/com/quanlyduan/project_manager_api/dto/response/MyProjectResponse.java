@@ -1,61 +1,87 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/MyProjectResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO chứa thông tin tóm tắt về Dự án (Project) mà người dùng đang tham gia.
- * Được sử dụng chủ yếu trong API Dashboard (/api/dashboard/my-projects) để hiển thị danh sách nhanh.
+ * DTO chua thong tin tom tat ve Du an (Project) ma nguoi dung dang tham gia.
+ * Duoc su dung chu yeu trong API Dashboard de hien thi danh sach nhanh tren the (Card).
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class MyProjectResponse {
 
-    // ========================================================================
-    // 1. THÔNG TIN DỰ ÁN (PROJECT INFO)
-    // ========================================================================
+    // ======================================================
+    // 1. THONG TIN DU AN (PROJECT INFO)
+    // ======================================================
 
-    // ID định danh của dự án
+    /** ID dinh danh duy nhat cua Du an. */
     private Integer projectId;
 
-    // Tên dự án hiển thị
+    /** Ten hien thi cua Du an (vi du: "He thong CRM Phase 1"). */
     private String projectName;
 
-    // Mô tả ngắn gọn về dự án
+    /** Mo ta ngan gon ve muc tieu cua du an. */
     private String description;
 
-    // Đường dẫn ảnh bìa của dự án (nếu có)
+    /** Duong dan URL den anh bia (Cover Image) cua du an. */
     private String coverImage;
 
-    // Mã màu đại diện cho dự án (ví dụ để hiển thị tag hoặc background)
+    /** Ma mau dai dien (HEX) dung de hien thi Tag hoac mau chu de cho the Project. */
     private String color;
 
-    // ========================================================================
-    // 2. THÔNG TIN CẤP CHA (HIERARCHY INFO)
-    // ========================================================================
+    // ======================================================
+    // 2. THONG TIN CAP CHA (HIERARCHY INFO)
+    // ======================================================
+    // Giup nguoi dung biet du an nay thuoc ve "Nha" nao
 
-    // ID của Không gian làm việc (Phòng ban) chứa dự án này
+    /** ID va Ten cua Khong gian lam viec (Workspace/Phong ban) truc thuoc. */
     private Integer workspaceId;
-
-    // Tên của Không gian làm việc
     private String workspaceName;
 
-    // ID của Công ty chứa dự án này
+    /** ID va Ten cua Cong ty (Tenant) so huu du an nay. */
     private Integer companyId;
-
-    // Tên của Công ty
     private String companyName;
 
-    // ========================================================================
-    // 3. NGỮ CẢNH NGƯỜI DÙNG (USER CONTEXT)
-    // ========================================================================
+    // ======================================================
+    // 3. NGU CANH NGUOI DUNG (USER CONTEXT)
+    // ======================================================
 
-    // Tên vai trò của người dùng hiện tại trong dự án này (ví dụ: "PROJECT_ADMIN", "MEMBER").
-    // Frontend dùng thông tin này để hiển thị quyền hạn tương ứng trên thẻ dự án.
+    /** * Ten vai tro cua nguoi dung hien tai trong dự án này.
+     * Vi du: "PROJECT_ADMIN", "MEMBER", "STAKEHOLDER".
+     * Frontend dung de phan quyen hien thi cac nut chuc nang tren Card.
+     */
     private String myRoleName;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson co the Deserialize du lieu mot cach minh bach.
+     */
+    public MyProjectResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public MyProjectResponse(Integer projectId, String projectName, String description, 
+                             String coverImage, String color, Integer workspaceId, 
+                             String workspaceName, Integer companyId, String companyName, 
+                             String myRoleName) {
+        this.projectId = projectId;
+        this.projectName = projectName;
+        this.description = description;
+        this.coverImage = coverImage;
+        this.color = color;
+        this.workspaceId = workspaceId;
+        this.workspaceName = workspaceName;
+        this.companyId = companyId;
+        this.companyName = companyName;
+        this.myRoleName = myRoleName;
+    }
 }

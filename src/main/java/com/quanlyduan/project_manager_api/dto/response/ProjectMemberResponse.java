@@ -1,62 +1,92 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/ProjectMemberResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
-
-import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+import com.quanlyduan.project_manager_api.model.common.enums.MemberStatus;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * DTO phản hồi thông tin chi tiết của một Thành viên trong Dự án (Project).
- * Dùng để hiển thị danh sách thành viên, phân quyền hoặc tìm kiếm trong dự án.
+ * DTO phan hoi thong tin chi tiet cua mot Thanh vien trong Du an (Project).
+ * Duoc su dung de hien thi danh sach thanh vien, phan quyen hoac tim kiem nhan su trong noi bo du an.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ProjectMemberResponse {
 
-    // ========================================================================
-    // 1. THÔNG TIN ĐỊNH DANH (IDENTITY)
-    // ========================================================================
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY)
+    // ======================================================
 
-    // ID định danh của bản ghi trong bảng 'project_members'.
-    // Dùng để thực hiện các hành động như: Xóa khỏi dự án, Đổi vai trò.
+    /** * ID ban ghi trong bang 'project_members'. 
+     * Dung de thuc hien cac hanh dong quan tri nhu: Cap nhat vai tro, Xoa khoi du an. 
+     */
     private Integer memberId;
 
-    // ID của tài khoản người dùng (User ID).
-    // Dùng để liên kết đến trang cá nhân hoặc thực hiện các tác vụ liên quan đến User.
+    /** * ID tai khoan nguoi dung (User ID). 
+     * Dung de lien ket den ho so ca nhan hoac truy van thong tin nguoi dung he thong. 
+     */
     private Integer userId;
 
-    // ========================================================================
-    // 2. THÔNG TIN CÁ NHÂN (PERSONAL INFO)
-    // ========================================================================
+    // ======================================================
+    // 2. THONG TIN CA NHAN (PERSONAL INFO)
+    // ======================================================
 
-    // Họ và tên hiển thị.
+    /** Ho va ten hien thi cua thanh vien. */
     private String fullName;
 
-    // Địa chỉ Email liên hệ.
+    /** Email lien he chinh thuc. */
     private String email;
 
-    // Số điện thoại liên hệ.
+    /** So dien thoai lien lac (neu co). */
     private String phoneNumber;
 
-    // Đường dẫn ảnh đại diện (Avatar).
+    /** Duong dan URL den anh dai dien (Avatar). */
     private String avatarUrl;
 
-    // ========================================================================
-    // 3. THÔNG TIN TRONG DỰ ÁN (PROJECT CONTEXT)
-    // ========================================================================
+    // ======================================================
+    // 3. NGU CANH TRONG DU AN (PROJECT CONTEXT)
+    // ======================================================
 
-    // Tên vai trò của thành viên trong dự án này (ví dụ: "Project Admin", "Developer").
+    /** Ten vai tro hien tai (vi du: "Project Admin", "Developer", "Tester"). */
     private String roleName;
 
-    // Thời điểm thành viên được thêm vào dự án.
+    /** Thoi diem thanh vien duoc moi hoac them vao du an nay. */
     private LocalDateTime joinedAt;
 
-    // Trạng thái hoạt động của thành viên trong dự án (ACTIVE, REMOVED...).
+    /** * Trang thai hoat dong cua thanh vien trong du an.
+     * Gia tri: ACTIVE (Dang tham gia), REMOVED (Da roi khoi), SUSPENDED (Tam dung).
+     */
     private MemberStatus status;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson co the Deserialize du lieu mot cach minh bach.
+     */
+    public ProjectMemberResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public ProjectMemberResponse(Integer memberId, Integer userId, String fullName, 
+                                 String email, String phoneNumber, String avatarUrl, 
+                                 String roleName, LocalDateTime joinedAt, MemberStatus status) {
+        this.memberId = memberId;
+        this.userId = userId;
+        this.fullName = fullName;
+        this.email = email;
+        this.phoneNumber = phoneNumber;
+        this.avatarUrl = avatarUrl;
+        this.roleName = roleName;
+        this.joinedAt = joinedAt;
+        this.status = status;
+    }
 }

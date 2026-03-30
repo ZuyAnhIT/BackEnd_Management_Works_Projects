@@ -1,60 +1,88 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/MyCompanyResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
 
 import java.time.LocalDateTime;
-
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO phản hồi thông tin tóm tắt về một Công ty mà người dùng đang tham gia.
- * Thường được sử dụng trong trang Dashboard (Tổng quan) hoặc danh sách "Công ty của tôi".
+ * DTO phan hoi thong tin tom tat ve mot Cong ty ma nguoi dung dang tham gia.
+ * Thuong duoc su dung trong trang Dashboard (Tong quan) hoac danh sach "Cong ty cua toi".
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class MyCompanyResponse {
 
-    // ========================================================================
-    // 1. THÔNG TIN CÔNG TY (COMPANY INFO)
-    // ========================================================================
+    // ======================================================
+    // 1. THONG TIN CONG TY (COMPANY INFO)
+    // ======================================================
 
-    // ID định danh của công ty
+    /** ID dinh danh duy nhat cua Cong ty. */
     private Integer companyId;
 
-    // Tên hiển thị của công ty
+    /** Ten hien thi chinh thuc (vi du: "Worknet JSC"). */
     private String companyName;
 
-    // Mã định danh công ty (ví dụ: "TECH-V")
+    /** Ma code viet tat cua Cong ty (vi du: "WNK-V"). */
     private String companyCode;
 
-    // Mô tả ngắn gọn
+    /** Mo ta ngan gon ve linh vuc hoac ton chi cua to chuc. */
     private String description;
 
-    // Đường dẫn ảnh logo công ty
+    /** Duong dan URL den anh Logo de hien thi tren danh sach. */
     private String logoUrl;
 
-    // ========================================================================
-    // 2. THÔNG TIN TƯ CÁCH THÀNH VIÊN (MEMBERSHIP INFO)
-    // ========================================================================
+    // ======================================================
+    // 2. TU CACH THANH VIEN (MEMBERSHIP INFO)
+    // ======================================================
 
-    // Mã vai trò của người dùng trong công ty này (ví dụ: "COMPANY_ADMIN").
-    // Frontend dùng để hiển thị badge hoặc quyền hạn.
+    /** * Ma vai tro cua nguoi dung (vi du: "COMPANY_ADMIN", "MEMBER"). 
+     * Frontend dung de hien thi Badge phan quyen.
+     */
     private String roleCode;
 
-    // Trạng thái thành viên (ví dụ: "ACTIVE", "SUSPENDED").
-    // Dùng để tô màu trạng thái trên giao diện.
+    /** * Trang thai thanh vien (vi du: "ACTIVE", "SUSPENDED"). 
+     * Dung de to mau trang thai (Xanh/Do) tren giao dien.
+     */
     private String memberStatus;
 
-    // Chức danh công việc cụ thể (ví dụ: "HR Manager").
+    /** Chuc danh nghe nghiep (vi du: "Senior Developer"). */
     private String jobTitle;
 
-    // Phòng ban trực thuộc (dạng text).
+    /** Phong ban dang cong tac (dang van ban). */
     private String department;
 
-    // Thời điểm người dùng bắt đầu tham gia công ty.
+    /** Ngay nguoi dung chinh thuc gia nhap to chuc. */
     private LocalDateTime joinedAt;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson va cac thu vien Mapping hoat dong on dinh.
+     */
+    public MyCompanyResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong minh bach.
+     */
+    public MyCompanyResponse(Integer companyId, String companyName, String companyCode, 
+                             String description, String logoUrl, String roleCode, 
+                             String memberStatus, String jobTitle, String department, 
+                             LocalDateTime joinedAt) {
+        this.companyId = companyId;
+        this.companyName = companyName;
+        this.companyCode = companyCode;
+        this.description = description;
+        this.logoUrl = logoUrl;
+        this.roleCode = roleCode;
+        this.memberStatus = memberStatus;
+        this.jobTitle = jobTitle;
+        this.department = department;
+        this.joinedAt = joinedAt;
+    }
 }

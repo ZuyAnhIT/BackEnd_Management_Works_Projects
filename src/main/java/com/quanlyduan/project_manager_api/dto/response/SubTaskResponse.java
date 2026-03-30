@@ -1,84 +1,117 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/SubTaskResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
-
-import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * DTO phản hồi thông tin chi tiết của một SubTask (Công việc phụ).
- * SubTask luôn phải gắn liền với một Task cha.
+ * DTO phan hoi thong tin chi tiet cua mot SubTask (Cong viec phu).
+ * SubTask luon gan lien voi mot Task cha, dung de chia nho khoi luong cong viec lon.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class SubTaskResponse {
 
-    // ========================================================================
-    // 1. THÔNG TIN ĐỊNH DANH (IDENTITY)
-    // ========================================================================
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY)
+    // ======================================================
 
-    // ID định danh của SubTask
+    /** ID dinh danh duy nhat cua SubTask. */
     private Integer id;
+
+    /** ID cua Du an (Project) chua SubTask nay. */
     private Integer projectId;
-    // ID của Task cha (Công việc chính chứa SubTask này)
+
+    /** * ID cua Task cha (Parent Task). 
+     * Day la truong quan trong de lien ket SubTask vao dung ngu canh cong viec chinh. 
+     */
     private Integer parentTaskId;
 
-    // ========================================================================
-    // 2. THÔNG TIN CƠ BẢN (BASIC INFO)
-    // ========================================================================
+    // ======================================================
+    // 2. THONG TIN CO BAN (BASIC INFO)
+    // ======================================================
 
-    // Tiêu đề công việc phụ
+    /** Tieu de ngan gon cua cong viec phu. */
     private String title;
 
-    // Mô tả chi tiết
+    /** Mo ta chi tiet cac buoc can thuc hien. */
     private String description;
 
-    // Thứ tự sắp xếp trong danh sách SubTask của Task cha
+    /** * Thu tu sap xep ben trong danh sach SubTask cua Task cha. 
+     * Dung de keo tha (Drag & Drop) sap xep thu tu thuc hien.
+     */
     private Integer sortOrder;
 
-    // ========================================================================
-    // 3. TRẠNG THÁI & TIẾN ĐỘ (STATUS & PROGRESS)
-    // ========================================================================
+    // ======================================================
+    // 3. TRANG THAI & TIEN DO (STATUS & PROGRESS)
+    // ======================================================
 
-    // Trạng thái hiện tại (TO_DO, IN_PROGRESS, DONE)
+    /** Trang thai hien tai (vi du: TO_DO, IN_PROGRESS, DONE). */
     private SubTaskStatus status;
 
-    // Thời gian ước tính để hoàn thành (đơn vị: giờ)
+    /** Thoi gian uoc tinh de hoan thanh (don vi: Gio). */
     private BigDecimal estimatedHours;
 
-    // ========================================================================
-    // 4. THÔNG TIN NHÂN SỰ (ASSIGNMENT)
-    // ========================================================================
+    // ======================================================
+    // 4. THONG TIN NHAN SU (ASSIGNMENT)
+    // ======================================================
 
-    // ID người được giao việc
+    /** Thong tin nguoi thuc hien cong viec phu nay. */
     private Integer assigneeId;
-
-    // Tên hiển thị người được giao việc
     private String assigneeName;
-
-    // Đường dẫn Avatar người được giao việc
     private String assigneeAvatar;
 
-    // ========================================================================
-    // 5. THÔNG TIN HỆ THỐNG (AUDIT)
-    // ========================================================================
+    // ======================================================
+    // 5. THONG TIN HE THONG (AUDIT)
+    // ======================================================
 
-    // ID người tạo SubTask
+    /** Thong tin nguoi khoi tao ban ghi. */
     private Integer createdById;
-
-    // Tên người tạo
     private String createdByName;
 
-    // Thời điểm tạo
+    /** Thoi diem tao va lan cap nhat cuoi cung. */
     private LocalDateTime createdAt;
-
-    // Thời điểm cập nhật lần cuối
     private LocalDateTime updatedAt;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson co the Deserialize du lieu mot cach minh bach.
+     */
+    public SubTaskResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public SubTaskResponse(Integer id, Integer projectId, Integer parentTaskId, String title, 
+                           String description, Integer sortOrder, SubTaskStatus status, 
+                           BigDecimal estimatedHours, Integer assigneeId, String assigneeName, 
+                           String assigneeAvatar, Integer createdById, String createdByName, 
+                           LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.projectId = projectId;
+        this.parentTaskId = parentTaskId;
+        this.title = title;
+        this.description = description;
+        this.sortOrder = sortOrder;
+        this.status = status;
+        this.estimatedHours = estimatedHours;
+        this.assigneeId = assigneeId;
+        this.assigneeName = assigneeName;
+        this.assigneeAvatar = assigneeAvatar;
+        this.createdById = createdById;
+        this.createdByName = createdByName;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
 }

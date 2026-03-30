@@ -1,69 +1,106 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/EpicResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * DTO phản hồi thông tin chi tiết của một Epic (Sử thi/Mục tiêu lớn).
- * Bao gồm cả thông tin cơ bản và các chỉ số tiến độ được tính toán từ các Task con.
+ * DTO phan hoi thong tin chi tiet cua mot Epic (Su thi/Muc tieu lon).
+ * Bao gom ca thong tin ho so va cac chi so tien do duoc tong hop tu cac Task con.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class EpicResponse {
 
-    // ========================================================================
-    // 1. THÔNG TIN ĐỊNH DANH (IDENTITY)
-    // ========================================================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final double MIN_PROGRESS = 0.0;
+    public static final double MAX_PROGRESS = 100.0;
+
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY)
+    // ======================================================
     
     private Integer id;
     
-    // ID của Dự án chứa Epic này
+    /** ID cua Du an (Project) truc thuoc. */
     private Integer projectId;
     
-    // Mã định danh Epic (ví dụ: "WEB-E-1")
+    /** Ma dinh danh Epic (vi du: "PROJ-E-01"). */
     private String epicCode; 
 
-    // ========================================================================
-    // 2. THÔNG TIN CƠ BẢN (BASIC INFO)
-    // ========================================================================
+    // ======================================================
+    // 2. THONG TIN CO BAN (BASIC INFO)
+    // ======================================================
     
     private String name;
     private String description;
     
-    // Mã màu hiển thị trên giao diện (ví dụ: #8E44AD)
+    /** Ma mau hien thi de phan biet cac Epic tren giao dien (vi du: #8E44AD). */
     private String color;
     
-    // Trạng thái hiện tại (OPEN, IN_PROGRESS, DONE...)
+    /** Trang thai hien tai (vi du: OPEN, IN_PROGRESS, DONE). */
     private String status;
 
-    // ========================================================================
-    // 3. THÔNG TIN THỜI GIAN (TIMELINE)
-    // ========================================================================
+    // ======================================================
+    // 3. THONG TIN THOI GIAN (TIMELINE)
+    // ======================================================
     
     private LocalDate startDate;
     private LocalDate dueDate;
     
-    // Thời điểm tạo Epic
+    /** Thoi diem khoi tao Epic trong he thong. */
     private LocalDateTime createdAt; 
 
-    // ========================================================================
-    // 4. CHỈ SỐ TIẾN ĐỘ (METRICS) - Dữ liệu tính toán
-    // ========================================================================
+    // ======================================================
+    // 4. CHI SO TIEN DO (METRICS)
+    // ======================================================
     
-    // Tổng số lượng công việc (Task) thuộc Epic này
+    /** Tong so luong Task thuoc Epic nay. */
     private Integer totalTasks;
     
-    // Số lượng công việc đã hoàn thành (IsCompleted = true)
+    /** So luong Task da hoan thanh (thong qua co isCompleted). */
     private Integer tasksCompleted;
     
-    // Tỷ lệ hoàn thành (0.0 - 100.0). Dùng để vẽ thanh Progress Bar.
+    /** * Ty le hoan thanh (Scale 0.0 - 100.0).
+     * Dung de ve thanh Progress Bar tren Dashboard hoac Project List.
+     */
     private Double progressPercentage;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     */
+    public EpicResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong dung cach.
+     */
+    public EpicResponse(Integer id, Integer projectId, String epicCode, String name, 
+                        String description, String color, String status, 
+                        LocalDate startDate, LocalDate dueDate, LocalDateTime createdAt, 
+                        Integer totalTasks, Integer tasksCompleted, Double progressPercentage) {
+        this.id = id;
+        this.projectId = projectId;
+        this.epicCode = epicCode;
+        this.name = name;
+        this.description = description;
+        this.color = color;
+        this.status = status;
+        this.startDate = startDate;
+        this.dueDate = dueDate;
+        this.createdAt = createdAt;
+        this.totalTasks = totalTasks;
+        this.tasksCompleted = tasksCompleted;
+        this.progressPercentage = progressPercentage;
+    }
 }

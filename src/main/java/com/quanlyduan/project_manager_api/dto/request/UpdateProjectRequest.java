@@ -1,44 +1,111 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/UpdateProjectRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
-
-import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
-import jakarta.validation.constraints.Size;
-import lombok.Data;
 
 import java.time.LocalDate;
 
+import com.quanlyduan.project_manager_api.model.common.enums.ProjectPriority;
+
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * DTO nhận dữ liệu cho yêu cầu cập nhật thông tin Dự án.
- * Hỗ trợ cập nhật từng phần (Partial Update):
- * - Chỉ những trường có giá trị (không null) mới được cập nhật vào Database.
+ * DTO nhan du lieu de cap nhat thong tin Du an.
+ * Ho tro co che Partial Update: Chi nhung truong co gia tri (khong null) moi duoc cap nhat vao he thong.
  */
-@Data
+@Getter
+@Setter
 public class UpdateProjectRequest {
+
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final int NAME_MIN_SIZE = 1;
+    public static final int NAME_MAX_SIZE = 255;
     
-    // Tên dự án mới (Tùy chọn, độ dài từ 1-255 ký tự)
-    @Size(min = 1, max = 255, message = "Project name must be between 1 and 255 characters")
+    public static final String NAME_SIZE_MSG = "Project name must be between " 
+            + NAME_MIN_SIZE + " and " + NAME_MAX_SIZE + " characters";
+
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY & BASIC INFO)
+    // ======================================================
+
+    /**
+     * Ten moi cua du an.
+     */
+    @Size(min = NAME_MIN_SIZE, max = NAME_MAX_SIZE, message = NAME_SIZE_MSG)
     private String name;
     
-    // Mã dự án mới (Tùy chọn - Service sẽ kiểm tra trùng lặp trong Workspace nếu giá trị này thay đổi)
+    /**
+     * Ma dinh danh du an moi (vi du: WEB, APP).
+     * Service se kiem tra tinh duy nhat trong Workspace neu gia tri nay thay doi.
+     */
     private String projectCode; 
     
-    // Các thông tin mô tả và hình ảnh (Tùy chọn)
+    /**
+     * Mo ta chi tiet ve noi dung hoac pham vi du an.
+     */
     private String description;
+
+    /**
+     * Muc tieu cot loi moi cua du an.
+     */
     private String goal;
+
+    /**
+     * Duong dan URL den anh bia (Cover Image) moi.
+     */
     private String coverImageUrl;
     
-    // Mức độ ưu tiên mới (Enum)
+    // ======================================================
+    // 2. CAU HINH & QUAN LY (CONFIG & MANAGEMENT)
+    // ======================================================
+
+    /**
+     * Muc do uu tien moi (LOW, MEDIUM, HIGH, URGENT).
+     */
     private ProjectPriority priority; 
-    
-    // Các mốc thời gian (Tùy chọn)
-    private LocalDate startDate;
-    private LocalDate dueDate;
-    private LocalDate completedAt;
-    
-    // ID tham chiếu (Tùy chọn)
+
+    /**
+     * ID cua Nguoi quan ly du an (Project Manager) moi.
+     */
     private Integer managerId; 
+
+    /**
+     * ID cua Loai du an (ProjectType) moi.
+     */
     private Integer projectTypeId; 
     
-    // Cấu hình bảng (Lưu dưới dạng chuỗi JSON)
+    /**
+     * Cau hinh bang cong viec (Board) duoi dang chuoi JSON.
+     */
     private String boardConfig; 
+
+    // ======================================================
+    // 3. CAC MOC THOI GIAN (TIMELINE)
+    // ======================================================
+
+    /**
+     * Ngay bat dau trien khai moi.
+     */
+    private LocalDate startDate;
+
+    /**
+     * Han chot hoan thanh (Due Date) moi.
+     */
+    private LocalDate dueDate;
+
+    /**
+     * Thoi diem thuc te du an hoan thanh (Completed At).
+     */
+    private LocalDate completedAt;
+
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public UpdateProjectRequest() {
+    }
 }

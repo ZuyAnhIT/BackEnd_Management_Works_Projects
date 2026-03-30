@@ -1,44 +1,65 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho quy trình Đăng ký tài khoản mới từ Lời mời tham gia Dự án (Project Invitation).
- * Áp dụng đặc thù cho người dùng bên ngoài (Khách/Đối tác/Freelancer) chưa từng có tài khoản trên hệ thống.
+ * DTO nhan du lieu dang ky tai khoan moi tu loi moi tham gia Du an (Project Invitation).
+ * Dac thu cho nguoi dung ben ngoai (Khach/Doi tac) chua co tai khoan tren he thong.
  */
-@Data
+@Getter
+@Setter
 public class RegisterFromProjectInviteRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin đăng ký Guest)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final int MIN_PASSWORD_LENGTH = 8;
+    
+    public static final String FULL_NAME_BLANK_MSG = "Full name must not be blank";
+    public static final String PASSWORD_BLANK_MSG = "Password must not be blank";
+    public static final String TOKEN_BLANK_MSG = "Invitation token must not be blank";
+    public static final String PASSWORD_SIZE_MSG = "Password must contain at least " + MIN_PASSWORD_LENGTH + " characters";
+
+    // ======================================================
+    // 1. THONG TIN NGUOI DUNG (USER INFO)
+    // ======================================================
 
     /**
-     * Họ và tên hiển thị của người dùng (Guest).
-     * Bắt buộc phải có, không được để trống.
+     * Ho va ten hien thi cua Guest/Freelancer.
+     * Bat buoc phai co de khoi tao profile trong du an.
      */
-    @NotBlank(message = "Full name must not be blank")
+    @NotBlank(message = FULL_NAME_BLANK_MSG)
     private String fullName;
 
     /**
-     * Mật khẩu đăng nhập cho tài khoản Guest mới.
-     * Bắt buộc phải có và phải đạt độ dài tối thiểu là 8 ký tự.
+     * Mat khau dang nhap cho tai khoan Guest moi.
+     * Bat buoc dat do dai toi thieu 8 ky tu de tang cuong bao mat cho nguoi dung ben ngoai.
      */
-    @NotBlank(message = "Password must not be blank")
-    @Size(min = 8, message = "Password must contain at least 8 characters")
+    @NotBlank(message = PASSWORD_BLANK_MSG)
+    @Size(min = MIN_PASSWORD_LENGTH, message = PASSWORD_SIZE_MSG)
     private String password;
 
+    // ======================================================
+    // 2. XAC THUC LOI MOI (INVITATION AUTH)
+    // ======================================================
+
     /**
-     * Mã Token lời mời dự án (Project Invitation Token).
-     * Token này chứa thông tin giải mã để xác định người dùng đang chấp nhận lời mời vào Dự án nào và với vai trò gì.
-     * Bắt buộc phải cung cấp.
+     * Ma Token loi moi du an trich xuat tu Email.
+     * Backend dung Token nay de xac dinh du an va vai tro (Guest/Member) duoc chi dinh.
      */
-    @NotBlank(message = "Invitation token must not be blank")
+    @NotBlank(message = TOKEN_BLANK_MSG)
     private String invitationToken; 
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public RegisterFromProjectInviteRequest() {
+    }
 }

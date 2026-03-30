@@ -1,33 +1,79 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/UpdateProfileRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
-import com.quanlyduan.project_manager_api.model.common.enums.Gender;
-import jakarta.validation.constraints.Size;
-import lombok.Data;
 import java.time.LocalDate;
 
+import com.quanlyduan.project_manager_api.model.common.enums.Gender;
+
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * DTO nhận dữ liệu cho yêu cầu cập nhật thông tin cá nhân (Profile) của người dùng.
- * Hỗ trợ cập nhật từng phần (Partial Update):
- * - Chỉ những trường có giá trị (không null) mới được cập nhật vào hệ thống.
+ * DTO nhan du lieu de cap nhat thong tin ca nhan (Profile) cua nguoi dung.
+ * Ho tro co che Partial Update: Chi nhung truong co gia tri (khong null) moi duoc cap nhat.
  */
-@Data
+@Getter
+@Setter
 public class UpdateProfileRequest {
 
-    // Họ và tên hiển thị mới (Tùy chọn, độ dài từ 3 đến 255 ký tự)
-    @Size(min = 3, max = 255, message = "Full name must be between 3 and 255 characters")
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final int NAME_MIN_SIZE = 3;
+    public static final int NAME_MAX_SIZE = 255;
+    public static final int PHONE_MAX_SIZE = 20;
+
+    public static final String NAME_SIZE_MSG = "Full name must be between " 
+            + NAME_MIN_SIZE + " and " + NAME_MAX_SIZE + " characters";
+    public static final String PHONE_SIZE_MSG = "Phone number must not exceed " + PHONE_MAX_SIZE + " characters";
+
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY)
+    // ======================================================
+
+    /**
+     * Ho va ten hien thi moi cua nguoi dung.
+     */
+    @Size(min = NAME_MIN_SIZE, max = NAME_MAX_SIZE, message = NAME_SIZE_MSG)
     private String fullName;
 
-    // Đường dẫn ảnh đại diện mới (Tùy chọn - thường được cập nhật tự động khi upload file)
+    /**
+     * Duong dan URL den anh dai dien (Avatar) moi.
+     * Thuong duoc cap nhat sau khi upload file len Cloud Storage.
+     */
     private String avatarUrl;
 
-    // Số điện thoại liên hệ mới (Tùy chọn, tối đa 20 ký tự)
-    @Size(max = 20, message = "Phone number must not exceed 20 characters")
+    // ======================================================
+    // 2. THONG TIN LIEN LAC (CONTACT)
+    // ======================================================
+
+    /**
+     * So dien thoai lien he moi.
+     */
+    @Size(max = PHONE_MAX_SIZE, message = PHONE_SIZE_MSG)
     private String phoneNumber;
 
-    // Ngày sinh mới (Tùy chọn)
+    // ======================================================
+    // 3. THONG TIN CHI TIET (PERSONAL DETAILS)
+    // ======================================================
+
+    /**
+     * Ngay sinh cua nguoi dung.
+     */
     private LocalDate dateOfBirth;
 
-    // Giới tính mới (Enum: MALE, FEMALE, OTHER - Tùy chọn)
+    /**
+     * Gioi tinh (Enum: MALE, FEMALE, OTHER).
+     */
     private Gender gender;
+
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Spring/Jackson co the khoi tao doi tuong tu chuoi JSON.
+     */
+    public UpdateProfileRequest() {
+    }
 }

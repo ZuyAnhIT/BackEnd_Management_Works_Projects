@@ -1,23 +1,54 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/VerifyEmailRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho yêu cầu xác thực tài khoản (Email Verification).
- * Người dùng nhập mã OTP (One-Time Password) đã nhận được qua email để kích hoạt tài khoản.
+ * DTO nhan du lieu de xac thuc tai khoan (Email Verification).
+ * Nguoi dung nhap ma OTP (One-Time Password) da nhan duoc qua email de kich hoat tai khoan.
  */
-@Data
+@Getter
+@Setter
 public class VerifyEmailRequest {
 
-    // Email cần xác thực (Bắt buộc, đúng định dạng)
-    @NotBlank(message = "Email must not be blank")
-    @Email(message = "Invalid email format")
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String EMAIL_BLANK_MSG = "Email must not be blank";
+    public static final String EMAIL_FORMAT_MSG = "Invalid email format";
+    public static final String OTP_BLANK_MSG = "OTP must not be blank";
+
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY)
+    // ======================================================
+
+    /**
+     * Email can xac thuc.
+     * Bat buoc phai dung dinh dang email de he thong tra cuu tai khoan chinh xac.
+     */
+    @NotBlank(message = EMAIL_BLANK_MSG)
+    @Email(message = EMAIL_FORMAT_MSG)
     private String email;
 
-    // Mã OTP người dùng nhập vào (Bắt buộc)
-    @NotBlank(message = "OTP must not be blank")
+    // ======================================================
+    // 2. THONG TIN XAC THUC (AUTHENTICATION)
+    // ======================================================
+
+    /**
+     * Ma OTP (One-Time Password) nguoi dung nhan duoc tu hop thu den.
+     */
+    @NotBlank(message = OTP_BLANK_MSG)
     private String otp;
+
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public VerifyEmailRequest() {
+    }
 }

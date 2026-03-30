@@ -1,36 +1,51 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu yêu cầu đăng nhập bằng tài khoản truyền thống từ người dùng.
- * Bao gồm thông tin định danh (Email) và thông tin xác thực (Mật khẩu).
+ * DTO nhan yeu cau dang nhap truyen thong tu phia nguoi dung.
+ * Bao gom thong tin dinh danh (Email) va thong tin xac thuc (Mat khau).
  */
-@Data
+@Getter
+@Setter
 public class LoginRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin đăng nhập)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String EMAIL_BLANK_MSG = "Email must not be blank";
+    public static final String EMAIL_INVALID_MSG = "Invalid email format";
+    public static final String PASSWORD_BLANK_MSG = "Password must not be blank";
+
+    // ======================================================
+    // THONG TIN DANG NHAP (LOGIN DATA)
+    // ======================================================
 
     /**
-     * Địa chỉ Email sử dụng để đăng nhập.
-     * Bắt buộc phải có, không được để trống và phải tuân thủ đúng định dạng (VD: user@example.com).
+     * Dia chi Email su dung de dang nhap.
+     * Bat buoc phai dung dinh dang email tieu chuan (vi du: user@example.com).
      */
-    @NotBlank(message = "Email must not be blank")
-    @Email(message = "Invalid email format")
+    @NotBlank(message = EMAIL_BLANK_MSG)
+    @Email(message = EMAIL_INVALID_MSG)
     private String email;
 
     /**
-     * Mật khẩu đăng nhập.
-     * Bắt buộc phải có, không được để trống.
+     * Mat khau dang nhap cua tai khoan.
+     * Bat buoc phai co de backend thuc hien so sanh va bam (hash).
      */
-    @NotBlank(message = "Password must not be blank")
+    @NotBlank(message = PASSWORD_BLANK_MSG)
     private String password;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public LoginRequest() {
+    }
 }

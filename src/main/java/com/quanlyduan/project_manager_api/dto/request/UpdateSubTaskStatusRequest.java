@@ -1,20 +1,43 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/request/UpdateSubTaskStatusRequest.java
 package com.quanlyduan.project_manager_api.dto.request;
 
 import com.quanlyduan.project_manager_api.model.common.enums.SubTaskStatus;
-import lombok.Data;
+
+import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho yêu cầu cập nhật RIÊNG trạng thái của SubTask.
- * Thường được sử dụng cho các thao tác nhanh (Quick Action) như:
- * - Kéo thả trên giao diện.
- * - Tích chọn hoàn thành (Check-box).
- * Giúp giảm tải dữ liệu so với việc dùng UpdateSubTaskRequest đầy đủ.
+ * DTO nhan du lieu de cap nhat NHANH trang thai cua SubTask (Cong viec phu).
+ * Thuong dung cho cac thao tac Quick Action nhu Check-box hoac Drag-and-drop tren UI.
+ * Giup giam tai du lieu truyen tai so voi viec dung UpdateSubTaskRequest day du.
  */
-@Data
+@Getter
+@Setter
 public class UpdateSubTaskStatusRequest {
 
-    // Trạng thái mới muốn áp dụng (Enum: TO_DO, IN_PROGRESS, DONE)
-    // Ví dụ JSON payload: { "status": "DONE" }
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String STATUS_NULL_MSG = "Subtask status must not be null";
+
+    // ======================================================
+    // THONG TIN TRANG THAI (STATUS DATA)
+    // ======================================================
+
+    /**
+     * Trang thai moi muon ap dung cho SubTask (Enum: TO_DO, IN_PROGRESS, DONE).
+     * Bat buoc phai co de backend thuc hien logic cap nhat trang thai tuong ung.
+     */
+    @NotNull(message = STATUS_NULL_MSG)
     private SubTaskStatus status;
+
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh phuc vu cho viec Deserialize JSON tu Client.
+     */
+    public UpdateSubTaskStatusRequest() {
+    }
 }

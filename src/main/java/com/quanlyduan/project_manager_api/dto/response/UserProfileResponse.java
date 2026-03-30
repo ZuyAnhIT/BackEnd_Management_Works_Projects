@@ -1,10 +1,4 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/UserProfileResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,59 +7,106 @@ import java.util.List;
 import com.quanlyduan.project_manager_api.model.common.enums.Gender;
 import com.quanlyduan.project_manager_api.model.common.enums.UserStatus;
 
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * DTO phản hồi thông tin Hồ sơ người dùng đầy đủ.
- * Dùng cho API GET /api/users/me, tổng hợp tất cả thông tin cá nhân và vai trò thành viên
- * từ các bảng khác nhau (users, user_roles, company_members, etc.).
+ * DTO phan hoi Ho so nguoi dung day du (Full User Profile).
+ * Tong hop tat ca thong tin ca nhan va tu cach thanh vien (Memberships) 
+ * tu cac cap bac: Company, Workspace, Project.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class UserProfileResponse {
 
-    // ========================================================================
-    // 1. ĐỊNH DANH & HỆ THỐNG (IDENTITY & AUDIT)
-    // ========================================================================
+    // ======================================================
+    // 1. DINH DANH & HE THONG (IDENTITY & AUDIT)
+    // ======================================================
     
+    /** ID dinh danh duy nhat cua nguoi dung. */
     private Integer id;
+
+    /** Dia chi Email dang nhap. */
     private String email;
     
-    // Trạng thái tài khoản (ACTIVE, LOCKED, DELETED)
+    /** Trang thai tai khoan (vi du: ACTIVE, LOCKED). */
     private UserStatus status;
+
+    /** Co xac thuc Email (giup Frontend hien thi badge "Da xac minh"). */
     private boolean isEmailVerified;
 
-    // Thời điểm tạo tài khoản và lần đăng nhập cuối
+    /** Thoi diem tao tai khoan va lan truy cap cuoi cung. */
     private LocalDateTime createdAt;
     private LocalDateTime lastLoginAt;
 
-    // ========================================================================
-    // 2. THÔNG TIN CÁ NHÂN (PERSONAL DETAILS)
-    // ========================================================================
+    // ======================================================
+    // 2. THONG TIN CA NHAN (PERSONAL DETAILS)
+    // ======================================================
 
+    /** Ho ten, Anh dai dien va thong tin lien lac. */
     private String fullName;
     private String avatarUrl;
     private String phoneNumber;
+
+    /** Ngay sinh va Gioi tinh (dung de ca nhan hoa trai nghiem). */
     private LocalDate dateOfBirth;
     private Gender gender;
 
-    // ========================================================================
-    // 3. VAI TRÒ HỆ THỐNG (SYSTEM ROLES)
-    // ========================================================================
+    // ======================================================
+    // 3. VAI TRO & TU CACH THANH VIEN (ROLES & MEMBERSHIPS)
+    // ======================================================
 
-    // Danh sách các mã vai trò cấp Hệ thống (ví dụ: ["SYSTEM_ADMIN", "USER"])
+    /** Danh sach vai tro cap he thong (vi du: ["SYSTEM_ADMIN", "USER"]). */
     private List<String> systemRoles;
 
-    // ========================================================================
-    // 4. TƯ CÁCH THÀNH VIÊN THEO CẤP BẬC (HIERARCHY MEMBERSHIPS)
-    // ========================================================================
-
-    // Danh sách tư cách thành viên trong các Công ty (Bao gồm Role và Company Info)
+    /** * Danh sach tu cach thanh vien tai cac Cong ty. 
+     * Bao gom thong tin Cong ty va Vai tro trong do. 
+     */
     private List<CompanyMembershipDTO> companyMemberships;
 
-    // Danh sách tư cách thành viên trong các Workspace
+    /** Danh sach cac Workspace ma nguoi dung co quyen truy cap. */
     private List<WorkspaceMembershipDTO> workspaceMemberships;
 
-    // Danh sách tư cách thành viên trong các Project
+    /** Danh sach cac Du an (Project) ma nguoi dung dang tham gia. */
     private List<ProjectMembershipDTO> projectMemberships;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson Deserialize JSON mot cach minh bach.
+     */
+    public UserProfileResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public UserProfileResponse(Integer id, String email, UserStatus status, boolean isEmailVerified, 
+                                LocalDateTime createdAt, LocalDateTime lastLoginAt, String fullName, 
+                                String avatarUrl, String phoneNumber, LocalDate dateOfBirth, 
+                                Gender gender, List<String> systemRoles, 
+                                List<CompanyMembershipDTO> companyMemberships, 
+                                List<WorkspaceMembershipDTO> workspaceMemberships, 
+                                List<ProjectMembershipDTO> projectMemberships) {
+        this.id = id;
+        this.email = email;
+        this.status = status;
+        this.isEmailVerified = isEmailVerified;
+        this.createdAt = createdAt;
+        this.lastLoginAt = lastLoginAt;
+        this.fullName = fullName;
+        this.avatarUrl = avatarUrl;
+        this.phoneNumber = phoneNumber;
+        this.dateOfBirth = dateOfBirth;
+        this.gender = gender;
+        this.systemRoles = systemRoles;
+        this.companyMemberships = companyMemberships;
+        this.workspaceMemberships = workspaceMemberships;
+        this.projectMemberships = projectMemberships;
+    }
 }

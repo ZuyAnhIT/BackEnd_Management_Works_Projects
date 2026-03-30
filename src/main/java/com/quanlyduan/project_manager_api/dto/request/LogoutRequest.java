@@ -1,28 +1,41 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.NotBlank;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho yêu cầu đăng xuất (Logout).
- * Client cần gửi Refresh Token lên để Server thực hiện thu hồi (Revoke) hoặc xóa bỏ token đó,
- * nhằm ngăn chặn việc sử dụng lại token này để lấy Access Token mới trong tương lai.
+ * DTO nhan yeu cau dang xuat (Logout) tu phia Client.
+ * Client gui Refresh Token len de Backend thuc hien thu hoi (Revoke), 
+ * ngan chan viec tai su dung token de lay Access Token moi.
  */
-@Data
+@Getter
+@Setter
 public class LogoutRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin Token)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String TOKEN_BLANK_MSG = "Refresh token must not be blank";
+
+    // ======================================================
+    // THONG TIN YEU CAU (REQUEST DATA)
+    // ======================================================
 
     /**
-     * Chuỗi Refresh Token cần bị vô hiệu hóa.
-     * Bắt buộc phải có, không được để trống.
+     * Chuoi Refresh Token can bi vo hieu hoa.
+     * Bat buoc phai co de he thong xac dinh phien lam viec can huy.
      */
-    @NotBlank(message = "Refresh token must not be blank")
+    @NotBlank(message = TOKEN_BLANK_MSG)
     private String refreshToken;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Spring/Jackson co the khoi tao doi tuong tu chuoi JSON.
+     */
+    public LogoutRequest() {
+    }
 }

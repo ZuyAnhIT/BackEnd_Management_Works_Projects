@@ -1,104 +1,134 @@
-// File: src/main/java/com/quanlyduan/project_manager_api/dto/response/ProjectResponse.java
 package com.quanlyduan.project_manager_api.dto.response;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * DTO returning Project information after creation or for retrieval operations.
- * Prevents direct Entity exposure (avoiding infinite recursion/lazy loading issues) 
- * while maintaining minimal necessary mapping.
+ * DTO phan hoi thong tin chi tiet cua mot Du an (Project).
+ * Giup bao mat Entity, tranh loi de quy va cung cap du lieu tinh gon cho giao dien.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ProjectResponse {
 
-    // ========================================================================
-    // 1. THÔNG TIN ĐỊNH DANH (IDENTITY & HIERARCHY)
-    // ========================================================================
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTITY & HIERARCHY)
+    // ======================================================
 
-    // ID định danh của dự án
+    /** ID dinh danh duy nhat cua Du an. */
     private Integer id;
 
-    // ID của Không gian làm việc chứa dự án này
+    /** ID cua Khong gian lam viec (Workspace) va Cong ty (Company) chu quan. */
     private Integer workspaceId;
     private Integer companyId;
-    // ========================================================================
-    // 2. THÔNG TIN CƠ BẢN (BASIC INFO)
-    // ========================================================================
 
-    // Tên dự án
+    // ======================================================
+    // 2. THONG TIN CO BAN (BASIC INFO)
+    // ======================================================
+
+    /** Ten hien thi va Ma code dinh danh (vi du: "Web App", "PRJ-001"). */
     private String name;
-
-    // Mã định danh dự án (ví dụ: "WEB-01")
     private String projectCode;
 
-    // Mô tả chi tiết
+    /** Mo ta chi tiet va Muc tieu cot loi cua du an. */
     private String description;
-
-    // Mục tiêu của dự án
     private String goal;
 
-    // Đường dẫn ảnh bìa
+    /** Duong dan URL den anh bia (Cover Image) cua du an. */
     private String coverImageUrl;
 
-    // ========================================================================
-    // 3. TRẠNG THÁI & TIẾN ĐỘ (STATUS & PROGRESS)
-    // ========================================================================
+    // ======================================================
+    // 3. TRANG THAI & TIEN ĐO (STATUS & PROGRESS)
+    // ======================================================
 
-    // Trạng thái hiện tại (Mapping từ Enum hoặc Object sang String để hiển thị)
+    /** Trang thai hien tai (vi du: OPEN, IN_PROGRESS, DONE). */
     private String status;
 
-    // Mức độ ưu tiên
+    /** Muc do uu tien (vi du: LOW, MEDIUM, HIGH, URGENT). */
     private String priority;
 
-    // Tiến độ hoàn thành (tính theo %)
+    /** * Tien do hoan thanh tong the (Scale 0-100%). 
+     * Duoc tinh toan dua tren khoi luong cong viec hoac Story Points. 
+     */
     private BigDecimal progress;
 
-    // ========================================================================
-    // 4. THÔNG TIN THỜI GIAN (TIMELINE)
-    // ========================================================================
+    // ======================================================
+    // 4. THOI GIAN (TIMELINE)
+    // ======================================================
 
-    // Ngày bắt đầu dự kiến
+    /** Ngay bat dau du kien va Han chot (Deadline). */
     private LocalDate startDate;
-
-    // Hạn chót hoàn thành (Deadline)
     private LocalDate dueDate;
 
-    // Ngày thực tế hoàn thành
+    /** Ngay thuc te du an duoc chuyen sang trang thai hoan thanh. */
     private LocalDate completedAt;
 
-    // ========================================================================
-    // 5. THÔNG TIN NHÂN SỰ (PEOPLE)
-    // ========================================================================
+    // ======================================================
+    // 5. THONG TIN NHAN SU (PEOPLE)
+    // ======================================================
 
-    // ID người quản lý dự án (Project Manager)
+    /** Thong tin Nguoi quan ly du an (Project Manager). */
     private Integer managerId;
-    
-    // Tên hiển thị của người quản lý
     private String managerName;
 
-    // ID người tạo dự án
+    /** Thong tin Nguoi khoi tao du an trong he thong. */
     private Integer createdById;
-
-    // Tên hiển thị của người tạo
     private String createdByName;
 
-    // ========================================================================
-    // 6. THÔNG TIN HỆ THỐNG (AUDIT)
-    // ========================================================================
+    // ======================================================
+    // 6. THONG TIN HE THONG (AUDIT)
+    // ======================================================
 
-    // Thời điểm tạo bản ghi
+    /** Thoi diem ban ghi duoc tao va lan cap nhat cuoi cung. */
     private LocalDateTime createdAt;
-
-    // Thời điểm cập nhật lần cuối
     private LocalDateTime updatedAt;
+
+    // ======================================================
+    // CONSTRUCTORS (RULE 5 - TRANSPARENCY)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh (No-args) viet tay.
+     * Dam bao Jackson co the Deserialize du lieu mot cach minh bach.
+     */
+    public ProjectResponse() {
+    }
+
+    /**
+     * Constructor day du (All-args) viet tay de @Builder hoat dong on dinh.
+     */
+    public ProjectResponse(Integer id, Integer workspaceId, Integer companyId, String name, 
+                           String projectCode, String description, String goal, 
+                           String coverImageUrl, String status, String priority, 
+                           BigDecimal progress, LocalDate startDate, LocalDate dueDate, 
+                           LocalDate completedAt, Integer managerId, String managerName, 
+                           Integer createdById, String createdByName, 
+                           LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.workspaceId = workspaceId;
+        this.companyId = companyId;
+        this.name = name;
+        this.projectCode = projectCode;
+        this.description = description;
+        this.goal = goal;
+        this.coverImageUrl = coverImageUrl;
+        this.status = status;
+        this.priority = priority;
+        this.progress = progress;
+        this.startDate = startDate;
+        this.dueDate = dueDate;
+        this.completedAt = completedAt;
+        this.managerId = managerId;
+        this.managerName = managerName;
+        this.createdById = createdById;
+        this.createdByName = createdByName;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
 }

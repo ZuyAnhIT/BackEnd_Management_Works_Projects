@@ -1,28 +1,41 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Validation
 import jakarta.validation.constraints.NotBlank;
-
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu cho yêu cầu đăng nhập bằng tài khoản Google (OAuth2/OIDC).
- * Frontend sẽ gửi Token nhận được từ Google (ID Token) lên Server để xác thực.
+ * DTO nhan du lieu cho yeu cau dang nhap bang tai khoan Google (OAuth2/OIDC).
+ * Frontend gui ID Token nhan duoc tu Google len Server de Backend thuc hien xac minh danh tinh.
  */
-@Data
+@Getter
+@Setter
 public class GoogleLoginRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin Token)
-    // ==========================================
+    // ======================================================
+    // KHAI BAO HANG SO (RULE 6)
+    // ======================================================
+    public static final String TOKEN_BLANK_MSG = "Google token must not be blank";
+
+    // ======================================================
+    // THONG TIN YEU CAU (REQUEST DATA)
+    // ======================================================
 
     /**
-     * Chuỗi ID Token (định dạng JWT) do Google trả về cho Client.
-     * Backend sẽ sử dụng chuỗi này để xác minh (verify) danh tính người dùng với Google Server.
-     * Bắt buộc phải có, không được để trống.
+     * Chuoi ID Token (dinh dang JWT) do Google cung cap cho Client.
+     * Backend su dung chuoi nay de xac thuc nguoi dung voi Google Authorization Server.
+     * Bat buoc phai co de hoan tat quy trinh dang nhap.
      */
-    @NotBlank(message = "Google token must not be blank")
-    private String googleToken; 
+    @NotBlank(message = TOKEN_BLANK_MSG)
+    private String googleToken;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Spring/Jackson co the khoi tao doi tuong tu chuoi JSON.
+     */
+    public GoogleLoginRequest() {
+    }
 }

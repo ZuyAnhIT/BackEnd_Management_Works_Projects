@@ -1,53 +1,66 @@
 package com.quanlyduan.project_manager_api.dto.request;
 
-// Java Utils
 import java.time.LocalDateTime;
 import java.util.List;
 
-// Lombok
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * DTO nhận dữ liệu khi tạo mới một Sprint.
- * Hỗ trợ cơ chế "Tạo nhanh" (Quick Create), do đó tất cả các trường đều là tùy chọn (Optional).
+ * DTO nhan du lieu tu Client de tao moi mot chu ky lam viec (Sprint).
+ * Ho tro co che tao nhanh, cho phep de trong cac truong de he thong tu dong tinh toan.
  */
-@Data
+@Getter
+@Setter
 public class CreateSprintRequest {
 
-    // ==========================================
-    // REQUEST DATA (Thông tin Sprint)
-    // ==========================================
+    // ======================================================
+    // 1. THONG TIN DINH DANH (IDENTIFICATION)
+    // ======================================================
 
     /**
-     * Tên của Sprint.
-     * (Tùy chọn) Nếu null hoặc rỗng, hệ thống sẽ tự động sinh tên theo thứ tự (ví dụ: "Sprint 1", "Sprint 2").
+     * Ten cua Sprint (vi du: Sprint 1).
+     * Neu de trong, he thong se tu dong sinh ten theo thu tu tang dan.
      */
     private String name;
 
     /**
-     * Mục tiêu của Sprint (Sprint Goal).
-     * Giúp team tập trung vào giá trị cốt lõi cần đạt được trong chu kỳ này.
-     * (Tùy chọn)
+     * Muc tieu cot loi cua team trong chu ky nay (Sprint Goal).
      */
     private String goal;
 
+    // ======================================================
+    // 2. THONG TIN THOI GIAN (TIMELINE)
+    // ======================================================
+
     /**
-     * Thời gian bắt đầu dự kiến của Sprint.
-     * Định dạng chuẩn ISO: YYYY-MM-DDTHH:mm:ss
-     * (Tùy chọn)
+     * Thoi gian bat dau du kien cua Sprint.
+     * Dinh dang chuan ISO: YYYY-MM-DDTHH:mm:ss.
      */
     private LocalDateTime startDate;
 
     /**
-     * Thời gian kết thúc dự kiến của Sprint.
-     * (Tùy chọn) Thường được tính toán tự động dựa trên cấu hình độ dài Sprint (ví dụ: 2 tuần) nếu người dùng không nhập.
+     * Thoi gian ket thuc du kien cua Sprint.
+     * Neu de trong, se duoc tinh dua tren cau hinh mac dinh cua du an (vi du: +2 tuan).
      */
     private LocalDateTime endDate;
 
+    // ======================================================
+    // 3. DU LIEU LIEN KET (RELATIONS)
+    // ======================================================
+
     /**
-     * Danh sách ID của các Task muốn thêm ngay vào Sprint này khi vừa khởi tạo.
-     * (Tùy chọn) Hỗ trợ tốt cho thao tác kéo thả hoặc chọn nhiều (Bulk Select) từ Backlog.
+     * Danh sach ID cua cac Task duoc keo tu Backlog vao Sprint ngay khi khoi tao.
      */
     private List<Integer> taskIds;
 
+    // ======================================================
+    // CONSTRUCTOR (RULE 5)
+    // ======================================================
+
+    /**
+     * Constructor mac dinh giup Jackson Deserialize du lieu tu JSON mot cach chinh xac.
+     */
+    public CreateSprintRequest() {
+    }
 }
