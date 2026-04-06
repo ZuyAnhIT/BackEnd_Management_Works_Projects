@@ -78,4 +78,26 @@ public interface ProjectRepository extends JpaRepository<Project, Integer>, JpaS
      * Lọc danh sách dự án theo trạng thái trong một Không gian làm việc.
      */
     Page<Project> findByWorkspace_IdAndStatus(Integer workspaceId, ProjectStatus status, Pageable pageable);
+
+    String SEARCH_GLOBAL_PROJECTS = "SELECT p FROM Project p JOIN FETCH p.workspace w " + 
+            "WHERE p.id IN (SELECT pm.project.id FROM ProjectMember pm WHERE pm.user.id = :userId) " +
+            "AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "OR LOWER(p.projectCode) LIKE LOWER(CONCAT('%', :keyword, '%')))";
+
+    /**
+     * Search projects by keyword ensuring the user is a member of the project.
+     */
+    @Query(SEARCH_GLOBAL_PROJECTS)
+    List<Project> searchProjectsGlobal(@Param("userId") Integer userId, @Param("keyword") String keyword, Pageable pageable);
+   
+    String COUNT_NEW_PROJECTS_BY_DATE_RANGE = 
+        "SELECT COUNT(p) FROM Project p WHERE p.createdAt >= :startDate AND p.createdAt <= :endDate";
+
+    /**
+     * Count the number of projects created within a specific time frame.
+     */
+    @Query(COUNT_NEW_PROJECTS_BY_DATE_RANGE)
+    long countNewProjectsByDateRange(@Param("startDate") java.time.LocalDateTime startDate, 
+                                     @Param("endDate") java.time.LocalDateTime endDate);
+
 }

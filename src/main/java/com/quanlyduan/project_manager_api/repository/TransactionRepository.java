@@ -1,5 +1,6 @@
 package com.quanlyduan.project_manager_api.repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -77,4 +78,45 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
      * @param cutoffTime Mốc thời gian giới hạn để so sánh.
      */
     List<Transaction> findByStatusAndCreatedAtBefore(TransactionStatus status, LocalDateTime cutoffTime);
+
+    // ======================================================
+    // 4. BÁO CÁO THỐNG KÊ (FINANCIAL ANALYTICS)
+    // ======================================================
+
+    String SUM_REVENUE_BY_DATE_RANGE = 
+        "SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
+        "WHERE t.status = :status AND t.paidAt >= :startDate AND t.paidAt <= :endDate";
+
+    String GROUP_REVENUE_BY_PLAN = 
+        "SELECT t.plan.name, SUM(t.amount) FROM Transaction t " +
+        "WHERE t.status = :status AND t.paidAt >= :startDate AND t.paidAt <= :endDate " +
+        "GROUP BY t.plan.name ORDER BY SUM(t.amount) DESC";
+
+    String FIND_RECENT_TRANSACTIONS = 
+        "SELECT t FROM Transaction t JOIN FETCH t.company c JOIN FETCH t.plan p " +
+        "ORDER BY t.createdAt DESC";
+
+    /**
+     * Tinh tong doanh thu trong mot khoang thoi gian nhat dinh voi trang thai giao dich cu the.
+     * Su dung truong paidAt (ngay thuc te tien ve) de tinh MRR chinh xac nhat.
+     */
+    @Query(SUM_REVENUE_BY_DATE_RANGE)
+    BigDecimal sumRevenueByDateRangeAndStatus(@Param("startDate") LocalDateTime startDate, 
+                                              @Param("endDate") LocalDateTime endDate, 
+                                              @Param("status") TransactionStatus status);
+
+    /**
+     * Gom nhom tong doanh thu theo ten goi cuoc (Plan Name).
+     * Phuc vu viec ve bieu do tron (Pie Chart) the hien ty trong doanh thu.
+     */
+    @Query(GROUP_REVENUE_BY_PLAN)
+    List<Object[]> groupRevenueByPlanAndDateRange(@Param("startDate") LocalDateTime startDate, 
+                                                  @Param("endDate") LocalDateTime endDate, 
+                                                  @Param("status") TransactionStatus status);
+
+    /**
+     * Lay danh sach cac giao dich gan nhat tren he thong de hien thi tren Dashboard.
+     */
+    @Query(FIND_RECENT_TRANSACTIONS)
+    List<Transaction> findRecentTransactions(Pageable pageable);
 }
