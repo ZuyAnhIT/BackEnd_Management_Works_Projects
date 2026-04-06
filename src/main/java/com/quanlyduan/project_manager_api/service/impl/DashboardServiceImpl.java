@@ -1,5 +1,9 @@
 package com.quanlyduan.project_manager_api.service.impl;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -10,6 +14,8 @@ import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyTaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyWorkspaceResponse;
+import com.quanlyduan.project_manager_api.dto.response.PersonalDashboardResponse;
+import com.quanlyduan.project_manager_api.exception.BadRequestException;
 import com.quanlyduan.project_manager_api.model.Company;
 import com.quanlyduan.project_manager_api.model.CompanyMember;
 import com.quanlyduan.project_manager_api.model.Project;
@@ -36,6 +42,8 @@ public class DashboardServiceImpl implements DashboardService {
     // Khai bao cac hang so de loai bo hardcode
     public static final String DEFAULT_STATUS_NAME = "Unknown";
     public static final String DEFAULT_STATUS_COLOR = "#CCCCCC";
+    public static final String ERROR_UNAUTHENTICATED = "Authenticated user information not found.";
+    public static final int UPCOMING_DAYS_LIMIT = 7;
 
     // Khai bao cac bien phu thuoc
     private final SecurityService securityService;
@@ -60,14 +68,63 @@ public class DashboardServiceImpl implements DashboardService {
     // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
 
     @Override
-    public List<MyWorkspaceResponse> getMyWorkspaces() {
-        // Lay thong tin nguoi dung dang dang nhap
-        User currentUser = securityService.getCurrentAuthenticatedUser();
+    public PersonalDashboardResponse getMyTaskDashboard() {
+        Integer currentUserId = securityService.getCurrentUserId();
+        if (currentUserId == null) {
+            throw new BadRequestException(ERROR_UNAUTHENTICATED);
+        }
 
-        // Tim tat ca cac khong gian lam viec ma nguoi dung la thanh vien
+        // Truy xuat toan bo cong viec dang duoc giao cho nguoi dung hien tai
+        List<Task> allMyTasks = taskRepository.findByAssignee_IdAndIsArchivedFalseOrderByDueDateAsc(currentUserId);
+
+        // Khoi tao cac moc thoi gian can thiet de phan loai
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime todayEnd = LocalDate.now().atTime(LocalTime.MAX);
+        LocalDateTime upcomingDeadline = todayEnd.plusDays(UPCOMING_DAYS_LIMIT);
+
+        // Khoi tao cac danh sach tuong ung voi cac nhom cong viec
+        List<Task> overdue = new ArrayList<>();
+        List<Task> today = new ArrayList<>();
+        List<Task> upcoming = new ArrayList<>();
+        List<Task> noDueDate = new ArrayList<>();
+        List<Task> other = new ArrayList<>();
+
+        // Phan loai cong viec dua tren han chot (chi xet cong viec chua hoan thanh)
+        for (Task task : allMyTasks) {
+            if (task.getStatus() != null && Boolean.TRUE.equals(task.getStatus().getIsCompletedStatus())) {
+                continue;
+            }
+
+            LocalDateTime dueDate = task.getDueDate();
+
+            if (dueDate == null) {
+                noDueDate.add(task);
+            } else if (dueDate.isBefore(now)) {
+                overdue.add(task);
+            } else if (dueDate.isBefore(todayEnd) || dueDate.isEqual(todayEnd)) {
+                today.add(task);
+            } else if (dueDate.isBefore(upcomingDeadline)) {
+                upcoming.add(task);
+            } else {
+                other.add(task);
+            }
+        }
+
+        // Dong goi du lieu va tra ve thong qua DTO
+        return PersonalDashboardResponse.builder()
+                .overdue(mapToMyTaskResponseList(overdue))
+                .today(mapToMyTaskResponseList(today))
+                .upcoming(mapToMyTaskResponseList(upcoming))
+                .noDueDate(mapToMyTaskResponseList(noDueDate))
+                .other(mapToMyTaskResponseList(other))
+                .build();
+    }
+
+    @Override
+    public List<MyWorkspaceResponse> getMyWorkspaces() {
+        User currentUser = securityService.getCurrentAuthenticatedUser();
         List<WorkspaceMember> memberships = workspaceMemberRepository.findByUser_Id(currentUser.getId());
 
-        // Loc cac khong gian lam viec ton tai va khong bi xoa, sau do map sang DTO
         return memberships.stream()
                 .filter(member -> member.getWorkspace() != null
                         && member.getWorkspace().getStatus() != WorkspaceStatus.DELETED)
@@ -78,14 +135,9 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     public List<MyCompanyResponse> getMyCompanies() {
         Integer userId = securityService.getCurrentUserId();
-
-        // Dinh nghia cac trang thai cong ty cho phep hien thi
         List<CompanyStatus> allowedStatuses = List.of(CompanyStatus.ACTIVE, CompanyStatus.SUSPENDED);
-
-        // Tim tat ca thanh vien thuoc cac cong ty co trang thai hop le
         List<CompanyMember> members = companyMemberRepository.findByUser_IdAndCompany_StatusIn(userId, allowedStatuses);
 
-        // Chuyen doi danh sach Entity sang DTO
         return members.stream()
                 .map(this::mapToMyCompanyResponse)
                 .collect(Collectors.toList());
@@ -94,16 +146,12 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     public List<MyProjectResponse> getMyProjects() {
         Integer currentUserId = securityService.getCurrentUserId();
-
-        // Kiem tra bao mat, neu khong co user id thi tra ve danh sach rong
         if (currentUserId == null) {
             return List.of();
         }
 
-        // Tim tat ca cac du an ma nguoi dung la thanh vien
         List<ProjectMember> memberships = projectMemberRepository.findByUser_Id(currentUserId);
 
-        // Chuyen doi danh sach Entity sang DTO
         return memberships.stream()
                 .map(this::mapToMyProjectResponse)
                 .collect(Collectors.toList());
@@ -112,16 +160,12 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     public List<MyTaskResponse> getMyTasks() {
         Integer currentUserId = securityService.getCurrentUserId();
-        
-        // Kiem tra bao mat
         if (currentUserId == null) {
             return List.of();
         }
 
-        // Lay danh sach cong viec duoc giao kem theo chi tiet de toi uu truy van
         List<Task> tasks = taskRepository.findByAssignee_IdWithDetails(currentUserId);
 
-        // Loc bo nhung cong viec da hoan thanh va map sang DTO
         return tasks.stream()
                 .filter(task -> task.getStatus() != null && !task.getStatus().getIsCompletedStatus())
                 .map(this::mapToMyTaskResponse)
@@ -129,6 +173,12 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     // --- LOGIC MAPPING (ENTITY <-> DTO) ---
+
+    private List<MyTaskResponse> mapToMyTaskResponseList(List<Task> tasks) {
+        return tasks.stream()
+                .map(this::mapToMyTaskResponse)
+                .collect(Collectors.toList());
+    }
 
     private MyWorkspaceResponse mapToMyWorkspaceResponse(WorkspaceMember membership) {
         Workspace workspace = membership.getWorkspace();
@@ -191,7 +241,6 @@ public class DashboardServiceImpl implements DashboardService {
     private MyTaskResponse mapToMyTaskResponse(Task task) {
         ProjectStatus status = task.getStatus();
 
-        // Kiem tra an toan khi truy xuat trang thai cua cong viec
         Integer statusId = status != null ? status.getId() : null;
         String statusName = status != null ? status.getName() : DEFAULT_STATUS_NAME;
         String statusColor = status != null ? status.getColor() : DEFAULT_STATUS_COLOR;

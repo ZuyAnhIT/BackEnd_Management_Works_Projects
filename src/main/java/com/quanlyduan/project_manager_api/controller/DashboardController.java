@@ -14,6 +14,7 @@ import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyTaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyWorkspaceResponse;
+import com.quanlyduan.project_manager_api.dto.response.PersonalDashboardResponse;
 import com.quanlyduan.project_manager_api.service.DashboardService;
 
 /**
@@ -72,5 +73,11 @@ public class DashboardController {
     public ResponseEntity<ApiResponse<List<MyTaskResponse>>> getMyTasks() {
         List<MyTaskResponse> tasks = dashboardService.getMyTasks();
         return ResponseEntity.ok(ApiResponse.success(MSG_FETCH_TASKS_SUCCESS, tasks));
+    }
+
+    @GetMapping("/my-task-board")
+    public ResponseEntity<ApiResponse<PersonalDashboardResponse>> getMyTaskDashboard() {
+        PersonalDashboardResponse data = dashboardService.getMyTaskDashboard();
+        return ResponseEntity.ok(ApiResponse.success("Successfully retrieved personal task board", data));
     }
 }

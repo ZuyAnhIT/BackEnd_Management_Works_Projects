@@ -2,8 +2,11 @@ package com.quanlyduan.project_manager_api.repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.quanlyduan.project_manager_api.model.Epic;
@@ -53,4 +56,15 @@ public interface EpicRepository extends JpaRepository<Epic, Integer>, JpaSpecifi
      * Dùng để kiểm tra ràng buộc tên khi cập nhật thông tin Epic.
      */
     boolean existsByProject_IdAndNameIgnoreCaseAndIdNot(Integer projectId, String name, Integer id);
+
+    String SEARCH_GLOBAL_EPICS = "SELECT e FROM Epic e JOIN FETCH e.project p JOIN FETCH p.workspace w " + 
+            "WHERE p.id IN (SELECT pm.project.id FROM ProjectMember pm WHERE pm.user.id = :userId) " +
+            "AND (LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "OR LOWER(e.epicCode) LIKE LOWER(CONCAT('%', :keyword, '%')))";
+
+    /**
+     * Search epics by keyword ensuring the user is a member of the underlying project.
+     */
+    @Query(SEARCH_GLOBAL_EPICS)
+    List<Epic> searchEpicsGlobal(@Param("userId") Integer userId, @Param("keyword") String keyword, Pageable pageable);
 }

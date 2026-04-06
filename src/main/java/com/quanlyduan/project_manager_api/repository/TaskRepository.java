@@ -183,6 +183,10 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
 
     List<Task> findBySprint_Id(Integer sprintId);
 
+    List<Task> findByAssignee_IdAndIsArchivedFalseOrderByDueDateAsc(Integer assigneeId);
+
+    
+
     // ======================================================
     // 3. LOGIC KÉO THẢ & THỨ TỰ (SORT ORDER)
     // ======================================================
@@ -275,4 +279,26 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
     long countBySprint_Id(Integer sprintId);
 
     List<Task> findByAssignee_IdAndStatusNotIn(Integer assigneeId, List<String> excludedStatuses);
+
+    String SEARCH_GLOBAL_TASKS = "SELECT t FROM Task t JOIN FETCH t.project p JOIN FETCH p.workspace w LEFT JOIN FETCH t.status s " + 
+            "WHERE p.id IN (SELECT pm.project.id FROM ProjectMember pm WHERE pm.user.id = :userId) " +
+            "AND (LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "OR LOWER(t.taskCode) LIKE LOWER(CONCAT('%', :keyword, '%')))";
+
+    /**
+     * Search tasks by keyword ensuring the user is a member of the underlying project.
+     */
+    @Query(SEARCH_GLOBAL_TASKS)
+    List<Task> searchTasksGlobal(@Param("userId") Integer userId, @Param("keyword") String keyword, Pageable pageable);
+
+    String COUNT_NEW_TASKS_BY_DATE_RANGE = 
+        "SELECT COUNT(t) FROM Task t WHERE t.createdAt >= :startDate AND t.createdAt <= :endDate";
+
+    /**
+     * Count the number of tasks created across the system within a specific time frame.
+     */
+    @Query(COUNT_NEW_TASKS_BY_DATE_RANGE)
+    long countNewTasksByDateRange(@Param("startDate") java.time.LocalDateTime startDate, 
+                                  @Param("endDate") java.time.LocalDateTime endDate);
+
 }

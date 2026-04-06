@@ -6,6 +6,7 @@ import com.quanlyduan.project_manager_api.dto.response.MyCompanyResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyProjectResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyTaskResponse;
 import com.quanlyduan.project_manager_api.dto.response.MyWorkspaceResponse;
+import com.quanlyduan.project_manager_api.dto.response.PersonalDashboardResponse;
 
 /**
  * Service quan ly cac nghiep vu hien thi tren trang Tong quan (Dashboard) ca nhan.
@@ -45,4 +46,11 @@ public interface DashboardService {
      * * @return Danh sach cac Task chua hoan thanh (In-progress/To-do)
      */
     List<MyTaskResponse> getMyTasks();
+
+    /**
+     * Truy xuat toan bo cong viec cua nguoi dung va phan loai san theo thoi gian (Qua han, Hom nay, Sap toi...).
+     * Phuc vu cho man hinh "Hoi nay toi lam gi?" (Personal Dashboard).
+     * * @return PersonalDashboardResponse Chua cac danh sach cong viec da duoc phan loai.
+     */
+    PersonalDashboardResponse getMyTaskDashboard();
 }

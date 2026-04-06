@@ -58,4 +58,13 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     @Query(value = COUNT_SYSTEM_PERMISSION_QUERY, nativeQuery = true)
     int countSystemPermission(@Param("userId") Integer userId, 
                               @Param("permissionCode") String permissionCode);
+
+     String COUNT_ALL_USERS = "SELECT COUNT(u) FROM User u";
+
+    /**
+     * Count all registered users across the entire system.
+     */
+    @Query(COUNT_ALL_USERS)
+    long countTotalUsers();
+    
 }

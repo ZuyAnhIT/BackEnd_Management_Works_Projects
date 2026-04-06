@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.quanlyduan.project_manager_api.model.CompanySubscription;
@@ -44,4 +46,38 @@ public interface CompanySubscriptionRepository extends JpaRepository<CompanySubs
             LocalDateTime start, 
             LocalDateTime end
     );
+
+    String COUNT_ACTIVE_TENANTS_BY_DATE = 
+        "SELECT COUNT(DISTINCT s.company.id) FROM CompanySubscription s " +
+        "WHERE s.company.status = 'ACTIVE' AND s.status = 'ACTIVE' " +
+        "AND s.currentPeriodStart <= :targetDate AND s.currentPeriodEnd >= :targetDate";
+
+    String COUNT_CHURNED_TENANTS_BY_DATE_RANGE = 
+        "SELECT COUNT(DISTINCT s.company.id) FROM CompanySubscription s " +
+        "WHERE s.status IN ('PAST_DUE', 'CANCELLED', 'EXPIRED') " +
+        "AND s.currentPeriodEnd >= :startDate AND s.currentPeriodEnd <= :endDate";
+
+    String GROUP_TENANTS_BY_PLAN = 
+        "SELECT s.plan.name, COUNT(DISTINCT s.company.id) FROM CompanySubscription s " +
+        "WHERE s.company.status = 'ACTIVE' AND s.status = 'ACTIVE' " +
+        "GROUP BY s.plan.name ORDER BY COUNT(DISTINCT s.company.id) DESC";
+
+    /**
+     * Dem tong so cong ty (Tenants) dang hoat dong tai mot thoi diem nhat dinh.
+     */
+    @Query(COUNT_ACTIVE_TENANTS_BY_DATE)
+    long countActiveTenantsAtDate(@Param("targetDate") LocalDateTime targetDate);
+
+    /**
+     * Dem so cong ty roi bo (Churn) nghia la goi cuoc cua ho het han/that bai trong khoang thoi gian nay.
+     */
+    @Query(COUNT_CHURNED_TENANTS_BY_DATE_RANGE)
+    long countChurnedTenantsByDateRange(@Param("startDate") LocalDateTime startDate, 
+                                        @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Gom nhom so luong khach hang theo tung goi cuoc dang su dung.
+     */
+    @Query(GROUP_TENANTS_BY_PLAN)
+    List<Object[]> groupActiveTenantsByPlan();
 }
