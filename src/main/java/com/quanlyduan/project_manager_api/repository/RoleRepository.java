@@ -32,4 +32,6 @@ public interface RoleRepository extends JpaRepository<Role, Integer> {
      */
     Optional<Role> findByRoleCodeAndLevel(String roleCode, RoleLevel level);
 
+    Optional<Role> findByRoleCode(String roleCode);
+
 }

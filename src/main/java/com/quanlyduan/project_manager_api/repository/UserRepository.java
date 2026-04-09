@@ -66,5 +66,24 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      */
     @Query(COUNT_ALL_USERS)
     long countTotalUsers();
+
+    
+    String SEARCH_GLOBAL_USERS = "SELECT u FROM User u " +
+            "WHERE (:keyword IS NULL OR " +
+            "LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(u.phoneNumber) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "AND (:status IS NULL OR u.status = :status)";
+
+    /**
+     * Tìm kiếm người dùng toàn cục trên hệ thống (Dành cho Super Admin).
+     */
+    @Query(SEARCH_GLOBAL_USERS)
+    org.springframework.data.domain.Page<User> searchGlobalUsers(
+            @org.springframework.data.repository.query.Param("keyword") String keyword, 
+            @org.springframework.data.repository.query.Param("status") com.quanlyduan.project_manager_api.model.common.enums.UserStatus status, // <--- Sửa dòng này thành Enum
+            org.springframework.data.domain.Pageable pageable);
+
+    
     
 }

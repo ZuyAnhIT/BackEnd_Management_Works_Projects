@@ -301,4 +301,19 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
     long countNewTasksByDateRange(@Param("startDate") java.time.LocalDateTime startDate, 
                                   @Param("endDate") java.time.LocalDateTime endDate);
 
+
+    // ======================================================
+    // 7. HỖ TRỢ SINH MÃ TỰ ĐỘNG (AUTO-GENERATE CODE)
+    // ======================================================
+
+    String FIND_MAX_TASK_SEQUENCE = 
+        "SELECT MAX(CAST(SUBSTRING_INDEX(task_code, '-', -1) AS UNSIGNED)) " +
+        "FROM tasks WHERE project_id = :projectId";
+
+    /**
+     * Tìm số thứ tự lớn nhất của Task Code trong một dự án.
+     * Khắc phục triệt để lỗi trùng lặp khi dùng COUNT() do có Task bị xóa.
+     */
+    @Query(value = FIND_MAX_TASK_SEQUENCE, nativeQuery = true)
+    Integer findMaxTaskSequenceByProjectId(@Param("projectId") Integer projectId);
 }

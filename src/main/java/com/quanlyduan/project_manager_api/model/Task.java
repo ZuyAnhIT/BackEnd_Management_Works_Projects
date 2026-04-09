@@ -103,9 +103,12 @@ public class Task {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    /** Co danh dau Task da bi luu tru (Archived) hay chua. */
+    /** * Co danh dau Task da bi luu tru (Archived) hay chua. 
+     * Đã thêm @Builder.Default để tự động gán false khi dùng Task.builder()
+     */
+    @Builder.Default
     @Column(name = "is_archived", nullable = false)
-    private Boolean isArchived;
+    private Boolean isArchived = false;
 
     // ======================================================
     // 4. PHAN LOAI & TRANG THAI (CLASSIFICATION & STATUS)
@@ -243,7 +246,7 @@ public class Task {
         this.taskCode = taskCode;
         this.title = title;
         this.description = description;
-        this.isArchived = isArchived;
+        this.isArchived = isArchived != null ? isArchived : false; // Thêm fallback an toàn ở đây
         this.taskType = taskType;
         this.status = status;
         this.priority = priority;

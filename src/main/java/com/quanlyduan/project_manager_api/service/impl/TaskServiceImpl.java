@@ -231,51 +231,64 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     @LogActivity(action = ACTION_CREATE, entityType = ENTITY_TASK, description = DESC_CREATE_TASK)
     public TaskSummaryResponse createTask(Integer projectId, CreateTaskRequest request) {
-        // Lay thong tin nguoi tao
+        // Lay thong tin nguoi tao (Nguoi dang dang nhap)
         User creator = securityService.getCurrentAuthenticatedUser();
 
-        // Kiem tra du an
+        // Kiem tra du an ton tai
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException(ERROR_PROJECT_NOT_FOUND));
 
-        // Tim trang thai cot mac dinh de gan vao cong viec moi
+        // Tim trang thai cot mac dinh (cot dau tien tren Board) de gan vao cong viec moi
         ProjectStatus defaultStatus = projectStatusRepository.findFirstByProject_IdOrderBySortOrderAsc(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException(ERROR_NO_STATUS_BOARD));
 
-        // Xu ly chuyen vao Sprint neu co
+        // Xu ly chuyen vao Sprint neu request co truyen sprintId
         Sprint sprint = null;
         if (request.getSprintId() != null) {
             sprint = sprintRepository.findById(request.getSprintId())
                     .orElseThrow(() -> new ResourceNotFoundException(ERROR_SPRINT_NOT_FOUND_ID + request.getSprintId()));
 
+            // Kiem tra xem Sprint co thuoc ve Du an nay khong
             if (!sprint.getProject().getId().equals(projectId)) {
                 throw new BadRequestException(ERROR_PROJECT_MISMATCH_SPRINT);
             }
         }
 
-        // Xu ly Epic va nguoi thuc hien
+        // Xu ly Epic (Hang muc lon)
         Epic epic = null;
         if (request.getEpicId() != null) {
             epic = epicRepository.findById(request.getEpicId())
                     .orElseThrow(() -> new ResourceNotFoundException(ERROR_EPIC_NOT_FOUND));
         }
         
+        // Xu ly Nguoi thuc hien (Assignee)
         User assignee = null;
         if (request.getAssigneeId() != null) {
             assignee = userRepository.findById(request.getAssigneeId())
                     .orElseThrow(() -> new ResourceNotFoundException(ERROR_ASSIGNEE_NOT_FOUND));
         }
 
-        // Sinh ma tu dong cho cong viec
-        long taskCount = taskRepository.countByProjectId(projectId);
-        String newCode = project.getProjectCode() + "-" + (taskCount + 1);
+        // ==============================================================
+        // LOGIC SINH MÃ VÀ SẮP XẾP MỚI (CHỐNG LỖI TRÙNG LẶP KHI XÓA TASK)
+        // ==============================================================
 
-        // Khoi tao cong viec
+        // 1. Sinh ma tu dong (Task Code): Lay so lon nhat hien tai + 1
+        Integer maxSequence = taskRepository.findMaxTaskSequenceByProjectId(projectId);
+        int nextSequence = (maxSequence != null ? maxSequence : 0) + 1;
+        String newCode = project.getProjectCode() + "-" + nextSequence;
+
+        // 2. Tinh toan thu tu sap xep (Sort Order): Dat Task moi xuong cuoi cung cua cot trang thai
+        Integer maxSortOrder = taskRepository.findMaxSortOrderByStatusId(projectId, defaultStatus.getId());
+        int nextSortOrder = (maxSortOrder != null ? maxSortOrder : 0) + 1;
+
+        // ==============================================================
+
+        // Khoi tao cong viec moi voi cac gia tri da tinh toan
         Task newTask = Task.builder()
                 .project(project)
                 .title(request.getTitle())
                 .description(request.getDescription())
-                .taskCode(newCode)
+                .taskCode(newCode) // Su dung ma an toan moi sinh ra
                 .taskType(request.getTaskType() != null ? request.getTaskType() : TaskType.TASK)
                 .status(defaultStatus)
                 .priority(request.getPriority() != null ? request.getPriority() : TaskPriority.MEDIUM)
@@ -286,10 +299,13 @@ public class TaskServiceImpl implements TaskService {
                 .createdBy(creator)
                 .storyPoints(request.getStoryPoints())
                 .dueDate(request.getDueDate())
-                .sortOrder((int) taskCount) 
+                .sortOrder(nextSortOrder) // Dat the xuong cuoi cung cot
                 .build();
 
+        // Luu vao database
         Task savedTask = taskRepository.save(newTask);
+        
+        // Map sang Response va tra ve
         return mapToTaskSummaryResponse(savedTask);
     }
 
