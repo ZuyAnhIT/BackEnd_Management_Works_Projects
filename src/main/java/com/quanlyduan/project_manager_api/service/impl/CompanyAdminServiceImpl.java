@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.dto.response.TransactionHistoryResponse;
 import com.quanlyduan.project_manager_api.dto.response.company.AdminCompanyResponse;
 import com.quanlyduan.project_manager_api.dto.response.company.Tenant360Response;
 import com.quanlyduan.project_manager_api.exception.BadRequestException;
@@ -26,6 +27,7 @@ import com.quanlyduan.project_manager_api.model.common.enums.SubscriptionStatus;
 import com.quanlyduan.project_manager_api.repository.CompanyMemberRepository;
 import com.quanlyduan.project_manager_api.repository.CompanyRepository;
 import com.quanlyduan.project_manager_api.repository.ProjectRepository;
+import com.quanlyduan.project_manager_api.repository.TransactionRepository;
 import com.quanlyduan.project_manager_api.repository.specification.CompanySpecification;
 import com.quanlyduan.project_manager_api.service.CompanyAdminService;
 
@@ -59,14 +61,16 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
     private final CompanyRepository companyRepository;
     private final CompanyMemberRepository companyMemberRepository;
     private final ProjectRepository projectRepository;
+    private final TransactionRepository transactionRepository;
 
     // Constructor thay the cho annotation @RequiredArgsConstructor
     public CompanyAdminServiceImpl(CompanyRepository companyRepository,
                                    CompanyMemberRepository companyMemberRepository,
-                                   ProjectRepository projectRepository) {
+                                   ProjectRepository projectRepository,TransactionRepository transactionRepository) {
         this.companyRepository = companyRepository;
         this.companyMemberRepository = companyMemberRepository;
         this.projectRepository = projectRepository;
+        this.transactionRepository = transactionRepository;
     }
 
     // --- CAC HAM PUBLIC THUC THI NGHIEP VU CHINH ---
@@ -270,6 +274,60 @@ public class CompanyAdminServiceImpl implements CompanyAdminService {
                 .isUserLimitExceeded(isUserLimitExceeded)
                 .isProjectLimitExceeded(isProjectLimitExceeded)
                 .isStorageLimitExceeded(isStorageLimitExceeded)
+                .build();
+    }
+
+    @Override
+    public PageResponseDTO<TransactionHistoryResponse> getCompanyTransactionHistory(
+            Integer companyId, com.quanlyduan.project_manager_api.model.common.enums.TransactionStatus status, 
+            java.time.LocalDateTime startDate, java.time.LocalDateTime endDate, 
+            int page, int size, String sortBy, String sortDir) {
+
+        // 1. Kiem tra cong ty co ton tai khong
+        if (!companyRepository.existsById(companyId)) {
+            throw new com.quanlyduan.project_manager_api.exception.ResourceNotFoundException("Company not found with ID: " + companyId);
+        }
+
+        // 2. Cau hinh phan trang va sap xep
+        org.springframework.data.domain.Sort sort = sortDir.equalsIgnoreCase(org.springframework.data.domain.Sort.Direction.ASC.name()) 
+                    ? org.springframework.data.domain.Sort.by(sortBy).ascending() 
+                    : org.springframework.data.domain.Sort.by(sortBy).descending();
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, sort);
+
+        // 3. Goi repository lay data
+        org.springframework.data.domain.Page<com.quanlyduan.project_manager_api.model.Transaction> transactionPage = 
+                transactionRepository.filterTransactions(companyId, status, startDate, endDate, pageable);
+
+        // 4. Map du lieu sang DTO
+        java.util.List<TransactionHistoryResponse> content = transactionPage.getContent().stream()
+                .map(this::mapToTransactionResponse)
+                .collect(java.util.stream.Collectors.toList());
+
+        // 5. Tra ve PageResponse
+        return PageResponseDTO.<TransactionHistoryResponse>builder()
+                .content(content)
+                .pageSize(transactionPage.getNumber()) 
+                .pageSize(transactionPage.getSize())   
+                .totalElements(transactionPage.getTotalElements())
+                .totalPages(transactionPage.getTotalPages())
+                .last(transactionPage.isLast())
+                .build();
+    }
+
+    // Ham Helper ho tro Map du lieu (Dat o cuoi file Impl)
+    private TransactionHistoryResponse mapToTransactionResponse(com.quanlyduan.project_manager_api.model.Transaction t) {
+        return TransactionHistoryResponse.builder()
+                .id(t.getId())
+                .transactionCode(t.getTransactionCode())
+                .gatewayTransactionId(t.getGatewayTransactionId())
+                .planName(t.getPlan() != null ? t.getPlan().getName() : "Unknown")
+                .amount(t.getAmount())
+                .currency(t.getCurrency())
+                .billingCycle(t.getBillingCycle() != null ? t.getBillingCycle().name() : null)
+                .paymentMethod(t.getPaymentMethod())
+                .status(t.getStatus() != null ? t.getStatus().name() : "UNKNOWN")
+                .paidAt(t.getPaidAt())
+                .createdAt(t.getCreatedAt())
                 .build();
     }
 }

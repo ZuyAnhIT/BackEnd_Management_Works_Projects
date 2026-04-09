@@ -106,4 +106,25 @@ public class AdminCompanyController {
         companyAdminService.changeCompanyStatus(companyId, STATUS_ACTIVE);
         return ResponseEntity.ok(ApiResponse.success("Company has been activated successfully.", null));
     }
+
+    /**
+     * Xem lich su giao dich (hoa don) cua mot cong ty cu the.
+     */
+    @GetMapping("/{companyId}/transactions")
+    @PreAuthorize("@securityService.hasSystemPermission('tenant:view')")
+    public ResponseEntity<ApiResponse<PageResponseDTO<com.quanlyduan.project_manager_api.dto.response.TransactionHistoryResponse>>> getCompanyTransactions(
+            @PathVariable Integer companyId,
+            @RequestParam(required = false) com.quanlyduan.project_manager_api.model.common.enums.TransactionStatus status,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate,
+            @RequestParam(defaultValue = DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = DEFAULT_SIZE) int size,
+            @RequestParam(defaultValue = DEFAULT_SORT_BY) String sortBy,
+            @RequestParam(defaultValue = DEFAULT_SORT_DIR) String sortDir) {
+
+        PageResponseDTO<com.quanlyduan.project_manager_api.dto.response.TransactionHistoryResponse> response = 
+                companyAdminService.getCompanyTransactionHistory(companyId, status, startDate, endDate, page, size, sortBy, sortDir);
+
+        return ResponseEntity.ok(ApiResponse.success("Retrieved company transaction history successfully.", response));
+    }
 }

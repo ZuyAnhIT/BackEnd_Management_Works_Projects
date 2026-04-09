@@ -1,6 +1,7 @@
 package com.quanlyduan.project_manager_api.service;
 
 import com.quanlyduan.project_manager_api.dto.response.PageResponseDTO;
+import com.quanlyduan.project_manager_api.dto.response.TransactionHistoryResponse;
 import com.quanlyduan.project_manager_api.dto.response.company.AdminCompanyResponse;
 import com.quanlyduan.project_manager_api.dto.response.company.Tenant360Response;
 
@@ -58,4 +59,28 @@ public interface CompanyAdminService {
      * @param newStatus Trang thai moi (Gia tri: ACTIVE, SUSPENDED, DELETED)
      */
     void changeCompanyStatus(Integer companyId, String newStatus);
+
+
+    // ======================================================
+    // 3. QUAN LY GIAO DICH VA HOA DON (BILLING & TRANSACTIONS)
+    // ======================================================
+
+    /**
+     * Lay danh sach lich su giao dich cua mot cong ty cu the co phan trang va loc.
+     * * @param companyId ID cua cong ty can xem
+     * @param status Trang thai giao dich (Tuy chon)
+     * @param startDate Tu ngay (Tuy chon)
+     * @param endDate Den ngay (Tuy chon)
+     * @param page Trang hien tai
+     * @param size So luong ban ghi tren mot trang
+     * @param sortBy Truong sap xep
+     * @param sortDir Huong sap xep (asc/desc)
+     * @return Danh sach giao dich da phan trang
+     */
+    PageResponseDTO<TransactionHistoryResponse> getCompanyTransactionHistory(
+            Integer companyId, 
+            com.quanlyduan.project_manager_api.model.common.enums.TransactionStatus status, 
+            java.time.LocalDateTime startDate, 
+            java.time.LocalDateTime endDate, 
+            int page, int size, String sortBy, String sortDir);
 }
